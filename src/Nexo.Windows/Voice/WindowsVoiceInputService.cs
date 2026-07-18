@@ -25,6 +25,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     private const long MinimumModelBytes = 50L * 1024 * 1024;
     private const long MinimumRecordedBytes = 4_800;
     private const long ProgressStepBytes = 4L * 1024 * 1024;
+    private const int SpeechAverageAmplitudeThreshold = 420;
 
     private static readonly TimeSpan RecordingStopTimeout = TimeSpan.FromSeconds(2);
 
@@ -38,6 +39,11 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     private TaskCompletionSource<Exception?>? _recordingStopped;
     private string? _recordingPath;
     private long _recordedBytes;
+    private TaskCompletionSource<bool>? _automaticUtteranceCompleted;
+    private TimeSpan _automaticTrailingSilence;
+    private int _automaticSilentMilliseconds;
+    private bool _automaticSpeechDetected;
+    private bool _automaticListening;
     private bool _disposed;
 
     public WhisperVoiceInputService()
@@ -315,6 +321,67 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         }
     }
 
+    public async Task<VoiceRecognitionResult> ListenForUtteranceAsync(
+        TimeSpan maximumDuration,
+        TimeSpan trailingSilence,
+        CancellationToken cancellationToken = default)
+    {
+        if (maximumDuration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumDuration));
+        }
+
+        if (trailingSilence < TimeSpan.FromMilliseconds(300))
+        {
+            throw new ArgumentOutOfRangeException(nameof(trailingSilence));
+        }
+
+        var utteranceCompleted = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        lock (_sync)
+        {
+            _automaticUtteranceCompleted = utteranceCompleted;
+            _automaticTrailingSilence = trailingSilence;
+            _automaticSilentMilliseconds = 0;
+            _automaticSpeechDetected = false;
+            _automaticListening = true;
+        }
+
+        var start = await StartListeningAsync(cancellationToken);
+        if (!start.IsAvailable)
+        {
+            ResetAutomaticListening();
+            return VoiceRecognitionResult.NoSpeech(start.Detail);
+        }
+
+        try
+        {
+            var timeoutTask = Task.Delay(maximumDuration, cancellationToken);
+            await Task.WhenAny(utteranceCompleted.Task, timeoutTask);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            bool speechDetected;
+            lock (_sync)
+            {
+                speechDetected = _automaticSpeechDetected;
+            }
+
+            if (!speechDetected)
+            {
+                await CancelAsync();
+                return VoiceRecognitionResult.NoSpeech(
+                    "No escuché una orden después de activarme.");
+            }
+
+            return await StopListeningAsync(cancellationToken);
+        }
+        finally
+        {
+            ResetAutomaticListening();
+        }
+    }
+
     public async Task CancelAsync()
     {
         WaveInEvent? recorder;
@@ -426,6 +493,69 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
             _writer.Write(e.Buffer, 0, e.BytesRecorded);
             _recordedBytes += e.BytesRecorded;
+
+            if (_automaticListening)
+            {
+                ObserveAutomaticUtterance(e.Buffer, e.BytesRecorded);
+            }
+        }
+    }
+
+
+    private void ObserveAutomaticUtterance(byte[] buffer, int bytesRecorded)
+    {
+        if (_recorder is null || bytesRecorded < 2)
+        {
+            return;
+        }
+
+        long amplitudeTotal = 0;
+        var sampleCount = 0;
+
+        for (var index = 0; index + 1 < bytesRecorded; index += 2)
+        {
+            var sample = (short)(buffer[index] | (buffer[index + 1] << 8));
+            amplitudeTotal += Math.Abs((int)sample);
+            sampleCount++;
+        }
+
+        if (sampleCount == 0)
+        {
+            return;
+        }
+
+        var averageAmplitude = amplitudeTotal / sampleCount;
+        var bufferMilliseconds = Math.Max(1,
+            bytesRecorded * 1000 / _recorder.WaveFormat.AverageBytesPerSecond);
+
+        if (averageAmplitude >= SpeechAverageAmplitudeThreshold)
+        {
+            _automaticSpeechDetected = true;
+            _automaticSilentMilliseconds = 0;
+            return;
+        }
+
+        if (!_automaticSpeechDetected)
+        {
+            return;
+        }
+
+        _automaticSilentMilliseconds += bufferMilliseconds;
+        if (_automaticSilentMilliseconds >= _automaticTrailingSilence.TotalMilliseconds)
+        {
+            _automaticUtteranceCompleted?.TrySetResult(true);
+        }
+    }
+
+    private void ResetAutomaticListening()
+    {
+        lock (_sync)
+        {
+            _automaticUtteranceCompleted = null;
+            _automaticTrailingSilence = TimeSpan.Zero;
+            _automaticSilentMilliseconds = 0;
+            _automaticSpeechDetected = false;
+            _automaticListening = false;
         }
     }
 

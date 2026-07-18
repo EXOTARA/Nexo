@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using Nexo.Core.Settings;
+using Nexo.Core.Voice;
 
 namespace Nexo.App.Views;
 
@@ -17,6 +18,8 @@ public partial class SettingsView : UserControl
     public event Action<string, bool>? PeekOptionChanged;
     public event Action<bool>? ConversationHistoryChanged;
     public event Action<bool>? VoiceResponsesChanged;
+    public event Action<bool>? WakeWordEnabledChanged;
+    public event Action<WakeWordPhrase>? WakeWordPhraseChanged;
 
     public SettingsView()
     {
@@ -43,8 +46,12 @@ public partial class SettingsView : UserControl
         PeekTopProcessCheckBox.IsChecked = preferences.ShowTopProcessInPeek;
         SaveConversationHistoryCheckBox.IsChecked = preferences.SaveConversationHistory;
         SpeakVoiceResponsesCheckBox.IsChecked = preferences.SpeakVoiceResponses;
+        WakeWordEnabledCheckBox.IsChecked = preferences.WakeWordEnabled;
+        WakeWordNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.Nexo;
+        WakeWordOyeNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.OyeNexo;
         UpdatePositionButtons(preferences.Position);
         UpdatePeekOptionsAvailability();
+        UpdateWakeWordOptionsAvailability();
 
         _isApplyingPreferences = false;
     }
@@ -146,6 +153,42 @@ public partial class SettingsView : UserControl
         {
             VoiceResponsesChanged?.Invoke(SpeakVoiceResponsesCheckBox.IsChecked == true);
         }
+    }
+
+
+    private void WakeWordEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        UpdateWakeWordOptionsAvailability();
+
+        if (!_isApplyingPreferences)
+        {
+            WakeWordEnabledChanged?.Invoke(WakeWordEnabledCheckBox.IsChecked == true);
+        }
+    }
+
+    private void WakeWordPhraseRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not RadioButton { Tag: string phrase })
+        {
+            return;
+        }
+
+        var value = phrase.Equals("OyeNexo", StringComparison.OrdinalIgnoreCase)
+            ? WakeWordPhrase.OyeNexo
+            : WakeWordPhrase.Nexo;
+        WakeWordPhraseChanged?.Invoke(value);
+    }
+
+    private void UpdateWakeWordOptionsAvailability()
+    {
+        if (WakeWordNexoRadioButton is null)
+        {
+            return;
+        }
+
+        var enabled = WakeWordEnabledCheckBox.IsChecked == true;
+        WakeWordNexoRadioButton.IsEnabled = enabled;
+        WakeWordOyeNexoRadioButton.IsEnabled = enabled;
     }
 
     private void UpdatePeekOptionsAvailability()
