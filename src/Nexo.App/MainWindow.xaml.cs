@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -9,8 +10,10 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Nexo.App.Views;
+using Nexo.Core.Commands;
 using Nexo.Core.Metrics;
 using Nexo.Core.Settings;
+using Nexo.Windows.Assistant;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Settings;
 
@@ -28,6 +31,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _metricsTimer;
     private readonly JsonSettingsStore _settingsStore = new();
+    private readonly JsonConversationStore _conversationStore = new();
+    private readonly NaturalCommandParser _commandParser = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly ShellPreferences _preferences;
     private readonly AssistantView _assistantView = new();
@@ -36,6 +41,7 @@ public partial class MainWindow : Window
     private readonly SystemView _systemView = new();
     private readonly SettingsView _settingsView = new();
     private readonly PeekWindow _peekWindow = new();
+    private readonly CapsuleWindow _capsuleWindow = new();
     private readonly Dictionary<string, FrameworkElement> _views;
 
     private HwndSource? _windowSource;
@@ -61,6 +67,17 @@ public partial class MainWindow : Window
         };
 
         _assistantView.PromptSubmitted += AssistantView_PromptSubmitted;
+        _assistantView.ConversationChanged += AssistantView_ConversationChanged;
+        _assistantView.ConversationCleared += AssistantView_ConversationCleared;
+        _assistantView.ConfigureHistory(
+            _preferences.SaveConversationHistory,
+            _preferences.RecentConversationMessageLimit);
+
+        if (_preferences.SaveConversationHistory)
+        {
+            _assistantView.LoadConversation(_conversationStore.Load());
+        }
+
         WireSettingsEvents();
         _settingsView.ApplyPreferences(_preferences);
         ApplyPreferences();
@@ -129,6 +146,25 @@ public partial class MainWindow : Window
             ApplyPeekOption(option, enabled);
             SavePreferences();
         };
+
+        _settingsView.ConversationHistoryChanged += enabled =>
+        {
+            _preferences.SaveConversationHistory = enabled;
+            _assistantView.ConfigureHistory(
+                enabled,
+                _preferences.RecentConversationMessageLimit);
+
+            if (enabled)
+            {
+                _conversationStore.Save(_assistantView.GetConversationSnapshot());
+            }
+            else
+            {
+                _conversationStore.Clear();
+            }
+
+            SavePreferences();
+        };
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -165,6 +201,14 @@ public partial class MainWindow : Window
         _clockTimer.Stop();
         _metricsTimer.Stop();
         _peekWindow.HideImmediately();
+        _capsuleWindow.HideImmediately();
+
+        if (_preferences.SaveConversationHistory)
+        {
+            _conversationStore.Save(_assistantView.GetConversationSnapshot());
+        }
+
+        _capsuleWindow.Close();
 
         var windowHandle = new WindowInteropHelper(this).Handle;
         if (windowHandle != IntPtr.Zero)
@@ -323,10 +367,222 @@ public partial class MainWindow : Window
         }
     }
 
-    private void AssistantView_PromptSubmitted(object? sender, PromptSubmittedEventArgs e)
+    private void AssistantView_ConversationChanged(object? sender, EventArgs e)
+    {
+        if (_preferences.SaveConversationHistory)
+        {
+            _conversationStore.Save(_assistantView.GetConversationSnapshot());
+        }
+    }
+
+    private void AssistantView_ConversationCleared(object? sender, EventArgs e)
+    {
+        _conversationStore.Clear();
+    }
+
+    private async void AssistantView_PromptSubmitted(object? sender, PromptSubmittedEventArgs e)
     {
         _assistantView.AddUserMessage(e.Prompt);
-        _assistantView.AddNexoMessage("El motor de comandos e IA se conectará después de terminar la base modular.");
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Processing,
+            "Nexo está procesando",
+            e.Prompt,
+            _preferences.Position);
+
+        await Task.Yield();
+
+        var interpretation = _commandParser.Parse(e.Prompt);
+        if (interpretation.Route == CommandRoute.ArtificialIntelligence || interpretation.Intent is null)
+        {
+            _assistantView.AddNexoMessage(
+                "Entendí que es una consulta abierta. El proveedor de IA se conectará en un sprint posterior; por ahora no envié nada fuera de tu equipo.");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "Consulta preparada",
+                "Todavía no hay un proveedor de IA conectado.",
+                _preferences.Position);
+            return;
+        }
+
+        await ExecuteLocalCommandAsync(interpretation.Intent);
+    }
+
+    private async Task ExecuteLocalCommandAsync(LocalCommandIntent intent)
+    {
+        switch (intent.Type)
+        {
+            case LocalCommandType.ShowPeek:
+                if (!_preferences.PeekEnabled)
+                {
+                    _assistantView.AddNexoMessage("La vista Peek está desactivada en Personalización.");
+                    _capsuleWindow.ShowMessage(
+                        CapsuleKind.Warning,
+                        "Peek está desactivado",
+                        "Puedes activarlo desde Personalización.",
+                        _preferences.Position);
+                    break;
+                }
+
+                await ShowPeekAsync();
+                ShowCommandSuccess("Vista rápida abierta", "Peek muestra el estado actual del equipo.");
+                break;
+
+            case LocalCommandType.ShowSystemStatus:
+                await ShowSystemStatusAsync();
+                break;
+
+            case LocalCommandType.NavigateAssistant:
+                ShowShellModule("Assistant", "Asistente abierto");
+                break;
+
+            case LocalCommandType.NavigateAudio:
+                ShowShellModule("Audio", "Audio abierto");
+                break;
+
+            case LocalCommandType.NavigateCapture:
+                ShowShellModule("Capture", "Captura abierta");
+                break;
+
+            case LocalCommandType.NavigateSystem:
+                ShowShellModule("System", "Sistema abierto");
+                break;
+
+            case LocalCommandType.NavigateSettings:
+                ShowShellModule("Settings", "Ajustes abiertos");
+                break;
+
+            case LocalCommandType.OpenPowerShell:
+                OpenShell("powershell.exe", "-NoExit", "PowerShell abierto");
+                break;
+
+            case LocalCommandType.OpenCommandPrompt:
+                OpenShell("cmd.exe", string.Empty, "CMD abierto");
+                break;
+
+            case LocalCommandType.OpenWindowsTerminal:
+                OpenShell("wt.exe", string.Empty, "Terminal abierta");
+                break;
+
+            case LocalCommandType.SetApplicationVolume:
+            case LocalCommandType.ScaleApplicationVolume:
+            case LocalCommandType.ChangeApplicationVolume:
+            case LocalCommandType.MuteApplication:
+            case LocalCommandType.UnmuteApplication:
+            case LocalCommandType.LowerAllExcept:
+                ShowPendingAudioCommand(intent);
+                break;
+
+            default:
+                _assistantView.AddNexoMessage("No pude ejecutar esa orden local todavía.");
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Warning,
+                    "Comando no disponible",
+                    "La orden fue reconocida, pero aún no tiene una acción conectada.",
+                    _preferences.Position);
+                break;
+        }
+    }
+
+    private async Task ShowSystemStatusAsync()
+    {
+        var snapshotAge = DateTimeOffset.Now - _latestSnapshot.CapturedAt;
+        if (_latestSnapshot.CapturedAt == DateTimeOffset.MinValue || snapshotAge > TimeSpan.FromSeconds(4))
+        {
+            await RefreshMetricsAsync();
+        }
+
+        var topProcess = string.IsNullOrWhiteSpace(_latestSnapshot.TopProcessName)
+            ? "sin proceso destacado"
+            : $"{_latestSnapshot.TopProcessName} · {(_latestSnapshot.TopProcessWorkingSetBytes.GetValueOrDefault() / 1024d / 1024d):0} MB";
+
+        var summary =
+            $"CPU {FormatPercentage(_latestSnapshot.CpuUsagePercent)} · " +
+            $"RAM {FormatPercentage(_latestSnapshot.MemoryUsagePercent)} · " +
+            $"GPU {FormatPercentage(_latestSnapshot.GpuUsagePercent)}. " +
+            $"Mayor uso de memoria: {topProcess}.";
+
+        _assistantView.AddNexoMessage(summary);
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            "Estado del equipo listo",
+            $"CPU {FormatPercentage(_latestSnapshot.CpuUsagePercent)} · RAM {FormatPercentage(_latestSnapshot.MemoryUsagePercent)} · GPU {FormatPercentage(_latestSnapshot.GpuUsagePercent)}",
+            _preferences.Position);
+    }
+
+    private void ShowShellModule(string destination, string confirmation)
+    {
+        ShowAnimated();
+        NavigateTo(destination, animate: true);
+        ShowCommandSuccess(confirmation, "La orden se ejecutó localmente.");
+    }
+
+    private void OpenShell(string fileName, string arguments, string confirmation)
+    {
+        try
+        {
+            var userFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                WorkingDirectory = userFolder,
+                UseShellExecute = true
+            });
+
+            _assistantView.AddNexoMessage($"{confirmation} en {userFolder}.");
+            ShowCommandSuccess(confirmation, userFolder);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            _assistantView.AddNexoMessage($"No pude abrir {fileName}.");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Error,
+                "No se pudo abrir",
+                fileName,
+                _preferences.Position);
+        }
+    }
+
+    private void ShowPendingAudioCommand(LocalCommandIntent intent)
+    {
+        var target = string.IsNullOrWhiteSpace(intent.Target) ? "la aplicación" : ToDisplayName(intent.Target);
+        var detail = intent.Type switch
+        {
+            LocalCommandType.SetApplicationVolume => $"{target} al {intent.Percent:0}%",
+            LocalCommandType.ScaleApplicationVolume => $"{target} a la mitad de su volumen actual",
+            LocalCommandType.ChangeApplicationVolume => $"subir {target} {intent.DeltaPoints:0} puntos",
+            LocalCommandType.MuteApplication => $"silenciar {target}",
+            LocalCommandType.UnmuteApplication => $"quitar el silencio de {target}",
+            LocalCommandType.LowerAllExcept => $"bajar todo excepto {target}",
+            _ => "ajustar una sesión de audio"
+        };
+
+        _assistantView.AddNexoMessage(
+            $"Reconocí la orden para {detail}. El mezclador por aplicación se conectará en el siguiente bloque.");
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Warning,
+            "Comando de audio reconocido",
+            detail,
+            _preferences.Position);
+    }
+
+    private void ShowCommandSuccess(string title, string detail)
+    {
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            title,
+            detail,
+            _preferences.Position);
+    }
+
+    private static string ToDisplayName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        return char.ToUpperInvariant(value[0]) + value[1..];
     }
 
     private void NavigationButton_Click(object sender, RoutedEventArgs e)

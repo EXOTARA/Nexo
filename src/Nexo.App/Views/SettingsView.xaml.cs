@@ -15,6 +15,7 @@ public partial class SettingsView : UserControl
     public event Action<bool>? AnimationsChanged;
     public event Action<string, bool>? ModuleVisibilityChanged;
     public event Action<string, bool>? PeekOptionChanged;
+    public event Action<bool>? ConversationHistoryChanged;
 
     public SettingsView()
     {
@@ -39,6 +40,7 @@ public partial class SettingsView : UserControl
         PeekGpuCheckBox.IsChecked = preferences.ShowGpuInPeek;
         PeekDiskCheckBox.IsChecked = preferences.ShowDiskInPeek;
         PeekTopProcessCheckBox.IsChecked = preferences.ShowTopProcessInPeek;
+        SaveConversationHistoryCheckBox.IsChecked = preferences.SaveConversationHistory;
         UpdatePositionButtons(preferences.Position);
         UpdatePeekOptionsAvailability();
 
@@ -126,6 +128,14 @@ public partial class SettingsView : UserControl
         }
 
         PeekOptionChanged?.Invoke(option, checkBox.IsChecked == true);
+    }
+
+    private void SaveConversationHistoryCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            ConversationHistoryChanged?.Invoke(SaveConversationHistoryCheckBox.IsChecked == true);
+        }
     }
 
     private void UpdatePeekOptionsAvailability()

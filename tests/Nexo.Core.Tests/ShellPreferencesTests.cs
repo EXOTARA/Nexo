@@ -45,6 +45,34 @@ public sealed class ShellPreferencesTests
         Assert.True(preferences.ShowGpuInPeek);
         Assert.False(preferences.ShowDiskInPeek);
         Assert.True(preferences.ShowTopProcessInPeek);
-        Assert.Equal(2, preferences.SchemaVersion);
+        Assert.Equal(3, preferences.SchemaVersion);
+    }
+
+[Fact]
+public void ConversationHistory_IsPrivateAndLimitedByDefault()
+{
+    var preferences = new ShellPreferences();
+
+    preferences.Normalize();
+
+    Assert.False(preferences.SaveConversationHistory);
+    Assert.Equal(8, preferences.RecentConversationMessageLimit);
+    }
+
+[Fact]
+public void Normalize_ClampsConversationMessageLimit()
+{
+    var preferences = new ShellPreferences
+    {
+        SchemaVersion = 3,
+        SaveConversationHistory = true,
+        RecentConversationMessageLimit = 200
+    };
+
+    preferences.Normalize();
+
+    Assert.True(preferences.SaveConversationHistory);
+    Assert.Equal(30, preferences.RecentConversationMessageLimit);
     }
 }
+
