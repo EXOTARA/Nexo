@@ -23,6 +23,7 @@ public partial class AssistantView : UserControl
     public event EventHandler? VoiceInputStopped;
 
     private bool _voiceInputActive;
+    private bool _voiceAvailable;
 
     public AssistantView()
     {
@@ -59,6 +60,25 @@ public partial class AssistantView : UserControl
         }, DispatcherPriority.Input);
     }
 
+    public void SetVoiceAvailability(bool available, string detail)
+    {
+        _voiceAvailable = available;
+
+        if (MicButton is null || VoiceStatusText is null)
+        {
+            return;
+        }
+
+        if (!_voiceInputActive)
+        {
+            MicButton.Content = "Mic";
+            MicButton.IsEnabled = available;
+            MicButton.ClearValue(BackgroundProperty);
+        }
+
+        VoiceStatusText.Text = detail;
+    }
+
     public void SetVoiceState(AssistantVoiceState state, string? detail = null)
     {
         if (MicButton is null || VoiceStatusText is null)
@@ -70,6 +90,7 @@ public partial class AssistantView : UserControl
         {
             case AssistantVoiceState.Listening:
                 MicButton.Content = "Suelta";
+                MicButton.IsEnabled = true;
                 MicButton.Background = (Brush)FindResource("BrushAccentSoft");
                 VoiceStatusText.Text = detail ?? "Escuchando… suelta Mic cuando termines.";
                 break;
@@ -82,17 +103,17 @@ public partial class AssistantView : UserControl
 
             case AssistantVoiceState.Error:
                 MicButton.Content = "Mic";
-                MicButton.IsEnabled = true;
+                MicButton.IsEnabled = _voiceAvailable;
                 MicButton.ClearValue(BackgroundProperty);
                 VoiceStatusText.Text = detail ?? "No pude usar el micrófono.";
                 break;
 
             default:
                 MicButton.Content = "Mic";
-                MicButton.IsEnabled = true;
+                MicButton.IsEnabled = _voiceAvailable;
                 MicButton.ClearValue(BackgroundProperty);
                 VoiceStatusText.Text = detail ??
-                    "El micrófono solo se activa mientras mantienes presionado Mic.";
+                    "Voz local lista. Mantén Mic presionado mientras hablas.";
                 break;
         }
     }

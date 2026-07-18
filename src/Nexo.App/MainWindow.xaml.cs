@@ -38,9 +38,10 @@ public partial class MainWindow : Window
     private readonly JsonConversationStore _conversationStore = new();
     private readonly NaturalCommandParser _commandParser = new();
     private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
-    private readonly IVoiceInputService _voiceInputService = new WindowsVoiceInputService();
+    private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
     private readonly IVoiceOutputService _voiceOutputService = new WindowsTextToSpeechService();
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly ShellPreferences _preferences;
     private readonly AssistantView _assistantView = new();
@@ -217,6 +218,7 @@ public partial class MainWindow : Window
         _metricsTimer.Start();
         ShowAnimated();
         await RefreshMetricsAsync();
+        _ = PrepareVoiceAsync();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -232,10 +234,12 @@ public partial class MainWindow : Window
             _conversationStore.Save(_assistantView.GetConversationSnapshot());
         }
 
+        _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
         _voiceOutputService.Dispose();
         _voiceInputService.Dispose();
         _voiceGate.Dispose();
+        _lifetimeCancellation.Dispose();
 
         var windowHandle = new WindowInteropHelper(this).Handle;
         if (windowHandle != IntPtr.Zero)
@@ -454,12 +458,75 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task PrepareVoiceAsync()
+    {
+        var requiresDownload = !_voiceInputService.IsReady;
+        _assistantView.SetVoiceAvailability(
+            available: false,
+            "Preparando Whisper local…");
+
+        if (requiresDownload && !_isClosed)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "Preparando voz local",
+                "La primera vez Nexo descarga un modelo multilingüe.",
+                _preferences.Position);
+        }
+
+        var progress = new Progress<VoicePreparationProgress>(update =>
+        {
+            _assistantView.SetVoiceAvailability(
+                available: false,
+                update.Detail);
+        });
+
+        try
+        {
+            var result = await _voiceInputService.PrepareAsync(
+                progress,
+                _lifetimeCancellation.Token);
+
+            _assistantView.SetVoiceAvailability(result.IsReady, result.Detail);
+            if (result.IsReady && requiresDownload && !_isClosed)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Success,
+                    "Voz local lista",
+                    "Whisper ya puede transcribir órdenes en español.",
+                    _preferences.Position);
+            }
+            else if (!result.IsReady && !_isClosed)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Error,
+                    "Voz local no disponible",
+                    result.Detail,
+                    _preferences.Position);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Nexo se está cerrando.
+        }
+    }
+
     private async void AssistantView_VoiceInputStarted(object? sender, EventArgs e)
     {
         await _voiceGate.WaitAsync();
         try
         {
             _voiceOutputService.Stop();
+
+            if (!_voiceInputService.IsReady)
+            {
+                await PrepareVoiceAsync();
+                if (!_voiceInputService.IsReady)
+                {
+                    return;
+                }
+            }
+
             var result = await _voiceInputService.StartListeningAsync();
 
             if (!result.IsAvailable)
@@ -500,7 +567,7 @@ public partial class MainWindow : Window
 
             _assistantView.SetVoiceState(
                 AssistantVoiceState.Processing,
-                "Convirtiendo tu voz en una orden…");
+                "Transcribiendo localmente con Whisper…");
 
             var result = await _voiceInputService.StopListeningAsync();
             if (!result.IsRecognized)

@@ -19,16 +19,19 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Apertura de terminales en la carpeta del usuario.
 - Historial de conversación opcional y privado.
 - Límite predeterminado de ocho mensajes temporales.
+- Mezclador de audio real por aplicación.
+- Comandos locales de volumen y silencio.
+- Entrada de voz push-to-talk con Whisper local.
+- Descarga y almacenamiento local del modelo multilingüe `base`.
 
 ### Cambiado
 
 - La cápsula ahora aparece en la parte superior central.
 - La interfaz principal ya no necesita desplazamiento vertical.
 - CPU, RAM y GPU sustituyen al almacenamiento en la vista rápida.
+- El reconocimiento clásico de Windows se reemplaza por transcripción local con Whisper.
 
 ### Pendiente
 
-- Ejecutar comandos reales de volumen.
-- Mezclador de audio por aplicación.
-- Reconocimiento de voz.
+- Palabra de activación opcional `Nexo`.
 - Proveedor de IA.

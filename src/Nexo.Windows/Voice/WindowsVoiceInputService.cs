@@ -1,203 +1,346 @@
-using System.Globalization;
-using System.Speech.Recognition;
+using System.Net.Http;
+using System.Text;
+using NAudio;
+using NAudio.Wave;
 using Nexo.Core.Voice;
+using Whisper.net;
+using Whisper.net.Ggml;
 
 namespace Nexo.Windows.Voice;
 
-public sealed class WindowsVoiceInputService : IVoiceInputService
+/// <summary>
+/// Entrada de voz local basada en Whisper. El modelo se conserva en LocalAppData,
+/// pero solo se carga en memoria mientras se transcribe una orden.
+/// </summary>
+public sealed class WhisperVoiceInputService : IVoiceInputService
 {
-    private const string CommandGrammarName = "NexoSpanishCommands";
-    private const string DictationGrammarName = "NexoSpanishDictation";
-    private const double MinimumCommandConfidence = 0.42;
-    private const double MinimumDictationConfidence = 0.60;
+    private const string CommandPrompt =
+        "Órdenes breves para Nexo en español: abre PowerShell; muestra Peek; " +
+        "cómo está mi PC; baja Spotify; sube Spotify al 50 por ciento; " +
+        "silencia Discord; quita el silencio de Discord.";
 
-    private static readonly TimeSpan ReleaseTailDelay = TimeSpan.FromMilliseconds(350);
+    private const int SampleRate = 16_000;
+    private const int BitsPerSample = 16;
+    private const int Channels = 1;
+    private const long MinimumModelBytes = 50L * 1024 * 1024;
+    private const long MinimumRecordedBytes = 4_800;
+    private const long ProgressStepBytes = 4L * 1024 * 1024;
+
+    private static readonly TimeSpan RecordingStopTimeout = TimeSpan.FromSeconds(2);
 
     private readonly object _sync = new();
+    private readonly SemaphoreSlim _prepareGate = new(1, 1);
+    private readonly string _modelPath;
+    private readonly string _temporaryDirectory;
 
-    private SpeechRecognitionEngine? _engine;
-    private TaskCompletionSource<bool>? _recognitionCompleted;
-    private string _bestText = string.Empty;
-    private double _bestConfidence;
-    private bool _bestResultUsesCommandGrammar;
+    private WaveInEvent? _recorder;
+    private WaveFileWriter? _writer;
+    private TaskCompletionSource<Exception?>? _recordingStopped;
+    private string? _recordingPath;
+    private long _recordedBytes;
     private bool _disposed;
+
+    public WhisperVoiceInputService()
+    {
+        var nexoDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Nexo");
+
+        _modelPath = Path.Combine(nexoDirectory, "Models", "ggml-base.bin");
+        _temporaryDirectory = Path.Combine(nexoDirectory, "Temp");
+        IsReady = IsUsableModelFile();
+    }
+
+    public bool IsReady { get; private set; }
 
     public bool IsListening { get; private set; }
 
-    public Task<VoiceStartResult> StartListeningAsync(
+    public async Task<VoicePreparationResult> PrepareAsync(
+        IProgress<VoicePreparationProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
+        if (IsUsableModelFile())
+        {
+            IsReady = true;
+            return VoicePreparationResult.Ready(
+                "Voz local lista · Whisper base · español");
+        }
+
+        await _prepareGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (IsUsableModelFile())
+            {
+                IsReady = true;
+                return VoicePreparationResult.Ready(
+                    "Voz local lista · Whisper base · español");
+            }
+
+            progress?.Report(VoicePreparationProgress.Preparing(
+                "Preparando la voz local por primera vez…"));
+
+            var modelDirectory = Path.GetDirectoryName(_modelPath)
+                ?? throw new InvalidOperationException("No se pudo resolver la carpeta del modelo.");
+            Directory.CreateDirectory(modelDirectory);
+
+            var partialPath = _modelPath + ".download";
+            TryDeleteFile(partialPath);
+
+            long totalBytes = 0;
+            await using (var modelStream = await WhisperGgmlDownloader.Default
+                .GetGgmlModelAsync(
+                    GgmlType.Base,
+                    cancellationToken: cancellationToken))
+            await using (var modelWriter = new FileStream(
+                partialPath,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 81_920,
+                useAsync: true))
+            {
+                var buffer = new byte[81_920];
+                long lastReportedBytes = 0;
+
+                while (true)
+                {
+                    var bytesRead = await modelStream.ReadAsync(
+                        buffer.AsMemory(0, buffer.Length),
+                        cancellationToken);
+                    if (bytesRead == 0)
+                    {
+                        break;
+                    }
+
+                    await modelWriter.WriteAsync(
+                        buffer.AsMemory(0, bytesRead),
+                        cancellationToken);
+                    totalBytes += bytesRead;
+
+                    if (totalBytes - lastReportedBytes >= ProgressStepBytes)
+                    {
+                        lastReportedBytes = totalBytes;
+                        progress?.Report(VoicePreparationProgress.Downloading(totalBytes));
+                    }
+                }
+
+                await modelWriter.FlushAsync(cancellationToken);
+            }
+
+            if (totalBytes < MinimumModelBytes)
+            {
+                TryDeleteFile(partialPath);
+                IsReady = false;
+                return VoicePreparationResult.Unavailable(
+                    "La descarga del modelo quedó incompleta. Revisa tu conexión e inténtalo de nuevo.");
+            }
+
+            File.Move(partialPath, _modelPath, overwrite: true);
+            IsReady = true;
+
+            progress?.Report(VoicePreparationProgress.Preparing(
+                "Modelo descargado. La voz local está lista."));
+
+            return VoicePreparationResult.Ready(
+                "Voz local lista · Whisper base · español");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            IsReady = false;
+            return VoicePreparationResult.Unavailable(
+                "La descarga del modelo tardó demasiado. Inténtalo otra vez.");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (
+            exception is HttpRequestException or IOException or UnauthorizedAccessException)
+        {
+            IsReady = false;
+            return VoicePreparationResult.Unavailable(
+                "No pude preparar Whisper local. Revisa tu conexión y el espacio disponible.");
+        }
+        finally
+        {
+            _prepareGate.Release();
+        }
+    }
+
+    public async Task<VoiceStartResult> StartListeningAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsReady)
+        {
+            var preparation = await PrepareAsync(cancellationToken: cancellationToken);
+            if (!preparation.IsReady)
+            {
+                return VoiceStartResult.Unavailable(preparation.Detail);
+            }
+        }
 
         lock (_sync)
         {
-            if (_disposed)
-            {
-                return Task.FromResult(VoiceStartResult.Unavailable(
-                    "El servicio de voz ya fue cerrado."));
-            }
-
             if (IsListening)
             {
-                return Task.FromResult(VoiceStartResult.Started(
-                    GetRecognizerLabel(_engine?.RecognizerInfo)));
+                return VoiceStartResult.Started(
+                    "Whisper local · base · español");
             }
         }
 
         try
         {
-            var recognizer = SelectSpanishRecognizer();
-            if (recognizer is null)
-            {
-                return Task.FromResult(VoiceStartResult.Unavailable(
-                    "No encontré un reconocedor de español instalado. Instala la característica de voz de Español (México) en Windows."));
-            }
+            Directory.CreateDirectory(_temporaryDirectory);
+            var recordingPath = Path.Combine(
+                _temporaryDirectory,
+                $"voice-{Guid.NewGuid():N}.wav");
 
-            var engine = new SpeechRecognitionEngine(recognizer.Id)
+            var recorder = new WaveInEvent
             {
-                InitialSilenceTimeout = TimeSpan.FromSeconds(5),
-                BabbleTimeout = TimeSpan.FromSeconds(8),
-                EndSilenceTimeout = TimeSpan.FromMilliseconds(550),
-                EndSilenceTimeoutAmbiguous = TimeSpan.FromMilliseconds(900),
-                MaxAlternates = 5
+                WaveFormat = new WaveFormat(SampleRate, BitsPerSample, Channels),
+                BufferMilliseconds = 100,
+                NumberOfBuffers = 3
             };
+            var writer = new WaveFileWriter(recordingPath, recorder.WaveFormat);
+            var stopped = new TaskCompletionSource<Exception?>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
 
-            var commandBuilder = new GrammarBuilder(
-                new Choices(SpanishVoiceCommandCatalog.CreatePhrases().ToArray()))
-            {
-                Culture = recognizer.Culture
-            };
-
-            var commandGrammar = new Grammar(commandBuilder)
-            {
-                Name = CommandGrammarName
-            };
-
-            var dictationGrammar = new DictationGrammar
-            {
-                Name = DictationGrammarName
-            };
-
-            engine.LoadGrammar(commandGrammar);
-            engine.LoadGrammar(dictationGrammar);
-            engine.SetInputToDefaultAudioDevice();
-            engine.SpeechRecognized += Engine_SpeechRecognized;
-            engine.RecognizeCompleted += Engine_RecognizeCompleted;
+            recorder.DataAvailable += Recorder_DataAvailable;
+            recorder.RecordingStopped += Recorder_RecordingStopped;
 
             lock (_sync)
             {
-                _bestText = string.Empty;
-                _bestConfidence = 0;
-                _bestResultUsesCommandGrammar = false;
-                _recognitionCompleted = new TaskCompletionSource<bool>(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-                _engine = engine;
+                _recorder = recorder;
+                _writer = writer;
+                _recordingStopped = stopped;
+                _recordingPath = recordingPath;
+                _recordedBytes = 0;
                 IsListening = true;
             }
 
-            engine.RecognizeAsync(RecognizeMode.Multiple);
-            return Task.FromResult(VoiceStartResult.Started(
-                GetRecognizerLabel(recognizer)));
+            recorder.StartRecording();
+            return VoiceStartResult.Started(
+                "Whisper local · base · español");
         }
         catch (Exception exception) when (
-            exception is InvalidOperationException or ArgumentException)
+            exception is MmException or InvalidOperationException or IOException or UnauthorizedAccessException)
         {
-            DisposeEngine();
-            return Task.FromResult(VoiceStartResult.Unavailable(
-                "No pude iniciar el reconocimiento. Revisa el micrófono y el idioma de voz de Windows."));
+            CleanupRecorder(deleteRecording: true);
+            return VoiceStartResult.Unavailable(
+                "No pude abrir el micrófono. Revisa el dispositivo de entrada y los permisos de Windows.");
         }
     }
 
     public async Task<VoiceRecognitionResult> StopListeningAsync(
         CancellationToken cancellationToken = default)
     {
-        SpeechRecognitionEngine? engine;
-        Task completionTask;
+        WaveInEvent? recorder;
+        Task<Exception?> stoppedTask;
 
         lock (_sync)
         {
-            if (!IsListening || _engine is null)
+            if (!IsListening || _recorder is null)
             {
                 return VoiceRecognitionResult.NoSpeech("Nexo no estaba escuchando.");
             }
 
-            engine = _engine;
-            completionTask = _recognitionCompleted?.Task ?? Task.CompletedTask;
             IsListening = false;
+            recorder = _recorder;
+            stoppedTask = _recordingStopped?.Task
+                ?? Task.FromResult<Exception?>(null);
         }
 
         try
         {
-            // Evita cortar la última sílaba cuando el usuario suelta Mic inmediatamente.
-            await Task.Delay(ReleaseTailDelay, cancellationToken);
-            engine.RecognizeAsyncStop();
+            recorder.StopRecording();
             await Task.WhenAny(
-                completionTask,
-                Task.Delay(TimeSpan.FromSeconds(2.5), cancellationToken));
+                stoppedTask,
+                Task.Delay(RecordingStopTimeout, cancellationToken));
+
+            var recordingError = stoppedTask.IsCompletedSuccessfully
+                ? await stoppedTask
+                : null;
+
+            string? recordingPath;
+            long recordedBytes;
+            lock (_sync)
+            {
+                recordingPath = _recordingPath;
+                recordedBytes = _recordedBytes;
+            }
+
+            CleanupRecorder(deleteRecording: false);
+
+            if (recordingError is not null)
+            {
+                TryDeleteFile(recordingPath);
+                return VoiceRecognitionResult.NoSpeech(
+                    "Windows interrumpió la grabación. Revisa el micrófono e inténtalo otra vez.");
+            }
+
+            if (string.IsNullOrWhiteSpace(recordingPath) ||
+                !File.Exists(recordingPath) ||
+                recordedBytes < MinimumRecordedBytes)
+            {
+                TryDeleteFile(recordingPath);
+                return VoiceRecognitionResult.NoSpeech(
+                    "No detecté suficiente audio. Mantén Mic presionado mientras terminas de hablar.");
+            }
+
+            try
+            {
+                return await TranscribeAsync(recordingPath, cancellationToken);
+            }
+            finally
+            {
+                TryDeleteFile(recordingPath);
+            }
         }
         catch (OperationCanceledException)
         {
             await CancelAsync();
             throw;
         }
-        catch (InvalidOperationException)
+        catch (Exception exception) when (
+            exception is MmException or InvalidOperationException or IOException)
         {
-            // El motor puede haber finalizado antes de recibir la orden de detenerse.
+            CleanupRecorder(deleteRecording: true);
+            return VoiceRecognitionResult.NoSpeech(
+                "No pude completar la grabación. Inténtalo otra vez.");
         }
-
-        string text;
-        double confidence;
-        bool isCommandGrammar;
-
-        lock (_sync)
-        {
-            text = _bestText;
-            confidence = _bestConfidence;
-            isCommandGrammar = _bestResultUsesCommandGrammar;
-        }
-
-        DisposeEngine();
-
-        var requiredConfidence = isCommandGrammar
-            ? MinimumCommandConfidence
-            : MinimumDictationConfidence;
-
-        return string.IsNullOrWhiteSpace(text) || confidence < requiredConfidence
-            ? VoiceRecognitionResult.NoSpeech(
-                "No detecté una orden clara. Habla cerca del micrófono y evita soltar Mic antes de terminar la última palabra.")
-            : VoiceRecognitionResult.Recognized(text, confidence);
     }
 
     public async Task CancelAsync()
     {
-        SpeechRecognitionEngine? engine;
+        WaveInEvent? recorder;
         Task completionTask;
 
         lock (_sync)
         {
-            engine = _engine;
-            completionTask = _recognitionCompleted?.Task ?? Task.CompletedTask;
+            recorder = _recorder;
+            completionTask = _recordingStopped?.Task ?? Task.CompletedTask;
             IsListening = false;
         }
 
-        if (engine is null)
+        if (recorder is not null)
         {
-            return;
+            try
+            {
+                recorder.StopRecording();
+                await Task.WhenAny(completionTask, Task.Delay(400));
+            }
+            catch (MmException)
+            {
+                // El dispositivo ya se había detenido.
+            }
         }
 
-        try
-        {
-            engine.RecognizeAsyncCancel();
-            await Task.WhenAny(completionTask, Task.Delay(400));
-        }
-        catch (InvalidOperationException)
-        {
-            // Ya no había una operación activa.
-        }
-        finally
-        {
-            DisposeEngine();
-        }
+        CleanupRecorder(deleteRecording: true);
     }
 
     public void Dispose()
@@ -208,101 +351,167 @@ public sealed class WindowsVoiceInputService : IVoiceInputService
         }
 
         _disposed = true;
-        DisposeEngine();
+
+        try
+        {
+            _recorder?.StopRecording();
+        }
+        catch (MmException)
+        {
+            // El micrófono ya no estaba activo.
+        }
+
+        CleanupRecorder(deleteRecording: true);
         GC.SuppressFinalize(this);
     }
 
-    private void Engine_SpeechRecognized(object? sender, SpeechRecognizedEventArgs e)
+    private async Task<VoiceRecognitionResult> TranscribeAsync(
+        string recordingPath,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(e.Result.Text))
+        try
         {
-            return;
+            using var whisperFactory = WhisperFactory.FromPath(_modelPath);
+            using var processor = whisperFactory.CreateBuilder()
+                .WithLanguage("es")
+                .WithPrompt(CommandPrompt)
+                .Build();
+            await using var audioStream = File.OpenRead(recordingPath);
+
+            var transcript = new StringBuilder();
+            await foreach (var segment in processor.ProcessAsync(
+                audioStream,
+                cancellationToken))
+            {
+                var text = segment.Text?.Trim();
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    continue;
+                }
+
+                if (transcript.Length > 0)
+                {
+                    transcript.Append(' ');
+                }
+
+                transcript.Append(text);
+            }
+
+            var normalizedText = SpanishVoiceTranscriptNormalizer.Normalize(
+                transcript.ToString());
+            return string.IsNullOrWhiteSpace(normalizedText)
+                ? VoiceRecognitionResult.NoSpeech(
+                    "Whisper no encontró una orden clara. Habla un poco más cerca del micrófono.")
+                : VoiceRecognitionResult.Recognized(normalizedText, 0.95);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return VoiceRecognitionResult.NoSpeech(
+                "No pude transcribir el audio localmente. Reinicia Nexo e inténtalo otra vez.");
+        }
+    }
 
-        var isCommandGrammar = string.Equals(
-            e.Result.Grammar?.Name,
-            CommandGrammarName,
-            StringComparison.Ordinal);
-
+    private void Recorder_DataAvailable(object? sender, WaveInEventArgs e)
+    {
         lock (_sync)
         {
-            var shouldReplace = isCommandGrammar
-                ? !_bestResultUsesCommandGrammar || e.Result.Confidence >= _bestConfidence
-                : !_bestResultUsesCommandGrammar && e.Result.Confidence >= _bestConfidence;
-
-            if (!shouldReplace)
+            if (_writer is null || e.BytesRecorded <= 0)
             {
                 return;
             }
 
-            _bestText = e.Result.Text.Trim();
-            _bestConfidence = e.Result.Confidence;
-            _bestResultUsesCommandGrammar = isCommandGrammar;
+            _writer.Write(e.Buffer, 0, e.BytesRecorded);
+            _recordedBytes += e.BytesRecorded;
         }
     }
 
-    private void Engine_RecognizeCompleted(object? sender, RecognizeCompletedEventArgs e)
+    private void Recorder_RecordingStopped(object? sender, StoppedEventArgs e)
     {
-        _recognitionCompleted?.TrySetResult(true);
+        _recordingStopped?.TrySetResult(e.Exception);
     }
 
-    private void DisposeEngine()
+    private void CleanupRecorder(bool deleteRecording)
     {
-        SpeechRecognitionEngine? engine;
+        WaveInEvent? recorder;
+        WaveFileWriter? writer;
+        string? recordingPath;
 
         lock (_sync)
         {
-            engine = _engine;
-            _engine = null;
+            recorder = _recorder;
+            writer = _writer;
+            recordingPath = _recordingPath;
+
+            _recorder = null;
+            _writer = null;
+            _recordingStopped = null;
+            _recordingPath = null;
+            _recordedBytes = 0;
             IsListening = false;
-            _recognitionCompleted = null;
         }
 
-        if (engine is null)
+        if (recorder is not null)
+        {
+            recorder.DataAvailable -= Recorder_DataAvailable;
+            recorder.RecordingStopped -= Recorder_RecordingStopped;
+            recorder.Dispose();
+        }
+
+        writer?.Dispose();
+
+        if (deleteRecording)
+        {
+            TryDeleteFile(recordingPath);
+        }
+    }
+
+    private bool IsUsableModelFile()
+    {
+        try
+        {
+            return File.Exists(_modelPath) &&
+                   new FileInfo(_modelPath).Length >= MinimumModelBytes;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static void TryDeleteFile(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
         {
             return;
         }
 
-        engine.SpeechRecognized -= Engine_SpeechRecognized;
-        engine.RecognizeCompleted -= Engine_RecognizeCompleted;
-
         try
         {
-            engine.SetInputToNull();
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
         }
-        catch (InvalidOperationException)
+        catch (IOException)
         {
-            // El dispositivo ya fue liberado.
+            // El archivo temporal se limpiará en el siguiente inicio.
         }
-
-        engine.Dispose();
+        catch (UnauthorizedAccessException)
+        {
+            // No se interrumpe Nexo por un archivo temporal bloqueado.
+        }
     }
 
-    private static RecognizerInfo? SelectSpanishRecognizer()
+    private void ThrowIfDisposed()
     {
-        var installed = SpeechRecognitionEngine.InstalledRecognizers();
-        if (installed.Count == 0)
-        {
-            return null;
-        }
-
-        return installed.FirstOrDefault(item =>
-                   item.Culture.Name.Equals("es-MX", StringComparison.OrdinalIgnoreCase))
-               ?? installed.FirstOrDefault(item =>
-                   item.Culture.Name.Equals("es-ES", StringComparison.OrdinalIgnoreCase))
-               ?? installed.FirstOrDefault(item =>
-                   item.Culture.TwoLetterISOLanguageName.Equals(
-                       "es",
-                       StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static string GetRecognizerLabel(RecognizerInfo? recognizer)
-    {
-        if (recognizer is null)
-        {
-            return "Reconocedor de español de Windows";
-        }
-
-        return $"{recognizer.Name} · {recognizer.Culture.Name}";
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 }

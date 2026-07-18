@@ -2,7 +2,13 @@ namespace Nexo.Core.Voice;
 
 public interface IVoiceInputService : IDisposable
 {
+    bool IsReady { get; }
+
     bool IsListening { get; }
+
+    Task<VoicePreparationResult> PrepareAsync(
+        IProgress<VoicePreparationProgress>? progress = null,
+        CancellationToken cancellationToken = default);
 
     Task<VoiceStartResult> StartListeningAsync(CancellationToken cancellationToken = default);
 
