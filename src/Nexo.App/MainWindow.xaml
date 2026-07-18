@@ -74,7 +74,13 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                    <Button x:Name="PeekButton"
+                            Style="{StaticResource IconButtonStyle}"
+                            Content="◉"
+                            ToolTip="Vista rápida (Alt + Shift + A)"
+                            Click="PeekButton_Click" />
                     <Button x:Name="SettingsButton"
+                            Margin="8,0,0,0"
                             Style="{StaticResource IconButtonStyle}"
                             Content="⚙"
                             FontFamily="Segoe UI Symbol"
@@ -97,22 +103,19 @@
                 <Border Style="{StaticResource CardStyle}" Margin="0,0,6,0">
                     <StackPanel>
                         <TextBlock Text="CPU" Style="{StaticResource MutedTextStyle}" />
-                        <TextBlock Text="—" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock x:Name="HeaderCpuText" Text="—" FontSize="20" FontWeight="SemiBold" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CardStyle}" Margin="3,0">
                     <StackPanel>
                         <TextBlock Text="RAM" Style="{StaticResource MutedTextStyle}" />
-                        <TextBlock Text="—" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock x:Name="HeaderMemoryText" Text="—" FontSize="20" FontWeight="SemiBold" />
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource CardStyle}" Margin="6,0,0,0">
                     <StackPanel>
-                        <TextBlock Text="ESTADO" Style="{StaticResource MutedTextStyle}" />
-                        <TextBlock Text="Listo"
-                                   Foreground="{DynamicResource BrushSuccess}"
-                                   FontSize="18"
-                                   FontWeight="SemiBold" />
+                        <TextBlock Text="GPU" Style="{StaticResource MutedTextStyle}" />
+                        <TextBlock x:Name="HeaderGpuText" Text="—" FontSize="20" FontWeight="SemiBold" />
                     </StackPanel>
                 </Border>
             </UniformGrid>

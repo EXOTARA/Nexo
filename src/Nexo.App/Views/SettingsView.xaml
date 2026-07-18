@@ -81,6 +81,26 @@
                       Checked="AnimationsCheckBox_Changed"
                       Unchecked="AnimationsCheckBox_Changed" />
 
+            <TextBlock Margin="0,20,0,9" Text="Vista rápida" FontWeight="SemiBold" />
+            <CheckBox x:Name="PeekEnabledCheckBox" Margin="0,0,0,8"
+                      Content="Activar Peek con Alt + Shift + A"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Enabled" />
+            <CheckBox x:Name="PeekCpuCheckBox" Margin="0,0,0,8"
+                      Content="Mostrar CPU"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Cpu" />
+            <CheckBox x:Name="PeekMemoryCheckBox" Margin="0,0,0,8"
+                      Content="Mostrar RAM"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Memory" />
+            <CheckBox x:Name="PeekGpuCheckBox" Margin="0,0,0,8"
+                      Content="Mostrar GPU"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Gpu" />
+            <CheckBox x:Name="PeekDiskCheckBox" Margin="0,0,0,8"
+                      Content="Mostrar disco del sistema"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Disk" />
+            <CheckBox x:Name="PeekTopProcessCheckBox"
+                      Content="Mostrar proceso con mayor uso de memoria"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="TopProcess" />
+
             <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
             <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
                       Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />

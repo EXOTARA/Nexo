@@ -5,42 +5,90 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <StackPanel>
             <TextBlock Text="Sistema" Style="{StaticResource SectionTitleStyle}" />
             <TextBlock Margin="0,4,0,0"
-                       Text="Información útil y acciones reversibles, sin optimizaciones engañosas."
+                       Text="Lecturas nativas y ligeras de Windows, sin mantener herramientas pesadas abiertas."
+                       TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
         </StackPanel>
 
-        <UniformGrid Grid.Row="1" Columns="3" Margin="0,18,0,12">
-            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,5,0">
+        <UniformGrid Grid.Row="1" Columns="2" Rows="2" Margin="-4,14,-4,8">
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="4">
                 <StackPanel>
                     <TextBlock Text="CPU" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock Text="—" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CpuValueText" Text="—" FontSize="22" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource SubtleCardStyle}" Margin="5,0">
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="4">
                 <StackPanel>
                     <TextBlock Text="RAM" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock Text="—" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock x:Name="MemoryValueText" Text="—" FontSize="22" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource SubtleCardStyle}" Margin="5,0,0,0">
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="4">
                 <StackPanel>
                     <TextBlock Text="GPU" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock Text="—" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock x:Name="GpuValueText" Text="—" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock x:Name="GpuMemoryText" Margin="0,2,0,0" Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="4">
+                <StackPanel>
+                    <TextBlock Text="DISCO USADO" Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="DiskValueText" Text="—" FontSize="22" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
         </UniformGrid>
 
-        <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center">
-            <TextBlock Text="La lectura de métricas llegará en el siguiente bloque."
-                       TextAlignment="Center"
-                       TextWrapping="Wrap"
+        <Border Grid.Row="2" Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Mayor uso de memoria" Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="TopProcessNameText"
+                               Margin="0,5,0,0"
+                               Text="Esperando datos..."
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock x:Name="TopProcessMemoryText"
+                           Grid.Column="1"
+                           Margin="12,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource BrushTextSecondary}"
+                           FontSize="14" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" VerticalAlignment="Bottom">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock x:Name="HealthText"
+                           Text="Leyendo el equipo..."
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushSuccess}" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="Alt + Shift + A abre la vista Peek sin mostrar toda la barra."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+            <TextBlock x:Name="UpdatedAtText"
+                       Grid.Column="1"
+                       Margin="12,0,0,0"
+                       VerticalAlignment="Bottom"
                        Style="{StaticResource MutedTextStyle}" />
-        </StackPanel>
+        </Grid>
     </Grid>
 </UserControl>
