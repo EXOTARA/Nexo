@@ -27,6 +27,9 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Detector local Vosk con vocabulario limitado y sin claves externas.
 - Grabación automática de la orden después de la activación, con final por silencio.
 - Indicador visible mientras la activación está atenta.
+- Activación local por palabra clave mediante Vosk.
+- Indicador visible cuando Nexo está atento.
+- Traspaso automático de la frase de activación a Whisper.
 
 ### Cambiado
 

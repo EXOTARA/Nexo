@@ -22,6 +22,8 @@ Actualmente incluye:
 - Comandos locales para controlar Discord, Spotify, Zen y otras sesiones de audio.
 - Voz local push-to-talk mediante Whisper, sin enviar el audio a una API.
 - Activación opcional mediante `Nexo` u `Oye Nexo`, usando un detector Vosk local.
+- Activación local opcional mediante “Nexo” u “Oye Nexo”.
+- Reconocimiento de órdenes mediante Whisper.
 
 La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. El modelo solo se carga en memoria mientras Nexo transcribe una orden.
 
