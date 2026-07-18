@@ -31,4 +31,20 @@ public sealed class ShellPreferencesTests
 
         Assert.Equal("#8B6CFF", preferences.AccentColor);
     }
+
+    [Fact]
+    public void Peek_UsesCpuMemoryAndGpuByDefault()
+    {
+        var preferences = new ShellPreferences();
+
+        preferences.Normalize();
+
+        Assert.True(preferences.PeekEnabled);
+        Assert.True(preferences.ShowCpuInPeek);
+        Assert.True(preferences.ShowMemoryInPeek);
+        Assert.True(preferences.ShowGpuInPeek);
+        Assert.False(preferences.ShowDiskInPeek);
+        Assert.True(preferences.ShowTopProcessInPeek);
+        Assert.Equal(2, preferences.SchemaVersion);
+    }
 }

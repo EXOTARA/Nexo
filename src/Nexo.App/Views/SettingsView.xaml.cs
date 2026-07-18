@@ -14,6 +14,7 @@ public partial class SettingsView : UserControl
     public event Action<string>? AccentChanged;
     public event Action<bool>? AnimationsChanged;
     public event Action<string, bool>? ModuleVisibilityChanged;
+    public event Action<string, bool>? PeekOptionChanged;
 
     public SettingsView()
     {
@@ -32,7 +33,14 @@ public partial class SettingsView : UserControl
         AudioModuleCheckBox.IsChecked = preferences.ShowAudioModule;
         CaptureModuleCheckBox.IsChecked = preferences.ShowCaptureModule;
         SystemModuleCheckBox.IsChecked = preferences.ShowSystemModule;
+        PeekEnabledCheckBox.IsChecked = preferences.PeekEnabled;
+        PeekCpuCheckBox.IsChecked = preferences.ShowCpuInPeek;
+        PeekMemoryCheckBox.IsChecked = preferences.ShowMemoryInPeek;
+        PeekGpuCheckBox.IsChecked = preferences.ShowGpuInPeek;
+        PeekDiskCheckBox.IsChecked = preferences.ShowDiskInPeek;
+        PeekTopProcessCheckBox.IsChecked = preferences.ShowTopProcessInPeek;
         UpdatePositionButtons(preferences.Position);
+        UpdatePeekOptionsAvailability();
 
         _isApplyingPreferences = false;
     }
@@ -101,6 +109,38 @@ public partial class SettingsView : UserControl
         }
 
         ModuleVisibilityChanged?.Invoke(module, checkBox.IsChecked == true);
+    }
+
+    private void PeekCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (PeekEnabledCheckBox is null)
+        {
+            return;
+        }
+
+        UpdatePeekOptionsAvailability();
+
+        if (_isApplyingPreferences || sender is not CheckBox { Tag: string option } checkBox)
+        {
+            return;
+        }
+
+        PeekOptionChanged?.Invoke(option, checkBox.IsChecked == true);
+    }
+
+    private void UpdatePeekOptionsAvailability()
+    {
+        if (PeekCpuCheckBox is null)
+        {
+            return;
+        }
+
+        var enabled = PeekEnabledCheckBox.IsChecked == true;
+        PeekCpuCheckBox.IsEnabled = enabled;
+        PeekMemoryCheckBox.IsEnabled = enabled;
+        PeekGpuCheckBox.IsEnabled = enabled;
+        PeekDiskCheckBox.IsEnabled = enabled;
+        PeekTopProcessCheckBox.IsEnabled = enabled;
     }
 
     private void UpdatePositionButtons(SidebarPosition position)

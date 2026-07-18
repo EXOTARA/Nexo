@@ -1,5 +1,5 @@
-using System.IO;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -9,30 +9,40 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Nexo.App.Views;
+using Nexo.Core.Metrics;
 using Nexo.Core.Settings;
+using Nexo.Windows.Metrics;
 using Nexo.Windows.Settings;
 
 namespace Nexo.App;
 
 public partial class MainWindow : Window
 {
-    private const int HotkeyId = 0x4E58;
+    private const int ShellHotkeyId = 0x4E58;
+    private const int PeekHotkeyId = 0x4E59;
     private const uint ModAlt = 0x0001;
+    private const uint ModShift = 0x0004;
     private const uint VirtualKeyA = 0x41;
     private const int WmHotkey = 0x0312;
 
     private readonly DispatcherTimer _clockTimer;
+    private readonly DispatcherTimer _metricsTimer;
     private readonly JsonSettingsStore _settingsStore = new();
+    private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly ShellPreferences _preferences;
     private readonly AssistantView _assistantView = new();
     private readonly AudioView _audioView = new();
     private readonly CaptureView _captureView = new();
     private readonly SystemView _systemView = new();
     private readonly SettingsView _settingsView = new();
+    private readonly PeekWindow _peekWindow = new();
     private readonly Dictionary<string, FrameworkElement> _views;
 
     private HwndSource? _windowSource;
+    private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
     private bool _isHiding;
+    private bool _isClosed;
+    private int _metricsRefreshInProgress;
     private string _currentDestination = "Assistant";
     private string _previousDestination = "Assistant";
 
@@ -61,6 +71,12 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(1)
         };
         _clockTimer.Tick += (_, _) => UpdateClock();
+
+        _metricsTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _metricsTimer.Tick += async (_, _) => await RefreshMetricsAsync();
     }
 
     private void WireSettingsEvents()
@@ -69,6 +85,7 @@ public partial class MainWindow : Window
         {
             _preferences.Position = position;
             PositionWindow();
+            _peekWindow.HideImmediately();
             SavePreferences();
         };
 
@@ -106,6 +123,12 @@ public partial class MainWindow : Window
             SetModuleVisibility(module, visible);
             SavePreferences();
         };
+
+        _settingsView.PeekOptionChanged += (option, enabled) =>
+        {
+            ApplyPeekOption(option, enabled);
+            SavePreferences();
+        };
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -114,28 +137,40 @@ public partial class MainWindow : Window
         _windowSource = HwndSource.FromHwnd(windowHandle);
         _windowSource?.AddHook(WindowMessageHook);
 
-        if (!RegisterHotKey(windowHandle, HotkeyId, ModAlt, VirtualKeyA))
+        if (!RegisterHotKey(windowHandle, ShellHotkeyId, ModAlt, VirtualKeyA))
         {
             _assistantView.AddNexoMessage("Alt + A ya está siendo utilizado por otra aplicación.");
         }
+
+        if (!RegisterHotKey(windowHandle, PeekHotkeyId, ModAlt | ModShift, VirtualKeyA))
+        {
+            _assistantView.AddNexoMessage("Alt + Shift + A ya está siendo utilizado por otra aplicación.");
+        }
     }
 
-    private void Window_Loaded(object sender, RoutedEventArgs e)
+    private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         PositionWindow();
         UpdateClock();
         _clockTimer.Start();
+        SetMetricsCadence(isShellVisible: true);
+        _metricsTimer.Start();
         ShowAnimated();
+        await RefreshMetricsAsync();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _isClosed = true;
         _clockTimer.Stop();
+        _metricsTimer.Stop();
+        _peekWindow.HideImmediately();
 
         var windowHandle = new WindowInteropHelper(this).Handle;
         if (windowHandle != IntPtr.Zero)
         {
-            UnregisterHotKey(windowHandle, HotkeyId);
+            UnregisterHotKey(windowHandle, ShellHotkeyId);
+            UnregisterHotKey(windowHandle, PeekHotkeyId);
         }
 
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -148,9 +183,19 @@ public partial class MainWindow : Window
         IntPtr lParam,
         ref bool handled)
     {
-        if (message == WmHotkey && wParam.ToInt32() == HotkeyId)
+        if (message != WmHotkey)
+        {
+            return IntPtr.Zero;
+        }
+
+        if (wParam.ToInt32() == ShellHotkeyId)
         {
             ToggleWindow();
+            handled = true;
+        }
+        else if (wParam.ToInt32() == PeekHotkeyId)
+        {
+            _ = ShowPeekAsync();
             handled = true;
         }
 
@@ -172,6 +217,8 @@ public partial class MainWindow : Window
     {
         _isHiding = false;
         PositionWindow();
+        SetMetricsCadence(isShellVisible: true);
+        _ = RefreshMetricsAsync();
 
         if (!IsVisible)
         {
@@ -180,6 +227,9 @@ public partial class MainWindow : Window
 
         Activate();
         Topmost = true;
+
+        ShellBorder.BeginAnimation(OpacityProperty, null);
+        ShellTranslate.BeginAnimation(TranslateTransform.XProperty, null);
 
         if (!_preferences.AnimationsEnabled)
         {
@@ -217,6 +267,7 @@ public partial class MainWindow : Window
         if (!_preferences.AnimationsEnabled)
         {
             Hide();
+            SetMetricsCadence(isShellVisible: false);
             return;
         }
 
@@ -238,6 +289,7 @@ public partial class MainWindow : Window
         opacityAnimation.Completed += (_, _) =>
         {
             Hide();
+            SetMetricsCadence(isShellVisible: false);
             _isHiding = false;
         };
 
@@ -286,18 +338,21 @@ public partial class MainWindow : Window
     }
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
-{
-    if (_currentDestination.Equals(
-        "Settings",
-        StringComparison.OrdinalIgnoreCase))
     {
-        NavigateTo(_previousDestination, animate: true);
-        return;
+        if (_currentDestination.Equals("Settings", StringComparison.OrdinalIgnoreCase))
+        {
+            NavigateTo(_previousDestination, animate: true);
+            return;
+        }
+
+        _previousDestination = _currentDestination;
+        NavigateTo("Settings", animate: true);
     }
 
-    _previousDestination = _currentDestination;
-    NavigateTo("Settings", animate: true);
-}
+    private async void PeekButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ShowPeekAsync();
+    }
 
     private void NavigateTo(string destination, bool animate)
     {
@@ -395,7 +450,8 @@ public partial class MainWindow : Window
         try
         {
             var accent = (Color)ColorConverter.ConvertFromString(accentHex);
-            var soft = Color.FromArgb(255,
+            var soft = Color.FromArgb(
+                255,
                 (byte)(accent.R * 0.24),
                 (byte)(accent.G * 0.22),
                 (byte)(accent.B * 0.34));
@@ -405,8 +461,10 @@ public partial class MainWindow : Window
         }
         catch (Exception exception) when (exception is FormatException or NotSupportedException)
         {
-            Application.Current.Resources["BrushAccent"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8B6CFF"));
-            Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2748"));
+            Application.Current.Resources["BrushAccent"] = new SolidColorBrush(
+                (Color)ColorConverter.ConvertFromString("#8B6CFF"));
+            Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush(
+                (Color)ColorConverter.ConvertFromString("#2D2748"));
         }
     }
 
@@ -441,6 +499,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ApplyPeekOption(string option, bool enabled)
+    {
+        switch (option)
+        {
+            case "Enabled":
+                _preferences.PeekEnabled = enabled;
+                if (!enabled)
+                {
+                    _peekWindow.HideImmediately();
+                }
+                break;
+            case "Cpu":
+                _preferences.ShowCpuInPeek = enabled;
+                break;
+            case "Memory":
+                _preferences.ShowMemoryInPeek = enabled;
+                break;
+            case "Gpu":
+                _preferences.ShowGpuInPeek = enabled;
+                break;
+            case "Disk":
+                _preferences.ShowDiskInPeek = enabled;
+                break;
+            case "TopProcess":
+                _preferences.ShowTopProcessInPeek = enabled;
+                break;
+        }
+    }
+
     private void UpdateNavigationColumns()
     {
         var visibleCount = 1;
@@ -448,6 +535,66 @@ public partial class MainWindow : Window
         visibleCount += CaptureNavButton.Visibility == Visibility.Visible ? 1 : 0;
         visibleCount += SystemNavButton.Visibility == Visibility.Visible ? 1 : 0;
         NavigationGrid.Columns = visibleCount;
+    }
+
+    private void SetMetricsCadence(bool isShellVisible)
+    {
+        _metricsTimer.Interval = isShellVisible
+            ? TimeSpan.FromSeconds(2)
+            : TimeSpan.FromSeconds(8);
+    }
+
+    private async Task RefreshMetricsAsync()
+    {
+        if (Interlocked.Exchange(ref _metricsRefreshInProgress, 1) == 1)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = await Task.Run(_metricsService.ReadSnapshot);
+            if (_isClosed)
+            {
+                return;
+            }
+
+            _latestSnapshot = snapshot;
+            UpdateMetricControls(snapshot);
+        }
+        catch (Exception)
+        {
+            // Las métricas son informativas: un fallo de lectura nunca debe cerrar Nexo.
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _metricsRefreshInProgress, 0);
+        }
+    }
+
+    private void UpdateMetricControls(SystemSnapshot snapshot)
+    {
+        HeaderCpuText.Text = FormatPercentage(snapshot.CpuUsagePercent);
+        HeaderMemoryText.Text = FormatPercentage(snapshot.MemoryUsagePercent);
+        HeaderGpuText.Text = FormatPercentage(snapshot.GpuUsagePercent);
+        _systemView.UpdateSnapshot(snapshot);
+    }
+
+    private async Task ShowPeekAsync()
+    {
+        if (!_preferences.PeekEnabled)
+        {
+            _assistantView.AddNexoMessage("La vista Peek está desactivada en Personalización.");
+            return;
+        }
+
+        var snapshotAge = DateTimeOffset.Now - _latestSnapshot.CapturedAt;
+        if (_latestSnapshot.CapturedAt == DateTimeOffset.MinValue || snapshotAge > TimeSpan.FromSeconds(5))
+        {
+            await RefreshMetricsAsync();
+        }
+
+        _peekWindow.ShowSnapshot(_latestSnapshot, _preferences);
     }
 
     private void SavePreferences()
@@ -474,6 +621,11 @@ public partial class MainWindow : Window
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         Application.Current.Shutdown();
+    }
+
+    private static string FormatPercentage(double? value)
+    {
+        return value.HasValue ? $"{value.Value:0}%" : "—";
     }
 
     [DllImport("user32.dll", SetLastError = true)]
