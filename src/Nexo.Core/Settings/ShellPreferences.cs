@@ -1,3 +1,5 @@
+using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
+
 namespace Nexo.Core.Settings;
 
 public enum SidebarPosition
@@ -43,6 +45,10 @@ public sealed class ShellPreferences
 
     public bool SpeakVoiceResponses { get; set; }
 
+    public bool WakeWordEnabled { get; set; }
+
+    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.Nexo;
+
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -64,11 +70,23 @@ public sealed class ShellPreferences
             SchemaVersion = 4;
         }
 
+        if (SchemaVersion < 5)
+        {
+            WakeWordEnabled = false;
+            WakeWordPhrase = WakePhrase.Nexo;
+            SchemaVersion = 5;
+        }
+
         Width = Math.Clamp(Width, 380, 520);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
             ? Math.Clamp(RecentConversationMessageLimit, 8, 30)
             : 8;
+
+        if (!Enum.IsDefined(WakeWordPhrase))
+        {
+            WakeWordPhrase = WakePhrase.Nexo;
+        }
 
         if (string.IsNullOrWhiteSpace(AccentColor))
         {

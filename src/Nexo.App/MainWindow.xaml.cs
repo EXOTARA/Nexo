@@ -40,7 +40,9 @@ public partial class MainWindow : Window
     private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
     private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
     private readonly IVoiceOutputService _voiceOutputService = new WindowsTextToSpeechService();
+    private readonly IWakeWordService _wakeWordService = new VoskWakeWordService();
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
+    private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly ShellPreferences _preferences;
@@ -82,6 +84,7 @@ public partial class MainWindow : Window
         _assistantView.ConversationCleared += AssistantView_ConversationCleared;
         _assistantView.VoiceInputStarted += AssistantView_VoiceInputStarted;
         _assistantView.VoiceInputStopped += AssistantView_VoiceInputStopped;
+        _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
@@ -190,6 +193,23 @@ public partial class MainWindow : Window
 
             SavePreferences();
         };
+
+        _settingsView.WakeWordEnabledChanged += enabled =>
+        {
+            _preferences.WakeWordEnabled = enabled;
+            SavePreferences();
+            _ = ApplyWakeWordPreferenceAsync(showCapsule: true);
+        };
+
+        _settingsView.WakeWordPhraseChanged += phrase =>
+        {
+            _preferences.WakeWordPhrase = phrase;
+            SavePreferences();
+            if (_preferences.WakeWordEnabled)
+            {
+                _ = ApplyWakeWordPreferenceAsync(showCapsule: false);
+            }
+        };
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -218,7 +238,7 @@ public partial class MainWindow : Window
         _metricsTimer.Start();
         ShowAnimated();
         await RefreshMetricsAsync();
-        _ = PrepareVoiceAsync();
+        _ = InitializeVoiceFeaturesAsync();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -236,9 +256,10 @@ public partial class MainWindow : Window
 
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
+        _wakeWordService.WakeWordDetected -= WakeWordService_WakeWordDetected;
+        _wakeWordService.Dispose();
         _voiceOutputService.Dispose();
         _voiceInputService.Dispose();
-        _voiceGate.Dispose();
         _lifetimeCancellation.Dispose();
 
         var windowHandle = new WindowInteropHelper(this).Handle;
@@ -511,11 +532,23 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task InitializeVoiceFeaturesAsync()
+    {
+        await PrepareVoiceAsync();
+        if (_preferences.WakeWordEnabled && !_isClosed)
+        {
+            await ApplyWakeWordPreferenceAsync(showCapsule: false);
+        }
+    }
+
     private async void AssistantView_VoiceInputStarted(object? sender, EventArgs e)
     {
         await _voiceGate.WaitAsync();
+        var listeningStarted = false;
+
         try
         {
+            await PauseWakeWordAsync();
             _voiceOutputService.Stop();
 
             if (!_voiceInputService.IsReady)
@@ -540,6 +573,7 @@ public partial class MainWindow : Window
                 return;
             }
 
+            listeningStarted = true;
             _assistantView.SetVoiceState(
                 AssistantVoiceState.Listening,
                 "Escuchando… suelta Mic cuando termines.");
@@ -551,6 +585,11 @@ public partial class MainWindow : Window
         }
         finally
         {
+            if (!listeningStarted)
+            {
+                await ResumeWakeWordIfEnabledAsync();
+            }
+
             _voiceGate.Release();
         }
     }
@@ -570,27 +609,7 @@ public partial class MainWindow : Window
                 "Transcribiendo localmente con Whisper…");
 
             var result = await _voiceInputService.StopListeningAsync();
-            if (!result.IsRecognized)
-            {
-                _assistantView.SetVoiceState(AssistantVoiceState.Error, result.Detail);
-                _capsuleWindow.ShowMessage(
-                    CapsuleKind.Warning,
-                    "No entendí la orden",
-                    result.Detail,
-                    _preferences.Position);
-                return;
-            }
-
-            _assistantView.SetVoiceState(
-                AssistantVoiceState.Idle,
-                $"Entendí: “{result.Text}”");
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Information,
-                "Te escuché",
-                result.Text,
-                _preferences.Position);
-
-            await ProcessPromptAsync(result.Text, fromVoice: true);
+            await HandleVoiceRecognitionResultAsync(result);
         }
         catch (OperationCanceledException)
         {
@@ -600,8 +619,232 @@ public partial class MainWindow : Window
         }
         finally
         {
+            await ResumeWakeWordIfEnabledAsync();
             _voiceGate.Release();
         }
+    }
+
+    private void WakeWordService_WakeWordDetected(
+        object? sender,
+        WakeWordDetectedEventArgs e)
+    {
+        _ = Dispatcher.InvokeAsync(() => HandleWakeWordDetectedAsync(e)).Task.Unwrap();
+    }
+
+    private async Task HandleWakeWordDetectedAsync(WakeWordDetectedEventArgs e)
+    {
+        if (_isClosed || !_preferences.WakeWordEnabled)
+        {
+            return;
+        }
+
+        await _voiceGate.WaitAsync();
+        try
+        {
+            await PauseWakeWordAsync();
+            _voiceOutputService.Stop();
+
+            if (!_voiceInputService.IsReady)
+            {
+                await PrepareVoiceAsync();
+                if (!_voiceInputService.IsReady)
+                {
+                    return;
+                }
+            }
+
+            _assistantView.SetVoiceState(
+                AssistantVoiceState.Listening,
+                $"{e.Phrase.ToSpokenText()} detectado. Te escucho…");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Processing,
+                "Te escucho",
+                "Di la orden después de la señal.",
+                _preferences.Position);
+
+            var result = await _voiceInputService.ListenForUtteranceAsync(
+                maximumDuration: TimeSpan.FromSeconds(8),
+                trailingSilence: TimeSpan.FromMilliseconds(900),
+                cancellationToken: _lifetimeCancellation.Token);
+
+            _assistantView.SetVoiceState(
+                AssistantVoiceState.Processing,
+                "Transcribiendo localmente con Whisper…");
+            await HandleVoiceRecognitionResultAsync(result);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!_isClosed)
+            {
+                _assistantView.SetVoiceState(
+                    AssistantVoiceState.Idle,
+                    "La escucha fue cancelada.");
+            }
+        }
+        finally
+        {
+            await ResumeWakeWordIfEnabledAsync();
+            _voiceGate.Release();
+        }
+    }
+
+    private async Task HandleVoiceRecognitionResultAsync(VoiceRecognitionResult result)
+    {
+        if (!result.IsRecognized)
+        {
+            _assistantView.SetVoiceState(AssistantVoiceState.Error, result.Detail);
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "No entendí la orden",
+                result.Detail,
+                _preferences.Position);
+            return;
+        }
+
+        _assistantView.SetVoiceState(
+            AssistantVoiceState.Idle,
+            $"Entendí: “{result.Text}”");
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Information,
+            "Te escuché",
+            result.Text,
+            _preferences.Position);
+
+        await ProcessPromptAsync(result.Text, fromVoice: true);
+    }
+
+    private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)
+    {
+        await _wakeWordGate.WaitAsync();
+        try
+        {
+            await _wakeWordService.StopListeningAsync();
+            SetWakeWordIndicator(active: false);
+
+            if (!_preferences.WakeWordEnabled || _isClosed || _voiceInputService.IsListening)
+            {
+                return;
+            }
+
+            var requiresDownload = !_wakeWordService.IsReady;
+            var progress = new Progress<VoicePreparationProgress>(update =>
+            {
+                WakeWordIndicatorText.Text = "Preparando voz";
+                WakeWordIndicator.Visibility = Visibility.Visible;
+                _assistantView.SetVoiceAvailability(
+                    _voiceInputService.IsReady,
+                    update.Detail);
+            });
+
+            var preparation = await _wakeWordService.PrepareAsync(
+                progress,
+                _lifetimeCancellation.Token);
+
+            if (!preparation.IsReady)
+            {
+                SetWakeWordIndicator(active: false);
+                _assistantView.SetVoiceAvailability(
+                    _voiceInputService.IsReady,
+                    preparation.Detail);
+                if (showCapsule && !_isClosed)
+                {
+                    _capsuleWindow.ShowMessage(
+                        CapsuleKind.Error,
+                        "Activación no disponible",
+                        preparation.Detail,
+                        _preferences.Position);
+                }
+                return;
+            }
+
+            if (!_preferences.WakeWordEnabled || _isClosed)
+            {
+                SetWakeWordIndicator(active: false);
+                return;
+            }
+
+            var start = await _wakeWordService.StartListeningAsync(
+                _preferences.WakeWordPhrase,
+                _lifetimeCancellation.Token);
+
+            if (!start.IsAvailable)
+            {
+                SetWakeWordIndicator(active: false);
+                _assistantView.SetVoiceAvailability(
+                    _voiceInputService.IsReady,
+                    start.Detail);
+                if (showCapsule && !_isClosed)
+                {
+                    _capsuleWindow.ShowMessage(
+                        CapsuleKind.Error,
+                        "No pude escuchar Nexo",
+                        start.Detail,
+                        _preferences.Position);
+                }
+                return;
+            }
+
+            SetWakeWordIndicator(active: true);
+            _assistantView.SetVoiceAvailability(
+                _voiceInputService.IsReady,
+                $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}”, espera “Te escucho” y después da la orden.");
+
+            if (showCapsule && !_isClosed)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Success,
+                    "Activación por voz lista",
+                    $"Nexo espera la frase “{_preferences.WakeWordPhrase.ToSpokenText()}”.",
+                    _preferences.Position);
+            }
+            else if (requiresDownload && !_isClosed)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Success,
+                    "Detector local instalado",
+                    "La frase de activación ya funciona sin cuenta ni clave.",
+                    _preferences.Position);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Nexo se está cerrando o la preparación fue cancelada.
+        }
+        finally
+        {
+            _wakeWordGate.Release();
+        }
+    }
+
+    private async Task PauseWakeWordAsync()
+    {
+        await _wakeWordGate.WaitAsync();
+        try
+        {
+            await _wakeWordService.StopListeningAsync();
+            SetWakeWordIndicator(active: false);
+        }
+        finally
+        {
+            _wakeWordGate.Release();
+        }
+    }
+
+    private Task ResumeWakeWordIfEnabledAsync()
+    {
+        return _preferences.WakeWordEnabled && !_isClosed
+            ? ApplyWakeWordPreferenceAsync(showCapsule: false)
+            : Task.CompletedTask;
+    }
+
+    private void SetWakeWordIndicator(bool active)
+    {
+        WakeWordIndicator.Visibility = active
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        WakeWordIndicatorText.Text = active
+            ? $"{_preferences.WakeWordPhrase.ToSpokenText()} atento"
+            : "Voz pausada";
     }
 
     private async Task ExecuteLocalCommandAsync(LocalCommandIntent intent)

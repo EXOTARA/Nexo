@@ -65,6 +65,26 @@
                                        FontSize="9"
                                        FontWeight="SemiBold" />
                         </Border>
+                        <Border x:Name="WakeWordIndicator"
+                                Margin="9,0,0,0"
+                                Padding="7,2"
+                                Background="{DynamicResource BrushSurfaceRaised}"
+                                CornerRadius="8"
+                                Visibility="Collapsed"
+                                ToolTip="La activación por voz está escuchando únicamente la frase configurada.">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="6"
+                                         Height="6"
+                                         Margin="0,0,5,0"
+                                         VerticalAlignment="Center"
+                                         Fill="{DynamicResource BrushSuccess}" />
+                                <TextBlock x:Name="WakeWordIndicatorText"
+                                           Text="Nexo atento"
+                                           Foreground="{DynamicResource BrushTextSecondary}"
+                                           FontSize="9"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                     <TextBlock x:Name="ClockText"
                                Margin="0,5,0,0"

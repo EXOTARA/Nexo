@@ -23,6 +23,10 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Comandos locales de volumen y silencio.
 - Entrada de voz push-to-talk con Whisper local.
 - Descarga y almacenamiento local del modelo multilingüe `base`.
+- Activación experimental con las frases `Nexo` y `Oye Nexo`.
+- Detector local Vosk con vocabulario limitado y sin claves externas.
+- Grabación automática de la orden después de la activación, con final por silencio.
+- Indicador visible mientras la activación está atenta.
 
 ### Cambiado
 
@@ -33,5 +37,6 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ### Pendiente
 
-- Palabra de activación opcional `Nexo`.
+- Reconocer `Nexo` y la orden completa sin esperar una segunda señal.
+- Reducir todavía más el consumo del detector permanente.
 - Proveedor de IA.

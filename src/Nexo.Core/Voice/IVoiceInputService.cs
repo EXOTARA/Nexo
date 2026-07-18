@@ -14,5 +14,10 @@ public interface IVoiceInputService : IDisposable
 
     Task<VoiceRecognitionResult> StopListeningAsync(CancellationToken cancellationToken = default);
 
+    Task<VoiceRecognitionResult> ListenForUtteranceAsync(
+        TimeSpan maximumDuration,
+        TimeSpan trailingSilence,
+        CancellationToken cancellationToken = default);
+
     Task CancelAsync();
 }
