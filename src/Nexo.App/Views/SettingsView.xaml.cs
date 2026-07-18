@@ -16,6 +16,7 @@ public partial class SettingsView : UserControl
     public event Action<string, bool>? ModuleVisibilityChanged;
     public event Action<string, bool>? PeekOptionChanged;
     public event Action<bool>? ConversationHistoryChanged;
+    public event Action<bool>? VoiceResponsesChanged;
 
     public SettingsView()
     {
@@ -41,6 +42,7 @@ public partial class SettingsView : UserControl
         PeekDiskCheckBox.IsChecked = preferences.ShowDiskInPeek;
         PeekTopProcessCheckBox.IsChecked = preferences.ShowTopProcessInPeek;
         SaveConversationHistoryCheckBox.IsChecked = preferences.SaveConversationHistory;
+        SpeakVoiceResponsesCheckBox.IsChecked = preferences.SpeakVoiceResponses;
         UpdatePositionButtons(preferences.Position);
         UpdatePeekOptionsAvailability();
 
@@ -135,6 +137,14 @@ public partial class SettingsView : UserControl
         if (!_isApplyingPreferences)
         {
             ConversationHistoryChanged?.Invoke(SaveConversationHistoryCheckBox.IsChecked == true);
+        }
+    }
+
+    private void SpeakVoiceResponsesCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            VoiceResponsesChanged?.Invoke(SpeakVoiceResponsesCheckBox.IsChecked == true);
         }
     }
 

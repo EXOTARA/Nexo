@@ -14,10 +14,12 @@ using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Metrics;
 using Nexo.Core.Settings;
+using Nexo.Core.Voice;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Settings;
+using Nexo.Windows.Voice;
 
 namespace Nexo.App;
 
@@ -36,6 +38,10 @@ public partial class MainWindow : Window
     private readonly JsonConversationStore _conversationStore = new();
     private readonly NaturalCommandParser _commandParser = new();
     private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
+    private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
+    private readonly IVoiceOutputService _voiceOutputService = new WindowsTextToSpeechService();
+    private readonly SemaphoreSlim _voiceGate = new(1, 1);
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly ShellPreferences _preferences;
     private readonly AssistantView _assistantView = new();
@@ -54,6 +60,7 @@ public partial class MainWindow : Window
     private int _metricsRefreshInProgress;
     private string _currentDestination = "Assistant";
     private string _previousDestination = "Assistant";
+    private bool _voicePromptActive;
 
     public MainWindow()
     {
@@ -73,6 +80,8 @@ public partial class MainWindow : Window
         _assistantView.PromptSubmitted += AssistantView_PromptSubmitted;
         _assistantView.ConversationChanged += AssistantView_ConversationChanged;
         _assistantView.ConversationCleared += AssistantView_ConversationCleared;
+        _assistantView.VoiceInputStarted += AssistantView_VoiceInputStarted;
+        _assistantView.VoiceInputStopped += AssistantView_VoiceInputStopped;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
@@ -170,6 +179,17 @@ public partial class MainWindow : Window
 
             SavePreferences();
         };
+
+        _settingsView.VoiceResponsesChanged += enabled =>
+        {
+            _preferences.SpeakVoiceResponses = enabled;
+            if (!enabled)
+            {
+                _voiceOutputService.Stop();
+            }
+
+            SavePreferences();
+        };
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -198,6 +218,7 @@ public partial class MainWindow : Window
         _metricsTimer.Start();
         ShowAnimated();
         await RefreshMetricsAsync();
+        _ = PrepareVoiceAsync();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -213,7 +234,12 @@ public partial class MainWindow : Window
             _conversationStore.Save(_assistantView.GetConversationSnapshot());
         }
 
+        _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
+        _voiceOutputService.Dispose();
+        _voiceInputService.Dispose();
+        _voiceGate.Dispose();
+        _lifetimeCancellation.Dispose();
 
         var windowHandle = new WindowInteropHelper(this).Handle;
         if (windowHandle != IntPtr.Zero)
@@ -385,31 +411,197 @@ public partial class MainWindow : Window
         _conversationStore.Clear();
     }
 
-    private async void AssistantView_PromptSubmitted(object? sender, PromptSubmittedEventArgs e)
+    private async void AssistantView_PromptSubmitted(
+        object? sender,
+        PromptSubmittedEventArgs e)
     {
-        _assistantView.AddUserMessage(e.Prompt);
-        _capsuleWindow.ShowMessage(
-            CapsuleKind.Processing,
-            "Nexo está procesando",
-            e.Prompt,
-            _preferences.Position);
+        await ProcessPromptAsync(e.Prompt, fromVoice: false);
+    }
 
-        await Task.Yield();
+    private async Task ProcessPromptAsync(string prompt, bool fromVoice)
+    {
+        _voicePromptActive = fromVoice;
 
-        var interpretation = _commandParser.Parse(e.Prompt);
-        if (interpretation.Route == CommandRoute.ArtificialIntelligence || interpretation.Intent is null)
+        try
         {
-            _assistantView.AddNexoMessage(
-                "Entendí que es una consulta abierta. El proveedor de IA se conectará en un sprint posterior; por ahora no envié nada fuera de tu equipo.");
+            _assistantView.AddUserMessage(prompt);
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Processing,
+                fromVoice ? "Ejecutando por voz" : "Nexo está procesando",
+                prompt,
+                _preferences.Position);
+
+            await Task.Yield();
+
+            var interpretation = _commandParser.Parse(prompt);
+            if (interpretation.Route == CommandRoute.ArtificialIntelligence ||
+                interpretation.Intent is null)
+            {
+                const string unavailableMessage =
+                    "Entendí que es una consulta abierta. El proveedor de IA se conectará en un sprint posterior; por ahora no envié nada fuera de tu equipo.";
+
+                _assistantView.AddNexoMessage(unavailableMessage);
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Information,
+                    "Consulta preparada",
+                    "Todavía no hay un proveedor de IA conectado.",
+                    _preferences.Position);
+                SpeakVoiceResult("Todavía no hay un proveedor de inteligencia artificial conectado.");
+                return;
+            }
+
+            await ExecuteLocalCommandAsync(interpretation.Intent);
+        }
+        finally
+        {
+            _voicePromptActive = false;
+        }
+    }
+
+    private async Task PrepareVoiceAsync()
+    {
+        var requiresDownload = !_voiceInputService.IsReady;
+        _assistantView.SetVoiceAvailability(
+            available: false,
+            "Preparando Whisper local…");
+
+        if (requiresDownload && !_isClosed)
+        {
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
-                "Consulta preparada",
-                "Todavía no hay un proveedor de IA conectado.",
+                "Preparando voz local",
+                "La primera vez Nexo descarga un modelo multilingüe.",
                 _preferences.Position);
-            return;
         }
 
-        await ExecuteLocalCommandAsync(interpretation.Intent);
+        var progress = new Progress<VoicePreparationProgress>(update =>
+        {
+            _assistantView.SetVoiceAvailability(
+                available: false,
+                update.Detail);
+        });
+
+        try
+        {
+            var result = await _voiceInputService.PrepareAsync(
+                progress,
+                _lifetimeCancellation.Token);
+
+            _assistantView.SetVoiceAvailability(result.IsReady, result.Detail);
+            if (result.IsReady && requiresDownload && !_isClosed)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Success,
+                    "Voz local lista",
+                    "Whisper ya puede transcribir órdenes en español.",
+                    _preferences.Position);
+            }
+            else if (!result.IsReady && !_isClosed)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Error,
+                    "Voz local no disponible",
+                    result.Detail,
+                    _preferences.Position);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Nexo se está cerrando.
+        }
+    }
+
+    private async void AssistantView_VoiceInputStarted(object? sender, EventArgs e)
+    {
+        await _voiceGate.WaitAsync();
+        try
+        {
+            _voiceOutputService.Stop();
+
+            if (!_voiceInputService.IsReady)
+            {
+                await PrepareVoiceAsync();
+                if (!_voiceInputService.IsReady)
+                {
+                    return;
+                }
+            }
+
+            var result = await _voiceInputService.StartListeningAsync();
+
+            if (!result.IsAvailable)
+            {
+                _assistantView.SetVoiceState(AssistantVoiceState.Error, result.Detail);
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Error,
+                    "Micrófono no disponible",
+                    result.Detail,
+                    _preferences.Position);
+                return;
+            }
+
+            _assistantView.SetVoiceState(
+                AssistantVoiceState.Listening,
+                "Escuchando… suelta Mic cuando termines.");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Processing,
+                "Escuchando",
+                "Suelta Mic cuando termines de hablar.",
+                _preferences.Position);
+        }
+        finally
+        {
+            _voiceGate.Release();
+        }
+    }
+
+    private async void AssistantView_VoiceInputStopped(object? sender, EventArgs e)
+    {
+        await _voiceGate.WaitAsync();
+        try
+        {
+            if (!_voiceInputService.IsListening)
+            {
+                return;
+            }
+
+            _assistantView.SetVoiceState(
+                AssistantVoiceState.Processing,
+                "Transcribiendo localmente con Whisper…");
+
+            var result = await _voiceInputService.StopListeningAsync();
+            if (!result.IsRecognized)
+            {
+                _assistantView.SetVoiceState(AssistantVoiceState.Error, result.Detail);
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Warning,
+                    "No entendí la orden",
+                    result.Detail,
+                    _preferences.Position);
+                return;
+            }
+
+            _assistantView.SetVoiceState(
+                AssistantVoiceState.Idle,
+                $"Entendí: “{result.Text}”");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "Te escuché",
+                result.Text,
+                _preferences.Position);
+
+            await ProcessPromptAsync(result.Text, fromVoice: true);
+        }
+        catch (OperationCanceledException)
+        {
+            _assistantView.SetVoiceState(
+                AssistantVoiceState.Idle,
+                "La escucha fue cancelada.");
+        }
+        finally
+        {
+            _voiceGate.Release();
+        }
     }
 
     private async Task ExecuteLocalCommandAsync(LocalCommandIntent intent)
@@ -512,6 +704,7 @@ public partial class MainWindow : Window
             "Estado del equipo listo",
             $"CPU {FormatPercentage(_latestSnapshot.CpuUsagePercent)} · RAM {FormatPercentage(_latestSnapshot.MemoryUsagePercent)} · GPU {FormatPercentage(_latestSnapshot.GpuUsagePercent)}",
             _preferences.Position);
+        SpeakVoiceResult(summary);
     }
 
     private void ShowShellModule(string destination, string confirmation)
@@ -614,6 +807,7 @@ public partial class MainWindow : Window
             result.Title,
             result.Detail,
             _preferences.Position);
+        SpeakVoiceResult(result.Detail);
     }
 
     private void ShowCommandSuccess(string title, string detail)
@@ -623,6 +817,15 @@ public partial class MainWindow : Window
             title,
             detail,
             _preferences.Position);
+        SpeakVoiceResult(title);
+    }
+
+    private void SpeakVoiceResult(string text)
+    {
+        if (_voicePromptActive && _preferences.SpeakVoiceResponses)
+        {
+            _voiceOutputService.SpeakShort(text);
+        }
     }
 
     private static string ToDisplayName(string value)

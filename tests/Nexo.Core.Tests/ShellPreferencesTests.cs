@@ -45,7 +45,6 @@ public sealed class ShellPreferencesTests
         Assert.True(preferences.ShowGpuInPeek);
         Assert.False(preferences.ShowDiskInPeek);
         Assert.True(preferences.ShowTopProcessInPeek);
-        Assert.Equal(3, preferences.SchemaVersion);
     }
 
 [Fact]

@@ -18,8 +18,11 @@ Actualmente incluye:
 - Apertura de PowerShell, CMD y Terminal en la carpeta del usuario.
 - Cápsulas flotantes para mostrar confirmaciones y errores.
 - Historial de conversación privado y opcional.
+- Mezclador real de volumen general y por aplicación.
+- Comandos locales para controlar Discord, Spotify, Zen y otras sesiones de audio.
+- Voz local push-to-talk mediante Whisper, sin enviar el audio a una API.
 
-El control real del volumen por aplicación está en desarrollo.
+La primera ejecución descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. El modelo solo se carga en memoria mientras Nexo transcribe una orden.
 
 ## Objetivo
 
@@ -38,8 +41,7 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 
 ## Próximos pasos
 
-- Mezclador de audio por aplicación.
-- Comandos reales de volumen.
-- Reconocimiento de voz.
+- Palabra de activación opcional `Nexo`.
+- Perfiles de voz rápido y equilibrado.
 - Proveedores de IA.
 - Herramientas de captura y OCR.

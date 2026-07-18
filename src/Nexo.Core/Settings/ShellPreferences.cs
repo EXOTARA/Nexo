@@ -41,6 +41,8 @@ public sealed class ShellPreferences
 
     public int RecentConversationMessageLimit { get; set; } = 8;
 
+    public bool SpeakVoiceResponses { get; set; }
+
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -56,9 +58,17 @@ public sealed class ShellPreferences
             SchemaVersion = 3;
         }
 
+        if (SchemaVersion < 4)
+        {
+            SpeakVoiceResponses = false;
+            SchemaVersion = 4;
+        }
+
         Width = Math.Clamp(Width, 380, 520);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
-        RecentConversationMessageLimit = Math.Clamp(RecentConversationMessageLimit, 4, 30);
+        RecentConversationMessageLimit = SaveConversationHistory
+            ? Math.Clamp(RecentConversationMessageLimit, 8, 30)
+            : 8;
 
         if (string.IsNullOrWhiteSpace(AccentColor))
         {
