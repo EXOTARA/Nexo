@@ -1,3 +1,4 @@
+using System.IO;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -7,6 +8,9 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using Nexo.App.Views;
+using Nexo.Core.Settings;
+using Nexo.Windows.Settings;
 
 namespace Nexo.App;
 
@@ -18,18 +22,90 @@ public partial class MainWindow : Window
     private const int WmHotkey = 0x0312;
 
     private readonly DispatcherTimer _clockTimer;
+    private readonly JsonSettingsStore _settingsStore = new();
+    private readonly ShellPreferences _preferences;
+    private readonly AssistantView _assistantView = new();
+    private readonly AudioView _audioView = new();
+    private readonly CaptureView _captureView = new();
+    private readonly SystemView _systemView = new();
+    private readonly SettingsView _settingsView = new();
+    private readonly Dictionary<string, FrameworkElement> _views;
+
     private HwndSource? _windowSource;
     private bool _isHiding;
+    private string _currentDestination = "Assistant";
+    private string _previousDestination = "Assistant";
 
     public MainWindow()
     {
         InitializeComponent();
+
+        _preferences = _settingsStore.Load();
+        _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Assistant"] = _assistantView,
+            ["Audio"] = _audioView,
+            ["Capture"] = _captureView,
+            ["System"] = _systemView,
+            ["Settings"] = _settingsView
+        };
+
+        _assistantView.PromptSubmitted += AssistantView_PromptSubmitted;
+        WireSettingsEvents();
+        _settingsView.ApplyPreferences(_preferences);
+        ApplyPreferences();
+        NavigateTo("Assistant", animate: false);
 
         _clockTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
         };
         _clockTimer.Tick += (_, _) => UpdateClock();
+    }
+
+    private void WireSettingsEvents()
+    {
+        _settingsView.PositionChanged += position =>
+        {
+            _preferences.Position = position;
+            PositionWindow();
+            SavePreferences();
+        };
+
+        _settingsView.WidthChanged += width =>
+        {
+            _preferences.Width = width;
+            Width = width;
+            PositionWindow();
+            SavePreferences();
+        };
+
+        _settingsView.OpacityChanged += opacity =>
+        {
+            _preferences.Opacity = opacity;
+            ApplyShellOpacity();
+            SavePreferences();
+        };
+
+        _settingsView.AccentChanged += accent =>
+        {
+            _preferences.AccentColor = accent;
+            ApplyAccent(accent);
+            UpdateNavigationState(_currentDestination);
+            SavePreferences();
+        };
+
+        _settingsView.AnimationsChanged += enabled =>
+        {
+            _preferences.AnimationsEnabled = enabled;
+            SavePreferences();
+        };
+
+        _settingsView.ModuleVisibilityChanged += (module, visible) =>
+        {
+            SetModuleVisibility(module, visible);
+            SavePreferences();
+        };
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -40,7 +116,7 @@ public partial class MainWindow : Window
 
         if (!RegisterHotKey(windowHandle, HotkeyId, ModAlt, VirtualKeyA))
         {
-            AddSystemMessage("Alt + A ya está siendo utilizado por otra aplicación.");
+            _assistantView.AddNexoMessage("Alt + A ya está siendo utilizado por otra aplicación.");
         }
     }
 
@@ -105,7 +181,16 @@ public partial class MainWindow : Window
         Activate();
         Topmost = true;
 
-        ShellTranslate.X = 34;
+        if (!_preferences.AnimationsEnabled)
+        {
+            ShellTranslate.X = 0;
+            ShellBorder.Opacity = 1;
+            FocusCurrentView();
+            return;
+        }
+
+        var offset = _preferences.Position == SidebarPosition.Right ? 34 : -34;
+        ShellTranslate.X = offset;
         ShellBorder.Opacity = 0;
 
         var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
@@ -119,11 +204,7 @@ public partial class MainWindow : Window
             OpacityProperty,
             new DoubleAnimation(1, duration) { EasingFunction = easing });
 
-        Dispatcher.BeginInvoke(() =>
-        {
-            PromptBox.Focus();
-            Keyboard.Focus(PromptBox);
-        }, DispatcherPriority.Input);
+        FocusCurrentView();
     }
 
     private void HideAnimated()
@@ -133,11 +214,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!_preferences.AnimationsEnabled)
+        {
+            Hide();
+            return;
+        }
+
         _isHiding = true;
+        var offset = _preferences.Position == SidebarPosition.Right ? 34 : -34;
         var easing = new CubicEase { EasingMode = EasingMode.EaseIn };
         var duration = TimeSpan.FromMilliseconds(140);
 
-        var slideAnimation = new DoubleAnimation(34, duration)
+        var slideAnimation = new DoubleAnimation(offset, duration)
         {
             EasingFunction = easing
         };
@@ -161,8 +249,10 @@ public partial class MainWindow : Window
     {
         var workArea = SystemParameters.WorkArea;
         Height = Math.Max(MinHeight, workArea.Height - 24);
-        Left = workArea.Right - Width - 12;
         Top = workArea.Top + 12;
+        Left = _preferences.Position == SidebarPosition.Right
+            ? workArea.Right - Width - 12
+            : workArea.Left + 12;
     }
 
     private void UpdateClock()
@@ -181,116 +271,56 @@ public partial class MainWindow : Window
         }
     }
 
-    private void PromptBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void AssistantView_PromptSubmitted(object? sender, PromptSubmittedEventArgs e)
     {
-        if (e.Key == Key.Enter && Keyboard.Modifiers != ModifierKeys.Shift)
-        {
-            SendPrompt();
-            e.Handled = true;
-        }
-    }
-
-    private void SendButton_Click(object sender, RoutedEventArgs e)
-    {
-        SendPrompt();
-    }
-
-    private void SendPrompt()
-    {
-        var prompt = PromptBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(prompt))
-        {
-            return;
-        }
-
-        AddUserMessage(prompt);
-        PromptBox.Clear();
-        AddSystemMessage("El motor de comandos e IA se conectará en el siguiente sprint.");
-        ConversationScroll.ScrollToEnd();
-        PromptBox.Focus();
-    }
-
-    private void AddUserMessage(string text)
-    {
-        ConversationPanel.Children.Add(CreateMessageBubble(
-            text,
-            horizontalAlignment: HorizontalAlignment.Right,
-            background: (Brush)FindResource("BrushAccentSoft")));
-    }
-
-    private void AddSystemMessage(string text)
-    {
-        ConversationPanel.Children.Add(CreateMessageBubble(
-            text,
-            horizontalAlignment: HorizontalAlignment.Left,
-            background: (Brush)FindResource("BrushSurfaceRaised")));
-    }
-
-    private static Border CreateMessageBubble(
-        string text,
-        HorizontalAlignment horizontalAlignment,
-        Brush background)
-    {
-        return new Border
-        {
-            Margin = new Thickness(0, 8, 0, 0),
-            Padding = new Thickness(12),
-            CornerRadius = new CornerRadius(13),
-            Background = background,
-            HorizontalAlignment = horizontalAlignment,
-            MaxWidth = 310,
-            Child = new TextBlock
-            {
-                Text = text,
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = Brushes.White
-            }
-        };
+        _assistantView.AddUserMessage(e.Prompt);
+        _assistantView.AddNexoMessage("El motor de comandos e IA se conectará después de terminar la base modular.");
     }
 
     private void NavigationButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || button.Tag is not string destination)
+        if (sender is Button { Tag: string destination })
+        {
+            NavigateTo(destination, animate: true);
+        }
+    }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+{
+    if (_currentDestination.Equals(
+        "Settings",
+        StringComparison.OrdinalIgnoreCase))
+    {
+        NavigateTo(_previousDestination, animate: true);
+        return;
+    }
+
+    _previousDestination = _currentDestination;
+    NavigateTo("Settings", animate: true);
+}
+
+    private void NavigateTo(string destination, bool animate)
+    {
+        if (!_views.TryGetValue(destination, out var view))
         {
             return;
         }
 
-        FrameworkElement targetView = destination switch
+        _currentDestination = destination;
+        ModuleHost.Content = view;
+        UpdateNavigationState(destination);
+
+        if (!animate || !_preferences.AnimationsEnabled)
         {
-            "Audio" => AudioView,
-            "Capture" => CaptureView,
-            "System" => SystemView,
-            _ => AssistantView
-        };
-
-        ShowView(targetView);
-        UpdateNavigationState(button);
-    }
-
-    private void ShowView(FrameworkElement targetView)
-    {
-        FrameworkElement[] views =
-        [
-            AssistantView,
-            AudioView,
-            CaptureView,
-            SystemView
-        ];
-
-        foreach (var view in views)
-        {
-            if (!ReferenceEquals(view, targetView))
-            {
-                view.Visibility = Visibility.Collapsed;
-                view.Opacity = 0;
-            }
+            ModuleHost.Opacity = 1;
+            ModuleHost.RenderTransform = Transform.Identity;
+            FocusCurrentView();
+            return;
         }
 
-        targetView.Visibility = Visibility.Visible;
-        targetView.Opacity = 0;
-
-        var transform = new TranslateTransform(16, 0);
-        targetView.RenderTransform = transform;
+        ModuleHost.Opacity = 0;
+        var transform = new TranslateTransform(14, 0);
+        ModuleHost.RenderTransform = transform;
 
         var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = TimeSpan.FromMilliseconds(145);
@@ -299,30 +329,140 @@ public partial class MainWindow : Window
             TranslateTransform.XProperty,
             new DoubleAnimation(0, duration) { EasingFunction = easing });
 
-        targetView.BeginAnimation(
+        ModuleHost.BeginAnimation(
             OpacityProperty,
             new DoubleAnimation(1, duration) { EasingFunction = easing });
+
+        FocusCurrentView();
     }
 
-    private void UpdateNavigationState(Button selectedButton)
+    private void FocusCurrentView()
     {
-        Button[] buttons =
-        [
-            AssistantNavButton,
-            AudioNavButton,
-            CaptureNavButton,
-            SystemNavButton
-        ];
-
-        foreach (var button in buttons)
+        if (_currentDestination == "Assistant")
         {
-            var isSelected = ReferenceEquals(button, selectedButton);
-            button.Background = isSelected
+            _assistantView.FocusPrompt();
+        }
+    }
+
+    private void UpdateNavigationState(string destination)
+    {
+        var buttons = new Dictionary<string, Button>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Assistant"] = AssistantNavButton,
+            ["Audio"] = AudioNavButton,
+            ["Capture"] = CaptureNavButton,
+            ["System"] = SystemNavButton
+        };
+
+        foreach (var pair in buttons)
+        {
+            var selected = pair.Key.Equals(destination, StringComparison.OrdinalIgnoreCase);
+            pair.Value.Background = selected
                 ? (Brush)FindResource("BrushAccentSoft")
                 : Brushes.Transparent;
-            button.Foreground = isSelected
+            pair.Value.Foreground = selected
                 ? (Brush)FindResource("BrushTextPrimary")
                 : (Brush)FindResource("BrushTextSecondary");
+        }
+
+        SettingsButton.Background = destination.Equals("Settings", StringComparison.OrdinalIgnoreCase)
+            ? (Brush)FindResource("BrushAccentSoft")
+            : (Brush)FindResource("BrushSurfaceRaised");
+    }
+
+    private void ApplyPreferences()
+    {
+        _preferences.Normalize();
+        Width = _preferences.Width;
+        ApplyShellOpacity();
+        ApplyAccent(_preferences.AccentColor);
+        ApplyModuleVisibility();
+    }
+
+    private void ApplyShellOpacity()
+    {
+        var baseColor = (Color)ColorConverter.ConvertFromString("#11131A");
+        var alpha = (byte)Math.Round(_preferences.Opacity * 255);
+        ShellBorder.Background = new SolidColorBrush(Color.FromArgb(
+            alpha,
+            baseColor.R,
+            baseColor.G,
+            baseColor.B));
+    }
+
+    private static void ApplyAccent(string accentHex)
+    {
+        try
+        {
+            var accent = (Color)ColorConverter.ConvertFromString(accentHex);
+            var soft = Color.FromArgb(255,
+                (byte)(accent.R * 0.24),
+                (byte)(accent.G * 0.22),
+                (byte)(accent.B * 0.34));
+
+            Application.Current.Resources["BrushAccent"] = new SolidColorBrush(accent);
+            Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush(soft);
+        }
+        catch (Exception exception) when (exception is FormatException or NotSupportedException)
+        {
+            Application.Current.Resources["BrushAccent"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8B6CFF"));
+            Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2748"));
+        }
+    }
+
+    private void ApplyModuleVisibility()
+    {
+        AudioNavButton.Visibility = _preferences.ShowAudioModule ? Visibility.Visible : Visibility.Collapsed;
+        CaptureNavButton.Visibility = _preferences.ShowCaptureModule ? Visibility.Visible : Visibility.Collapsed;
+        SystemNavButton.Visibility = _preferences.ShowSystemModule ? Visibility.Visible : Visibility.Collapsed;
+        UpdateNavigationColumns();
+    }
+
+    private void SetModuleVisibility(string module, bool visible)
+    {
+        switch (module)
+        {
+            case "Audio":
+                _preferences.ShowAudioModule = visible;
+                break;
+            case "Capture":
+                _preferences.ShowCaptureModule = visible;
+                break;
+            case "System":
+                _preferences.ShowSystemModule = visible;
+                break;
+        }
+
+        ApplyModuleVisibility();
+
+        if (!visible && _currentDestination.Equals(module, StringComparison.OrdinalIgnoreCase))
+        {
+            NavigateTo("Assistant", animate: true);
+        }
+    }
+
+    private void UpdateNavigationColumns()
+    {
+        var visibleCount = 1;
+        visibleCount += AudioNavButton.Visibility == Visibility.Visible ? 1 : 0;
+        visibleCount += CaptureNavButton.Visibility == Visibility.Visible ? 1 : 0;
+        visibleCount += SystemNavButton.Visibility == Visibility.Visible ? 1 : 0;
+        NavigationGrid.Columns = visibleCount;
+    }
+
+    private void SavePreferences()
+    {
+        try
+        {
+            _settingsStore.Save(_preferences);
+        }
+        catch (IOException)
+        {
+            _assistantView.AddNexoMessage("No se pudo guardar la configuración en este momento.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _assistantView.AddNexoMessage("Windows no permitió guardar la configuración.");
         }
     }
 

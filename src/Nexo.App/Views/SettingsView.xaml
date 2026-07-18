@@ -1,0 +1,93 @@
+<UserControl x:Class="Nexo.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,4,0">
+            <TextBlock Text="Personalización" Style="{StaticResource SectionTitleStyle}" />
+            <TextBlock Margin="0,4,0,18"
+                       Text="Los cambios se aplican al momento y se guardan en este equipo."
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <TextBlock Text="Posición" FontWeight="SemiBold" />
+            <Grid Margin="0,9,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="LeftButton" Margin="0,0,5,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Content="Izquierda" Click="LeftButton_Click" />
+                <Button x:Name="RightButton" Grid.Column="1" Margin="5,0,0,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Content="Derecha" Click="RightButton_Click" />
+            </Grid>
+
+            <Grid Margin="0,0,0,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Ancho" FontWeight="SemiBold" />
+                <TextBlock x:Name="WidthValueText" Grid.Column="1"
+                           Foreground="{DynamicResource BrushTextSecondary}" />
+                <Slider x:Name="WidthSlider" Grid.Row="1" Grid.ColumnSpan="2"
+                        Margin="0,8,0,0" Minimum="380" Maximum="520"
+                        TickFrequency="10" IsSnapToTickEnabled="True"
+                        ValueChanged="WidthSlider_ValueChanged"
+                        Style="{StaticResource NexoSliderStyle}" />
+            </Grid>
+
+            <Grid Margin="0,0,0,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Transparencia" FontWeight="SemiBold" />
+                <TextBlock x:Name="OpacityValueText" Grid.Column="1"
+                           Foreground="{DynamicResource BrushTextSecondary}" />
+                <Slider x:Name="OpacitySlider" Grid.Row="1" Grid.ColumnSpan="2"
+                        Margin="0,8,0,0" Minimum="0.82" Maximum="1"
+                        TickFrequency="0.02" IsSnapToTickEnabled="True"
+                        ValueChanged="OpacitySlider_ValueChanged"
+                        Style="{StaticResource NexoSliderStyle}" />
+            </Grid>
+
+            <TextBlock Text="Color de acento" FontWeight="SemiBold" />
+            <UniformGrid Columns="4" Margin="0,9,0,18">
+                <Button Margin="0,0,5,0" Height="36" Background="#8B6CFF"
+                        ToolTip="Violeta" Click="AccentButton_Click" Tag="#8B6CFF"
+                        Style="{StaticResource PrimaryButtonStyle}" />
+                <Button Margin="5,0" Height="36" Background="#4D8DFF"
+                        ToolTip="Azul" Click="AccentButton_Click" Tag="#4D8DFF"
+                        Style="{StaticResource PrimaryButtonStyle}" />
+                <Button Margin="5,0" Height="36" Background="#35C58A"
+                        ToolTip="Verde" Click="AccentButton_Click" Tag="#35C58A"
+                        Style="{StaticResource PrimaryButtonStyle}" />
+                <Button Margin="5,0,0,0" Height="36" Background="#F06CA8"
+                        ToolTip="Rosa" Click="AccentButton_Click" Tag="#F06CA8"
+                        Style="{StaticResource PrimaryButtonStyle}" />
+            </UniformGrid>
+
+            <CheckBox x:Name="AnimationsCheckBox"
+                      Content="Usar animaciones ligeras"
+                      Checked="AnimationsCheckBox_Changed"
+                      Unchecked="AnimationsCheckBox_Changed" />
+
+            <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
+            <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
+                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />
+            <CheckBox x:Name="CaptureModuleCheckBox" Margin="0,0,0,8" Content="Captura"
+                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Capture" />
+            <CheckBox x:Name="SystemModuleCheckBox" Content="Sistema"
+                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="System" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

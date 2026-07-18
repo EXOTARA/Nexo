@@ -1,0 +1,46 @@
+<UserControl x:Class="Nexo.App.Views.SystemView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Sistema" Style="{StaticResource SectionTitleStyle}" />
+            <TextBlock Margin="0,4,0,0"
+                       Text="Información útil y acciones reversibles, sin optimizaciones engañosas."
+                       Style="{StaticResource MutedTextStyle}" />
+        </StackPanel>
+
+        <UniformGrid Grid.Row="1" Columns="3" Margin="0,18,0,12">
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,5,0">
+                <StackPanel>
+                    <TextBlock Text="CPU" Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock Text="—" FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="5,0">
+                <StackPanel>
+                    <TextBlock Text="RAM" Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock Text="—" FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="5,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="GPU" Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock Text="—" FontSize="22" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="La lectura de métricas llegará en el siguiente bloque."
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

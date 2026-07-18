@@ -20,8 +20,8 @@
 
     <Border x:Name="ShellBorder"
             Margin="10"
-            Background="{StaticResource BrushBackground}"
-            BorderBrush="{StaticResource BrushBorder}"
+            Background="{DynamicResource BrushBackground}"
+            BorderBrush="{DynamicResource BrushBorder}"
             BorderThickness="1"
             CornerRadius="20"
             Opacity="0"
@@ -44,7 +44,6 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Encabezado -->
             <Grid Grid.Row="0" Margin="2,0,2,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -54,15 +53,15 @@
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="NEXO"
-                                   Foreground="{StaticResource BrushAccent}"
+                                   Foreground="{DynamicResource BrushAccent}"
                                    FontWeight="Bold"
                                    FontSize="13" />
                         <Border Margin="9,0,0,0"
                                 Padding="7,2"
-                                Background="{StaticResource BrushAccentSoft}"
+                                Background="{DynamicResource BrushAccentSoft}"
                                 CornerRadius="8">
                             <TextBlock Text="ALPHA"
-                                       Foreground="{StaticResource BrushTextSecondary}"
+                                       Foreground="{DynamicResource BrushTextSecondary}"
                                        FontSize="9"
                                        FontWeight="SemiBold" />
                         </Border>
@@ -71,12 +70,18 @@
                                Margin="0,5,0,0"
                                FontSize="30"
                                FontWeight="SemiBold" />
-                    <TextBlock x:Name="DateText"
-                               Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="DateText" Style="{StaticResource MutedTextStyle}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                    <Button Style="{StaticResource IconButtonStyle}"
+                    <Button x:Name="SettingsButton"
+                            Style="{StaticResource IconButtonStyle}"
+                            Content="⚙"
+                            FontFamily="Segoe UI Symbol"
+                            ToolTip="Personalización"
+                            Click="SettingsButton_Click" />
+                    <Button Margin="8,0,0,0"
+                            Style="{StaticResource IconButtonStyle}"
                             Content="—"
                             ToolTip="Ocultar"
                             Click="HideButton_Click" />
@@ -88,7 +93,6 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Estado rápido -->
             <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,14">
                 <Border Style="{StaticResource CardStyle}" Margin="0,0,6,0">
                     <StackPanel>
@@ -106,113 +110,30 @@
                     <StackPanel>
                         <TextBlock Text="ESTADO" Style="{StaticResource MutedTextStyle}" />
                         <TextBlock Text="Listo"
-                                   Foreground="{StaticResource BrushSuccess}"
+                                   Foreground="{DynamicResource BrushSuccess}"
                                    FontSize="18"
                                    FontWeight="SemiBold" />
                     </StackPanel>
                 </Border>
             </UniformGrid>
 
-            <!-- Área modular -->
             <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="16">
-                <Grid>
-                    <Grid x:Name="AssistantView">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <StackPanel>
-                            <TextBlock Text="¿Qué necesitas?"
-                                       FontSize="20"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Margin="0,4,0,0"
-                                       Text="Escribe una consulta o una orden local."
-                                       Style="{StaticResource MutedTextStyle}" />
-                        </StackPanel>
-
-                        <ScrollViewer x:Name="ConversationScroll"
-                                      Grid.Row="1"
-                                      Margin="0,16,0,14"
-                                      VerticalScrollBarVisibility="Auto">
-                            <StackPanel x:Name="ConversationPanel">
-                                <Border Background="{StaticResource BrushSurfaceRaised}"
-                                        CornerRadius="13"
-                                        Padding="12"
-                                        HorizontalAlignment="Left"
-                                        MaxWidth="310">
-                                    <TextBlock Text="Hola. Esta es la nueva base de Nexo. Por ahora puedo probar la interfaz y los comandos locales que iremos agregando."
-                                               TextWrapping="Wrap"
-                                               Foreground="{StaticResource BrushTextPrimary}" />
-                                </Border>
-                            </StackPanel>
-                        </ScrollViewer>
-
-                        <Grid Grid.Row="2">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="PromptBox"
-                                     Height="74"
-                                     AcceptsReturn="True"
-                                     Style="{StaticResource PromptTextBoxStyle}"
-                                     PreviewKeyDown="PromptBox_PreviewKeyDown" />
-                            <Button Grid.Column="1"
-                                    Margin="10,0,0,0"
-                                    Width="74"
-                                    Style="{StaticResource PrimaryButtonStyle}"
-                                    Content="Enviar"
-                                    Click="SendButton_Click" />
-                        </Grid>
-                    </Grid>
-
-                    <Grid x:Name="AudioView" Visibility="Collapsed" Opacity="0">
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            <TextBlock Margin="0,8,0,0"
-                                       Text="Aquí aparecerá el mezclador por aplicación."
-                                       Style="{StaticResource MutedTextStyle}" />
-                        </StackPanel>
-                    </Grid>
-
-                    <Grid x:Name="CaptureView" Visibility="Collapsed" Opacity="0">
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="Captura" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            <TextBlock Margin="0,8,0,0"
-                                       Text="Captura, edición y análisis con IA."
-                                       Style="{StaticResource MutedTextStyle}" />
-                        </StackPanel>
-                    </Grid>
-
-                    <Grid x:Name="SystemView" Visibility="Collapsed" Opacity="0">
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="Sistema" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            <TextBlock Margin="0,8,0,0"
-                                       Text="Métricas, procesos y perfiles reversibles."
-                                       Style="{StaticResource MutedTextStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </Grid>
+                <ContentControl x:Name="ModuleHost" />
             </Border>
 
-            <!-- Navegación -->
             <Border Grid.Row="3"
                     Margin="0,14,0,0"
-                    Background="{StaticResource BrushSurface}"
-                    BorderBrush="{StaticResource BrushBorder}"
+                    Background="{DynamicResource BrushSurface}"
+                    BorderBrush="{DynamicResource BrushBorder}"
                     BorderThickness="1"
                     CornerRadius="16"
                     Padding="6">
-                <UniformGrid Columns="4">
+                <UniformGrid x:Name="NavigationGrid" Columns="4">
                     <Button x:Name="AssistantNavButton"
                             Tag="Assistant"
                             Content="IA"
                             Click="NavigationButton_Click"
-                            Style="{StaticResource NavButtonStyle}"
-                            Background="{StaticResource BrushAccentSoft}"
-                            Foreground="{StaticResource BrushTextPrimary}" />
+                            Style="{StaticResource NavButtonStyle}" />
                     <Button x:Name="AudioNavButton"
                             Tag="Audio"
                             Content="Audio"
