@@ -19,6 +19,10 @@ public partial class AssistantView : UserControl
     public event EventHandler<PromptSubmittedEventArgs>? PromptSubmitted;
     public event EventHandler? ConversationChanged;
     public event EventHandler? ConversationCleared;
+    public event EventHandler? VoiceInputStarted;
+    public event EventHandler? VoiceInputStopped;
+
+    private bool _voiceInputActive;
 
     public AssistantView()
     {
@@ -53,6 +57,44 @@ public partial class AssistantView : UserControl
             PromptBox.Focus();
             Keyboard.Focus(PromptBox);
         }, DispatcherPriority.Input);
+    }
+
+    public void SetVoiceState(AssistantVoiceState state, string? detail = null)
+    {
+        if (MicButton is null || VoiceStatusText is null)
+        {
+            return;
+        }
+
+        switch (state)
+        {
+            case AssistantVoiceState.Listening:
+                MicButton.Content = "Suelta";
+                MicButton.Background = (Brush)FindResource("BrushAccentSoft");
+                VoiceStatusText.Text = detail ?? "Escuchando… suelta Mic cuando termines.";
+                break;
+
+            case AssistantVoiceState.Processing:
+                MicButton.Content = "…";
+                MicButton.IsEnabled = false;
+                VoiceStatusText.Text = detail ?? "Convirtiendo tu voz en una orden…";
+                break;
+
+            case AssistantVoiceState.Error:
+                MicButton.Content = "Mic";
+                MicButton.IsEnabled = true;
+                MicButton.ClearValue(BackgroundProperty);
+                VoiceStatusText.Text = detail ?? "No pude usar el micrófono.";
+                break;
+
+            default:
+                MicButton.Content = "Mic";
+                MicButton.IsEnabled = true;
+                MicButton.ClearValue(BackgroundProperty);
+                VoiceStatusText.Text = detail ??
+                    "El micrófono solo se activa mientras mantienes presionado Mic.";
+                break;
+        }
     }
 
     public void AddUserMessage(string text)
@@ -127,6 +169,73 @@ public partial class AssistantView : UserControl
             DispatcherPriority.Background);
     }
 
+    private void MicButton_PreviewMouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        BeginVoiceInput();
+        e.Handled = true;
+    }
+
+    private void MicButton_PreviewMouseLeftButtonUp(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        EndVoiceInput();
+        e.Handled = true;
+    }
+
+    private void MicButton_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        EndVoiceInput();
+    }
+
+    private void MicButton_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space)
+        {
+            BeginVoiceInput();
+            e.Handled = true;
+        }
+    }
+
+    private void MicButton_PreviewKeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space)
+        {
+            EndVoiceInput();
+            e.Handled = true;
+        }
+    }
+
+    private void BeginVoiceInput()
+    {
+        if (_voiceInputActive || MicButton.IsEnabled == false)
+        {
+            return;
+        }
+
+        _voiceInputActive = true;
+        MicButton.CaptureMouse();
+        VoiceInputStarted?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void EndVoiceInput()
+    {
+        if (!_voiceInputActive)
+        {
+            return;
+        }
+
+        _voiceInputActive = false;
+        if (MicButton.IsMouseCaptured)
+        {
+            MicButton.ReleaseMouseCapture();
+        }
+
+        VoiceInputStopped?.Invoke(this, EventArgs.Empty);
+    }
+
     private void PromptBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Shift) == 0)
@@ -183,6 +292,14 @@ public partial class AssistantView : UserControl
             }
         };
     }
+}
+
+public enum AssistantVoiceState
+{
+    Idle,
+    Listening,
+    Processing,
+    Error
 }
 
 public sealed class PromptSubmittedEventArgs : EventArgs

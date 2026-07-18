@@ -111,6 +111,16 @@
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
+            <TextBlock Margin="0,20,0,9" Text="Voz" FontWeight="SemiBold" />
+            <CheckBox x:Name="SpeakVoiceResponsesCheckBox"
+                      Content="Leer en voz alta las confirmaciones de voz"
+                      Checked="SpeakVoiceResponsesCheckBox_Changed"
+                      Unchecked="SpeakVoiceResponsesCheckBox_Changed" />
+            <TextBlock Margin="24,6,0,0"
+                       Text="El micrófono se activa solo mientras mantienes presionado Mic. No hay escucha permanente en esta versión."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
             <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
                       Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />
