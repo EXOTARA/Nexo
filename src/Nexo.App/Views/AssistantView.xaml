@@ -8,27 +8,34 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock Text="¿Qué necesitas?" Style="{StaticResource SectionTitleStyle}" />
-            <TextBlock Margin="0,4,0,0"
-                       Text="Escribe una consulta o una orden local."
-                       Style="{StaticResource MutedTextStyle}" />
-        </StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock Text="¿Qué necesitas?" Style="{StaticResource SectionTitleStyle}" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="Escribe una consulta o una orden local."
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+
+            <Button Grid.Column="1"
+                    Margin="10,0,0,0"
+                    Padding="10,6"
+                    VerticalAlignment="Top"
+                    Content="Limpiar"
+                    ToolTip="Vaciar la conversación visible"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Click="ClearConversationButton_Click" />
+        </Grid>
 
         <ScrollViewer x:Name="ConversationScroll"
                       Grid.Row="1"
                       Margin="0,16,0,14"
                       VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="ConversationPanel">
-                <Border Background="{DynamicResource BrushSurfaceRaised}"
-                        CornerRadius="13"
-                        Padding="12"
-                        HorizontalAlignment="Left"
-                        MaxWidth="310">
-                    <TextBlock Text="Hola. La interfaz ya está separada en módulos. En los siguientes sprints conectaremos comandos, audio e IA."
-                               TextWrapping="Wrap" />
-                </Border>
-            </StackPanel>
+            <StackPanel x:Name="ConversationPanel" />
         </ScrollViewer>
 
         <Grid Grid.Row="2">

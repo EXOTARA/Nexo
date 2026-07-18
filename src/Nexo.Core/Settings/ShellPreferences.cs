@@ -37,6 +37,10 @@ public sealed class ShellPreferences
 
     public bool ShowTopProcessInPeek { get; set; } = true;
 
+    public bool SaveConversationHistory { get; set; }
+
+    public int RecentConversationMessageLimit { get; set; } = 8;
+
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -46,8 +50,15 @@ public sealed class ShellPreferences
             SchemaVersion = 2;
         }
 
+        if (SchemaVersion < 3)
+        {
+            RecentConversationMessageLimit = 8;
+            SchemaVersion = 3;
+        }
+
         Width = Math.Clamp(Width, 380, 520);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
+        RecentConversationMessageLimit = Math.Clamp(RecentConversationMessageLimit, 4, 30);
 
         if (string.IsNullOrWhiteSpace(AccentColor))
         {

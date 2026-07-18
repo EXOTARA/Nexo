@@ -101,6 +101,16 @@
                       Content="Mostrar proceso con mayor uso de memoria"
                       Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="TopProcess" />
 
+            <TextBlock Margin="0,20,0,9" Text="Asistente" FontWeight="SemiBold" />
+            <CheckBox x:Name="SaveConversationHistoryCheckBox"
+                      Content="Guardar el historial de conversación"
+                      Checked="SaveConversationHistoryCheckBox_Changed"
+                      Unchecked="SaveConversationHistoryCheckBox_Changed" />
+            <TextBlock Margin="24,6,0,0"
+                       Text="Desactivado por defecto: Nexo conserva solo los 8 mensajes más recientes durante la sesión y los elimina al cerrar."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
             <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
                       Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />
