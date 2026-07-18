@@ -10,10 +10,12 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Nexo.App.Views;
+using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Metrics;
 using Nexo.Core.Settings;
 using Nexo.Windows.Assistant;
+using Nexo.Windows.Audio;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Settings;
 
@@ -33,10 +35,11 @@ public partial class MainWindow : Window
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly JsonConversationStore _conversationStore = new();
     private readonly NaturalCommandParser _commandParser = new();
+    private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly ShellPreferences _preferences;
     private readonly AssistantView _assistantView = new();
-    private readonly AudioView _audioView = new();
+    private readonly AudioView _audioView;
     private readonly CaptureView _captureView = new();
     private readonly SystemView _systemView = new();
     private readonly SettingsView _settingsView = new();
@@ -57,6 +60,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _preferences = _settingsStore.Load();
+        _audioView = new AudioView(_audioMixerService);
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
             ["Assistant"] = _assistantView,
@@ -69,6 +73,7 @@ public partial class MainWindow : Window
         _assistantView.PromptSubmitted += AssistantView_PromptSubmitted;
         _assistantView.ConversationChanged += AssistantView_ConversationChanged;
         _assistantView.ConversationCleared += AssistantView_ConversationCleared;
+        _audioView.ActionCompleted += AudioView_ActionCompleted;
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -469,7 +474,7 @@ public partial class MainWindow : Window
             case LocalCommandType.MuteApplication:
             case LocalCommandType.UnmuteApplication:
             case LocalCommandType.LowerAllExcept:
-                ShowPendingAudioCommand(intent);
+                await ExecuteAudioCommandAsync(intent);
                 break;
 
             default:
@@ -543,26 +548,71 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ShowPendingAudioCommand(LocalCommandIntent intent)
+    private async Task ExecuteAudioCommandAsync(LocalCommandIntent intent)
     {
-        var target = string.IsNullOrWhiteSpace(intent.Target) ? "la aplicación" : ToDisplayName(intent.Target);
-        var detail = intent.Type switch
+        var result = await Task.Run(() => intent.Type switch
         {
-            LocalCommandType.SetApplicationVolume => $"{target} al {intent.Percent:0}%",
-            LocalCommandType.ScaleApplicationVolume => $"{target} a la mitad de su volumen actual",
-            LocalCommandType.ChangeApplicationVolume => $"subir {target} {intent.DeltaPoints:0} puntos",
-            LocalCommandType.MuteApplication => $"silenciar {target}",
-            LocalCommandType.UnmuteApplication => $"quitar el silencio de {target}",
-            LocalCommandType.LowerAllExcept => $"bajar todo excepto {target}",
-            _ => "ajustar una sesión de audio"
+            LocalCommandType.SetApplicationVolume =>
+                _audioMixerService.SetApplicationVolume(
+                    intent.Target ?? string.Empty,
+                    intent.Percent.GetValueOrDefault()),
+
+            LocalCommandType.ScaleApplicationVolume =>
+                _audioMixerService.ScaleApplicationVolume(
+                    intent.Target ?? string.Empty,
+                    intent.Factor.GetValueOrDefault(0.5)),
+
+            LocalCommandType.ChangeApplicationVolume =>
+                _audioMixerService.ChangeApplicationVolume(
+                    intent.Target ?? string.Empty,
+                    intent.DeltaPoints.GetValueOrDefault()),
+
+            LocalCommandType.MuteApplication =>
+                _audioMixerService.SetApplicationMuted(
+                    intent.Target ?? string.Empty,
+                    muted: true),
+
+            LocalCommandType.UnmuteApplication =>
+                _audioMixerService.SetApplicationMuted(
+                    intent.Target ?? string.Empty,
+                    muted: false),
+
+            LocalCommandType.LowerAllExcept =>
+                _audioMixerService.LowerAllExcept(
+                    intent.Target ?? string.Empty,
+                    intent.Factor.GetValueOrDefault(0.5)),
+
+            _ => AudioActionResult.Failed("La orden de audio no tiene una acción asociada.")
+        });
+
+        PresentAudioResult(result, addToConversation: true);
+        await _audioView.RefreshAsync(force: true);
+    }
+
+    private void AudioView_ActionCompleted(object? sender, AudioActionEventArgs e)
+    {
+        PresentAudioResult(e.Result, addToConversation: false);
+    }
+
+    private void PresentAudioResult(AudioActionResult result, bool addToConversation)
+    {
+        if (addToConversation)
+        {
+            _assistantView.AddNexoMessage(result.Detail);
+        }
+
+        var capsuleKind = result.Status switch
+        {
+            AudioActionStatus.Success => CapsuleKind.Success,
+            AudioActionStatus.NotFound => CapsuleKind.Warning,
+            AudioActionStatus.Unavailable => CapsuleKind.Warning,
+            _ => CapsuleKind.Error
         };
 
-        _assistantView.AddNexoMessage(
-            $"Reconocí la orden para {detail}. El mezclador por aplicación se conectará en el siguiente bloque.");
         _capsuleWindow.ShowMessage(
-            CapsuleKind.Warning,
-            "Comando de audio reconocido",
-            detail,
+            capsuleKind,
+            result.Title,
+            result.Detail,
             _preferences.Position);
     }
 
