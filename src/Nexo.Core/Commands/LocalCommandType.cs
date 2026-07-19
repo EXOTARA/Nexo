@@ -5,6 +5,8 @@ public enum LocalCommandType
     None,
     ShowPeek,
     ShowSystemStatus,
+    ShowCurrentDate,
+    ShowCurrentTime,
     NavigateAssistant,
     NavigateAudio,
     NavigateCapture,

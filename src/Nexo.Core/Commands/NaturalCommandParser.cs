@@ -42,6 +42,26 @@ public sealed partial class NaturalCommandParser
         }
 
         if (Matches(normalized,
+                "que dia es hoy",
+                "que fecha es hoy",
+                "dime la fecha",
+                "dime que dia es",
+                "fecha de hoy",
+                "dia de hoy"))
+        {
+            return Local(original, normalized, LocalCommandType.ShowCurrentDate);
+        }
+
+        if (Matches(normalized,
+                "que hora es",
+                "dime la hora",
+                "hora actual",
+                "que hora tenemos"))
+        {
+            return Local(original, normalized, LocalCommandType.ShowCurrentTime);
+        }
+
+        if (Matches(normalized,
                 "como esta mi pc",
                 "como esta mi computadora",
                 "como anda mi pc",
