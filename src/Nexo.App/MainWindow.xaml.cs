@@ -14,6 +14,7 @@ using Nexo.App.Views;
 using Nexo.Core.Ai;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
+using Nexo.Core.Focus;
 using Nexo.Core.Metrics;
 using Nexo.Core.Settings;
 using Nexo.Core.Tasks;
@@ -22,11 +23,13 @@ using Nexo.Core.Vision;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
+using Nexo.Windows.Focus;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Tasks;
 using Nexo.Windows.Voice;
 using Nexo.Windows.Vision;
+using NexoFocusManager = Nexo.Core.Focus.FocusManager;
 
 namespace Nexo.App;
 
@@ -42,10 +45,12 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _metricsTimer;
     private readonly DispatcherTimer _taskReminderTimer;
+    private readonly DispatcherTimer _focusTickTimer;
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly JsonConversationStore _conversationStore = new();
     private readonly NaturalCommandParser _commandParser = new();
     private readonly SpanishTaskCommandParser _taskCommandParser = new();
+    private readonly SpanishFocusCommandParser _focusCommandParser = new();
     private readonly IAiChatService _aiChatService = new AiChatRouterService();
     private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
     private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
@@ -60,8 +65,11 @@ public partial class MainWindow : Window
     private readonly ShellPreferences _preferences;
     private readonly JsonTaskStore _taskStore = new();
     private readonly TaskManager _taskManager;
+    private readonly JsonFocusStore _focusStore = new();
+    private readonly NexoFocusManager _focusManager;
     private readonly AssistantView _assistantView = new();
     private readonly TasksView _tasksView;
+    private readonly FocusView _focusView;
     private readonly AudioView _audioView;
     private readonly CaptureView _captureView = new();
     private readonly SystemView _systemView = new();
@@ -89,12 +97,16 @@ public partial class MainWindow : Window
         _preferences = _settingsStore.Load();
         _taskManager = new TaskManager(_taskStore);
         _taskManager.Load();
+        _focusManager = new NexoFocusManager(_focusStore);
+        _focusManager.Load();
         _tasksView = new TasksView(_taskManager);
+        _focusView = new FocusView(_focusManager);
         _audioView = new AudioView(_audioMixerService);
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
             ["Assistant"] = _assistantView,
             ["Tasks"] = _tasksView,
+            ["Focus"] = _focusView,
             ["Audio"] = _audioView,
             ["Capture"] = _captureView,
             ["System"] = _systemView,
@@ -109,6 +121,7 @@ public partial class MainWindow : Window
         _assistantView.VisionCaptureRequested += AssistantView_VisionCaptureRequested;
         _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
         _tasksView.TasksChanged += TasksView_TasksChanged;
+        _focusView.FocusChanged += FocusView_FocusChanged;
         _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _assistantView.ConfigureHistory(
@@ -145,6 +158,12 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(15)
         };
         _taskReminderTimer.Tick += (_, _) => CheckTaskReminders();
+
+        _focusTickTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _focusTickTimer.Tick += (_, _) => CheckFocusTimer();
     }
 
     private void WireSettingsEvents()
@@ -326,7 +345,9 @@ public partial class MainWindow : Window
         SetMetricsCadence(isShellVisible: true);
         _metricsTimer.Start();
         _taskReminderTimer.Start();
+        _focusTickTimer.Start();
         CheckTaskReminders();
+        CheckFocusTimer();
         ShowAnimated();
         await RefreshMetricsAsync();
         _ = InitializeVoiceFeaturesAsync();
@@ -338,6 +359,7 @@ public partial class MainWindow : Window
         _clockTimer.Stop();
         _metricsTimer.Stop();
         _taskReminderTimer.Stop();
+        _focusTickTimer.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
 
@@ -565,6 +587,13 @@ public partial class MainWindow : Window
                 _preferences.Position);
 
             await Task.Yield();
+
+            var focusCommand = _focusCommandParser.Parse(prompt);
+            if (focusCommand.Type != FocusCommandType.None)
+            {
+                await ExecuteFocusCommandAsync(focusCommand);
+                return;
+            }
 
             var taskCommand = _taskCommandParser.Parse(prompt, DateTimeOffset.Now);
             if (taskCommand.Type != TaskCommandType.None)
@@ -1474,6 +1503,107 @@ public partial class MainWindow : Window
             : "Voz pausada";
     }
 
+    private void FocusView_FocusChanged(object? sender, EventArgs e)
+    {
+        CheckFocusTimer();
+    }
+
+    private void CheckFocusTimer()
+    {
+        var now = DateTimeOffset.Now;
+        var completion = _focusManager.CollectCompletion(now);
+        _focusView.Refresh(now);
+
+        if (completion is null)
+        {
+            return;
+        }
+
+        var detail = completion.Kind == FocusSessionKind.Break
+            ? "Tu descanso terminó."
+            : $"Terminaste {completion.Label.ToLowerInvariant()}.";
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            completion.Kind == FocusSessionKind.Break ? "Descanso terminado" : "Sesión completada",
+            detail,
+            _preferences.Position,
+            TimeSpan.FromSeconds(8));
+        SpeakVoiceResult(detail);
+    }
+
+    private Task ExecuteFocusCommandAsync(FocusCommand command)
+    {
+        FocusOperationResult? operation = null;
+        string response;
+        CapsuleKind capsuleKind;
+        string capsuleTitle;
+
+        switch (command.Type)
+        {
+            case FocusCommandType.OpenFocus:
+                ShowAnimated();
+                NavigateTo("Focus", animate: true);
+                response = "Abrí el módulo de enfoque.";
+                capsuleTitle = "Enfoque abierto";
+                capsuleKind = CapsuleKind.Success;
+                break;
+
+            case FocusCommandType.Start when command.Duration.HasValue:
+                operation = _focusManager.Start(
+                    command.Duration.Value,
+                    command.Label,
+                    command.Kind,
+                    DateTimeOffset.Now);
+                response = operation.Message;
+                capsuleTitle = operation.Success ? "Temporizador iniciado" : "No pude iniciar";
+                capsuleKind = operation.Success ? CapsuleKind.Success : CapsuleKind.Warning;
+                break;
+
+            case FocusCommandType.Pause:
+                operation = _focusManager.Pause(DateTimeOffset.Now);
+                response = operation.Message;
+                capsuleTitle = operation.Success ? "Temporizador en pausa" : "No pude pausar";
+                capsuleKind = operation.Success ? CapsuleKind.Information : CapsuleKind.Warning;
+                break;
+
+            case FocusCommandType.Resume:
+                operation = _focusManager.Resume(DateTimeOffset.Now);
+                response = operation.Message;
+                capsuleTitle = operation.Success ? "Temporizador reanudado" : "No pude continuar";
+                capsuleKind = operation.Success ? CapsuleKind.Success : CapsuleKind.Warning;
+                break;
+
+            case FocusCommandType.Cancel:
+                operation = _focusManager.Cancel();
+                response = operation.Message;
+                capsuleTitle = operation.Success ? "Temporizador cancelado" : "Nada que cancelar";
+                capsuleKind = operation.Success ? CapsuleKind.Information : CapsuleKind.Warning;
+                break;
+
+            case FocusCommandType.Status:
+                response = _focusManager.BuildStatus(DateTimeOffset.Now);
+                capsuleTitle = "Estado del temporizador";
+                capsuleKind = CapsuleKind.Information;
+                break;
+
+            default:
+                response = "No pude interpretar esa instrucción de enfoque.";
+                capsuleTitle = "Instrucción incompleta";
+                capsuleKind = CapsuleKind.Warning;
+                break;
+        }
+
+        _focusView.Refresh(DateTimeOffset.Now);
+        _assistantView.AddNexoMessage(response);
+        _capsuleWindow.ShowMessage(
+            capsuleKind,
+            capsuleTitle,
+            response,
+            _preferences.Position);
+        SpeakVoiceResult(response);
+        return Task.CompletedTask;
+    }
+
     private void TasksView_TasksChanged(object? sender, EventArgs e)
     {
         CheckTaskReminders();
@@ -1943,6 +2073,10 @@ public partial class MainWindow : Window
         {
             _tasksView.FocusPrimaryControl();
         }
+        else if (_currentDestination == "Focus")
+        {
+            _focusView.FocusPrimaryControl();
+        }
     }
 
     private void UpdateNavigationState(string destination)
@@ -1951,6 +2085,7 @@ public partial class MainWindow : Window
         {
             ["Assistant"] = AssistantNavButton,
             ["Tasks"] = TasksNavButton,
+            ["Focus"] = FocusNavButton,
             ["Audio"] = AudioNavButton,
             ["Capture"] = CaptureNavButton,
             ["System"] = SystemNavButton
@@ -2078,7 +2213,7 @@ public partial class MainWindow : Window
 
     private void UpdateNavigationColumns()
     {
-        var visibleCount = 2;
+        var visibleCount = 3;
         visibleCount += AudioNavButton.Visibility == Visibility.Visible ? 1 : 0;
         visibleCount += CaptureNavButton.Visibility == Visibility.Visible ? 1 : 0;
         visibleCount += SystemNavButton.Visibility == Visibility.Visible ? 1 : 0;

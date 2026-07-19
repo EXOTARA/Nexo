@@ -56,6 +56,12 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Recordatorios locales mediante cápsulas mientras Nexo está ejecutándose.
 - Persistencia privada de tareas en `%LocalAppData%\Nexo\tasks.json`.
 - Órdenes locales para crear, consultar, completar y eliminar actividades sin llamar al LLM.
+- Módulo **Enfoque** con temporizadores persistentes y actualización en tiempo real.
+- Presets de 25 y 50 minutos, descansos de 5 y 10 minutos y duración personalizada.
+- Pausa, reanudación, cancelación y recuperación de sesiones al volver a abrir Nexo.
+- Resumen diario de sesiones completadas y minutos enfocados.
+- Órdenes locales para iniciar y controlar temporizadores sin usar el LLM.
+- Persistencia privada del estado de enfoque en `%LocalAppData%\Nexo\focus.json`.
 
 ### Cambiado
 
@@ -70,7 +76,7 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 ### Pendiente
 
 - Notificaciones nativas de Windows para recordatorios aunque la barra esté oculta.
-- Temporizadores, sesiones de enfoque y rutinas.
+- Rutinas configurables para preparar entornos de estudio, programación y descanso.
 - OCR y copia de texto desde capturas.
 - Difuminado manual de información sensible.
 - Calibración guiada del micrófono.
