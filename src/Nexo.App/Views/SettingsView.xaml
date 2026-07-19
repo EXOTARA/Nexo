@@ -180,6 +180,16 @@
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
+            <CheckBox x:Name="VisionEnabledCheckBox"
+                      Margin="0,12,0,0"
+                      Content="Permitir capturas bajo demanda con Nexo Vision"
+                      Checked="VisionEnabledCheckBox_Changed"
+                      Unchecked="VisionEnabledCheckBox_Changed" />
+            <TextBlock Margin="24,6,0,0"
+                       Text="Nexo solo captura después de que eliges una ventana o monitor y confirmas la vista previa. La imagen no se guarda en el historial."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <Button x:Name="AiTestConnectionButton"
                     Margin="0,12,0,0"
                     HorizontalAlignment="Left"

@@ -1,8 +1,10 @@
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Nexo.Core.Assistant;
 
@@ -27,6 +29,8 @@ public partial class AssistantView : UserControl
     public event EventHandler? ConversationCleared;
     public event EventHandler? VoiceInputStarted;
     public event EventHandler? VoiceInputStopped;
+    public event EventHandler? VisionCaptureRequested;
+    public event EventHandler? VisionAttachmentCleared;
 
     private bool _voiceInputActive;
     private bool _voiceAvailable;
@@ -72,6 +76,49 @@ public partial class AssistantView : UserControl
         if (AiProviderStatusText is not null)
         {
             AiProviderStatusText.Text = detail;
+        }
+    }
+
+    public bool HasVisionAttachment =>
+        VisionAttachmentPanel is not null &&
+        VisionAttachmentPanel.Visibility == Visibility.Visible;
+
+    public void SetVisionAvailability(bool available)
+    {
+        if (VisionButton is not null)
+        {
+            VisionButton.IsEnabled = available;
+            VisionButton.ToolTip = available
+                ? "Capturar una ventana o monitor para preguntarle a Nexo"
+                : "Nexo Vision está desactivado en Personalización";
+        }
+    }
+
+    public void SetVisionAttachment(string sourceTitle, byte[] pngBytes)
+    {
+        ArgumentNullException.ThrowIfNull(pngBytes);
+
+        VisionPreviewImage.Source = LoadBitmap(pngBytes);
+        VisionSourceTitleText.Text = sourceTitle;
+        VisionAttachmentPanel.Visibility = Visibility.Visible;
+        FocusPrompt();
+    }
+
+    public void ClearVisionAttachment()
+    {
+        if (VisionPreviewImage is not null)
+        {
+            VisionPreviewImage.Source = null;
+        }
+
+        if (VisionSourceTitleText is not null)
+        {
+            VisionSourceTitleText.Text = string.Empty;
+        }
+
+        if (VisionAttachmentPanel is not null)
+        {
+            VisionAttachmentPanel.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -302,6 +349,17 @@ public partial class AssistantView : UserControl
         _streamingHasContent = false;
     }
 
+    private void VisionButton_Click(object sender, RoutedEventArgs e)
+    {
+        VisionCaptureRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void DiscardVisionButton_Click(object sender, RoutedEventArgs e)
+    {
+        ClearVisionAttachment();
+        VisionAttachmentCleared?.Invoke(this, EventArgs.Empty);
+    }
+
     private void MicButton_PreviewMouseLeftButtonDown(
         object sender,
         MouseButtonEventArgs e)
@@ -387,6 +445,11 @@ public partial class AssistantView : UserControl
     {
         CancelNexoStreamingMessage();
         _messages.Clear();
+        if (HasVisionAttachment)
+        {
+            ClearVisionAttachment();
+            VisionAttachmentCleared?.Invoke(this, EventArgs.Empty);
+        }
         RenderConversation();
         ConversationCleared?.Invoke(this, EventArgs.Empty);
         FocusPrompt();
@@ -395,6 +458,11 @@ public partial class AssistantView : UserControl
     private void SubmitPrompt()
     {
         var prompt = PromptBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(prompt) && HasVisionAttachment)
+        {
+            prompt = "Describe lo importante de esta captura y señala cualquier error visible.";
+        }
+
         if (string.IsNullOrWhiteSpace(prompt))
         {
             return;
@@ -403,6 +471,18 @@ public partial class AssistantView : UserControl
         PromptBox.Clear();
         PromptSubmitted?.Invoke(this, new PromptSubmittedEventArgs(prompt));
         FocusPrompt();
+    }
+
+    private static BitmapImage LoadBitmap(byte[] data)
+    {
+        using var stream = new MemoryStream(data, writable: false);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 
     private static Border CreateMessageBubble(

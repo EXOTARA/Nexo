@@ -1,0 +1,37 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Media.Imaging;
+
+namespace Nexo.App;
+
+public partial class VisionPreviewWindow : Window
+{
+    public VisionPreviewWindow(string sourceTitle, byte[] pngBytes)
+    {
+        InitializeComponent();
+        SourceTitleText.Text = sourceTitle;
+        PreviewImage.Source = LoadBitmap(pngBytes);
+    }
+
+    private void UseButton_Click(object sender, RoutedEventArgs e)
+    {
+        DialogResult = true;
+    }
+
+    private void DiscardButton_Click(object sender, RoutedEventArgs e)
+    {
+        DialogResult = false;
+    }
+
+    private static BitmapImage LoadBitmap(byte[] data)
+    {
+        using var stream = new MemoryStream(data, writable: false);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
+    }
+}

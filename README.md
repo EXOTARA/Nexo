@@ -26,10 +26,17 @@ Actualmente incluye:
 - Contexto de métricas opcional y desactivado de forma predeterminada.
 - Respuestas de IA mostradas progresivamente mientras se generan.
 - Fecha y hora resueltas localmente sin gastar tokens ni esperar al modelo.
+- Nexo Vision bajo demanda para capturar una ventana o monitor, revisar una vista previa y hacer preguntas sobre la imagen.
+- Compatibilidad visual con modelos multimodales mediante el formato compatible con OpenAI.
+- Integración nativa con Ollama mediante `/api/chat`, con streaming, `keep_alive` y control explícito del modo de pensamiento.
+- Diagnóstico visual técnico en dos etapas: primero extrae evidencia estructurada y después propone una corrección verificable.
+- Reintento automático cuando una respuesta visual es demasiado genérica o evade el problema.
 
 La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. Después de una transcripción, Whisper puede permanecer hasta cinco minutos en memoria para acelerar órdenes consecutivas y luego se libera.
 
 La activación por frase es experimental y permanece apagada de forma predeterminada. Al habilitarla, Nexo descarga el modelo español pequeño de Vosk y mantiene un indicador visible mientras está atento. Un búfer previo conserva el inicio del audio para poder decir `Nexo, abre PowerShell` de corrido, aunque también puedes esperar la cápsula **Te escucho**.
+
+Nexo Vision solo captura cuando el usuario pulsa **Mirar** o usa una orden como `Nexo, mira esto`. Antes de compartir la imagen se elige una ventana o monitor y se revisa una vista previa. Los gestores de contraseñas y ventanas de seguridad se excluyen de la lista, la imagen no entra al historial y se elimina de la sesión después de una respuesta correcta o al descartarla.
 
 Las órdenes conocidas se ejecutan localmente antes de consultar una IA. Las consultas abiertas pueden enviarse al proveedor configurado y se muestran conforme llegan. Nexo no guarda claves dentro del repositorio ni en `settings.json`: para OpenAI lee `OPENAI_API_KEY` desde las variables de entorno. Compartir CPU, RAM, GPU y el proceso principal con la IA es una opción separada y apagada por defecto; incluso al activarla, las métricas solo se adjuntan cuando la consulta trata del equipo.
 
@@ -54,4 +61,7 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 - Diccionario personal de correcciones de voz.
 - Perfiles de voz rápido y equilibrado.
 - Respaldo semántico de IA para órdenes ambiguas mediante acciones permitidas.
-- Herramientas de captura y OCR.
+- Selección manual de una región para ampliar errores pequeños.
+- OCR y copia de texto desde capturas.
+- Difuminado manual de zonas sensibles.
+- Tareas, recordatorios, temporizadores y rutinas.

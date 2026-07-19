@@ -17,12 +17,14 @@ using Nexo.Core.Commands;
 using Nexo.Core.Metrics;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
+using Nexo.Core.Vision;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Voice;
+using Nexo.Windows.Vision;
 
 namespace Nexo.App;
 
@@ -40,11 +42,12 @@ public partial class MainWindow : Window
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly JsonConversationStore _conversationStore = new();
     private readonly NaturalCommandParser _commandParser = new();
-    private readonly IAiChatService _aiChatService = new OpenAiCompatibleChatService();
+    private readonly IAiChatService _aiChatService = new AiChatRouterService();
     private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
     private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
     private readonly IVoiceOutputService _voiceOutputService = new WindowsTextToSpeechService();
     private readonly IWakeWordService _wakeWordService = new VoskWakeWordService();
+    private readonly IScreenCaptureService _screenCaptureService = new WindowsScreenCaptureService();
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
     private readonly SemaphoreSlim _aiGate = new(1, 1);
@@ -69,6 +72,8 @@ public partial class MainWindow : Window
     private string _previousDestination = "Assistant";
     private bool _voicePromptActive;
     private string? _pendingVoicePrompt;
+    private AiImageAttachment? _pendingVisionAttachment;
+    private long _lastExternalWindowHandle;
 
     public MainWindow()
     {
@@ -90,6 +95,8 @@ public partial class MainWindow : Window
         _assistantView.ConversationCleared += AssistantView_ConversationCleared;
         _assistantView.VoiceInputStarted += AssistantView_VoiceInputStarted;
         _assistantView.VoiceInputStopped += AssistantView_VoiceInputStopped;
+        _assistantView.VisionCaptureRequested += AssistantView_VisionCaptureRequested;
+        _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
         _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _assistantView.ConfigureHistory(
@@ -105,6 +112,7 @@ public partial class MainWindow : Window
         _settingsView.ApplyPreferences(_preferences);
         UpdateAiProviderStatus();
         ApplyPreferences();
+        _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
         NavigateTo("Assistant", animate: false);
 
@@ -260,6 +268,17 @@ public partial class MainWindow : Window
             SavePreferences();
         };
 
+        _settingsView.VisionEnabledChanged += enabled =>
+        {
+            _preferences.VisionEnabled = enabled;
+            _assistantView.SetVisionAvailability(enabled);
+            if (!enabled)
+            {
+                ClearPendingVisionAttachment();
+            }
+            SavePreferences();
+        };
+
         _settingsView.AiTestConnectionRequested += async (_, _) =>
             await TestAiConnectionAsync();
     }
@@ -362,6 +381,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        RememberForegroundWindow();
         ShowAnimated();
     }
 
@@ -488,6 +508,16 @@ public partial class MainWindow : Window
         _conversationStore.Clear();
     }
 
+    private async void AssistantView_VisionCaptureRequested(object? sender, EventArgs e)
+    {
+        await CaptureForVisionAsync();
+    }
+
+    private void AssistantView_VisionAttachmentCleared(object? sender, EventArgs e)
+    {
+        _pendingVisionAttachment = null;
+    }
+
     private async void AssistantView_PromptSubmitted(
         object? sender,
         PromptSubmittedEventArgs e)
@@ -567,13 +597,28 @@ public partial class MainWindow : Window
                 systemContext = BuildAiSystemContext(_latestSnapshot);
             }
 
-            _assistantView.SetAiActivity("pensando…");
-            _assistantView.BeginNexoStreamingMessage("Pensando…");
+            var images = _pendingVisionAttachment is { } image
+                ? new[] { image }
+                : null;
+            var requestMode = VisionIntentPolicy.Resolve(
+                prompt,
+                images is { Length: > 0 });
+            var activity = requestMode == AiRequestMode.VisionTechnicalDiagnostic
+                ? "leyendo el error…"
+                : "pensando…";
+
+            _assistantView.SetAiActivity(activity);
+            _assistantView.BeginNexoStreamingMessage(
+                requestMode == AiRequestMode.VisionTechnicalDiagnostic
+                    ? "Analizando la evidencia visible…"
+                    : "Pensando…");
             streamingStarted = true;
 
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Processing,
-                $"Consultando {configuration.DisplayName}",
+                requestMode == AiRequestMode.VisionTechnicalDiagnostic
+                    ? "Diagnosticando captura"
+                    : $"Consultando {configuration.DisplayName}",
                 string.IsNullOrWhiteSpace(configuration.Model)
                     ? "Preparando la solicitud…"
                     : configuration.Model,
@@ -582,7 +627,9 @@ public partial class MainWindow : Window
             var request = new AiChatRequest(
                 _assistantView.GetConversationSnapshot(),
                 NexoAiInstructions.Default,
-                systemContext);
+                systemContext,
+                images,
+                requestMode);
 
             var receivedFirstChunk = false;
 
@@ -614,6 +661,8 @@ public partial class MainWindow : Window
                 "Respuesta lista",
                 SummarizeForCapsule(finalText),
                 _preferences.Position);
+
+            ClearPendingVisionAttachment();
 
             if (fromVoice)
             {
@@ -669,6 +718,128 @@ public partial class MainWindow : Window
         {
             _assistantView.SetAiActivity(null);
             _aiGate.Release();
+        }
+    }
+
+    private async Task CaptureForVisionAsync()
+    {
+        if (!_preferences.VisionEnabled)
+        {
+            _assistantView.AddNexoMessage(
+                "Nexo Vision está desactivado. Puedes activarlo en Personalización → Inteligencia artificial.");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "Nexo Vision desactivado",
+                "Actívalo desde Personalización.",
+                _preferences.Position);
+            return;
+        }
+
+        RememberForegroundWindow();
+        ShowAnimated();
+        NavigateTo("Assistant", animate: true);
+
+        var ownHandle = new WindowInteropHelper(this).Handle;
+        var targets = _screenCaptureService.GetAvailableTargets(ownHandle.ToInt64());
+        if (targets.Count == 0)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "No encontré qué capturar",
+                "Abre la ventana que quieras analizar e inténtalo de nuevo.",
+                _preferences.Position);
+            return;
+        }
+
+        var picker = new VisionTargetPickerWindow(targets, _lastExternalWindowHandle)
+        {
+            Owner = this
+        };
+
+        if (picker.ShowDialog() != true || picker.SelectedTarget is null)
+        {
+            return;
+        }
+
+        var selectedTarget = picker.SelectedTarget;
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Processing,
+            "Preparando captura",
+            selectedTarget.Title,
+            _preferences.Position);
+
+        VisionCaptureResult result;
+        try
+        {
+            Hide();
+            await Task.Delay(180, _lifetimeCancellation.Token);
+            result = await _screenCaptureService.CaptureAsync(
+                selectedTarget,
+                _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            if (!_isClosed)
+            {
+                ShowAnimated();
+            }
+        }
+
+        if (!result.IsSuccess || result.PngBytes is null)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Error,
+                "No pude capturar",
+                result.Detail,
+                _preferences.Position);
+            return;
+        }
+
+        var preview = new VisionPreviewWindow(result.Title, result.PngBytes)
+        {
+            Owner = this
+        };
+
+        if (preview.ShowDialog() != true)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "Captura descartada",
+                "La imagen no se compartió ni se guardó.",
+                _preferences.Position);
+            return;
+        }
+
+        _pendingVisionAttachment = AiImageAttachment.FromBytes(
+            result.PngBytes,
+            "image/png",
+            result.Title);
+        _assistantView.SetVisionAttachment(result.Title, result.PngBytes);
+        NavigateTo("Assistant", animate: true);
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            "Captura lista",
+            "Escribe o di qué quieres saber sobre la imagen.",
+            _preferences.Position);
+    }
+
+    private void ClearPendingVisionAttachment()
+    {
+        _pendingVisionAttachment = null;
+        _assistantView.ClearVisionAttachment();
+    }
+
+    private void RememberForegroundWindow()
+    {
+        var foreground = GetForegroundWindow();
+        var ownHandle = new WindowInteropHelper(this).Handle;
+        if (foreground != IntPtr.Zero && foreground != ownHandle)
+        {
+            _lastExternalWindowHandle = foreground.ToInt64();
         }
     }
 
@@ -1307,6 +1478,10 @@ public partial class MainWindow : Window
                 ShowCurrentTime();
                 break;
 
+            case LocalCommandType.CaptureForVision:
+                await CaptureForVisionAsync();
+                break;
+
             case LocalCommandType.NavigateAssistant:
                 ShowShellModule("Assistant", "Asistente abierto");
                 break;
@@ -1651,6 +1826,7 @@ public partial class MainWindow : Window
         ApplyShellOpacity();
         ApplyAccent(_preferences.AccentColor);
         ApplyModuleVisibility();
+        _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
     }
 
     private void ApplyShellOpacity()
@@ -1846,6 +2022,9 @@ public partial class MainWindow : Window
     {
         return value.HasValue ? $"{value.Value:0}%" : "—";
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

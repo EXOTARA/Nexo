@@ -58,7 +58,14 @@ public static class SpanishVoiceCommandCatalog
             "abre powershell",
             "abre power shell",
             "abre cmd",
-            "abre terminal"
+            "abre terminal",
+            "mira esto",
+            "mira la pantalla",
+            "analiza esto",
+            "analiza la pantalla",
+            "qué ves aquí",
+            "que ves aqui",
+            "explica este error"
         };
 
         foreach (var application in Applications)
