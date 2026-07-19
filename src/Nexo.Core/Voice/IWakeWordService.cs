@@ -8,6 +8,8 @@ public interface IWakeWordService : IDisposable
 
     bool IsListening { get; }
 
+    int InputDeviceNumber { get; set; }
+
     Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
         CancellationToken cancellationToken = default);

@@ -23,4 +23,27 @@ public sealed class VoiceRecognitionResultTests
         Assert.Empty(result.Text);
         Assert.Equal(0, result.Confidence);
     }
+
+
+    [Fact]
+    public void Recognized_CanRequireConfirmation()
+    {
+        var result = VoiceRecognitionResult.Recognized(
+            "baja spotify",
+            0.52,
+            requiresConfirmation: true,
+            detail: "La orden se escuchó con poca claridad.");
+
+        Assert.True(result.IsRecognized);
+        Assert.True(result.RequiresConfirmation);
+        Assert.Equal(0.52, result.Confidence);
+    }
+
+    [Fact]
+    public void NoSpeech_NeverRequiresConfirmation()
+    {
+        var result = VoiceRecognitionResult.NoSpeech("No escuché suficiente audio.");
+
+        Assert.False(result.RequiresConfirmation);
+    }
 }

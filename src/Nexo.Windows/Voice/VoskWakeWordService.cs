@@ -20,11 +20,15 @@ public sealed class VoskWakeWordService : IWakeWordService
     private const int SampleRate = 16_000;
     private const int BitsPerSample = 16;
     private const int Channels = 1;
+    private const int PreRollMilliseconds = 2_200;
+    private const int PreRollCapacityBytes =
+        SampleRate * Channels * (BitsPerSample / 8) * PreRollMilliseconds / 1000;
     private const long MinimumArchiveBytes = 20L * 1024 * 1024;
     private const long ProgressStepBytes = 2L * 1024 * 1024;
 
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan DetectionCooldown = TimeSpan.FromSeconds(2.5);
+    private static readonly TimeSpan HandoffDelay = TimeSpan.FromMilliseconds(260);
     private static readonly HttpClient HttpClient = new()
     {
         Timeout = TimeSpan.FromMinutes(20)
@@ -34,6 +38,7 @@ public sealed class VoskWakeWordService : IWakeWordService
     private readonly SemaphoreSlim _prepareGate = new(1, 1);
     private readonly string _modelDirectory;
     private readonly string _modelsRoot;
+    private readonly byte[] _preRollBuffer = new byte[PreRollCapacityBytes];
 
     private Model? _model;
     private VoskRecognizer? _recognizer;
@@ -42,6 +47,9 @@ public sealed class VoskWakeWordService : IWakeWordService
     private WakeWordPhrase _phrase;
     private DateTimeOffset _lastDetection = DateTimeOffset.MinValue;
     private bool _detectionRaised;
+    private int _preRollWriteIndex;
+    private int _preRollCount;
+    private CancellationTokenSource? _handoffCancellation;
     private bool _disposed;
 
     public VoskWakeWordService()
@@ -60,6 +68,8 @@ public sealed class VoskWakeWordService : IWakeWordService
     public bool IsReady { get; private set; }
 
     public bool IsListening { get; private set; }
+
+    public int InputDeviceNumber { get; set; } = -1;
 
     public async Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
@@ -230,6 +240,7 @@ public sealed class VoskWakeWordService : IWakeWordService
                 BuildGrammar(phrase));
             recorder = new WaveInEvent
             {
+                DeviceNumber = ResolveInputDeviceNumber(),
                 WaveFormat = new WaveFormat(SampleRate, BitsPerSample, Channels),
                 BufferMilliseconds = 100,
                 NumberOfBuffers = 3
@@ -248,6 +259,11 @@ public sealed class VoskWakeWordService : IWakeWordService
                 _recorder = recorder;
                 _recordingStopped = stopped;
                 _detectionRaised = false;
+                _preRollWriteIndex = 0;
+                _preRollCount = 0;
+                _handoffCancellation?.Cancel();
+                _handoffCancellation?.Dispose();
+                _handoffCancellation = null;
                 IsListening = true;
                 ownershipTransferred = true;
             }
@@ -323,19 +339,22 @@ public sealed class VoskWakeWordService : IWakeWordService
     {
         VoskRecognizer? recognizer;
         WakeWordPhrase phrase;
+        bool detectionRaised;
 
         lock (_sync)
         {
-            if (!IsListening || _detectionRaised)
+            if (!IsListening || e.BytesRecorded <= 0)
             {
                 return;
             }
 
+            AppendPreRollUnsafe(e.Buffer, e.BytesRecorded);
+            detectionRaised = _detectionRaised;
             recognizer = _recognizer;
             phrase = _phrase;
         }
 
-        if (recognizer is null || e.BytesRecorded <= 0)
+        if (detectionRaised || recognizer is null)
         {
             return;
         }
@@ -344,7 +363,9 @@ public sealed class VoskWakeWordService : IWakeWordService
         {
             var isFinal = recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded);
             var json = isFinal ? recognizer.Result() : recognizer.PartialResult();
-            var recognizedText = ReadRecognizedText(json, isFinal ? "text" : "partial");
+            var recognizedText = ReadRecognizedText(
+                json,
+                isFinal ? "text" : "partial");
 
             if (!WakeWordTextMatcher.IsMatch(recognizedText, phrase))
             {
@@ -352,6 +373,8 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             var now = DateTimeOffset.UtcNow;
+            CancellationTokenSource handoffCancellation;
+
             lock (_sync)
             {
                 if (_detectionRaised || now - _lastDetection < DetectionCooldown)
@@ -361,17 +384,115 @@ public sealed class VoskWakeWordService : IWakeWordService
 
                 _detectionRaised = true;
                 _lastDetection = now;
+                _handoffCancellation?.Cancel();
+                _handoffCancellation?.Dispose();
+                _handoffCancellation = new CancellationTokenSource();
+                handoffCancellation = _handoffCancellation;
             }
 
-            ThreadPool.QueueUserWorkItem(_ =>
-                WakeWordDetected?.Invoke(
-                    this,
-                    new WakeWordDetectedEventArgs(phrase, recognizedText)));
+            _ = RaiseWakeWordAfterHandoffAsync(
+                phrase,
+                recognizedText,
+                handoffCancellation.Token);
         }
         catch (ObjectDisposedException)
         {
             // La escucha se detuvo mientras llegaba el último bloque de audio.
         }
+    }
+
+    private async Task RaiseWakeWordAfterHandoffAsync(
+        WakeWordPhrase phrase,
+        string recognizedText,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(HandoffDelay, cancellationToken);
+
+            byte[] preRollAudio;
+            lock (_sync)
+            {
+                if (!IsListening || cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                preRollAudio = SnapshotPreRollUnsafe();
+            }
+
+            WakeWordDetected?.Invoke(
+                this,
+                new WakeWordDetectedEventArgs(
+                    phrase,
+                    recognizedText,
+                    preRollAudio));
+        }
+        catch (OperationCanceledException)
+        {
+            // La escucha cambió de estado antes del traspaso.
+        }
+    }
+
+    private void AppendPreRollUnsafe(byte[] source, int count)
+    {
+        var sourceOffset = 0;
+        var remaining = Math.Min(count, source.Length);
+
+        while (remaining > 0)
+        {
+            var writable = Math.Min(
+                remaining,
+                _preRollBuffer.Length - _preRollWriteIndex);
+            Buffer.BlockCopy(
+                source,
+                sourceOffset,
+                _preRollBuffer,
+                _preRollWriteIndex,
+                writable);
+
+            _preRollWriteIndex =
+                (_preRollWriteIndex + writable) % _preRollBuffer.Length;
+            _preRollCount = Math.Min(
+                _preRollBuffer.Length,
+                _preRollCount + writable);
+            sourceOffset += writable;
+            remaining -= writable;
+        }
+    }
+
+    private byte[] SnapshotPreRollUnsafe()
+    {
+        if (_preRollCount == 0)
+        {
+            return [];
+        }
+
+        var result = new byte[_preRollCount];
+        var start = (_preRollWriteIndex - _preRollCount + _preRollBuffer.Length) %
+            _preRollBuffer.Length;
+        var firstLength = Math.Min(
+            _preRollCount,
+            _preRollBuffer.Length - start);
+
+        Buffer.BlockCopy(
+            _preRollBuffer,
+            start,
+            result,
+            0,
+            firstLength);
+
+        if (firstLength < _preRollCount)
+        {
+            Buffer.BlockCopy(
+                _preRollBuffer,
+                0,
+                result,
+                firstLength,
+                _preRollCount - firstLength);
+        }
+
+        return result;
     }
 
     private void Recorder_RecordingStopped(object? sender, StoppedEventArgs e)
@@ -396,6 +517,11 @@ public sealed class VoskWakeWordService : IWakeWordService
             _model = null;
             _recordingStopped = null;
             _detectionRaised = false;
+            _preRollWriteIndex = 0;
+            _preRollCount = 0;
+            _handoffCancellation?.Cancel();
+            _handoffCancellation?.Dispose();
+            _handoffCancellation = null;
             IsListening = false;
         }
 
@@ -408,6 +534,20 @@ public sealed class VoskWakeWordService : IWakeWordService
 
         recognizer?.Dispose();
         model?.Dispose();
+    }
+
+    private int ResolveInputDeviceNumber()
+    {
+        var deviceCount = WaveIn.DeviceCount;
+        if (deviceCount <= 0)
+        {
+            throw new InvalidOperationException(
+                "Windows no encontró micrófonos disponibles.");
+        }
+
+        return InputDeviceNumber >= 0 && InputDeviceNumber < deviceCount
+            ? InputDeviceNumber
+            : 0;
     }
 
     private bool IsUsableModelDirectory()

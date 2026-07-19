@@ -46,6 +46,8 @@ public sealed class ShellPreferences
 
     public bool SpeakVoiceResponses { get; set; }
 
+    public int VoiceInputDeviceNumber { get; set; } = -1;
+
     public bool WakeWordEnabled { get; set; }
 
     public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.Nexo;
@@ -98,11 +100,18 @@ public sealed class ShellPreferences
             SchemaVersion = 6;
         }
 
+        if (SchemaVersion < 7)
+        {
+            VoiceInputDeviceNumber = -1;
+            SchemaVersion = 7;
+        }
+
         Width = Math.Clamp(Width, 380, 520);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
             ? Math.Clamp(RecentConversationMessageLimit, 8, 30)
             : 8;
+        VoiceInputDeviceNumber = Math.Max(-1, VoiceInputDeviceNumber);
 
         if (!Enum.IsDefined(WakeWordPhrase))
         {

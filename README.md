@@ -29,7 +29,7 @@ Actualmente incluye:
 
 La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. Después de una transcripción, Whisper puede permanecer hasta cinco minutos en memoria para acelerar órdenes consecutivas y luego se libera.
 
-La activación por frase es experimental y permanece apagada de forma predeterminada. Al habilitarla, Nexo descarga el modelo español pequeño de Vosk y mantiene un indicador visible mientras está atento. Para la primera versión se usa un flujo de dos pasos: di `Nexo`, espera la cápsula **Te escucho** y después pronuncia la orden.
+La activación por frase es experimental y permanece apagada de forma predeterminada. Al habilitarla, Nexo descarga el modelo español pequeño de Vosk y mantiene un indicador visible mientras está atento. Un búfer previo conserva el inicio del audio para poder decir `Nexo, abre PowerShell` de corrido, aunque también puedes esperar la cápsula **Te escucho**.
 
 Las órdenes conocidas se ejecutan localmente antes de consultar una IA. Las consultas abiertas pueden enviarse al proveedor configurado y se muestran conforme llegan. Nexo no guarda claves dentro del repositorio ni en `settings.json`: para OpenAI lee `OPENAI_API_KEY` desde las variables de entorno. Compartir CPU, RAM, GPU y el proceso principal con la IA es una opción separada y apagada por defecto; incluso al activarla, las métricas solo se adjuntan cuando la consulta trata del equipo.
 
@@ -50,7 +50,8 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 
 ## Próximos pasos
 
-- Permitir decir `Nexo` y la orden completa en una sola frase.
+- Calibración guiada de ruido y volumen del micrófono.
+- Diccionario personal de correcciones de voz.
 - Perfiles de voz rápido y equilibrado.
 - Respaldo semántico de IA para órdenes ambiguas mediante acciones permitidas.
 - Herramientas de captura y OCR.

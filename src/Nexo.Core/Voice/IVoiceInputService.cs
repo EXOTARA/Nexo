@@ -6,6 +6,10 @@ public interface IVoiceInputService : IDisposable
 
     bool IsListening { get; }
 
+    int InputDeviceNumber { get; set; }
+
+    IReadOnlyList<VoiceInputDevice> GetInputDevices();
+
     Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
         CancellationToken cancellationToken = default);
@@ -17,6 +21,7 @@ public interface IVoiceInputService : IDisposable
     Task<VoiceRecognitionResult> ListenForUtteranceAsync(
         TimeSpan maximumDuration,
         TimeSpan trailingSilence,
+        ReadOnlyMemory<byte> initialPcmAudio = default,
         CancellationToken cancellationToken = default);
 
     Task CancelAsync();
