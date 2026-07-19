@@ -71,3 +71,14 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 - OCR y copia de texto desde capturas.
 - Difuminado manual de zonas sensibles.
 - Rutinas configurables que combinen aplicaciones, audio y sesiones de enfoque.
+
+
+## Rutinas y automatización segura
+
+Nexo incluye rutinas locales guardadas en `%LocalAppData%\Nexo\routines.json`.
+Cada rutina se compone exclusivamente de acciones permitidas: abrir aplicaciones o carpetas,
+abrir PowerShell en una ubicación, controlar audio, iniciar enfoque o crear tareas.
+Las acciones continúan de forma independiente cuando un paso falla y los pasos sensibles
+muestran una vista previa antes de ejecutarse.
+
+Ejemplos: `modo programación`, `modo estudio`, `modo descanso`, `abre rutinas`.

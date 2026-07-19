@@ -10,8 +10,10 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using Nexo.App.Automation;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
+using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Focus;
@@ -21,6 +23,7 @@ using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
 using Nexo.Core.Vision;
 using Nexo.Windows.Ai;
+using Nexo.Windows.Automation;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Focus;
@@ -51,6 +54,7 @@ public partial class MainWindow : Window
     private readonly NaturalCommandParser _commandParser = new();
     private readonly SpanishTaskCommandParser _taskCommandParser = new();
     private readonly SpanishFocusCommandParser _focusCommandParser = new();
+    private readonly SpanishRoutineCommandParser _routineCommandParser = new();
     private readonly IAiChatService _aiChatService = new AiChatRouterService();
     private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
     private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
@@ -67,9 +71,13 @@ public partial class MainWindow : Window
     private readonly TaskManager _taskManager;
     private readonly JsonFocusStore _focusStore = new();
     private readonly NexoFocusManager _focusManager;
+    private readonly JsonRoutineStore _routineStore = new();
+    private readonly RoutineManager _routineManager;
+    private readonly RoutineRunner _routineRunner;
     private readonly AssistantView _assistantView = new();
     private readonly TasksView _tasksView;
     private readonly FocusView _focusView;
+    private readonly RoutinesView _routinesView;
     private readonly AudioView _audioView;
     private readonly CaptureView _captureView = new();
     private readonly SystemView _systemView = new();
@@ -99,14 +107,22 @@ public partial class MainWindow : Window
         _taskManager.Load();
         _focusManager = new NexoFocusManager(_focusStore);
         _focusManager.Load();
+        _routineManager = new RoutineManager(_routineStore);
+        _routineManager.Load();
+        _routineRunner = new RoutineRunner(new NexoAutomationActionExecutor(
+            _audioMixerService,
+            _focusManager,
+            _taskManager));
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(_focusManager);
+        _routinesView = new RoutinesView(_routineManager);
         _audioView = new AudioView(_audioMixerService);
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
             ["Assistant"] = _assistantView,
             ["Tasks"] = _tasksView,
             ["Focus"] = _focusView,
+            ["Routines"] = _routinesView,
             ["Audio"] = _audioView,
             ["Capture"] = _captureView,
             ["System"] = _systemView,
@@ -122,6 +138,7 @@ public partial class MainWindow : Window
         _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
         _tasksView.TasksChanged += TasksView_TasksChanged;
         _focusView.FocusChanged += FocusView_FocusChanged;
+        _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
         _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _assistantView.ConfigureHistory(
@@ -587,6 +604,13 @@ public partial class MainWindow : Window
                 _preferences.Position);
 
             await Task.Yield();
+
+            var routineCommand = _routineCommandParser.Parse(prompt);
+            if (routineCommand.Type != RoutineCommandType.None)
+            {
+                await ExecuteRoutineCommandAsync(routineCommand);
+                return;
+            }
 
             var focusCommand = _focusCommandParser.Parse(prompt);
             if (focusCommand.Type != FocusCommandType.None)
@@ -1503,6 +1527,141 @@ public partial class MainWindow : Window
             : "Voz pausada";
     }
 
+    private async void RoutinesView_ExecuteRequested(
+        object? sender,
+        RoutineRequestedEventArgs e)
+    {
+        var routine = _routineManager.GetAll()
+            .FirstOrDefault(candidate => candidate.Id == e.RoutineId);
+        if (routine is not null)
+        {
+            await RunRoutineAsync(routine);
+        }
+    }
+
+    private async Task ExecuteRoutineCommandAsync(RoutineCommand command)
+    {
+        switch (command.Type)
+        {
+            case RoutineCommandType.OpenRoutines:
+                ShowAnimated();
+                NavigateTo("Routines", animate: true);
+                _assistantView.AddNexoMessage("Abrí el módulo de rutinas.");
+                return;
+
+            case RoutineCommandType.ListRoutines:
+                var available = _routineManager.GetAll()
+                    .Where(routine => routine.IsEnabled)
+                    .Select(routine => $"• {routine.Name}: “{routine.TriggerPhrase}”")
+                    .ToArray();
+                _assistantView.AddNexoMessage(
+                    available.Length == 0
+                        ? "No hay rutinas activas."
+                        : "Rutinas disponibles:" + Environment.NewLine + string.Join(Environment.NewLine, available));
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Information,
+                    "Rutinas disponibles",
+                    available.Length == 0 ? "No hay rutinas activas." : $"{available.Length} rutinas activas.",
+                    _preferences.Position);
+                return;
+
+            case RoutineCommandType.RunRoutine:
+                var routine = _routineManager.FindBestMatch(command.RoutineName);
+                if (routine is null)
+                {
+                    _assistantView.AddNexoMessage(
+                        $"No encontré una rutina que coincida con “{command.RoutineName}”.");
+                    _capsuleWindow.ShowMessage(
+                        CapsuleKind.Warning,
+                        "Rutina no encontrada",
+                        command.RoutineName,
+                        _preferences.Position);
+                    return;
+                }
+
+                await RunRoutineAsync(routine);
+                return;
+        }
+    }
+
+    private async Task RunRoutineAsync(RoutineDefinition routine)
+    {
+        if (!routine.IsEnabled)
+        {
+            _assistantView.AddNexoMessage($"La rutina {routine.Name} está desactivada.");
+            return;
+        }
+
+        if (AutomationPermissionPolicy.RequiresConfirmation(routine))
+        {
+            var preview = string.Join(
+                Environment.NewLine,
+                routine.Steps
+                    .Where(step => step.IsEnabled)
+                    .Select((step, index) => $"{index + 1}. {DescribeAutomationAction(step)}"));
+            var decision = MessageBox.Show(
+                $"Nexo ejecutará estas acciones:" + Environment.NewLine + Environment.NewLine + preview,
+                $"Ejecutar {routine.Name}",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (decision != MessageBoxResult.Yes)
+            {
+                _assistantView.AddNexoMessage($"Cancelé la rutina {routine.Name}.");
+                return;
+            }
+        }
+
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Processing,
+            $"Ejecutando {routine.Name}",
+            $"{routine.Steps.Count(step => step.IsEnabled)} acciones permitidas",
+            _preferences.Position);
+
+        try
+        {
+            var report = await _routineRunner.RunAsync(
+                routine,
+                _lifetimeCancellation.Token);
+            _assistantView.AddNexoMessage(report.BuildSummary());
+            _tasksView.Refresh();
+            _focusView.Refresh(DateTimeOffset.Now);
+            await _audioView.RefreshAsync(force: true);
+            _routinesView.Refresh();
+
+            _capsuleWindow.ShowMessage(
+                report.Succeeded ? CapsuleKind.Success : CapsuleKind.Warning,
+                report.Succeeded ? "Rutina completada" : "Rutina completada con avisos",
+                $"{report.SucceededCount} de {report.Results.Count} acciones listas.",
+                _preferences.Position,
+                TimeSpan.FromSeconds(8));
+            SpeakVoiceResult(
+                report.Succeeded
+                    ? $"La rutina {routine.Name} terminó correctamente."
+                    : $"La rutina {routine.Name} terminó con algunos avisos.");
+        }
+        catch (OperationCanceledException)
+        {
+            if (!_isClosed)
+            {
+                _assistantView.AddNexoMessage($"La rutina {routine.Name} fue cancelada.");
+            }
+        }
+    }
+
+    private static string DescribeAutomationAction(AutomationAction action) => action.Type switch
+    {
+        AutomationActionType.OpenApplication => $"Abrir {action.Target}",
+        AutomationActionType.OpenFolder => $"Abrir carpeta {action.WorkingDirectory}",
+        AutomationActionType.OpenTerminal => $"Abrir PowerShell en {action.WorkingDirectory}",
+        AutomationActionType.SetApplicationVolume => $"Poner {action.Target} al {action.NumericValue:0}%",
+        AutomationActionType.MuteApplication => $"Silenciar {action.Target}",
+        AutomationActionType.UnmuteApplication => $"Activar el sonido de {action.Target}",
+        AutomationActionType.StartFocus => $"Iniciar enfoque por {action.NumericValue:0} minutos",
+        AutomationActionType.StartBreak => $"Iniciar descanso por {action.NumericValue:0} minutos",
+        AutomationActionType.CreateTask => $"Crear tarea: {action.Text}",
+        _ => "Acción no permitida"
+    };
+
     private void FocusView_FocusChanged(object? sender, EventArgs e)
     {
         CheckFocusTimer();
@@ -2077,6 +2236,10 @@ public partial class MainWindow : Window
         {
             _focusView.FocusPrimaryControl();
         }
+        else if (_currentDestination == "Routines")
+        {
+            _routinesView.FocusPrimaryControl();
+        }
     }
 
     private void UpdateNavigationState(string destination)
@@ -2086,6 +2249,7 @@ public partial class MainWindow : Window
             ["Assistant"] = AssistantNavButton,
             ["Tasks"] = TasksNavButton,
             ["Focus"] = FocusNavButton,
+            ["Routines"] = RoutinesNavButton,
             ["Audio"] = AudioNavButton,
             ["Capture"] = CaptureNavButton,
             ["System"] = SystemNavButton
@@ -2213,7 +2377,7 @@ public partial class MainWindow : Window
 
     private void UpdateNavigationColumns()
     {
-        var visibleCount = 3;
+        var visibleCount = 4;
         visibleCount += AudioNavButton.Visibility == Visibility.Visible ? 1 : 0;
         visibleCount += CaptureNavButton.Visibility == Visibility.Visible ? 1 : 0;
         visibleCount += SystemNavButton.Visibility == Visibility.Visible ? 1 : 0;
