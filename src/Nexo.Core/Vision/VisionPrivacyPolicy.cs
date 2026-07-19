@@ -27,7 +27,13 @@ public static class VisionPrivacyPolicy
         "keepass"
     ];
 
-    public static bool IsSensitive(string? title, string? processName)
+    public static bool IsSensitive(string? title, string? processName) =>
+        IsSensitive(title, processName, []);
+
+    public static bool IsSensitive(
+        string? title,
+        string? processName,
+        IEnumerable<string>? customExclusions)
     {
         var normalizedProcess = (processName ?? string.Empty).Trim().ToLowerInvariant();
         if (SensitiveProcessNames.Any(value =>
@@ -38,7 +44,17 @@ public static class VisionPrivacyPolicy
         }
 
         var normalizedTitle = (title ?? string.Empty).Trim().ToLowerInvariant();
-        return SensitiveTitleFragments.Any(fragment =>
-            normalizedTitle.Contains(fragment, StringComparison.OrdinalIgnoreCase));
+        if (SensitiveTitleFragments.Any(fragment =>
+                normalizedTitle.Contains(fragment, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return (customExclusions ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Any(value =>
+                normalizedTitle.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+                normalizedProcess.Contains(value, StringComparison.OrdinalIgnoreCase));
     }
 }

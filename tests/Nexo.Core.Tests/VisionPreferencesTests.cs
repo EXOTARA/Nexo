@@ -12,7 +12,7 @@ public sealed class VisionPreferencesTests
         preferences.Normalize();
 
         Assert.True(preferences.VisionEnabled);
-        Assert.Equal(8, preferences.SchemaVersion);
+        Assert.Equal(9, preferences.SchemaVersion);
     }
 
     [Fact]
@@ -20,12 +20,27 @@ public sealed class VisionPreferencesTests
     {
         var preferences = new ShellPreferences
         {
-            SchemaVersion = 8,
+            SchemaVersion = 9,
             VisionEnabled = false
         };
 
         preferences.Normalize();
 
         Assert.False(preferences.VisionEnabled);
+    }
+
+    [Fact]
+    public void Normalize_InitializesCustomVisionExclusions()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 8,
+            VisionCustomExclusions = null!
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(9, preferences.SchemaVersion);
+        Assert.Equal(string.Empty, preferences.VisionCustomExclusions);
     }
 }

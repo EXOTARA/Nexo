@@ -190,6 +190,17 @@
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
+            <TextBlock Margin="0,14,0,6"
+                       Text="Aplicaciones excluidas de Vision"
+                       FontWeight="SemiBold" />
+            <TextBox x:Name="VisionCustomExclusionsTextBox"
+                     Style="{StaticResource CompactTextBoxStyle}"
+                     LostKeyboardFocus="VisionCustomExclusionsTextBox_LostKeyboardFocus" />
+            <TextBlock Margin="0,6,0,0"
+                       Text="Separa nombres con comas. Nexo ocultará ventanas cuyo título o proceso coincida, por ejemplo: banca, correo privado, KeePass."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <Button x:Name="AiTestConnectionButton"
                     Margin="0,12,0,0"
                     HorizontalAlignment="Left"

@@ -22,4 +22,13 @@ public sealed class VisionPrivacyPolicyTests
     {
         Assert.False(VisionPrivacyPolicy.IsSensitive(title, process));
     }
+
+    [Fact]
+    public void IsSensitive_UsesCustomExclusions()
+    {
+        Assert.True(VisionPrivacyPolicy.IsSensitive(
+            "Mi banca personal",
+            "zen",
+            ["banca"]));
+    }
 }

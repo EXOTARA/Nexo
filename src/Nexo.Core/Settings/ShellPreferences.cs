@@ -64,6 +64,8 @@ public sealed class ShellPreferences
 
     public bool VisionEnabled { get; set; } = true;
 
+    public string VisionCustomExclusions { get; set; } = string.Empty;
+
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -114,12 +116,19 @@ public sealed class ShellPreferences
             SchemaVersion = 8;
         }
 
+        if (SchemaVersion < 9)
+        {
+            VisionCustomExclusions = string.Empty;
+            SchemaVersion = 9;
+        }
+
         Width = Math.Clamp(Width, 380, 520);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
             ? Math.Clamp(RecentConversationMessageLimit, 8, 30)
             : 8;
         VoiceInputDeviceNumber = Math.Max(-1, VoiceInputDeviceNumber);
+        VisionCustomExclusions = (VisionCustomExclusions ?? string.Empty).Trim();
 
         if (!Enum.IsDefined(WakeWordPhrase))
         {
