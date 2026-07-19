@@ -11,6 +11,7 @@
     <Color x:Key="ColorAccentSoft">#2D2748</Color>
     <Color x:Key="ColorSuccess">#4CD787</Color>
     <Color x:Key="ColorWarning">#F4C95D</Color>
+    <Color x:Key="ColorDanger">#F06C75</Color>
 
     <SolidColorBrush x:Key="BrushBackground" Color="{StaticResource ColorBackground}" />
     <SolidColorBrush x:Key="BrushSurface" Color="{StaticResource ColorSurface}" />
@@ -23,4 +24,5 @@
     <SolidColorBrush x:Key="BrushAccentSoft" Color="{StaticResource ColorAccentSoft}" />
     <SolidColorBrush x:Key="BrushSuccess" Color="{StaticResource ColorSuccess}" />
     <SolidColorBrush x:Key="BrushWarning" Color="{StaticResource ColorWarning}" />
+    <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
 </ResourceDictionary>

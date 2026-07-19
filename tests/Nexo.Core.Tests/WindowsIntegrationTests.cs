@@ -72,7 +72,7 @@ public sealed class WindowsIntegrationTests
         Assert.True(preferences.MinimizeToTray);
         Assert.True(preferences.ShowWindowsNotifications);
         Assert.True(preferences.PlayNotificationSounds);
-        Assert.Equal(9, preferences.SchemaVersion);
+        Assert.Equal(10, preferences.SchemaVersion);
     }
 
     [Fact]
@@ -93,6 +93,6 @@ public sealed class WindowsIntegrationTests
         Assert.True(preferences.MinimizeToTray);
         Assert.True(preferences.ShowWindowsNotifications);
         Assert.True(preferences.PlayNotificationSounds);
-        Assert.Equal(9, preferences.SchemaVersion);
+        Assert.Equal(10, preferences.SchemaVersion);
     }
 }

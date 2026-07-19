@@ -110,6 +110,15 @@
                        Text="Nexo seguirá activo mientras esté visible en la bandeja."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
+            <WrapPanel Margin="0,12,0,0">
+                <Button Content="Abrir diagnóstico"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="DiagnosticsButton_Click" />
+                <Button Margin="9,0,0,0"
+                        Content="Repetir configuración inicial"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="OnboardingButton_Click" />
+            </WrapPanel>
 
             <TextBlock Margin="0,20,0,9" Text="Vista rápida" FontWeight="SemiBold" />
             <CheckBox x:Name="PeekEnabledCheckBox" Margin="0,0,0,8"
@@ -220,12 +229,17 @@
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
-            <Button x:Name="AiTestConnectionButton"
-                    Margin="0,12,0,0"
-                    HorizontalAlignment="Left"
-                    Content="Probar conexión"
-                    Style="{StaticResource SecondaryButtonStyle}"
-                    Click="AiTestConnectionButton_Click" />
+            <WrapPanel Margin="0,12,0,0">
+                <Button x:Name="AiTestConnectionButton"
+                        Content="Probar conexión"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="AiTestConnectionButton_Click" />
+                <Button x:Name="ManageModelsButton"
+                        Margin="9,0,0,0"
+                        Content="Administrar modelos"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="ManageModelsButton_Click" />
+            </WrapPanel>
             <TextBlock x:Name="AiConnectionStatusText"
                        Margin="0,8,0,0"
                        Text="La IA está desactivada."

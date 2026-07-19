@@ -1,0 +1,180 @@
+<Window x:Class="Nexo.App.OnboardingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configurar Nexo"
+        Width="680"
+        Height="610"
+        MinWidth="620"
+        MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BrushBackground}"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    <Grid Margin="26">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="NEXO"
+                           Foreground="{DynamicResource BrushAccent}"
+                           FontSize="14"
+                           FontWeight="Bold" />
+                <TextBlock x:Name="StepTitleText"
+                           Margin="0,6,0,0"
+                           Text="Bienvenido"
+                           Style="{StaticResource SectionTitleStyle}" />
+            </StackPanel>
+            <TextBlock x:Name="StepIndicatorText"
+                       Grid.Column="1"
+                       VerticalAlignment="Center"
+                       Text="1 de 4"
+                       Style="{StaticResource MutedTextStyle}" />
+        </Grid>
+
+        <Border Grid.Row="1" Margin="0,20" Style="{StaticResource CardStyle}" Padding="22">
+            <Grid>
+                <StackPanel x:Name="WelcomePanel">
+                    <TextBlock Text="Tu asistente local para Windows"
+                               FontSize="24"
+                               FontWeight="SemiBold" />
+                    <TextBlock Margin="0,12,0,0"
+                               Text="Nexo puede responder con IA local, escuchar órdenes, analizar una ventana, administrar tareas, temporizadores y rutinas sin obligarte a usar servicios de pago."
+                               TextWrapping="Wrap"
+                               FontSize="14" />
+                    <Border Margin="0,22,0,0" Style="{StaticResource SubtleCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Durante esta configuración" FontWeight="SemiBold" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Text="• Elegirás el micrófono.&#x0a;• Conectarás Ollama y un modelo local.&#x0a;• Revisarás privacidad y funcionamiento en segundo plano."
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Margin="0,20,0,0"
+                               Text="Todo puede modificarse después desde Personalización."
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+
+                <StackPanel x:Name="VoicePanel" Visibility="Collapsed">
+                    <TextBlock Text="Voz" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,6,0,18"
+                               Text="Elige el micrófono que usarán Mic y la frase de activación. El audio se procesa localmente."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock Text="Micrófono" FontWeight="SemiBold" />
+                    <ComboBox x:Name="MicrophoneComboBox"
+                              Margin="0,8,0,0"
+                              MinHeight="38"
+                              DisplayMemberPath="Name"
+                              SelectedValuePath="DeviceNumber" />
+                    <TextBlock x:Name="MicrophoneStatusText"
+                               Margin="0,7,0,0"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <CheckBox x:Name="WakeWordCheckBox"
+                              Margin="0,22,0,0"
+                              Content="Activar la frase “Nexo” (experimental)" />
+                    <TextBlock Margin="24,7,0,0"
+                               Text="Puedes dejarla desactivada y usar el botón Mic."
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+
+                <StackPanel x:Name="AiPanel" Visibility="Collapsed">
+                    <TextBlock Text="IA local" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,6,0,16"
+                               Text="Nexo usa Ollama para conversar y analizar imágenes. Selecciona uno de los modelos instalados."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="AiModelComboBox"
+                                  MinHeight="38"
+                                  IsEditable="True" />
+                        <Button Grid.Column="1"
+                                Margin="10,0,0,0"
+                                Content="Actualizar"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="RefreshModelsButton_Click" />
+                    </Grid>
+                    <TextBlock x:Name="AiStatusText"
+                               Margin="0,8,0,0"
+                               Text="Comprobando Ollama…"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <Button Margin="0,16,0,0"
+                            HorizontalAlignment="Left"
+                            Content="Administrar modelos"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Click="ManageModelsButton_Click" />
+                    <Border Margin="0,20,0,0" Style="{StaticResource SubtleCardStyle}">
+                        <TextBlock Text="Recomendación: qwen3.5:4b para equipos medios; qwen3.5:9b cuando cabe completamente en la GPU."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </Border>
+                </StackPanel>
+
+                <StackPanel x:Name="PrivacyPanel" Visibility="Collapsed">
+                    <TextBlock Text="Privacidad y Windows" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,6,0,18"
+                               Text="Elige qué funciones quedan activas. Las capturas siempre requieren una acción explícita y una vista previa."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <CheckBox x:Name="VisionCheckBox"
+                              Margin="0,0,0,12"
+                              Content="Permitir capturas bajo demanda con Nexo Vision" />
+                    <CheckBox x:Name="StartWithWindowsCheckBox"
+                              Margin="0,0,0,12"
+                              Content="Iniciar Nexo con Windows" />
+                    <CheckBox x:Name="MinimizeToTrayCheckBox"
+                              Margin="0,0,0,12"
+                              Content="Ocultar en la bandeja al cerrar" />
+                    <CheckBox x:Name="WindowsNotificationsCheckBox"
+                              Margin="0,0,0,12"
+                              Content="Mostrar notificaciones" />
+                    <CheckBox x:Name="NotificationSoundsCheckBox"
+                              Content="Reproducir sonidos de recordatorios y enfoque" />
+                    <TextBlock x:Name="FinishStatusText"
+                               Margin="0,18,0,0"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="SkipButton"
+                    Content="Omitir"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Click="SkipButton_Click" />
+            <Button x:Name="BackButton"
+                    Grid.Column="2"
+                    Margin="0,0,10,0"
+                    Content="Atrás"
+                    IsEnabled="False"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Click="BackButton_Click" />
+            <Button x:Name="NextButton"
+                    Grid.Column="3"
+                    Content="Siguiente"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Click="NextButton_Click" />
+        </Grid>
+    </Grid>
+</Window>

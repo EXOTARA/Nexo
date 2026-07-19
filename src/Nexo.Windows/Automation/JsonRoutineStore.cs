@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Nexo.Core.Automation;
+using Nexo.Core.Diagnostics;
+using Nexo.Windows.Storage;
 
 namespace Nexo.Windows.Automation;
 
@@ -16,10 +18,7 @@ public sealed class JsonRoutineStore : IRoutineStore
 
     public JsonRoutineStore(string? filePath = null)
     {
-        _filePath = filePath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Nexo",
-            "routines.json");
+        _filePath = filePath ?? NexoDataPaths.Routines;
     }
 
     public RoutineState Load()
@@ -39,6 +38,7 @@ public sealed class JsonRoutineStore : IRoutineStore
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException or JsonException)
             {
+                CorruptFileBackup.TryPreserve(_filePath);
                 return new RoutineState();
             }
         }

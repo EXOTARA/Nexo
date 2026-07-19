@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Nexo.Core.Diagnostics;
 using Nexo.Core.Tasks;
 
 namespace Nexo.Windows.Tasks;
@@ -16,10 +17,7 @@ public sealed class JsonTaskStore : ITaskStore
 
     public JsonTaskStore(string? filePath = null)
     {
-        _filePath = filePath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Nexo",
-            "tasks.json");
+        _filePath = filePath ?? NexoDataPaths.Tasks;
     }
 
     public IReadOnlyList<NexoTask> Load()

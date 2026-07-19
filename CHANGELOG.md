@@ -69,6 +69,12 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Notificaciones de Windows para tareas y sesiones de enfoque terminadas.
 - Sonidos configurables para recordatorios y temporizadores.
 - Revisión inmediata de tareas, enfoque y métricas al reanudar Windows después de una suspensión.
+- Asistente de configuración inicial para micrófono, Ollama, privacidad y segundo plano.
+- Administración local de modelos de Ollama: listar, descargar, seleccionar y eliminar.
+- Centro de diagnóstico para voz, IA, Vision, bandeja, inicio y archivos locales.
+- Copia segura del diagnóstico sin conversaciones, capturas ni claves.
+- Recuperación de archivos JSON dañados mediante respaldos `.corrupt-*`.
+- Escritura atómica de configuración e historial para reducir corrupción ante cierres inesperados.
 
 ### Cambiado
 

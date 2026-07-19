@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Nexo.Core.Diagnostics;
 using Nexo.Core.Settings;
+using Nexo.Windows.Storage;
 
 namespace Nexo.Windows.Settings;
 
@@ -12,10 +14,9 @@ public sealed class JsonSettingsStore
 
     private readonly string _settingsPath;
 
-    public JsonSettingsStore()
+    public JsonSettingsStore(string? settingsPath = null)
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _settingsPath = Path.Combine(localAppData, "Nexo", "settings.json");
+        _settingsPath = settingsPath ?? NexoDataPaths.Settings;
     }
 
     public ShellPreferences Load()
@@ -32,16 +33,10 @@ public sealed class JsonSettingsStore
             preferences.Normalize();
             return preferences;
         }
-        catch (JsonException)
+        catch (Exception exception) when (
+            exception is JsonException or IOException or UnauthorizedAccessException)
         {
-            return new ShellPreferences();
-        }
-        catch (IOException)
-        {
-            return new ShellPreferences();
-        }
-        catch (UnauthorizedAccessException)
-        {
+            CorruptFileBackup.TryPreserve(_settingsPath);
             return new ShellPreferences();
         }
     }
@@ -56,6 +51,8 @@ public sealed class JsonSettingsStore
 
         Directory.CreateDirectory(directory);
         var json = JsonSerializer.Serialize(preferences, SerializerOptions);
-        File.WriteAllText(_settingsPath, json);
+        var temporaryPath = _settingsPath + ".tmp";
+        File.WriteAllText(temporaryPath, json);
+        File.Move(temporaryPath, _settingsPath, overwrite: true);
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Nexo.Core.Diagnostics;
 using Nexo.Core.Focus;
 
 namespace Nexo.Windows.Focus;
@@ -16,10 +17,7 @@ public sealed class JsonFocusStore : IFocusStore
 
     public JsonFocusStore(string? filePath = null)
     {
-        _filePath = filePath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Nexo",
-            "focus.json");
+        _filePath = filePath ?? NexoDataPaths.Focus;
     }
 
     public FocusState Load()
