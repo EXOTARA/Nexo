@@ -26,7 +26,9 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     private const long MinimumModelBytes = 50L * 1024 * 1024;
     private const long MinimumRecordedBytes = 4_800;
     private const long ProgressStepBytes = 4L * 1024 * 1024;
-    private const int SpeechAverageAmplitudeThreshold = 420;
+    private const int MinimumSpeechAverageAmplitudeThreshold = 280;
+    private const int MaximumSpeechAverageAmplitudeThreshold = 1_400;
+    private const int NoiseCalibrationBufferCount = 5;
 
     private static readonly TimeSpan RecordingStopTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan ModelMemoryKeepAlive = TimeSpan.FromMinutes(5);
@@ -44,11 +46,17 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     private TaskCompletionSource<Exception?>? _recordingStopped;
     private string? _recordingPath;
     private long _recordedBytes;
+    private int _audioBufferCount;
+    private int _speechBufferCount;
+    private int _peakAmplitude;
+    private double _noiseFloorAmplitude = 160;
+    private int _noiseCalibrationBuffers;
     private TaskCompletionSource<bool>? _automaticUtteranceCompleted;
     private TimeSpan _automaticTrailingSilence;
     private int _automaticSilentMilliseconds;
     private bool _automaticSpeechDetected;
     private bool _automaticListening;
+    private byte[] _pendingInitialPcmAudio = [];
     private bool _disposed;
 
     public WhisperVoiceInputService()
@@ -65,6 +73,32 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     public bool IsReady { get; private set; }
 
     public bool IsListening { get; private set; }
+
+    public int InputDeviceNumber { get; set; } = -1;
+
+    public IReadOnlyList<VoiceInputDevice> GetInputDevices()
+    {
+        var devices = new List<VoiceInputDevice>();
+
+        try
+        {
+            for (var deviceNumber = 0; deviceNumber < WaveIn.DeviceCount; deviceNumber++)
+            {
+                var capabilities = WaveIn.GetCapabilities(deviceNumber);
+                var name = string.IsNullOrWhiteSpace(capabilities.ProductName)
+                    ? $"Micrófono {deviceNumber + 1}"
+                    : capabilities.ProductName.Trim();
+
+                devices.Add(new VoiceInputDevice(deviceNumber, name));
+            }
+        }
+        catch (MmException)
+        {
+            // Windows puede cambiar la lista mientras se consulta.
+        }
+
+        return devices;
+    }
 
     public async Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
@@ -213,6 +247,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
             var recorder = new WaveInEvent
             {
+                DeviceNumber = ResolveInputDeviceNumber(),
                 WaveFormat = new WaveFormat(SampleRate, BitsPerSample, Channels),
                 BufferMilliseconds = 100,
                 NumberOfBuffers = 3
@@ -231,8 +266,15 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
                 _recordingStopped = stopped;
                 _recordingPath = recordingPath;
                 _recordedBytes = 0;
+                _audioBufferCount = 0;
+                _speechBufferCount = 0;
+                _peakAmplitude = 0;
+                _noiseFloorAmplitude = 160;
+                _noiseCalibrationBuffers = 0;
                 IsListening = true;
             }
+
+            WritePendingInitialAudio();
 
             recorder.StartRecording();
             return VoiceStartResult.Started(
@@ -279,10 +321,16 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
             string? recordingPath;
             long recordedBytes;
+            VoiceCaptureQuality captureQuality;
             lock (_sync)
             {
                 recordingPath = _recordingPath;
                 recordedBytes = _recordedBytes;
+                captureQuality = new VoiceCaptureQuality(
+                    _audioBufferCount,
+                    _speechBufferCount,
+                    _peakAmplitude,
+                    _noiseFloorAmplitude);
             }
 
             CleanupRecorder(deleteRecording: false);
@@ -305,7 +353,11 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
             try
             {
-                return await TranscribeAsync(recordingPath, cancellationToken);
+                return await TranscribeAsync(
+                    recordingPath,
+                    recordedBytes,
+                    captureQuality,
+                    cancellationToken);
             }
             finally
             {
@@ -329,6 +381,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     public async Task<VoiceRecognitionResult> ListenForUtteranceAsync(
         TimeSpan maximumDuration,
         TimeSpan trailingSilence,
+        ReadOnlyMemory<byte> initialPcmAudio = default,
         CancellationToken cancellationToken = default)
     {
         if (maximumDuration <= TimeSpan.Zero)
@@ -351,6 +404,9 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
             _automaticSilentMilliseconds = 0;
             _automaticSpeechDetected = false;
             _automaticListening = true;
+            _pendingInitialPcmAudio = initialPcmAudio.IsEmpty
+                ? []
+                : initialPcmAudio.ToArray();
         }
 
         var start = await StartListeningAsync(cancellationToken);
@@ -440,6 +496,8 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
     private async Task<VoiceRecognitionResult> TranscribeAsync(
         string recordingPath,
+        long recordedBytes,
+        VoiceCaptureQuality captureQuality,
         CancellationToken cancellationToken)
     {
         await _transcriptionGate.WaitAsync(cancellationToken);
@@ -473,10 +531,25 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
             var normalizedText = SpanishVoiceTranscriptNormalizer.Normalize(
                 transcript.ToString());
-            return string.IsNullOrWhiteSpace(normalizedText)
-                ? VoiceRecognitionResult.NoSpeech(
-                    "Whisper no encontró una orden clara. Habla un poco más cerca del micrófono.")
-                : VoiceRecognitionResult.Recognized(normalizedText, 0.95);
+            if (string.IsNullOrWhiteSpace(normalizedText))
+            {
+                return VoiceRecognitionResult.NoSpeech(
+                    "Whisper no encontró una orden clara. Habla un poco más cerca del micrófono.");
+            }
+
+            var confidence = EstimateRecognitionConfidence(
+                normalizedText,
+                recordedBytes,
+                captureQuality);
+            var requiresConfirmation = confidence < 0.60;
+
+            return VoiceRecognitionResult.Recognized(
+                normalizedText,
+                confidence,
+                requiresConfirmation,
+                requiresConfirmation
+                    ? "La orden se escuchó con poca claridad."
+                    : "Voz reconocida.");
         }
         catch (OperationCanceledException)
         {
@@ -573,41 +646,74 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
             _writer.Write(e.Buffer, 0, e.BytesRecorded);
             _recordedBytes += e.BytesRecorded;
 
+            var audio = AnalyzeAudioBuffer(e.Buffer, e.BytesRecorded);
+            TrackAudioQuality(audio);
+
             if (_automaticListening)
             {
-                ObserveAutomaticUtterance(e.Buffer, e.BytesRecorded);
+                ObserveAutomaticUtterance(audio, e.BytesRecorded);
             }
         }
     }
 
+    private AudioBufferAnalysis AnalyzeAudioBuffer(byte[] buffer, int bytesRecorded)
+    {
+        long amplitudeTotal = 0;
+        var peakAmplitude = 0;
+        var sampleCount = 0;
 
-    private void ObserveAutomaticUtterance(byte[] buffer, int bytesRecorded)
+        for (var index = 0; index + 1 < bytesRecorded; index += 2)
+        {
+            var sample = (short)(buffer[index] | (buffer[index + 1] << 8));
+            var amplitude = Math.Abs((int)sample);
+            amplitudeTotal += amplitude;
+            peakAmplitude = Math.Max(peakAmplitude, amplitude);
+            sampleCount++;
+        }
+
+        var averageAmplitude = sampleCount == 0
+            ? 0
+            : amplitudeTotal / (double)sampleCount;
+
+        return new AudioBufferAnalysis(averageAmplitude, peakAmplitude);
+    }
+
+    private void TrackAudioQuality(AudioBufferAnalysis audio)
+    {
+        _audioBufferCount++;
+        _peakAmplitude = Math.Max(_peakAmplitude, audio.PeakAmplitude);
+
+        var threshold = GetSpeechThreshold();
+        if (audio.AverageAmplitude >= threshold)
+        {
+            _speechBufferCount++;
+            return;
+        }
+
+        if (!_automaticSpeechDetected &&
+            _noiseCalibrationBuffers < NoiseCalibrationBufferCount)
+        {
+            _noiseFloorAmplitude =
+                ((_noiseFloorAmplitude * _noiseCalibrationBuffers) + audio.AverageAmplitude) /
+                (_noiseCalibrationBuffers + 1);
+            _noiseCalibrationBuffers++;
+        }
+    }
+
+    private void ObserveAutomaticUtterance(
+        AudioBufferAnalysis audio,
+        int bytesRecorded)
     {
         if (_recorder is null || bytesRecorded < 2)
         {
             return;
         }
 
-        long amplitudeTotal = 0;
-        var sampleCount = 0;
-
-        for (var index = 0; index + 1 < bytesRecorded; index += 2)
-        {
-            var sample = (short)(buffer[index] | (buffer[index + 1] << 8));
-            amplitudeTotal += Math.Abs((int)sample);
-            sampleCount++;
-        }
-
-        if (sampleCount == 0)
-        {
-            return;
-        }
-
-        var averageAmplitude = amplitudeTotal / sampleCount;
-        var bufferMilliseconds = Math.Max(1,
+        var bufferMilliseconds = Math.Max(
+            1,
             bytesRecorded * 1000 / _recorder.WaveFormat.AverageBytesPerSecond);
 
-        if (averageAmplitude >= SpeechAverageAmplitudeThreshold)
+        if (audio.AverageAmplitude >= GetSpeechThreshold())
         {
             _automaticSpeechDetected = true;
             _automaticSilentMilliseconds = 0;
@@ -626,6 +732,12 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         }
     }
 
+    private double GetSpeechThreshold() =>
+        Math.Clamp(
+            _noiseFloorAmplitude * 2.25,
+            MinimumSpeechAverageAmplitudeThreshold,
+            MaximumSpeechAverageAmplitudeThreshold);
+
     private void ResetAutomaticListening()
     {
         lock (_sync)
@@ -635,6 +747,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
             _automaticSilentMilliseconds = 0;
             _automaticSpeechDetected = false;
             _automaticListening = false;
+            _pendingInitialPcmAudio = [];
         }
     }
 
@@ -660,6 +773,9 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
             _recordingStopped = null;
             _recordingPath = null;
             _recordedBytes = 0;
+            _audioBufferCount = 0;
+            _speechBufferCount = 0;
+            _peakAmplitude = 0;
             IsListening = false;
         }
 
@@ -677,6 +793,123 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
             TryDeleteFile(recordingPath);
         }
     }
+
+    private void WritePendingInitialAudio()
+    {
+        byte[] initialAudio;
+        lock (_sync)
+        {
+            initialAudio = _pendingInitialPcmAudio;
+            _pendingInitialPcmAudio = [];
+        }
+
+        if (initialAudio.Length == 0)
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            if (_writer is null)
+            {
+                return;
+            }
+
+            _writer.Write(initialAudio, 0, initialAudio.Length);
+            _recordedBytes += initialAudio.Length;
+
+            var chunkSize = SampleRate * Channels * (BitsPerSample / 8) / 10;
+            for (var offset = 0; offset < initialAudio.Length; offset += chunkSize)
+            {
+                var length = Math.Min(chunkSize, initialAudio.Length - offset);
+                var chunk = new byte[length];
+                Buffer.BlockCopy(initialAudio, offset, chunk, 0, length);
+
+                var audio = AnalyzeAudioBuffer(chunk, length);
+                TrackAudioQuality(audio);
+
+                if (_automaticListening)
+                {
+                    ObserveAutomaticUtterance(audio, length);
+                }
+            }
+        }
+    }
+
+    private int ResolveInputDeviceNumber()
+    {
+        var deviceCount = WaveIn.DeviceCount;
+        if (deviceCount <= 0)
+        {
+            throw new InvalidOperationException("Windows no encontró micrófonos disponibles.");
+        }
+
+        return InputDeviceNumber >= 0 && InputDeviceNumber < deviceCount
+            ? InputDeviceNumber
+            : 0;
+    }
+
+    private static double EstimateRecognitionConfidence(
+        string text,
+        long recordedBytes,
+        VoiceCaptureQuality quality)
+    {
+        var durationSeconds = recordedBytes /
+            (double)(SampleRate * Channels * (BitsPerSample / 8));
+        var speechRatio = quality.BufferCount == 0
+            ? 0
+            : quality.SpeechBufferCount / (double)quality.BufferCount;
+
+        var confidence = 0.82;
+
+        if (durationSeconds < 0.45)
+        {
+            confidence -= 0.22;
+        }
+        else if (durationSeconds < 0.8)
+        {
+            confidence -= 0.08;
+        }
+
+        if (quality.PeakAmplitude < 700)
+        {
+            confidence -= 0.20;
+        }
+        else if (quality.PeakAmplitude > 31_500)
+        {
+            confidence -= 0.08;
+        }
+
+        if (speechRatio < 0.10)
+        {
+            confidence -= 0.18;
+        }
+        else if (speechRatio < 0.20)
+        {
+            confidence -= 0.08;
+        }
+
+        var wordCount = text.Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries).Length;
+        if (wordCount == 1 &&
+            text is not ("confirmar" or "cancela" or "cancelar"))
+        {
+            confidence -= 0.06;
+        }
+
+        return Math.Clamp(confidence, 0.35, 0.96);
+    }
+
+    private readonly record struct AudioBufferAnalysis(
+        double AverageAmplitude,
+        int PeakAmplitude);
+
+    private readonly record struct VoiceCaptureQuality(
+        int BufferCount,
+        int SpeechBufferCount,
+        int PeakAmplitude,
+        double NoiseFloorAmplitude);
 
     private bool IsUsableModelFile()
     {

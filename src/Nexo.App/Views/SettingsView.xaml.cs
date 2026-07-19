@@ -19,6 +19,7 @@ public partial class SettingsView : UserControl
     public event Action<string, bool>? PeekOptionChanged;
     public event Action<bool>? ConversationHistoryChanged;
     public event Action<bool>? VoiceResponsesChanged;
+    public event Action<int>? VoiceInputDeviceChanged;
     public event Action<bool>? WakeWordEnabledChanged;
     public event Action<WakeWordPhrase>? WakeWordPhraseChanged;
     public event Action<AiProviderKind>? AiProviderChanged;
@@ -53,6 +54,7 @@ public partial class SettingsView : UserControl
         PeekTopProcessCheckBox.IsChecked = preferences.ShowTopProcessInPeek;
         SaveConversationHistoryCheckBox.IsChecked = preferences.SaveConversationHistory;
         SpeakVoiceResponsesCheckBox.IsChecked = preferences.SpeakVoiceResponses;
+        VoiceInputDeviceComboBox.SelectedValue = preferences.VoiceInputDeviceNumber;
         WakeWordEnabledCheckBox.IsChecked = preferences.WakeWordEnabled;
         WakeWordNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.Nexo;
         WakeWordOyeNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.OyeNexo;
@@ -173,6 +175,48 @@ public partial class SettingsView : UserControl
         }
     }
 
+
+    public void SetVoiceInputDevices(
+        IReadOnlyList<VoiceInputDevice> devices,
+        int selectedDeviceNumber)
+    {
+        if (VoiceInputDeviceComboBox is null)
+        {
+            return;
+        }
+
+        _isApplyingPreferences = true;
+        VoiceInputDeviceComboBox.ItemsSource = devices;
+        VoiceInputDeviceComboBox.SelectedValue = selectedDeviceNumber;
+
+        if (VoiceInputDeviceComboBox.SelectedItem is not VoiceInputDevice &&
+            devices.Count > 0)
+        {
+            VoiceInputDeviceComboBox.SelectedIndex = 0;
+        }
+
+        VoiceInputDeviceComboBox.IsEnabled = devices.Count > 0;
+        VoiceInputDeviceStatusText.Text = devices.Count switch
+        {
+            0 => "Windows no encontró micrófonos disponibles.",
+            1 => "Se encontró un micrófono. Nexo lo usará para Mic y la frase de activación.",
+            _ => "El micrófono elegido se usa tanto para Mic como para “Nexo”."
+        };
+        _isApplyingPreferences = false;
+    }
+
+    private void VoiceInputDeviceComboBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (_isApplyingPreferences ||
+            VoiceInputDeviceComboBox.SelectedItem is not VoiceInputDevice device)
+        {
+            return;
+        }
+
+        VoiceInputDeviceChanged?.Invoke(device.DeviceNumber);
+    }
 
     public void ApplyAiProviderDefaults(AiProviderKind provider)
     {

@@ -15,7 +15,7 @@ public sealed class VoicePreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(6, preferences.SchemaVersion);
+        Assert.Equal(7, preferences.SchemaVersion);
         Assert.False(preferences.SpeakVoiceResponses);
     }
 
@@ -31,5 +31,35 @@ public sealed class VoicePreferencesTests
         preferences.Normalize();
 
         Assert.True(preferences.SpeakVoiceResponses);
+    }
+
+
+    [Fact]
+    public void Normalize_MigratesMicrophoneSelectionToWindowsDefault()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 6,
+            VoiceInputDeviceNumber = 8
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(7, preferences.SchemaVersion);
+        Assert.Equal(-1, preferences.VoiceInputDeviceNumber);
+    }
+
+    [Fact]
+    public void Normalize_PreservesCurrentMicrophoneSelection()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 7,
+            VoiceInputDeviceNumber = 2
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(2, preferences.VoiceInputDeviceNumber);
     }
 }

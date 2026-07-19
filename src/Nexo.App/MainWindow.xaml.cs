@@ -68,6 +68,7 @@ public partial class MainWindow : Window
     private string _currentDestination = "Assistant";
     private string _previousDestination = "Assistant";
     private bool _voicePromptActive;
+    private string? _pendingVoicePrompt;
 
     public MainWindow()
     {
@@ -104,6 +105,7 @@ public partial class MainWindow : Window
         _settingsView.ApplyPreferences(_preferences);
         UpdateAiProviderStatus();
         ApplyPreferences();
+        ConfigureVoiceInputDevices();
         NavigateTo("Assistant", animate: false);
 
         _clockTimer = new DispatcherTimer
@@ -198,6 +200,11 @@ public partial class MainWindow : Window
             }
 
             SavePreferences();
+        };
+
+        _settingsView.VoiceInputDeviceChanged += deviceNumber =>
+        {
+            _ = ChangeVoiceInputDeviceAsync(deviceNumber);
         };
 
         _settingsView.WakeWordEnabledChanged += enabled =>
@@ -490,6 +497,11 @@ public partial class MainWindow : Window
 
     private async Task ProcessPromptAsync(string prompt, bool fromVoice)
     {
+        if (await TryHandlePendingVoiceDecisionAsync(prompt, fromVoice))
+        {
+            return;
+        }
+
         _voicePromptActive = fromVoice;
 
         try
@@ -763,6 +775,109 @@ public partial class MainWindow : Window
             : compact[..120] + "…";
     }
 
+    private void ConfigureVoiceInputDevices()
+    {
+        var devices = _voiceInputService.GetInputDevices();
+        var selectedDeviceNumber = devices.Any(device =>
+            device.DeviceNumber == _preferences.VoiceInputDeviceNumber)
+            ? _preferences.VoiceInputDeviceNumber
+            : devices.FirstOrDefault()?.DeviceNumber ?? -1;
+
+        _preferences.VoiceInputDeviceNumber = selectedDeviceNumber;
+        _voiceInputService.InputDeviceNumber = selectedDeviceNumber;
+        _wakeWordService.InputDeviceNumber = selectedDeviceNumber;
+        _settingsView.SetVoiceInputDevices(devices, selectedDeviceNumber);
+        SavePreferences();
+    }
+
+    private async Task ChangeVoiceInputDeviceAsync(int deviceNumber)
+    {
+        await _voiceGate.WaitAsync();
+        try
+        {
+            await PauseWakeWordAsync();
+            await _voiceInputService.CancelAsync();
+
+            _preferences.VoiceInputDeviceNumber = deviceNumber;
+            _voiceInputService.InputDeviceNumber = deviceNumber;
+            _wakeWordService.InputDeviceNumber = deviceNumber;
+            SavePreferences();
+
+            var selectedName = _voiceInputService
+                .GetInputDevices()
+                .FirstOrDefault(device => device.DeviceNumber == deviceNumber)
+                ?.Name ?? "micrófono seleccionado";
+
+            _assistantView.SetVoiceAvailability(
+                _voiceInputService.IsReady,
+                $"Micrófono activo: {selectedName}");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Success,
+                "Micrófono actualizado",
+                selectedName,
+                _preferences.Position);
+        }
+        finally
+        {
+            try
+            {
+                await ResumeWakeWordIfEnabledAsync();
+            }
+            finally
+            {
+                _voiceGate.Release();
+            }
+        }
+    }
+
+    private async Task<bool> TryHandlePendingVoiceDecisionAsync(
+        string prompt,
+        bool fromVoice)
+    {
+        if (string.IsNullOrWhiteSpace(_pendingVoicePrompt))
+        {
+            return false;
+        }
+
+        var normalized = SpanishVoiceTranscriptNormalizer.Normalize(prompt);
+        if (IsVoiceConfirmation(normalized))
+        {
+            var confirmedPrompt = _pendingVoicePrompt;
+            _pendingVoicePrompt = null;
+
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Success,
+                "Orden confirmada",
+                confirmedPrompt,
+                _preferences.Position);
+            await ProcessPromptAsync(confirmedPrompt, fromVoice);
+            return true;
+        }
+
+        if (IsVoiceCancellation(normalized))
+        {
+            _pendingVoicePrompt = null;
+            _assistantView.AddUserMessage(prompt);
+            _assistantView.AddNexoMessage("Orden cancelada. No hice ningún cambio.");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "Orden cancelada",
+                "No se ejecutó ninguna acción.",
+                _preferences.Position);
+            return true;
+        }
+
+        // Una orden nueva reemplaza la transcripción dudosa anterior.
+        _pendingVoicePrompt = null;
+        return false;
+    }
+
+    private static bool IsVoiceConfirmation(string text) =>
+        text is "si" or "confirmar" or "confirma" or "correcto" or "adelante";
+
+    private static bool IsVoiceCancellation(string text) =>
+        text is "no" or "cancela" or "cancelar" or "olvidalo";
+
     private async Task PrepareVoiceAsync()
     {
         var requiresDownload = !_voiceInputService.IsReady;
@@ -949,6 +1064,7 @@ public partial class MainWindow : Window
             var result = await _voiceInputService.ListenForUtteranceAsync(
                 maximumDuration: TimeSpan.FromSeconds(8),
                 trailingSilence: TimeSpan.FromMilliseconds(700),
+                initialPcmAudio: e.PreRollAudio,
                 cancellationToken: _lifetimeCancellation.Token);
 
             _assistantView.SetVoiceState(
@@ -988,6 +1104,34 @@ public partial class MainWindow : Window
         _assistantView.SetVoiceState(
             AssistantVoiceState.Idle,
             $"Entendí: “{result.Text}”");
+
+        var normalizedDecision =
+            SpanishVoiceTranscriptNormalizer.Normalize(result.Text);
+        if (!string.IsNullOrWhiteSpace(_pendingVoicePrompt) &&
+            (IsVoiceConfirmation(normalizedDecision) ||
+             IsVoiceCancellation(normalizedDecision)))
+        {
+            await ProcessPromptAsync(result.Text, fromVoice: true);
+            return;
+        }
+
+        if (result.RequiresConfirmation)
+        {
+            _pendingVoicePrompt = result.Text;
+            var question =
+                $"Escuché “{result.Text}”, pero no estoy totalmente seguro. " +
+                "Di “Nexo, confirmar”, repite la orden o di “Nexo, cancelar”.";
+
+            _assistantView.AddNexoMessage(question);
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "¿Confirmas la orden?",
+                result.Text,
+                _preferences.Position);
+            return;
+        }
+
+        _pendingVoicePrompt = null;
         _capsuleWindow.ShowMessage(
             CapsuleKind.Information,
             "Te escuché",
@@ -1071,14 +1215,14 @@ public partial class MainWindow : Window
             SetWakeWordIndicator(active: true);
             _assistantView.SetVoiceAvailability(
                 _voiceInputService.IsReady,
-                $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}”, espera “Te escucho” y después da la orden.");
+                $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” y la orden de corrido, o espera “Te escucho”.");
 
             if (showCapsule && !_isClosed)
             {
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Success,
                     "Activación por voz lista",
-                    $"Nexo espera la frase “{_preferences.WakeWordPhrase.ToSpokenText()}”.",
+                    $"Puedes decir “{_preferences.WakeWordPhrase.ToSpokenText()}, abre PowerShell” de corrido.",
                     _preferences.Position);
             }
             else if (requiresDownload && !_isClosed)

@@ -17,7 +17,7 @@ public sealed class WakeWordPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(6, preferences.SchemaVersion);
+        Assert.Equal(7, preferences.SchemaVersion);
         Assert.False(preferences.WakeWordEnabled);
         Assert.Equal(WakeWordPhrase.Nexo, preferences.WakeWordPhrase);
     }

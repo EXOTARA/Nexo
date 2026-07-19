@@ -36,6 +36,10 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Respuestas locales para fecha y hora, sin consultar al proveedor de IA.
 - Política de contexto que adjunta métricas solo cuando la pregunta trata del equipo.
 - Caché temporal de Whisper para acelerar órdenes de voz consecutivas.
+- Selector de micrófono compartido por Whisper y la frase de activación.
+- Búfer previo para conservar el inicio de órdenes dichas junto con `Nexo`.
+- Confirmación por voz cuando la grabación tiene poca claridad.
+- Umbral de silencio adaptable al ruido del micrófono.
 
 ### Cambiado
 
@@ -45,9 +49,11 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - El reconocimiento clásico de Windows se reemplaza por transcripción local con Whisper.
 - Las respuestas abiertas son más breves y dejan de convertir consultas no relacionadas en diagnósticos del sistema.
 - El silencio final de la escucha automática se reduce para entregar antes la orden.
+- La frase de activación puede decirse junto con la orden completa.
 
 ### Pendiente
 
-- Reconocer `Nexo` y la orden completa sin esperar una segunda señal.
+- Calibración guiada del micrófono.
+- Diccionario personal de correcciones.
 - Reducir todavía más el consumo del detector permanente.
 - Respaldo semántico para convertir instrucciones ambiguas en acciones locales validadas.

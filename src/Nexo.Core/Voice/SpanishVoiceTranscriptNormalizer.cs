@@ -36,6 +36,15 @@ public static partial class SpanishVoiceTranscriptNormalizer
             return string.Empty;
         }
 
+        // Cuando la activación y la orden se dicen de corrido, el búfer previo
+        // también contiene “Nexo” u “Oye Nexo”. Se elimina solo al inicio para
+        // no alterar consultas abiertas que mencionen el nombre de la app.
+        normalized = WakeWordPrefixRegex().Replace(normalized, string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
         // Los comandos de terminal suelen ser muy cortos. Whisper reconoce bien
         // el nombre, pero puede deformar el verbo "abre" (avady, avedit, avite…).
         if (WordCount(normalized) <= 4 &&
@@ -110,6 +119,9 @@ public static partial class SpanishVoiceTranscriptNormalizer
 
     private static int WordCount(string value) =>
         value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+
+    [GeneratedRegex(@"^(?:(?:oye|hey)\s+)?(?:nexo|exo)(?:\s+|$)", RegexOptions.IgnoreCase)]
+    private static partial Regex WakeWordPrefixRegex();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();
