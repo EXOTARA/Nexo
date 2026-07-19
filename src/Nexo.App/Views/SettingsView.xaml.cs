@@ -33,6 +33,9 @@ public partial class SettingsView : UserControl
     public event Action<bool>? WindowsNotificationsChanged;
     public event Action<bool>? NotificationSoundsChanged;
     public event EventHandler? AiTestConnectionRequested;
+    public event EventHandler? ManageModelsRequested;
+    public event EventHandler? DiagnosticsRequested;
+    public event EventHandler? OnboardingRequested;
 
     public SettingsView()
     {
@@ -351,6 +354,8 @@ public partial class SettingsView : UserControl
         AiTestConnectionButton.Content = inProgress
             ? "Probando…"
             : "Probar conexión";
+        ManageModelsButton.IsEnabled = !inProgress &&
+            AiOllamaRadioButton.IsChecked == true;
     }
 
     private void AiProviderRadioButton_Checked(object sender, RoutedEventArgs e)
@@ -404,6 +409,19 @@ public partial class SettingsView : UserControl
         AiTestConnectionRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    private void ManageModelsButton_Click(object sender, RoutedEventArgs e)
+    {
+        AiBaseUrlChanged?.Invoke(AiBaseUrlTextBox.Text.Trim());
+        AiModelChanged?.Invoke(AiModelTextBox.Text.Trim());
+        ManageModelsRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void DiagnosticsButton_Click(object sender, RoutedEventArgs e) =>
+        DiagnosticsRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnboardingButton_Click(object sender, RoutedEventArgs e) =>
+        OnboardingRequested?.Invoke(this, EventArgs.Empty);
+
     private static AiProviderKind ParseAiProvider(string providerTag)
     {
         return Enum.TryParse<AiProviderKind>(providerTag, ignoreCase: true, out var provider)
@@ -433,6 +451,7 @@ public partial class SettingsView : UserControl
         AiApiKeyVariableTextBox.IsEnabled = enabled;
         ShareSystemMetricsWithAiCheckBox.IsEnabled = enabled;
         AiTestConnectionButton.IsEnabled = enabled;
+        ManageModelsButton.IsEnabled = enabled && AiOllamaRadioButton.IsChecked == true;
     }
 
     private void WakeWordEnabledCheckBox_Changed(object sender, RoutedEventArgs e)

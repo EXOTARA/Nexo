@@ -72,6 +72,8 @@ public sealed class ShellPreferences
 
     public bool PlayNotificationSounds { get; set; } = true;
 
+    public bool HasCompletedOnboarding { get; set; }
+
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -129,6 +131,12 @@ public sealed class ShellPreferences
             ShowWindowsNotifications = true;
             PlayNotificationSounds = true;
             SchemaVersion = 9;
+        }
+
+        if (SchemaVersion < 10)
+        {
+            HasCompletedOnboarding = false;
+            SchemaVersion = 10;
         }
 
         Width = Math.Clamp(Width, 380, 520);

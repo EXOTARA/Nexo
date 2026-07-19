@@ -392,6 +392,81 @@ public partial class MainWindow : Window
 
         _settingsView.AiTestConnectionRequested += async (_, _) =>
             await TestAiConnectionAsync();
+
+        _settingsView.ManageModelsRequested += (_, _) =>
+            ShowModelManager();
+
+        _settingsView.DiagnosticsRequested += (_, _) =>
+            ShowDiagnostics();
+
+        _settingsView.OnboardingRequested += async (_, _) =>
+            await ShowOnboardingAsync();
+    }
+
+    private void ShowModelManager()
+    {
+        var baseUrl = _preferences.AiProvider == AiProviderKind.Ollama
+            ? _preferences.AiBaseUrl
+            : AiProviderDefaults.Get(AiProviderKind.Ollama).BaseUrl;
+        var window = new ModelManagerWindow(baseUrl, _preferences.AiModel)
+        {
+            Owner = this
+        };
+
+        if (window.ShowDialog() != true ||
+            string.IsNullOrWhiteSpace(window.SelectedModel))
+        {
+            return;
+        }
+
+        _preferences.AiProvider = AiProviderKind.Ollama;
+        _preferences.AiBaseUrl = AiProviderDefaults.Get(AiProviderKind.Ollama).BaseUrl;
+        _preferences.AiModel = window.SelectedModel;
+        _preferences.AiApiKeyEnvironmentVariable = string.Empty;
+        _settingsView.ApplyPreferences(_preferences);
+        UpdateAiProviderStatus();
+        SavePreferences();
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            "Modelo seleccionado",
+            window.SelectedModel,
+            _preferences.Position);
+    }
+
+    private void ShowDiagnostics()
+    {
+        var window = new DiagnosticsWindow(
+            _preferences,
+            _voiceInputService.GetInputDevices(),
+            _voiceInputService.IsReady,
+            _wakeWordService.IsReady,
+            _wakeWordService.IsListening,
+            trayActive: true,
+            _startupService.IsEnabled())
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    private async Task ShowOnboardingAsync()
+    {
+        await PauseWakeWordAsync();
+        _voiceOutputService.Stop();
+
+        var window = new OnboardingWindow(_preferences, _settingsStore)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+
+        _preferences.StartWithWindows = _startupService.IsEnabled();
+        _settingsView.ApplyPreferences(_preferences);
+        ApplyPreferences();
+        UpdateAiProviderStatus();
+        _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
+        ConfigureVoiceInputDevices();
+        await ApplyWakeWordPreferenceAsync(showCapsule: false);
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)

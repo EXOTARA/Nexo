@@ -4,7 +4,7 @@ Nexo es un asistente ligero y modular para Windows que permite consultar, entend
 
 ## Estado
 
-Nexo está actualmente en fase `0.3-alpha`. La aplicación ya cuenta con una interfaz funcional, métricas del sistema y una primera versión del motor de comandos locales.
+Nexo está actualmente en fase `0.4-alpha`. La aplicación ya cuenta con una interfaz funcional, métricas del sistema y una primera versión del motor de comandos locales.
 
 Actualmente incluye:
 
@@ -43,6 +43,10 @@ Actualmente incluye:
 - Protección contra múltiples instancias y reapertura de la instancia existente.
 - Notificaciones de Windows y sonidos configurables para recordatorios y sesiones terminadas.
 - Recuperación automática de recordatorios, temporizadores y métricas después de suspender el equipo.
+- Configuración inicial guiada para voz, Ollama, privacidad e integración con Windows.
+- Administrador de modelos locales de Ollama con descarga, selección y eliminación.
+- Centro de diagnóstico local con estado de micrófono, Whisper, wake word, IA, Vision y datos.
+- Respaldo automático de archivos de datos dañados y limpieza de temporales.
 
 La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. Después de una transcripción, Whisper puede permanecer hasta cinco minutos en memoria para acelerar órdenes consecutivas y luego se libera.
 
@@ -76,7 +80,7 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 - Selección manual de una región para ampliar errores pequeños.
 - OCR y copia de texto desde capturas.
 - Difuminado manual de zonas sensibles.
-- Onboarding guiado, administración de modelos e instalador de Windows.
+- Instalador de Windows, actualizaciones y publicación de la primera beta.
 
 
 ## Rutinas y automatización segura

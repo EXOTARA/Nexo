@@ -1,6 +1,7 @@
 using System.Windows;
 using Nexo.App.WindowsIntegration;
 using Nexo.Core.WindowsIntegration;
+using Nexo.Windows.Settings;
 
 namespace Nexo.App;
 
@@ -21,8 +22,18 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        var mainWindow = new MainWindow(
-            StartupCommandBuilder.ShouldStartHidden(e.Args));
+        var settingsStore = new JsonSettingsStore();
+        var preferences = settingsStore.Load();
+        var requestedHiddenStart = StartupCommandBuilder.ShouldStartHidden(e.Args);
+
+        if (!preferences.HasCompletedOnboarding)
+        {
+            var onboarding = new OnboardingWindow(preferences, settingsStore);
+            onboarding.ShowDialog();
+            requestedHiddenStart = false;
+        }
+
+        var mainWindow = new MainWindow(requestedHiddenStart);
         MainWindow = mainWindow;
 
         _singleInstance.ActivationRequested += (_, _) =>

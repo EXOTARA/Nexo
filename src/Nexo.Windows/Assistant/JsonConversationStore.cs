@@ -1,6 +1,8 @@
 using System.IO;
 using System.Text.Json;
 using Nexo.Core.Assistant;
+using Nexo.Core.Diagnostics;
+using Nexo.Windows.Storage;
 
 namespace Nexo.Windows.Assistant;
 
@@ -14,10 +16,9 @@ public sealed class JsonConversationStore
 
     private readonly string _historyPath;
 
-    public JsonConversationStore()
+    public JsonConversationStore(string? historyPath = null)
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _historyPath = Path.Combine(localAppData, "Nexo", "conversation-history.json");
+        _historyPath = historyPath ?? NexoDataPaths.Conversation;
     }
 
     public IReadOnlyList<ConversationMessage> Load()
@@ -33,16 +34,10 @@ public sealed class JsonConversationStore
             var messages = JsonSerializer.Deserialize<List<ConversationMessage>>(json);
             return messages?.TakeLast(MaxStoredMessages).ToArray() ?? [];
         }
-        catch (JsonException)
+        catch (Exception exception) when (
+            exception is JsonException or IOException or UnauthorizedAccessException)
         {
-            return Array.Empty<ConversationMessage>();
-        }
-        catch (IOException)
-        {
-            return Array.Empty<ConversationMessage>();
-        }
-        catch (UnauthorizedAccessException)
-        {
+            CorruptFileBackup.TryPreserve(_historyPath);
             return Array.Empty<ConversationMessage>();
         }
     }
@@ -59,7 +54,9 @@ public sealed class JsonConversationStore
             Directory.CreateDirectory(directory);
             var snapshot = messages.TakeLast(MaxStoredMessages).ToArray();
             var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
-            File.WriteAllText(_historyPath, json);
+            var temporaryPath = _historyPath + ".tmp";
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, _historyPath, overwrite: true);
         }
         catch (IOException)
         {
