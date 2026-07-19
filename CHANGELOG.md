@@ -51,6 +51,11 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Contrato de respuesta visual con causa, corrección exacta y forma de comprobarla.
 - Detección y reintento de respuestas visuales genéricas.
 - Respaldo directo cuando un modelo genera razonamiento pero deja vacío el contenido final.
+- Módulo **Hoy** para administrar tareas pendientes, completadas y vencidas.
+- Creación y edición manual de tareas con notas, prioridad, fecha y hora.
+- Recordatorios locales mediante cápsulas mientras Nexo está ejecutándose.
+- Persistencia privada de tareas en `%LocalAppData%\Nexo\tasks.json`.
+- Órdenes locales para crear, consultar, completar y eliminar actividades sin llamar al LLM.
 
 ### Cambiado
 
@@ -64,6 +69,8 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ### Pendiente
 
+- Notificaciones nativas de Windows para recordatorios aunque la barra esté oculta.
+- Temporizadores, sesiones de enfoque y rutinas.
 - OCR y copia de texto desde capturas.
 - Difuminado manual de información sensible.
 - Calibración guiada del micrófono.

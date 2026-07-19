@@ -73,11 +73,11 @@
     </Style>
 
     <Style x:Key="NavButtonStyle" TargetType="Button">
-        <Setter Property="MinWidth" Value="72" />
+        <Setter Property="MinWidth" Value="54" />
         <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="12,9" />
+        <Setter Property="Padding" Value="8,9" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />

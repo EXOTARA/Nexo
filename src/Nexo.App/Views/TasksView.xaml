@@ -1,0 +1,224 @@
+<UserControl x:Class="Nexo.App.Views.TasksView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Hoy" Style="{StaticResource SectionTitleStyle}" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="Tareas y recordatorios guardados únicamente en este equipo."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Content="Nueva"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Padding="14,8"
+                    Click="NewTaskButton_Click" />
+        </Grid>
+
+        <UniformGrid Grid.Row="1" Columns="3" Margin="-3,12,-3,10">
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="HOY" Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="TodayCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="PENDIENTES" Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="PendingCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="VENCIDAS" Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="OverdueCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <Border x:Name="EditorBorder"
+                Grid.Row="2"
+                Style="{StaticResource SubtleCardStyle}"
+                Margin="0,0,0,10"
+                Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock x:Name="EditorTitleText"
+                           Text="Nueva tarea"
+                           FontWeight="SemiBold"
+                           FontSize="15" />
+                <TextBox x:Name="TitleTextBox"
+                         Margin="0,9,0,0"
+                         Style="{StaticResource CompactTextBoxStyle}"
+                         ToolTip="Título de la tarea" />
+                <TextBox x:Name="NotesTextBox"
+                         Margin="0,7,0,0"
+                         Height="54"
+                         Style="{StaticResource PromptTextBoxStyle}"
+                         AcceptsReturn="True"
+                         ToolTip="Notas opcionales" />
+
+                <Grid Margin="0,7,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.15*" />
+                        <ColumnDefinition Width="0.85*" />
+                        <ColumnDefinition Width="1*" />
+                    </Grid.ColumnDefinitions>
+                    <DatePicker x:Name="DueDatePicker"
+                                Height="36"
+                                VerticalContentAlignment="Center"
+                                ToolTip="Fecha opcional" />
+                    <TextBox x:Name="DueTimeTextBox"
+                             Grid.Column="1"
+                             Margin="7,0,0,0"
+                             Style="{StaticResource CompactTextBoxStyle}"
+                             Text="09:00"
+                             ToolTip="Hora en formato HH:mm" />
+                    <ComboBox x:Name="PriorityComboBox"
+                              Grid.Column="2"
+                              Margin="7,0,0,0"
+                              Height="36"
+                              SelectedIndex="1"
+                              VerticalContentAlignment="Center"
+                              ToolTip="Prioridad">
+                        <ComboBoxItem Content="Baja" Tag="Low" />
+                        <ComboBoxItem Content="Normal" Tag="Normal" />
+                        <ComboBoxItem Content="Alta" Tag="High" />
+                    </ComboBox>
+                </Grid>
+
+                <CheckBox x:Name="ReminderCheckBox"
+                          Margin="0,8,0,0"
+                          Content="Recordarme en la fecha y hora indicadas" />
+                <TextBlock x:Name="EditorErrorText"
+                           Margin="0,6,0,0"
+                           Foreground="{DynamicResource BrushWarning}"
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed" />
+                <StackPanel Margin="0,9,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancelar"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Padding="13,8"
+                            Click="CancelEditorButton_Click" />
+                    <Button Margin="7,0,0,0"
+                            Content="Guardar"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Padding="13,8"
+                            Click="SaveTaskButton_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <UniformGrid Grid.Row="3" Columns="3" Margin="0,0,0,9">
+            <Button x:Name="TodayFilterButton"
+                    Content="Hoy"
+                    Tag="Today"
+                    Style="{StaticResource NavButtonStyle}"
+                    Click="FilterButton_Click" />
+            <Button x:Name="PendingFilterButton"
+                    Content="Pendientes"
+                    Tag="Pending"
+                    Style="{StaticResource NavButtonStyle}"
+                    Click="FilterButton_Click" />
+            <Button x:Name="CompletedFilterButton"
+                    Content="Hechas"
+                    Tag="Completed"
+                    Style="{StaticResource NavButtonStyle}"
+                    Click="FilterButton_Click" />
+        </UniformGrid>
+
+        <Grid Grid.Row="4">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="TasksItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,8" Padding="11">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap"
+                                                       TextDecorations="{Binding TextDecorations}" />
+                                            <Border Margin="7,0,0,0"
+                                                    Padding="6,1"
+                                                    Background="{DynamicResource BrushAccentSoft}"
+                                                    CornerRadius="7">
+                                                <TextBlock Text="{Binding PriorityLabel}"
+                                                           FontSize="9"
+                                                           Foreground="{DynamicResource BrushTextSecondary}" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Margin="0,4,0,0"
+                                                   Text="{Binding ScheduleText}"
+                                                   Foreground="{Binding ScheduleBrush}"
+                                                   FontSize="11" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   Text="{Binding Notes}"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource MutedTextStyle}"
+                                                   Visibility="{Binding NotesVisibility}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <Button Content="✓"
+                                                Width="29"
+                                                Height="27"
+                                                Padding="0"
+                                                Tag="{Binding Id}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Visibility="{Binding CompleteVisibility}"
+                                                ToolTip="Marcar como completada"
+                                                Click="CompleteTaskButton_Click" />
+                                        <Button Content="✎"
+                                                Width="29"
+                                                Height="27"
+                                                Margin="0,5,0,0"
+                                                Padding="0"
+                                                Tag="{Binding Id}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                ToolTip="Editar"
+                                                Click="EditTaskButton_Click" />
+                                        <Button Content="×"
+                                                Width="29"
+                                                Height="27"
+                                                Margin="0,5,0,0"
+                                                Padding="0"
+                                                Tag="{Binding Id}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                ToolTip="Eliminar"
+                                                Click="DeleteTaskButton_Click" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <TextBlock x:Name="EmptyStateText"
+                       Text="No hay tareas en esta vista."
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       TextAlignment="Center"
+                       Style="{StaticResource MutedTextStyle}" />
+        </Grid>
+    </Grid>
+</UserControl>

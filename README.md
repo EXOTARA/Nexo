@@ -31,6 +31,9 @@ Actualmente incluye:
 - Integración nativa con Ollama mediante `/api/chat`, con streaming, `keep_alive` y control explícito del modo de pensamiento.
 - Diagnóstico visual técnico en dos etapas: primero extrae evidencia estructurada y después propone una corrección verificable.
 - Reintento automático cuando una respuesta visual es demasiado genérica o evade el problema.
+- Módulo **Hoy** con tareas, fechas, prioridades y recordatorios locales.
+- Guardado privado de actividades en `%LocalAppData%\Nexo\tasks.json`.
+- Órdenes locales para crear, consultar, completar y eliminar tareas sin usar la IA.
 
 La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. Después de una transcripción, Whisper puede permanecer hasta cinco minutos en memoria para acelerar órdenes consecutivas y luego se libera.
 
@@ -64,4 +67,4 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 - Selección manual de una región para ampliar errores pequeños.
 - OCR y copia de texto desde capturas.
 - Difuminado manual de zonas sensibles.
-- Tareas, recordatorios, temporizadores y rutinas.
+- Temporizadores, sesiones de enfoque y rutinas.
