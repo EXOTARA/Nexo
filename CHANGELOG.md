@@ -83,3 +83,14 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Diccionario personal de correcciones.
 - Reducir todavía más el consumo del detector permanente.
 - Respaldo semántico para convertir instrucciones ambiguas en acciones locales validadas.
+
+
+## 0.7.0-alpha - Rutinas y motor de acciones seguras
+
+- Editor local de rutinas con frases de activación.
+- Rutinas predeterminadas para programación, estudio y descanso.
+- Motor de acciones permitidas con validación, riesgo y resultados por paso.
+- Vista previa y confirmación para acciones sensibles.
+- Ejecución tolerante a fallos: un paso fallido no cancela los demás.
+- Persistencia local en `%LocalAppData%\Nexo\routines.json`.
+- Comandos por texto o voz para abrir, listar y ejecutar rutinas.
