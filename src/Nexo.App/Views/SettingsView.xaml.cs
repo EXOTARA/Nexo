@@ -28,6 +28,10 @@ public partial class SettingsView : UserControl
     public event Action<string>? AiApiKeyEnvironmentVariableChanged;
     public event Action<bool>? ShareSystemMetricsWithAiChanged;
     public event Action<bool>? VisionEnabledChanged;
+    public event Action<bool>? StartWithWindowsChanged;
+    public event Action<bool>? MinimizeToTrayChanged;
+    public event Action<bool>? WindowsNotificationsChanged;
+    public event Action<bool>? NotificationSoundsChanged;
     public event EventHandler? AiTestConnectionRequested;
 
     public SettingsView()
@@ -65,6 +69,10 @@ public partial class SettingsView : UserControl
         AiApiKeyVariableTextBox.Text = preferences.AiApiKeyEnvironmentVariable;
         ShareSystemMetricsWithAiCheckBox.IsChecked = preferences.ShareSystemMetricsWithAi;
         VisionEnabledCheckBox.IsChecked = preferences.VisionEnabled;
+        StartWithWindowsCheckBox.IsChecked = preferences.StartWithWindows;
+        MinimizeToTrayCheckBox.IsChecked = preferences.MinimizeToTray;
+        WindowsNotificationsCheckBox.IsChecked = preferences.ShowWindowsNotifications;
+        NotificationSoundsCheckBox.IsChecked = preferences.PlayNotificationSounds;
         SetAiConnectionStatus(
             preferences.AiProvider == AiProviderKind.Disabled
                 ? "La IA está desactivada."
@@ -185,6 +193,65 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private void StartWithWindowsCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            StartWithWindowsChanged?.Invoke(StartWithWindowsCheckBox.IsChecked == true);
+        }
+    }
+
+    private void MinimizeToTrayCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            MinimizeToTrayChanged?.Invoke(MinimizeToTrayCheckBox.IsChecked == true);
+        }
+    }
+
+    private void WindowsNotificationsCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            WindowsNotificationsChanged?.Invoke(WindowsNotificationsCheckBox.IsChecked == true);
+        }
+    }
+
+    private void NotificationSoundsCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            NotificationSoundsChanged?.Invoke(NotificationSoundsCheckBox.IsChecked == true);
+        }
+    }
+
+    public void SetStartWithWindows(bool enabled)
+    {
+        if (StartWithWindowsCheckBox is null)
+        {
+            return;
+        }
+
+        _isApplyingPreferences = true;
+        StartWithWindowsCheckBox.IsChecked = enabled;
+        _isApplyingPreferences = false;
+    }
+
+    public void SetWindowsIntegrationStatus(string detail, bool? isSuccess)
+    {
+        if (WindowsIntegrationStatusText is null)
+        {
+            return;
+        }
+
+        WindowsIntegrationStatusText.Text = detail;
+        WindowsIntegrationStatusText.Foreground = isSuccess switch
+        {
+            true => (System.Windows.Media.Brush)FindResource("BrushSuccess"),
+            false => (System.Windows.Media.Brush)FindResource("BrushWarning"),
+            _ => (System.Windows.Media.Brush)FindResource("BrushTextSecondary")
+        };
+    }
 
     public void SetVoiceInputDevices(
         IReadOnlyList<VoiceInputDevice> devices,

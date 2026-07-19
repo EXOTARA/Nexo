@@ -16,6 +16,7 @@
         Loaded="Window_Loaded"
         SourceInitialized="Window_SourceInitialized"
         PreviewKeyDown="Window_PreviewKeyDown"
+        Closing="Window_Closing"
         Closed="Window_Closed">
 
     <Border x:Name="ShellBorder"
@@ -114,7 +115,7 @@
                     <Button Margin="8,0,0,0"
                             Style="{StaticResource IconButtonStyle}"
                             Content="×"
-                            ToolTip="Salir"
+                            ToolTip="Ocultar o salir según la configuración"
                             Click="CloseButton_Click" />
                 </StackPanel>
             </Grid>

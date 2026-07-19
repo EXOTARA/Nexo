@@ -37,6 +37,12 @@ Actualmente incluye:
 - Módulo **Enfoque** con temporizadores, sesiones de estudio, pausas y progreso diario.
 - Persistencia local del temporizador activo en `%LocalAppData%\Nexo\focus.json`.
 - Control por texto o voz para iniciar, pausar, continuar, consultar y cancelar sesiones.
+- Icono permanente en la bandeja del sistema con acceso rápido a Nexo, Peek y salida completa.
+- Segundo plano real: cerrar puede ocultar la barra sin detener tareas, voz ni temporizadores.
+- Inicio opcional con Windows en modo oculto.
+- Protección contra múltiples instancias y reapertura de la instancia existente.
+- Notificaciones de Windows y sonidos configurables para recordatorios y sesiones terminadas.
+- Recuperación automática de recordatorios, temporizadores y métricas después de suspender el equipo.
 
 La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. Después de una transcripción, Whisper puede permanecer hasta cinco minutos en memoria para acelerar órdenes consecutivas y luego se libera.
 
@@ -70,7 +76,7 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 - Selección manual de una región para ampliar errores pequeños.
 - OCR y copia de texto desde capturas.
 - Difuminado manual de zonas sensibles.
-- Rutinas configurables que combinen aplicaciones, audio y sesiones de enfoque.
+- Onboarding guiado, administración de modelos e instalador de Windows.
 
 
 ## Rutinas y automatización segura
@@ -82,3 +88,9 @@ Las acciones continúan de forma independiente cuando un paso falla y los pasos 
 muestran una vista previa antes de ejecutarse.
 
 Ejemplos: `modo programación`, `modo estudio`, `modo descanso`, `abre rutinas`.
+## Integración con Windows
+
+Nexo puede permanecer activo en la bandeja aunque la barra esté oculta. Desde el menú del icono puedes abrir Nexo, mostrar Peek o salir completamente. El inicio con Windows es opcional y usa el modo `--background`, por lo que la aplicación conserva recordatorios, temporizadores, atajos y la frase de activación sin mostrar la barra al iniciar sesión.
+
+Las notificaciones y sonidos se controlan desde **Personalización → Integración con Windows**. Al reanudar el equipo después de una suspensión, Nexo vuelve a comprobar inmediatamente recordatorios y sesiones de enfoque.
+
