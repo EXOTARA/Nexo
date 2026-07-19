@@ -79,20 +79,32 @@
                                Margin="0,3,0,0"
                                TextTrimming="CharacterEllipsis"
                                Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock Margin="0,2,0,0"
+                    <TextBlock x:Name="VisionAttachmentDetailText"
+                               Margin="0,2,0,0"
                                Text="Se enviará solo con tu siguiente consulta."
+                               TextTrimming="CharacterEllipsis"
                                Style="{StaticResource MutedTextStyle}" />
                 </StackPanel>
 
-                <Button Grid.Column="2"
-                        Width="30"
-                        Height="30"
-                        Padding="0"
-                        VerticalAlignment="Center"
-                        Content="×"
-                        ToolTip="Descartar captura"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Click="DiscardVisionButton_Click" />
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button x:Name="CopyVisionTextButton"
+                            Margin="0,0,6,0"
+                            Padding="8,5"
+                            Visibility="Collapsed"
+                            Content="Texto"
+                            ToolTip="Copiar el texto extraído localmente"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Click="CopyVisionTextButton_Click" />
+                    <Button Width="30"
+                            Height="30"
+                            Padding="0"
+                            Content="×"
+                            ToolTip="Descartar captura"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Click="DiscardVisionButton_Click" />
+                </StackPanel>
             </Grid>
         </Border>
 

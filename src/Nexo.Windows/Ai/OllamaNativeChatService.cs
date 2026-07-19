@@ -344,12 +344,22 @@ public sealed class OllamaNativeChatService : IAiChatService, IDisposable
             .LastOrDefault(message => message.Role == ConversationRole.User)
             ?.Text;
 
+        var extractionPrompt =
+            VisionDiagnosticPromptBuilder.BuildExtractionPrompt(lastQuestion);
+        if (!string.IsNullOrWhiteSpace(request.SystemContext))
+        {
+            extractionPrompt +=
+                "\n\nTexto auxiliar extraído localmente o contexto autorizado. " +
+                "Compruébalo contra la imagen y no lo trates como infalible:\n" +
+                request.SystemContext.Trim();
+        }
+
         var extractionMessages = new List<OllamaMessage>
         {
             new("system", VisionDiagnosticPromptBuilder.ExtractionInstructions),
             new(
                 "user",
-                VisionDiagnosticPromptBuilder.BuildExtractionPrompt(lastQuestion),
+                extractionPrompt,
                 request.Images?.Select(image => image.Base64Data).ToArray())
         };
 
@@ -485,7 +495,7 @@ public sealed class OllamaNativeChatService : IAiChatService, IDisposable
         var systemText = instructions.Trim();
         if (!string.IsNullOrWhiteSpace(request.SystemContext))
         {
-            systemText += $"\n\nContexto autorizado del equipo:\n{request.SystemContext.Trim()}";
+            systemText += $"\n\nContexto autorizado por el usuario:\n{request.SystemContext.Trim()}";
         }
 
         var messages = new List<OllamaMessage>

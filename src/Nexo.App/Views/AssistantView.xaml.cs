@@ -23,6 +23,7 @@ public partial class AssistantView : UserControl
     private string _aiProviderStatus = "IA desactivada · los comandos locales siguen disponibles";
     private bool _saveHistory;
     private int _recentMessageLimit = 8;
+    private string _visionOcrText = string.Empty;
 
     public event EventHandler<PromptSubmittedEventArgs>? PromptSubmitted;
     public event EventHandler? ConversationChanged;
@@ -94,12 +95,23 @@ public partial class AssistantView : UserControl
         }
     }
 
-    public void SetVisionAttachment(string sourceTitle, byte[] pngBytes)
+    public void SetVisionAttachment(
+        string sourceTitle,
+        byte[] pngBytes,
+        string? extractedText,
+        bool keepForConversation)
     {
         ArgumentNullException.ThrowIfNull(pngBytes);
 
+        _visionOcrText = extractedText?.Trim() ?? string.Empty;
         VisionPreviewImage.Source = LoadBitmap(pngBytes);
         VisionSourceTitleText.Text = sourceTitle;
+        VisionAttachmentDetailText.Text = keepForConversation
+            ? "Se mantendrá para preguntas de seguimiento."
+            : "Se eliminará después de la siguiente respuesta.";
+        CopyVisionTextButton.Visibility = string.IsNullOrWhiteSpace(_visionOcrText)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         VisionAttachmentPanel.Visibility = Visibility.Visible;
         FocusPrompt();
     }
@@ -114,6 +126,12 @@ public partial class AssistantView : UserControl
         if (VisionSourceTitleText is not null)
         {
             VisionSourceTitleText.Text = string.Empty;
+        }
+
+        _visionOcrText = string.Empty;
+        if (CopyVisionTextButton is not null)
+        {
+            CopyVisionTextButton.Visibility = Visibility.Collapsed;
         }
 
         if (VisionAttachmentPanel is not null)
@@ -347,6 +365,16 @@ public partial class AssistantView : UserControl
         _streamingTextBlock = null;
         _streamingBuffer.Clear();
         _streamingHasContent = false;
+    }
+
+
+    private void CopyVisionTextButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(_visionOcrText))
+        {
+            Clipboard.SetText(_visionOcrText);
+            VoiceStatusText.Text = "Texto de la captura copiado.";
+        }
     }
 
     private void VisionButton_Click(object sender, RoutedEventArgs e)

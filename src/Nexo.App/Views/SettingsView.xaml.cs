@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Nexo.Core.Ai;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
@@ -28,6 +29,7 @@ public partial class SettingsView : UserControl
     public event Action<string>? AiApiKeyEnvironmentVariableChanged;
     public event Action<bool>? ShareSystemMetricsWithAiChanged;
     public event Action<bool>? VisionEnabledChanged;
+    public event Action<string>? VisionCustomExclusionsChanged;
     public event EventHandler? AiTestConnectionRequested;
 
     public SettingsView()
@@ -65,6 +67,7 @@ public partial class SettingsView : UserControl
         AiApiKeyVariableTextBox.Text = preferences.AiApiKeyEnvironmentVariable;
         ShareSystemMetricsWithAiCheckBox.IsChecked = preferences.ShareSystemMetricsWithAi;
         VisionEnabledCheckBox.IsChecked = preferences.VisionEnabled;
+        VisionCustomExclusionsTextBox.Text = preferences.VisionCustomExclusions;
         SetAiConnectionStatus(
             preferences.AiProvider == AiProviderKind.Disabled
                 ? "La IA está desactivada."
@@ -174,6 +177,18 @@ public partial class SettingsView : UserControl
         if (!_isApplyingPreferences)
         {
             VisionEnabledChanged?.Invoke(VisionEnabledCheckBox.IsChecked == true);
+        }
+    }
+
+
+    private void VisionCustomExclusionsTextBox_LostKeyboardFocus(
+        object sender,
+        KeyboardFocusChangedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            VisionCustomExclusionsChanged?.Invoke(
+                VisionCustomExclusionsTextBox.Text.Trim());
         }
     }
 

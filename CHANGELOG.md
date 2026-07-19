@@ -51,6 +51,13 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Contrato de respuesta visual con causa, corrección exacta y forma de comprobarla.
 - Detección y reintento de respuestas visuales genéricas.
 - Respaldo directo cuando un modelo genera razonamiento pero deja vacío el contenido final.
+- Selección de una región desde la vista previa antes de analizar una captura.
+- OCR local en español mediante Tesseract, con descarga inicial de datos de idioma.
+- Copia del texto extraído desde la vista previa y desde el adjunto del asistente.
+- Uso del texto OCR como contexto adicional para el modelo visual.
+- Detección preventiva de correos, posibles tokens y términos de credenciales.
+- Opción para mantener una captura durante preguntas de seguimiento.
+- Exclusiones personales de ventanas por título o nombre de proceso.
 
 ### Cambiado
 
@@ -64,7 +71,6 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ### Pendiente
 
-- OCR y copia de texto desde capturas.
 - Difuminado manual de información sensible.
 - Calibración guiada del micrófono.
 - Diccionario personal de correcciones.

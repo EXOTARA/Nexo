@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private readonly IVoiceOutputService _voiceOutputService = new WindowsTextToSpeechService();
     private readonly IWakeWordService _wakeWordService = new VoskWakeWordService();
     private readonly IScreenCaptureService _screenCaptureService = new WindowsScreenCaptureService();
+    private readonly IVisionOcrService _visionOcrService = new TesseractVisionOcrService();
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
     private readonly SemaphoreSlim _aiGate = new(1, 1);
@@ -73,6 +74,8 @@ public partial class MainWindow : Window
     private bool _voicePromptActive;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
+    private string _pendingVisionOcrText = string.Empty;
+    private bool _keepVisionAttachmentForConversation;
     private long _lastExternalWindowHandle;
 
     public MainWindow()
@@ -110,6 +113,7 @@ public partial class MainWindow : Window
 
         WireSettingsEvents();
         _settingsView.ApplyPreferences(_preferences);
+        ApplyVisionPrivacyPreferences();
         UpdateAiProviderStatus();
         ApplyPreferences();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
@@ -276,6 +280,13 @@ public partial class MainWindow : Window
             {
                 ClearPendingVisionAttachment();
             }
+            SavePreferences();
+        };
+
+        _settingsView.VisionCustomExclusionsChanged += exclusions =>
+        {
+            _preferences.VisionCustomExclusions = exclusions;
+            ApplyVisionPrivacyPreferences();
             SavePreferences();
         };
 
@@ -597,6 +608,14 @@ public partial class MainWindow : Window
                 systemContext = BuildAiSystemContext(_latestSnapshot);
             }
 
+            if (_pendingVisionAttachment is not null &&
+                !string.IsNullOrWhiteSpace(_pendingVisionOcrText))
+            {
+                systemContext = AppendVisionOcrContext(
+                    systemContext,
+                    _pendingVisionOcrText);
+            }
+
             var images = _pendingVisionAttachment is { } image
                 ? new[] { image }
                 : null;
@@ -662,7 +681,10 @@ public partial class MainWindow : Window
                 SummarizeForCapsule(finalText),
                 _preferences.Position);
 
-            ClearPendingVisionAttachment();
+            if (!_keepVisionAttachmentForConversation)
+            {
+                ClearPendingVisionAttachment();
+            }
 
             if (fromVoice)
             {
@@ -799,7 +821,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var preview = new VisionPreviewWindow(result.Title, result.PngBytes)
+        var preview = new VisionPreviewWindow(
+            result.Title,
+            result.PngBytes,
+            _visionOcrService)
         {
             Owner = this
         };
@@ -814,11 +839,18 @@ public partial class MainWindow : Window
             return;
         }
 
+        var selectedPngBytes = preview.SelectedPngBytes;
+        _pendingVisionOcrText = preview.ExtractedText;
+        _keepVisionAttachmentForConversation = preview.KeepForConversation;
         _pendingVisionAttachment = AiImageAttachment.FromBytes(
-            result.PngBytes,
+            selectedPngBytes,
             "image/png",
             result.Title);
-        _assistantView.SetVisionAttachment(result.Title, result.PngBytes);
+        _assistantView.SetVisionAttachment(
+            result.Title,
+            selectedPngBytes,
+            _pendingVisionOcrText,
+            _keepVisionAttachmentForConversation);
         NavigateTo("Assistant", animate: true);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
@@ -830,7 +862,37 @@ public partial class MainWindow : Window
     private void ClearPendingVisionAttachment()
     {
         _pendingVisionAttachment = null;
+        _pendingVisionOcrText = string.Empty;
+        _keepVisionAttachmentForConversation = false;
         _assistantView.ClearVisionAttachment();
+    }
+
+    private void ApplyVisionPrivacyPreferences()
+    {
+        _screenCaptureService.SetCustomExclusions(
+            VisionTextPrivacyPolicy.ParseCustomExclusions(
+                _preferences.VisionCustomExclusions));
+    }
+
+    private static string AppendVisionOcrContext(
+        string? systemContext,
+        string ocrText)
+    {
+        const int maximumLength = 8000;
+        var trimmedText = ocrText.Trim();
+        if (trimmedText.Length > maximumLength)
+        {
+            trimmedText = trimmedText[..maximumLength] +
+                "\n[Texto OCR recortado por longitud]";
+        }
+
+        var ocrContext =
+            "Texto extraído localmente de la captura. Puede contener errores de OCR; " +
+            "úsalo como evidencia junto con la imagen:\n" +
+            trimmedText;
+        return string.IsNullOrWhiteSpace(systemContext)
+            ? ocrContext
+            : systemContext + "\n\n" + ocrContext;
     }
 
     private void RememberForegroundWindow()

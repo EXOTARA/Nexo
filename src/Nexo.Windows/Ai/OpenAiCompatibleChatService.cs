@@ -346,7 +346,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
         var systemText = request.Instructions.Trim();
         if (!string.IsNullOrWhiteSpace(request.SystemContext))
         {
-            systemText += $"\n\nContexto autorizado del equipo:\n{request.SystemContext.Trim()}";
+            systemText += $"\n\nContexto autorizado por el usuario:\n{request.SystemContext.Trim()}";
         }
 
         var messages = new List<ChatMessage>

@@ -11,18 +11,41 @@ namespace Nexo.Windows.Vision;
 public sealed class WindowsScreenCaptureService : IScreenCaptureService
 {
     private const int DwmwaCloaked = 14;
+    private readonly object _exclusionsGate = new();
+    private string[] _customExclusions = [];
     private const uint PwRenderFullContent = 0x00000002;
 
     public IReadOnlyList<VisionCaptureTarget> GetAvailableTargets(long excludedWindowHandle = 0)
     {
+        string[] exclusions;
+        lock (_exclusionsGate)
+        {
+            exclusions = _customExclusions.ToArray();
+        }
+
         var targets = new List<VisionCaptureTarget>();
         AddMonitorTargets(targets);
-        AddWindowTargets(targets, new IntPtr(excludedWindowHandle));
+        AddWindowTargets(targets, new IntPtr(excludedWindowHandle), exclusions);
 
         return targets
             .OrderBy(target => target.Kind)
             .ThenBy(target => target.Title, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
+    }
+
+
+    public void SetCustomExclusions(IEnumerable<string> exclusions)
+    {
+        ArgumentNullException.ThrowIfNull(exclusions);
+
+        lock (_exclusionsGate)
+        {
+            _customExclusions = exclusions
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
     }
 
     public Task<VisionCaptureResult> CaptureAsync(
@@ -227,7 +250,8 @@ public sealed class WindowsScreenCaptureService : IScreenCaptureService
 
     private static void AddWindowTargets(
         List<VisionCaptureTarget> targets,
-        IntPtr excludedWindowHandle)
+        IntPtr excludedWindowHandle,
+        IReadOnlyCollection<string> customExclusions)
     {
         EnumWindows((handle, _) =>
         {
@@ -249,7 +273,7 @@ public sealed class WindowsScreenCaptureService : IScreenCaptureService
 
             GetWindowThreadProcessId(handle, out var processId);
             var processName = ReadProcessName(processId);
-            var sensitive = VisionPrivacyPolicy.IsSensitive(title, processName);
+            var sensitive = VisionPrivacyPolicy.IsSensitive(title, processName, customExclusions);
             if (sensitive)
             {
                 return true;
