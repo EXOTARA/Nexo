@@ -111,6 +111,87 @@
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
+            <TextBlock Margin="0,20,0,9" Text="Inteligencia artificial" FontWeight="SemiBold" />
+            <TextBlock Margin="0,0,0,8"
+                       Text="Proveedor"
+                       Style="{StaticResource MutedTextStyle}" />
+            <WrapPanel>
+                <RadioButton x:Name="AiDisabledRadioButton"
+                             Margin="0,0,14,8"
+                             GroupName="AiProvider"
+                             Content="Desactivada"
+                             Tag="Disabled"
+                             Checked="AiProviderRadioButton_Checked" />
+                <RadioButton x:Name="AiOpenAiRadioButton"
+                             Margin="0,0,14,8"
+                             GroupName="AiProvider"
+                             Content="OpenAI"
+                             Tag="OpenAI"
+                             Checked="AiProviderRadioButton_Checked" />
+                <RadioButton x:Name="AiOllamaRadioButton"
+                             Margin="0,0,14,8"
+                             GroupName="AiProvider"
+                             Content="Ollama"
+                             Tag="Ollama"
+                             Checked="AiProviderRadioButton_Checked" />
+                <RadioButton x:Name="AiLmStudioRadioButton"
+                             Margin="0,0,14,8"
+                             GroupName="AiProvider"
+                             Content="LM Studio"
+                             Tag="LMStudio"
+                             Checked="AiProviderRadioButton_Checked" />
+                <RadioButton x:Name="AiCompatibleRadioButton"
+                             Margin="0,0,0,8"
+                             GroupName="AiProvider"
+                             Content="Compatible"
+                             Tag="OpenAICompatible"
+                             Checked="AiProviderRadioButton_Checked" />
+            </WrapPanel>
+
+            <TextBlock Margin="0,5,0,6" Text="URL base" FontWeight="SemiBold" />
+            <TextBox x:Name="AiBaseUrlTextBox"
+                     Style="{StaticResource CompactTextBoxStyle}"
+                     Tag="BaseUrl"
+                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+
+            <TextBlock Margin="0,12,0,6" Text="Modelo" FontWeight="SemiBold" />
+            <TextBox x:Name="AiModelTextBox"
+                     Style="{StaticResource CompactTextBoxStyle}"
+                     Tag="Model"
+                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+
+            <TextBlock Margin="0,12,0,6" Text="Variable de entorno de la clave" FontWeight="SemiBold" />
+            <TextBox x:Name="AiApiKeyVariableTextBox"
+                     Style="{StaticResource CompactTextBoxStyle}"
+                     Tag="ApiKeyVariable"
+                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+            <TextBlock Margin="0,6,0,0"
+                       Text="Nexo guarda solo el nombre de la variable, nunca la clave. OpenAI usa OPENAI_API_KEY; los proveedores locales normalmente no requieren una."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <CheckBox x:Name="ShareSystemMetricsWithAiCheckBox"
+                      Margin="0,12,0,0"
+                      Content="Compartir CPU, RAM, GPU y proceso principal con la IA"
+                      Checked="ShareSystemMetricsWithAiCheckBox_Changed"
+                      Unchecked="ShareSystemMetricsWithAiCheckBox_Changed" />
+            <TextBlock Margin="24,6,0,0"
+                       Text="Desactivado por defecto. Solo se adjunta una captura resumida cuando haces una consulta abierta."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <Button x:Name="AiTestConnectionButton"
+                    Margin="0,12,0,0"
+                    HorizontalAlignment="Left"
+                    Content="Probar conexión"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Click="AiTestConnectionButton_Click" />
+            <TextBlock x:Name="AiConnectionStatusText"
+                       Margin="0,8,0,0"
+                       Text="La IA está desactivada."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <TextBlock Margin="0,20,0,9" Text="Voz" FontWeight="SemiBold" />
             <CheckBox x:Name="SpeakVoiceResponsesCheckBox"
                       Content="Leer en voz alta las confirmaciones de voz"

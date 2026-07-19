@@ -1,3 +1,4 @@
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -13,6 +14,11 @@ public partial class AssistantView : UserControl
         "Hola. Puedo ejecutar órdenes locales y mostrar confirmaciones discretas. Prueba “muestra Peek”, “cómo está mi PC” o “abre PowerShell”.";
 
     private readonly List<ConversationMessage> _messages = [];
+    private readonly StringBuilder _streamingBuffer = new();
+    private Border? _streamingBubble;
+    private TextBlock? _streamingTextBlock;
+    private bool _streamingHasContent;
+    private string _aiProviderStatus = "IA desactivada · los comandos locales siguen disponibles";
     private bool _saveHistory;
     private int _recentMessageLimit = 8;
 
@@ -58,6 +64,27 @@ public partial class AssistantView : UserControl
             PromptBox.Focus();
             Keyboard.Focus(PromptBox);
         }, DispatcherPriority.Input);
+    }
+
+    public void SetAiProviderStatus(string detail)
+    {
+        _aiProviderStatus = detail;
+        if (AiProviderStatusText is not null)
+        {
+            AiProviderStatusText.Text = detail;
+        }
+    }
+
+    public void SetAiActivity(string? activity)
+    {
+        if (AiProviderStatusText is null)
+        {
+            return;
+        }
+
+        AiProviderStatusText.Text = string.IsNullOrWhiteSpace(activity)
+            ? _aiProviderStatus
+            : $"{_aiProviderStatus} · {activity}";
     }
 
     public void SetVoiceAvailability(bool available, string detail)
@@ -118,6 +145,72 @@ public partial class AssistantView : UserControl
         }
     }
 
+    public void BeginNexoStreamingMessage(string placeholder = "Pensando…")
+    {
+        CancelNexoStreamingMessage();
+
+        _streamingBuffer.Clear();
+        _streamingHasContent = false;
+        _streamingBubble = CreateMessageBubble(
+            placeholder,
+            HorizontalAlignment.Left,
+            (Brush)FindResource("BrushSurfaceRaised"));
+        _streamingTextBlock = _streamingBubble.Child as TextBlock;
+
+        ConversationPanel.Children.Add(_streamingBubble);
+        ScrollConversationToEnd();
+    }
+
+    public void AppendNexoStreamingText(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        if (_streamingBubble is null || _streamingTextBlock is null)
+        {
+            BeginNexoStreamingMessage();
+        }
+
+        if (!_streamingHasContent)
+        {
+            _streamingBuffer.Clear();
+            _streamingTextBlock!.Text = string.Empty;
+            _streamingHasContent = true;
+        }
+
+        _streamingBuffer.Append(text);
+        _streamingTextBlock!.Text = _streamingBuffer.ToString();
+        ScrollConversationToEnd();
+    }
+
+    public string CompleteNexoStreamingMessage()
+    {
+        var text = _streamingBuffer.ToString().Trim();
+        ClearStreamingReferences(removeBubble: false);
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            RenderConversation();
+            return string.Empty;
+        }
+
+        _messages.Add(new ConversationMessage(
+            ConversationRole.Assistant,
+            text,
+            DateTimeOffset.Now));
+        TrimTransientConversation();
+        RenderConversation();
+        ConversationChanged?.Invoke(this, EventArgs.Empty);
+        return text;
+    }
+
+    public void CancelNexoStreamingMessage()
+    {
+        ClearStreamingReferences(removeBubble: true);
+    }
+
     public void AddUserMessage(string text)
     {
         AddMessage(new ConversationMessage(
@@ -164,6 +257,7 @@ public partial class AssistantView : UserControl
             return;
         }
 
+        ClearStreamingReferences(removeBubble: false);
         ConversationPanel.Children.Clear();
 
         if (_messages.Count == 0)
@@ -185,9 +279,27 @@ public partial class AssistantView : UserControl
             }
         }
 
+        ScrollConversationToEnd();
+    }
+
+    private void ScrollConversationToEnd()
+    {
         Dispatcher.BeginInvoke(
             new Action(ConversationScroll.ScrollToEnd),
             DispatcherPriority.Background);
+    }
+
+    private void ClearStreamingReferences(bool removeBubble)
+    {
+        if (removeBubble && _streamingBubble is not null && ConversationPanel is not null)
+        {
+            ConversationPanel.Children.Remove(_streamingBubble);
+        }
+
+        _streamingBubble = null;
+        _streamingTextBlock = null;
+        _streamingBuffer.Clear();
+        _streamingHasContent = false;
     }
 
     private void MicButton_PreviewMouseLeftButtonDown(
@@ -273,6 +385,7 @@ public partial class AssistantView : UserControl
 
     private void ClearConversationButton_Click(object sender, RoutedEventArgs e)
     {
+        CancelNexoStreamingMessage();
         _messages.Clear();
         RenderConversation();
         ConversationCleared?.Invoke(this, EventArgs.Empty);

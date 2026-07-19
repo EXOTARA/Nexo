@@ -60,6 +60,16 @@ public static partial class SpanishVoiceTranscriptNormalizer
         // duplicadas en cada parte de la aplicación.
         normalized = SpanishCommandLexicon.NormalizeForParsing(normalized);
 
+        if (DateQuestionRegex().IsMatch(normalized))
+        {
+            return "que dia es hoy";
+        }
+
+        if (TimeQuestionRegex().IsMatch(normalized))
+        {
+            return "que hora es";
+        }
+
         if (SystemStatusRegex().IsMatch(normalized))
         {
             return "como esta mi pc";
@@ -103,6 +113,12 @@ public static partial class SpanishVoiceTranscriptNormalizer
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();
+
+    [GeneratedRegex(@"^(?:que\s+dia\s+es\s+hoy|que\s+fecha\s+es\s+hoy|que\s+bien\s+soy|que\s+dia\s+soy)$", RegexOptions.IgnoreCase)]
+    private static partial Regex DateQuestionRegex();
+
+    [GeneratedRegex(@"^(?:que\s+hora\s+es|dime\s+la\s+hora|hora\s+actual)$", RegexOptions.IgnoreCase)]
+    private static partial Regex TimeQuestionRegex();
 
     [GeneratedRegex(@"^(?:como|cómo)\s+(?:esta|anda)\s+mi\s+(?:pc|pece|pese|pic|pecé)$", RegexOptions.IgnoreCase)]
     private static partial Regex SystemStatusRegex();

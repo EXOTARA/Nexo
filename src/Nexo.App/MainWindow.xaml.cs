@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,11 +11,13 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Nexo.App.Views;
+using Nexo.Core.Ai;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Metrics;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
+using Nexo.Windows.Ai;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Metrics;
@@ -37,12 +40,14 @@ public partial class MainWindow : Window
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly JsonConversationStore _conversationStore = new();
     private readonly NaturalCommandParser _commandParser = new();
+    private readonly IAiChatService _aiChatService = new OpenAiCompatibleChatService();
     private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
     private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
     private readonly IVoiceOutputService _voiceOutputService = new WindowsTextToSpeechService();
     private readonly IWakeWordService _wakeWordService = new VoskWakeWordService();
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
+    private readonly SemaphoreSlim _aiGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly ShellPreferences _preferences;
@@ -97,6 +102,7 @@ public partial class MainWindow : Window
 
         WireSettingsEvents();
         _settingsView.ApplyPreferences(_preferences);
+        UpdateAiProviderStatus();
         ApplyPreferences();
         NavigateTo("Assistant", animate: false);
 
@@ -210,6 +216,45 @@ public partial class MainWindow : Window
                 _ = ApplyWakeWordPreferenceAsync(showCapsule: false);
             }
         };
+
+        _settingsView.AiProviderChanged += provider =>
+        {
+            var preset = AiProviderDefaults.Get(provider);
+            _preferences.AiProvider = provider;
+            _preferences.AiBaseUrl = preset.BaseUrl;
+            _preferences.AiModel = preset.DefaultModel;
+            _preferences.AiApiKeyEnvironmentVariable = preset.ApiKeyEnvironmentVariable;
+            UpdateAiProviderStatus();
+            SavePreferences();
+        };
+
+        _settingsView.AiBaseUrlChanged += baseUrl =>
+        {
+            _preferences.AiBaseUrl = AiProviderDefaults.NormalizeBaseUrl(baseUrl);
+            SavePreferences();
+        };
+
+        _settingsView.AiModelChanged += model =>
+        {
+            _preferences.AiModel = model.Trim();
+            UpdateAiProviderStatus();
+            SavePreferences();
+        };
+
+        _settingsView.AiApiKeyEnvironmentVariableChanged += variableName =>
+        {
+            _preferences.AiApiKeyEnvironmentVariable = variableName.Trim();
+            SavePreferences();
+        };
+
+        _settingsView.ShareSystemMetricsWithAiChanged += enabled =>
+        {
+            _preferences.ShareSystemMetricsWithAi = enabled;
+            SavePreferences();
+        };
+
+        _settingsView.AiTestConnectionRequested += async (_, _) =>
+            await TestAiConnectionAsync();
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -258,6 +303,10 @@ public partial class MainWindow : Window
         _capsuleWindow.Close();
         _wakeWordService.WakeWordDetected -= WakeWordService_WakeWordDetected;
         _wakeWordService.Dispose();
+        if (_aiChatService is IDisposable disposableAiService)
+        {
+            disposableAiService.Dispose();
+        }
         _voiceOutputService.Dispose();
         _voiceInputService.Dispose();
         _lifetimeCancellation.Dispose();
@@ -458,16 +507,7 @@ public partial class MainWindow : Window
             if (interpretation.Route == CommandRoute.ArtificialIntelligence ||
                 interpretation.Intent is null)
             {
-                const string unavailableMessage =
-                    "Entendí que es una consulta abierta. El proveedor de IA se conectará en un sprint posterior; por ahora no envié nada fuera de tu equipo.";
-
-                _assistantView.AddNexoMessage(unavailableMessage);
-                _capsuleWindow.ShowMessage(
-                    CapsuleKind.Information,
-                    "Consulta preparada",
-                    "Todavía no hay un proveedor de IA conectado.",
-                    _preferences.Position);
-                SpeakVoiceResult("Todavía no hay un proveedor de inteligencia artificial conectado.");
+                await SendPromptToAiAsync(prompt, fromVoice);
                 return;
             }
 
@@ -477,6 +517,250 @@ public partial class MainWindow : Window
         {
             _voicePromptActive = false;
         }
+    }
+
+    private async Task SendPromptToAiAsync(string prompt, bool fromVoice)
+    {
+        var configuration = BuildAiConfiguration();
+        if (!configuration.IsEnabled)
+        {
+            const string unavailableMessage =
+                "La consulta es abierta, pero la IA está desactivada. Puedes elegir OpenAI, Ollama, LM Studio o un servidor compatible en Personalización.";
+            _assistantView.AddNexoMessage(unavailableMessage);
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "IA desactivada",
+                "Elige un proveedor desde Personalización.",
+                _preferences.Position);
+            SpeakVoiceResult("La inteligencia artificial está desactivada.");
+            return;
+        }
+
+        await _aiGate.WaitAsync(_lifetimeCancellation.Token);
+        var streamingStarted = false;
+
+        try
+        {
+            string? systemContext = null;
+            if (_preferences.ShareSystemMetricsWithAi &&
+                AiContextPolicy.ShouldIncludeSystemMetrics(prompt))
+            {
+                var snapshotAge = DateTimeOffset.Now - _latestSnapshot.CapturedAt;
+                if (_latestSnapshot.CapturedAt == DateTimeOffset.MinValue ||
+                    snapshotAge > TimeSpan.FromSeconds(5))
+                {
+                    await RefreshMetricsAsync();
+                }
+
+                systemContext = BuildAiSystemContext(_latestSnapshot);
+            }
+
+            _assistantView.SetAiActivity("pensando…");
+            _assistantView.BeginNexoStreamingMessage("Pensando…");
+            streamingStarted = true;
+
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Processing,
+                $"Consultando {configuration.DisplayName}",
+                string.IsNullOrWhiteSpace(configuration.Model)
+                    ? "Preparando la solicitud…"
+                    : configuration.Model,
+                _preferences.Position);
+
+            var request = new AiChatRequest(
+                _assistantView.GetConversationSnapshot(),
+                NexoAiInstructions.Default,
+                systemContext);
+
+            var receivedFirstChunk = false;
+
+            await foreach (var chunk in _aiChatService.StreamAsync(
+                configuration,
+                request,
+                _lifetimeCancellation.Token))
+            {
+                if (!receivedFirstChunk)
+                {
+                    receivedFirstChunk = true;
+                    _assistantView.SetAiActivity("respondiendo…");
+                }
+
+                _assistantView.AppendNexoStreamingText(chunk);
+            }
+
+            var finalText = _assistantView.CompleteNexoStreamingMessage();
+            streamingStarted = false;
+
+            if (string.IsNullOrWhiteSpace(finalText))
+            {
+                throw new AiChatStreamException(
+                    "El proveedor terminó la respuesta sin enviar texto utilizable.");
+            }
+
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Success,
+                "Respuesta lista",
+                SummarizeForCapsule(finalText),
+                _preferences.Position);
+
+            if (fromVoice)
+            {
+                SpeakVoiceResult(finalText);
+            }
+        }
+        catch (AiChatStreamException exception)
+        {
+            if (streamingStarted)
+            {
+                _assistantView.CancelNexoStreamingMessage();
+            }
+
+            _assistantView.AddNexoMessage(
+                $"No pude obtener una respuesta: {exception.Message}");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Error,
+                "La IA no respondió",
+                exception.Message,
+                _preferences.Position);
+            SpeakVoiceResult("No pude obtener una respuesta de la inteligencia artificial.");
+        }
+        catch (OperationCanceledException)
+        {
+            if (streamingStarted)
+            {
+                _assistantView.CancelNexoStreamingMessage();
+            }
+
+            if (!_isClosed)
+            {
+                _assistantView.AddNexoMessage("La consulta fue cancelada.");
+            }
+        }
+        catch (Exception exception) when (
+            exception is HttpRequestException or IOException or System.Text.Json.JsonException)
+        {
+            if (streamingStarted)
+            {
+                _assistantView.CancelNexoStreamingMessage();
+            }
+
+            const string detail =
+                "La conexión se interrumpió mientras Nexo recibía la respuesta.";
+            _assistantView.AddNexoMessage($"No pude obtener una respuesta: {detail}");
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Error,
+                "Respuesta interrumpida",
+                detail,
+                _preferences.Position);
+        }
+        finally
+        {
+            _assistantView.SetAiActivity(null);
+            _aiGate.Release();
+        }
+    }
+
+    private async Task TestAiConnectionAsync()
+    {
+        var configuration = BuildAiConfiguration();
+        _settingsView.SetAiTestInProgress(true);
+        _settingsView.SetAiConnectionStatus(
+            $"Probando {configuration.DisplayName}…",
+            isSuccess: null);
+
+        try
+        {
+            var result = await _aiChatService.TestConnectionAsync(
+                configuration,
+                _lifetimeCancellation.Token);
+
+            var detail = result.Detail;
+            if (result.IsSuccess && result.Models.Count > 0)
+            {
+                if (string.IsNullOrWhiteSpace(_preferences.AiModel) &&
+                    result.Models.Count == 1)
+                {
+                    _preferences.AiModel = result.Models[0];
+                    _settingsView.SetAiModel(result.Models[0]);
+                    SavePreferences();
+                    detail += $" Modelo seleccionado: {result.Models[0]}.";
+                }
+                else
+                {
+                    var preview = string.Join(", ", result.Models.Take(4));
+                    detail += $" Modelos: {preview}";
+                    if (result.Models.Count > 4)
+                    {
+                        detail += "…";
+                    }
+                }
+            }
+
+            _settingsView.SetAiConnectionStatus(detail, result.IsSuccess);
+            _capsuleWindow.ShowMessage(
+                result.IsSuccess ? CapsuleKind.Success : CapsuleKind.Error,
+                result.IsSuccess ? "Proveedor conectado" : "No pude conectar",
+                detail,
+                _preferences.Position);
+        }
+        catch (OperationCanceledException)
+        {
+            _settingsView.SetAiConnectionStatus(
+                "La prueba fue cancelada.",
+                isSuccess: false);
+        }
+        finally
+        {
+            _settingsView.SetAiTestInProgress(false);
+        }
+    }
+
+    private void UpdateAiProviderStatus()
+    {
+        if (_preferences.AiProvider == AiProviderKind.Disabled)
+        {
+            _assistantView.SetAiProviderStatus(
+                "IA desactivada · los comandos locales siguen disponibles");
+            return;
+        }
+
+        var providerName = AiProviderDefaults.Get(_preferences.AiProvider).DisplayName;
+        var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
+            ? "sin modelo seleccionado"
+            : _preferences.AiModel;
+        _assistantView.SetAiProviderStatus($"{providerName} · {model}");
+    }
+
+    private AiProviderConfiguration BuildAiConfiguration()
+    {
+        return new AiProviderConfiguration(
+            _preferences.AiProvider,
+            _preferences.AiBaseUrl,
+            _preferences.AiModel,
+            _preferences.AiApiKeyEnvironmentVariable);
+    }
+
+    private static string BuildAiSystemContext(SystemSnapshot snapshot)
+    {
+        var topProcess = string.IsNullOrWhiteSpace(snapshot.TopProcessName)
+            ? "no disponible"
+            : $"{snapshot.TopProcessName} ({snapshot.TopProcessWorkingSetBytes.GetValueOrDefault() / 1024d / 1024d:0} MB)";
+
+        return
+            $"Captura: {snapshot.CapturedAt:O}\n" +
+            $"CPU: {FormatPercentage(snapshot.CpuUsagePercent)}\n" +
+            $"RAM: {FormatPercentage(snapshot.MemoryUsagePercent)}\n" +
+            $"GPU: {FormatPercentage(snapshot.GpuUsagePercent)}\n" +
+            $"Disco del sistema: {FormatPercentage(snapshot.SystemDriveUsagePercent)}\n" +
+            $"Proceso con mayor memoria: {topProcess}";
+    }
+
+    private static string SummarizeForCapsule(string text)
+    {
+        var compact = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        return compact.Length <= 120
+            ? compact
+            : compact[..120] + "…";
     }
 
     private async Task PrepareVoiceAsync()
@@ -664,7 +948,7 @@ public partial class MainWindow : Window
 
             var result = await _voiceInputService.ListenForUtteranceAsync(
                 maximumDuration: TimeSpan.FromSeconds(8),
-                trailingSilence: TimeSpan.FromMilliseconds(900),
+                trailingSilence: TimeSpan.FromMilliseconds(700),
                 cancellationToken: _lifetimeCancellation.Token);
 
             _assistantView.SetVoiceState(
@@ -871,6 +1155,14 @@ public partial class MainWindow : Window
                 await ShowSystemStatusAsync();
                 break;
 
+            case LocalCommandType.ShowCurrentDate:
+                ShowCurrentDate();
+                break;
+
+            case LocalCommandType.ShowCurrentTime:
+                ShowCurrentTime();
+                break;
+
             case LocalCommandType.NavigateAssistant:
                 ShowShellModule("Assistant", "Asistente abierto");
                 break;
@@ -921,6 +1213,37 @@ public partial class MainWindow : Window
                     _preferences.Position);
                 break;
         }
+    }
+
+    private void ShowCurrentDate()
+    {
+        var culture = new CultureInfo("es-MX");
+        var date = DateTime.Now.ToString(
+            "dddd d 'de' MMMM 'de' yyyy",
+            culture);
+        var response = $"Hoy es {date}.";
+
+        _assistantView.AddNexoMessage(response);
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            "Fecha actual",
+            date,
+            _preferences.Position);
+        SpeakVoiceResult(response);
+    }
+
+    private void ShowCurrentTime()
+    {
+        var time = DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
+        var response = $"Son las {time}.";
+
+        _assistantView.AddNexoMessage(response);
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            "Hora actual",
+            time,
+            _preferences.Position);
+        SpeakVoiceResult(response);
     }
 
     private async Task ShowSystemStatusAsync()

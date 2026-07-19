@@ -15,7 +15,7 @@ public sealed class VoicePreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(5, preferences.SchemaVersion);
+        Assert.Equal(6, preferences.SchemaVersion);
         Assert.False(preferences.SpeakVoiceResponses);
     }
 

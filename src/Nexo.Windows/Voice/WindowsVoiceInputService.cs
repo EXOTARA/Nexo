@@ -9,8 +9,9 @@ using Whisper.net.Ggml;
 namespace Nexo.Windows.Voice;
 
 /// <summary>
-/// Entrada de voz local basada en Whisper. El modelo se conserva en LocalAppData,
-/// pero solo se carga en memoria mientras se transcribe una orden.
+/// Entrada de voz local basada en Whisper. El modelo se conserva en LocalAppData.
+/// Después de una transcripción se mantiene unos minutos en memoria para que las
+/// siguientes órdenes por voz comiencen más rápido y luego se libera.
 /// </summary>
 public sealed class WhisperVoiceInputService : IVoiceInputService
 {
@@ -28,12 +29,16 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     private const int SpeechAverageAmplitudeThreshold = 420;
 
     private static readonly TimeSpan RecordingStopTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ModelMemoryKeepAlive = TimeSpan.FromMinutes(5);
 
     private readonly object _sync = new();
     private readonly SemaphoreSlim _prepareGate = new(1, 1);
+    private readonly SemaphoreSlim _transcriptionGate = new(1, 1);
     private readonly string _modelPath;
     private readonly string _temporaryDirectory;
 
+    private WhisperFactory? _whisperFactory;
+    private Timer? _factoryReleaseTimer;
     private WaveInEvent? _recorder;
     private WaveFileWriter? _writer;
     private TaskCompletionSource<Exception?>? _recordingStopped;
@@ -429,6 +434,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         }
 
         CleanupRecorder(deleteRecording: true);
+        ReleaseWhisperFactory();
         GC.SuppressFinalize(this);
     }
 
@@ -436,9 +442,10 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         string recordingPath,
         CancellationToken cancellationToken)
     {
+        await _transcriptionGate.WaitAsync(cancellationToken);
         try
         {
-            using var whisperFactory = WhisperFactory.FromPath(_modelPath);
+            var whisperFactory = GetOrCreateWhisperFactory();
             using var processor = whisperFactory.CreateBuilder()
                 .WithLanguage("es")
                 .WithPrompt(CommandPrompt)
@@ -480,6 +487,78 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
             return VoiceRecognitionResult.NoSpeech(
                 "No pude transcribir el audio localmente. Reinicia Nexo e inténtalo otra vez.");
         }
+        finally
+        {
+            ScheduleWhisperFactoryRelease();
+            _transcriptionGate.Release();
+        }
+    }
+
+    private WhisperFactory GetOrCreateWhisperFactory()
+    {
+        lock (_sync)
+        {
+            _factoryReleaseTimer?.Dispose();
+            _factoryReleaseTimer = null;
+            _whisperFactory ??= WhisperFactory.FromPath(_modelPath);
+            return _whisperFactory;
+        }
+    }
+
+    private void ScheduleWhisperFactoryRelease()
+    {
+        lock (_sync)
+        {
+            if (_disposed || _whisperFactory is null)
+            {
+                return;
+            }
+
+            _factoryReleaseTimer?.Dispose();
+            _factoryReleaseTimer = new Timer(
+                _ => ReleaseWhisperFactoryIfIdle(),
+                null,
+                ModelMemoryKeepAlive,
+                Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void ReleaseWhisperFactoryIfIdle()
+    {
+        WhisperFactory? factory = null;
+
+        lock (_sync)
+        {
+            if (_transcriptionGate.CurrentCount == 0)
+            {
+                _factoryReleaseTimer?.Change(
+                    TimeSpan.FromSeconds(30),
+                    Timeout.InfiniteTimeSpan);
+                return;
+            }
+
+            factory = _whisperFactory;
+            _whisperFactory = null;
+            _factoryReleaseTimer?.Dispose();
+            _factoryReleaseTimer = null;
+        }
+
+        factory?.Dispose();
+    }
+
+    private void ReleaseWhisperFactory()
+    {
+        WhisperFactory? factory;
+
+        lock (_sync)
+        {
+            factory = _whisperFactory;
+            _whisperFactory = null;
+            _factoryReleaseTimer?.Dispose();
+            _factoryReleaseTimer = null;
+        }
+
+        factory?.Dispose();
     }
 
     private void Recorder_DataAvailable(object? sender, WaveInEventArgs e)

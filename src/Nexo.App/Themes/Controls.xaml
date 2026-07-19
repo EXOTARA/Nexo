@@ -153,6 +153,15 @@
         <Setter Property="SelectionBrush" Value="{DynamicResource BrushAccentSoft}" />
     </Style>
 
+    <Style x:Key="CompactTextBoxStyle"
+           TargetType="TextBox"
+           BasedOn="{StaticResource PromptTextBoxStyle}">
+        <Setter Property="Height" Value="38" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+    </Style>
+
     <Style x:Key="NexoSliderStyle" TargetType="Slider">
         <Setter Property="Foreground" Value="{DynamicResource BrushAccent}" />
         <Setter Property="Background" Value="{DynamicResource BrushBorder}" />

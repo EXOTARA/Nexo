@@ -20,6 +20,11 @@
                 <TextBlock Margin="0,4,0,0"
                            Text="Escribe una consulta o mantén Mic para hablar."
                            Style="{StaticResource MutedTextStyle}" />
+                <TextBlock x:Name="AiProviderStatusText"
+                           Margin="0,4,0,0"
+                           Text="IA desactivada · los comandos locales siguen disponibles"
+                           TextTrimming="CharacterEllipsis"
+                           Style="{StaticResource MutedTextStyle}" />
             </StackPanel>
 
             <Button Grid.Column="1"

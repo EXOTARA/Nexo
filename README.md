@@ -22,10 +22,16 @@ Actualmente incluye:
 - Comandos locales para controlar Discord, Spotify, Zen y otras sesiones de audio.
 - Voz local push-to-talk mediante Whisper, sin enviar el audio a una API.
 - Activación opcional mediante `Nexo` u `Oye Nexo`, usando un detector Vosk local.
+- Consultas reales con OpenAI, Ollama, LM Studio o servidores compatibles con la API de OpenAI.
+- Contexto de métricas opcional y desactivado de forma predeterminada.
+- Respuestas de IA mostradas progresivamente mientras se generan.
+- Fecha y hora resueltas localmente sin gastar tokens ni esperar al modelo.
 
-La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. El modelo solo se carga en memoria mientras Nexo transcribe una orden.
+La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. Después de una transcripción, Whisper puede permanecer hasta cinco minutos en memoria para acelerar órdenes consecutivas y luego se libera.
 
 La activación por frase es experimental y permanece apagada de forma predeterminada. Al habilitarla, Nexo descarga el modelo español pequeño de Vosk y mantiene un indicador visible mientras está atento. Para la primera versión se usa un flujo de dos pasos: di `Nexo`, espera la cápsula **Te escucho** y después pronuncia la orden.
+
+Las órdenes conocidas se ejecutan localmente antes de consultar una IA. Las consultas abiertas pueden enviarse al proveedor configurado y se muestran conforme llegan. Nexo no guarda claves dentro del repositorio ni en `settings.json`: para OpenAI lee `OPENAI_API_KEY` desde las variables de entorno. Compartir CPU, RAM, GPU y el proceso principal con la IA es una opción separada y apagada por defecto; incluso al activarla, las métricas solo se adjuntan cuando la consulta trata del equipo.
 
 ## Objetivo
 
@@ -46,5 +52,5 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 
 - Permitir decir `Nexo` y la orden completa en una sola frase.
 - Perfiles de voz rápido y equilibrado.
-- Proveedores de IA.
+- Respaldo semántico de IA para órdenes ambiguas mediante acciones permitidas.
 - Herramientas de captura y OCR.
