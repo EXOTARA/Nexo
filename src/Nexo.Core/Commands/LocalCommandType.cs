@@ -7,6 +7,7 @@ public enum LocalCommandType
     ShowSystemStatus,
     ShowCurrentDate,
     ShowCurrentTime,
+    CaptureForVision,
     NavigateAssistant,
     NavigateAudio,
     NavigateCapture,

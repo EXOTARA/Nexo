@@ -27,6 +27,7 @@ public partial class SettingsView : UserControl
     public event Action<string>? AiModelChanged;
     public event Action<string>? AiApiKeyEnvironmentVariableChanged;
     public event Action<bool>? ShareSystemMetricsWithAiChanged;
+    public event Action<bool>? VisionEnabledChanged;
     public event EventHandler? AiTestConnectionRequested;
 
     public SettingsView()
@@ -63,6 +64,7 @@ public partial class SettingsView : UserControl
         AiModelTextBox.Text = preferences.AiModel;
         AiApiKeyVariableTextBox.Text = preferences.AiApiKeyEnvironmentVariable;
         ShareSystemMetricsWithAiCheckBox.IsChecked = preferences.ShareSystemMetricsWithAi;
+        VisionEnabledCheckBox.IsChecked = preferences.VisionEnabled;
         SetAiConnectionStatus(
             preferences.AiProvider == AiProviderKind.Disabled
                 ? "La IA está desactivada."
@@ -164,6 +166,14 @@ public partial class SettingsView : UserControl
         if (!_isApplyingPreferences)
         {
             ConversationHistoryChanged?.Invoke(SaveConversationHistoryCheckBox.IsChecked == true);
+        }
+    }
+
+    private void VisionEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            VisionEnabledChanged?.Invoke(VisionEnabledCheckBox.IsChecked == true);
         }
     }
 

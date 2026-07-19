@@ -62,6 +62,8 @@ public sealed class ShellPreferences
 
     public bool ShareSystemMetricsWithAi { get; set; }
 
+    public bool VisionEnabled { get; set; } = true;
+
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -104,6 +106,12 @@ public sealed class ShellPreferences
         {
             VoiceInputDeviceNumber = -1;
             SchemaVersion = 7;
+        }
+
+        if (SchemaVersion < 8)
+        {
+            VisionEnabled = true;
+            SchemaVersion = 8;
         }
 
         Width = Math.Clamp(Width, 380, 520);

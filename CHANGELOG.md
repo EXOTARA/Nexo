@@ -40,6 +40,17 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Búfer previo para conservar el inicio de órdenes dichas junto con `Nexo`.
 - Confirmación por voz cuando la grabación tiene poca claridad.
 - Umbral de silencio adaptable al ruido del micrófono.
+- Nexo Vision bajo demanda con selector de ventanas y monitores.
+- Vista previa obligatoria antes de compartir una captura.
+- Envío de imágenes a proveedores multimodales mediante contenido compatible con OpenAI.
+- Exclusión inicial de gestores de contraseñas y ventanas de seguridad.
+- Reducción automática de capturas grandes para limitar memoria, latencia y tamaño de solicitud.
+- Orden local `Nexo, mira esto` para abrir el flujo visual.
+- Proveedor nativo de Ollama mediante `/api/chat` y `/api/tags`.
+- Extracción estructurada de código, archivo, línea, mensaje y comando visibles antes de explicar un error.
+- Contrato de respuesta visual con causa, corrección exacta y forma de comprobarla.
+- Detección y reintento de respuestas visuales genéricas.
+- Respaldo directo cuando un modelo genera razonamiento pero deja vacío el contenido final.
 
 ### Cambiado
 
@@ -53,6 +64,8 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ### Pendiente
 
+- OCR y copia de texto desde capturas.
+- Difuminado manual de información sensible.
 - Calibración guiada del micrófono.
 - Diccionario personal de correcciones.
 - Reducir todavía más el consumo del detector permanente.

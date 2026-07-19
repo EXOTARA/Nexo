@@ -42,6 +42,20 @@ public sealed partial class NaturalCommandParser
         }
 
         if (Matches(normalized,
+                "mira esto",
+                "mira la pantalla",
+                "analiza esto",
+                "analiza la pantalla",
+                "revisa esto",
+                "que ves",
+                "que ves aqui",
+                "explica este error",
+                "ayudame con este error"))
+        {
+            return Local(original, normalized, LocalCommandType.CaptureForVision);
+        }
+
+        if (Matches(normalized,
                 "que dia es hoy",
                 "que fecha es hoy",
                 "dime la fecha",

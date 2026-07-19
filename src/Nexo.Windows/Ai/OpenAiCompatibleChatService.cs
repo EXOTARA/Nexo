@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Nexo.Core.Ai;
 using Nexo.Core.Assistant;
 
@@ -12,7 +13,8 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     private readonly HttpClient _httpClient;
@@ -352,13 +354,39 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
             new("system", systemText)
         };
 
-        foreach (var message in request.Messages
-                     .Where(item => !string.IsNullOrWhiteSpace(item.Text))
-                     .TakeLast(20))
+        var conversation = request.Messages
+            .Where(item => !string.IsNullOrWhiteSpace(item.Text))
+            .TakeLast(20)
+            .ToArray();
+
+        for (var index = 0; index < conversation.Length; index++)
         {
-            messages.Add(new ChatMessage(
-                message.Role == ConversationRole.User ? "user" : "assistant",
-                message.Text.Trim()));
+            var message = conversation[index];
+            var role = message.Role == ConversationRole.User ? "user" : "assistant";
+            var isLastUserMessage =
+                index == conversation.Length - 1 &&
+                message.Role == ConversationRole.User &&
+                request.Images is { Count: > 0 };
+
+            if (!isLastUserMessage)
+            {
+                messages.Add(new ChatMessage(role, message.Text.Trim()));
+                continue;
+            }
+
+            var content = new List<ChatContentPart>
+            {
+                new("text", Text: message.Text.Trim())
+            };
+
+            foreach (var image in request.Images!)
+            {
+                content.Add(new ChatContentPart(
+                    "image_url",
+                    ImageUrl: new ChatImageUrl(image.DataUrl)));
+            }
+
+            messages.Add(new ChatMessage(role, content));
         }
 
         return messages;
@@ -607,5 +635,12 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
         IReadOnlyList<ChatMessage> Messages,
         bool Stream);
 
-    private sealed record ChatMessage(string Role, string Content);
+    private sealed record ChatMessage(string Role, object Content);
+
+    private sealed record ChatContentPart(
+        string Type,
+        string? Text = null,
+        [property: JsonPropertyName("image_url")] ChatImageUrl? ImageUrl = null);
+
+    private sealed record ChatImageUrl(string Url);
 }
