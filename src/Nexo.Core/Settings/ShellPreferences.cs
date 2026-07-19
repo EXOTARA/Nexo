@@ -64,6 +64,14 @@ public sealed class ShellPreferences
 
     public bool VisionEnabled { get; set; } = true;
 
+    public bool StartWithWindows { get; set; }
+
+    public bool MinimizeToTray { get; set; } = true;
+
+    public bool ShowWindowsNotifications { get; set; } = true;
+
+    public bool PlayNotificationSounds { get; set; } = true;
+
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -112,6 +120,15 @@ public sealed class ShellPreferences
         {
             VisionEnabled = true;
             SchemaVersion = 8;
+        }
+
+        if (SchemaVersion < 9)
+        {
+            StartWithWindows = false;
+            MinimizeToTray = true;
+            ShowWindowsNotifications = true;
+            PlayNotificationSounds = true;
+            SchemaVersion = 9;
         }
 
         Width = Math.Clamp(Width, 380, 520);

@@ -62,6 +62,13 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Resumen diario de sesiones completadas y minutos enfocados.
 - Órdenes locales para iniciar y controlar temporizadores sin usar el LLM.
 - Persistencia privada del estado de enfoque en `%LocalAppData%\Nexo\focus.json`.
+- Icono de Nexo en la bandeja del sistema con acciones para abrir, mostrar Peek y salir completamente.
+- Ejecución en segundo plano al ocultar o cerrar la barra.
+- Inicio opcional con Windows mediante el registro del usuario y el argumento `--background`.
+- Coordinación de instancia única para evitar dos procesos y abrir la instancia existente.
+- Notificaciones de Windows para tareas y sesiones de enfoque terminadas.
+- Sonidos configurables para recordatorios y temporizadores.
+- Revisión inmediata de tareas, enfoque y métricas al reanudar Windows después de una suspensión.
 
 ### Cambiado
 
@@ -75,8 +82,6 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ### Pendiente
 
-- Notificaciones nativas de Windows para recordatorios aunque la barra esté oculta.
-- Rutinas configurables para preparar entornos de estudio, programación y descanso.
 - OCR y copia de texto desde capturas.
 - Difuminado manual de información sensible.
 - Calibración guiada del micrófono.
@@ -94,3 +99,12 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 - Ejecución tolerante a fallos: un paso fallido no cancela los demás.
 - Persistencia local en `%LocalAppData%\Nexo\routines.json`.
 - Comandos por texto o voz para abrir, listar y ejecutar rutinas.
+## 0.8.0-alpha - Integración con Windows
+
+- Bandeja del sistema y funcionamiento real en segundo plano.
+- Inicio opcional con Windows en modo oculto.
+- Instancia única con activación de la ventana existente.
+- Notificaciones y sonidos configurables para recordatorios y enfoque.
+- Recuperación tras suspensión y reanudación del equipo.
+- Salida completa disponible desde el menú de la bandeja.
+

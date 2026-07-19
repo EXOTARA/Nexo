@@ -81,6 +81,36 @@
                       Checked="AnimationsCheckBox_Changed"
                       Unchecked="AnimationsCheckBox_Changed" />
 
+            <TextBlock Margin="0,20,0,9" Text="Integración con Windows" FontWeight="SemiBold" />
+            <CheckBox x:Name="StartWithWindowsCheckBox"
+                      Margin="0,0,0,8"
+                      Content="Iniciar Nexo con Windows"
+                      Checked="StartWithWindowsCheckBox_Changed"
+                      Unchecked="StartWithWindowsCheckBox_Changed" />
+            <TextBlock Margin="24,0,0,10"
+                       Text="Se iniciará en segundo plano y podrás abrirlo con Alt + A o desde la bandeja."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+            <CheckBox x:Name="MinimizeToTrayCheckBox"
+                      Margin="0,0,0,8"
+                      Content="Ocultar en la bandeja al cerrar"
+                      Checked="MinimizeToTrayCheckBox_Changed"
+                      Unchecked="MinimizeToTrayCheckBox_Changed" />
+            <CheckBox x:Name="WindowsNotificationsCheckBox"
+                      Margin="0,0,0,8"
+                      Content="Mostrar notificaciones de Windows"
+                      Checked="WindowsNotificationsCheckBox_Changed"
+                      Unchecked="WindowsNotificationsCheckBox_Changed" />
+            <CheckBox x:Name="NotificationSoundsCheckBox"
+                      Content="Reproducir sonido en recordatorios y sesiones terminadas"
+                      Checked="NotificationSoundsCheckBox_Changed"
+                      Unchecked="NotificationSoundsCheckBox_Changed" />
+            <TextBlock x:Name="WindowsIntegrationStatusText"
+                       Margin="24,8,0,0"
+                       Text="Nexo seguirá activo mientras esté visible en la bandeja."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <TextBlock Margin="0,20,0,9" Text="Vista rápida" FontWeight="SemiBold" />
             <CheckBox x:Name="PeekEnabledCheckBox" Margin="0,0,0,8"
                       Content="Activar Peek con Alt + Shift + A"

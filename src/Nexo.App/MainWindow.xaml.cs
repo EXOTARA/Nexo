@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -11,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Nexo.App.Automation;
+using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
 using Nexo.Core.Automation;
@@ -32,6 +34,7 @@ using Nexo.Windows.Settings;
 using Nexo.Windows.Tasks;
 using Nexo.Windows.Voice;
 using Nexo.Windows.Vision;
+using Nexo.Windows.WindowsIntegration;
 using NexoFocusManager = Nexo.Core.Focus.FocusManager;
 
 namespace Nexo.App;
@@ -44,12 +47,16 @@ public partial class MainWindow : Window
     private const uint ModShift = 0x0004;
     private const uint VirtualKeyA = 0x41;
     private const int WmHotkey = 0x0312;
+    private const int WmPowerBroadcast = 0x0218;
+    private const int PbtApmResumeSuspend = 0x0007;
+    private const int PbtApmResumeAutomatic = 0x0012;
 
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _metricsTimer;
     private readonly DispatcherTimer _taskReminderTimer;
     private readonly DispatcherTimer _focusTickTimer;
     private readonly JsonSettingsStore _settingsStore = new();
+    private readonly WindowsStartupService _startupService = new();
     private readonly JsonConversationStore _conversationStore = new();
     private readonly NaturalCommandParser _commandParser = new();
     private readonly SpanishTaskCommandParser _taskCommandParser = new();
@@ -84,12 +91,16 @@ public partial class MainWindow : Window
     private readonly SettingsView _settingsView = new();
     private readonly PeekWindow _peekWindow = new();
     private readonly CapsuleWindow _capsuleWindow = new();
+    private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
+    private readonly bool _startHidden;
 
     private HwndSource? _windowSource;
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
     private bool _isHiding;
     private bool _isClosed;
+    private bool _allowExit;
+    private bool _trayHintShown;
     private int _metricsRefreshInProgress;
     private string _currentDestination = "Assistant";
     private string _previousDestination = "Assistant";
@@ -98,11 +109,13 @@ public partial class MainWindow : Window
     private AiImageAttachment? _pendingVisionAttachment;
     private long _lastExternalWindowHandle;
 
-    public MainWindow()
+    public MainWindow(bool startHidden = false)
     {
         InitializeComponent();
 
+        _startHidden = startHidden;
         _preferences = _settingsStore.Load();
+        _preferences.StartWithWindows = _startupService.IsEnabled();
         _taskManager = new TaskManager(_taskStore);
         _taskManager.Load();
         _focusManager = new NexoFocusManager(_focusStore);
@@ -128,6 +141,11 @@ public partial class MainWindow : Window
             ["System"] = _systemView,
             ["Settings"] = _settingsView
         };
+
+        _trayIcon = new TrayIconController(
+            () => Dispatcher.BeginInvoke(new Action(ShowFromBackground)),
+            () => Dispatcher.BeginInvoke(new Action(async () => await ShowPeekAsync())),
+            () => Dispatcher.BeginInvoke(new Action(RequestExit)));
 
         _assistantView.PromptSubmitted += AssistantView_PromptSubmitted;
         _assistantView.ConversationChanged += AssistantView_ConversationChanged;
@@ -333,6 +351,45 @@ public partial class MainWindow : Window
             SavePreferences();
         };
 
+        _settingsView.StartWithWindowsChanged += enabled =>
+        {
+            var result = _startupService.SetEnabled(enabled);
+            if (result.Success)
+            {
+                _preferences.StartWithWindows = enabled;
+                SavePreferences();
+            }
+            else
+            {
+                _settingsView.SetStartWithWindows(_preferences.StartWithWindows);
+            }
+
+            _settingsView.SetWindowsIntegrationStatus(result.Message, result.Success);
+        };
+
+        _settingsView.MinimizeToTrayChanged += enabled =>
+        {
+            _preferences.MinimizeToTray = enabled;
+            SavePreferences();
+            _settingsView.SetWindowsIntegrationStatus(
+                enabled
+                    ? "Cerrar Nexo lo ocultará en la bandeja."
+                    : "Cerrar Nexo terminará completamente la aplicación.",
+                isSuccess: null);
+        };
+
+        _settingsView.WindowsNotificationsChanged += enabled =>
+        {
+            _preferences.ShowWindowsNotifications = enabled;
+            SavePreferences();
+        };
+
+        _settingsView.NotificationSoundsChanged += enabled =>
+        {
+            _preferences.PlayNotificationSounds = enabled;
+            SavePreferences();
+        };
+
         _settingsView.AiTestConnectionRequested += async (_, _) =>
             await TestAiConnectionAsync();
     }
@@ -359,13 +416,23 @@ public partial class MainWindow : Window
         PositionWindow();
         UpdateClock();
         _clockTimer.Start();
-        SetMetricsCadence(isShellVisible: true);
         _metricsTimer.Start();
         _taskReminderTimer.Start();
         _focusTickTimer.Start();
         CheckTaskReminders();
         CheckFocusTimer();
-        ShowAnimated();
+
+        if (_startHidden)
+        {
+            Hide();
+            SetMetricsCadence(isShellVisible: false);
+        }
+        else
+        {
+            SetMetricsCadence(isShellVisible: true);
+            ShowAnimated();
+        }
+
         await RefreshMetricsAsync();
         _ = InitializeVoiceFeaturesAsync();
     }
@@ -395,6 +462,7 @@ public partial class MainWindow : Window
         }
         _voiceOutputService.Dispose();
         _voiceInputService.Dispose();
+        _trayIcon.Dispose();
         _lifetimeCancellation.Dispose();
 
         var windowHandle = new WindowInteropHelper(this).Handle;
@@ -414,6 +482,17 @@ public partial class MainWindow : Window
         IntPtr lParam,
         ref bool handled)
     {
+        if (message == WmPowerBroadcast)
+        {
+            var powerEvent = wParam.ToInt32();
+            if (powerEvent is PbtApmResumeSuspend or PbtApmResumeAutomatic)
+            {
+                Dispatcher.BeginInvoke(new Action(HandleSystemResume));
+            }
+
+            return IntPtr.Zero;
+        }
+
         if (message != WmHotkey)
         {
             return IntPtr.Zero;
@@ -431,6 +510,29 @@ public partial class MainWindow : Window
         }
 
         return IntPtr.Zero;
+    }
+
+    public void ShowFromBackground()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        RememberForegroundWindow();
+        ShowAnimated();
+    }
+
+    private void HandleSystemResume()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        CheckTaskReminders();
+        CheckFocusTimer();
+        _ = RefreshMetricsAsync();
     }
 
     private void ToggleWindow()
@@ -1681,12 +1783,21 @@ public partial class MainWindow : Window
         var detail = completion.Kind == FocusSessionKind.Break
             ? "Tu descanso terminó."
             : $"Terminaste {completion.Label.ToLowerInvariant()}.";
+        var notificationTitle = completion.Kind == FocusSessionKind.Break
+            ? "Descanso terminado"
+            : "Sesión completada";
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
-            completion.Kind == FocusSessionKind.Break ? "Descanso terminado" : "Sesión completada",
+            notificationTitle,
             detail,
             _preferences.Position,
             TimeSpan.FromSeconds(8));
+        _trayIcon.Notify(
+            notificationTitle,
+            detail,
+            TrayNotificationKind.Success,
+            _preferences.ShowWindowsNotifications,
+            _preferences.PlayNotificationSounds);
         SpeakVoiceResult(detail);
     }
 
@@ -1788,6 +1899,12 @@ public partial class MainWindow : Window
             detail,
             _preferences.Position,
             TimeSpan.FromSeconds(8));
+        _trayIcon.Notify(
+            "Recordatorio",
+            detail,
+            TrayNotificationKind.Information,
+            _preferences.ShowWindowsNotifications,
+            _preferences.PlayNotificationSounds);
     }
 
     private Task ExecuteTaskCommandAsync(TaskCommand command)
@@ -2460,6 +2577,24 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        if (Nexo.Core.WindowsIntegration.WindowsClosePolicy.ShouldHideInsteadOfClose(
+                _preferences.MinimizeToTray,
+                _allowExit))
+        {
+            e.Cancel = true;
+            HideToTray(showHint: true);
+            return;
+        }
+
+        if (!_allowExit)
+        {
+            e.Cancel = true;
+            RequestExit();
+        }
+    }
+
     private void HideButton_Click(object sender, RoutedEventArgs e)
     {
         HideAnimated();
@@ -2467,7 +2602,42 @@ public partial class MainWindow : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        Application.Current.Shutdown();
+        if (_preferences.MinimizeToTray)
+        {
+            HideToTray(showHint: true);
+            return;
+        }
+
+        RequestExit();
+    }
+
+    private void HideToTray(bool showHint)
+    {
+        HideAnimated();
+
+        if (!showHint || _trayHintShown)
+        {
+            return;
+        }
+
+        _trayHintShown = true;
+        _trayIcon.Notify(
+            "Nexo sigue activo",
+            "Ábrelo con Alt + A o desde el icono de la bandeja.",
+            TrayNotificationKind.Information,
+            _preferences.ShowWindowsNotifications,
+            playSound: false);
+    }
+
+    private void RequestExit()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        _allowExit = true;
+        System.Windows.Application.Current.Shutdown();
     }
 
     private static string FormatPercentage(double? value)
