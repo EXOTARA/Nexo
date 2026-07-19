@@ -16,6 +16,7 @@ using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Metrics;
 using Nexo.Core.Settings;
+using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
 using Nexo.Core.Vision;
 using Nexo.Windows.Ai;
@@ -23,6 +24,7 @@ using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Settings;
+using Nexo.Windows.Tasks;
 using Nexo.Windows.Voice;
 using Nexo.Windows.Vision;
 
@@ -39,9 +41,11 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _metricsTimer;
+    private readonly DispatcherTimer _taskReminderTimer;
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly JsonConversationStore _conversationStore = new();
     private readonly NaturalCommandParser _commandParser = new();
+    private readonly SpanishTaskCommandParser _taskCommandParser = new();
     private readonly IAiChatService _aiChatService = new AiChatRouterService();
     private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
     private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
@@ -54,7 +58,10 @@ public partial class MainWindow : Window
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly ShellPreferences _preferences;
+    private readonly JsonTaskStore _taskStore = new();
+    private readonly TaskManager _taskManager;
     private readonly AssistantView _assistantView = new();
+    private readonly TasksView _tasksView;
     private readonly AudioView _audioView;
     private readonly CaptureView _captureView = new();
     private readonly SystemView _systemView = new();
@@ -80,10 +87,14 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _preferences = _settingsStore.Load();
+        _taskManager = new TaskManager(_taskStore);
+        _taskManager.Load();
+        _tasksView = new TasksView(_taskManager);
         _audioView = new AudioView(_audioMixerService);
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
             ["Assistant"] = _assistantView,
+            ["Tasks"] = _tasksView,
             ["Audio"] = _audioView,
             ["Capture"] = _captureView,
             ["System"] = _systemView,
@@ -97,6 +108,7 @@ public partial class MainWindow : Window
         _assistantView.VoiceInputStopped += AssistantView_VoiceInputStopped;
         _assistantView.VisionCaptureRequested += AssistantView_VisionCaptureRequested;
         _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
+        _tasksView.TasksChanged += TasksView_TasksChanged;
         _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _assistantView.ConfigureHistory(
@@ -127,6 +139,12 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(2)
         };
         _metricsTimer.Tick += async (_, _) => await RefreshMetricsAsync();
+
+        _taskReminderTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(15)
+        };
+        _taskReminderTimer.Tick += (_, _) => CheckTaskReminders();
     }
 
     private void WireSettingsEvents()
@@ -307,6 +325,8 @@ public partial class MainWindow : Window
         _clockTimer.Start();
         SetMetricsCadence(isShellVisible: true);
         _metricsTimer.Start();
+        _taskReminderTimer.Start();
+        CheckTaskReminders();
         ShowAnimated();
         await RefreshMetricsAsync();
         _ = InitializeVoiceFeaturesAsync();
@@ -317,6 +337,7 @@ public partial class MainWindow : Window
         _isClosed = true;
         _clockTimer.Stop();
         _metricsTimer.Stop();
+        _taskReminderTimer.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
 
@@ -544,6 +565,13 @@ public partial class MainWindow : Window
                 _preferences.Position);
 
             await Task.Yield();
+
+            var taskCommand = _taskCommandParser.Parse(prompt, DateTimeOffset.Now);
+            if (taskCommand.Type != TaskCommandType.None)
+            {
+                await ExecuteTaskCommandAsync(taskCommand);
+                return;
+            }
 
             var interpretation = _commandParser.Parse(prompt);
             if (interpretation.Route == CommandRoute.ArtificialIntelligence ||
@@ -1446,6 +1474,126 @@ public partial class MainWindow : Window
             : "Voz pausada";
     }
 
+    private void TasksView_TasksChanged(object? sender, EventArgs e)
+    {
+        CheckTaskReminders();
+    }
+
+    private void CheckTaskReminders()
+    {
+        var reminders = _taskManager.CollectDueReminders(DateTimeOffset.Now);
+        if (reminders.Count == 0)
+        {
+            return;
+        }
+
+        _tasksView.Refresh();
+        var first = reminders[0];
+        var detail = reminders.Count == 1
+            ? first.Title
+            : $"{first.Title} y {reminders.Count - 1} más";
+
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Information,
+            "Recordatorio",
+            detail,
+            _preferences.Position,
+            TimeSpan.FromSeconds(8));
+    }
+
+    private Task ExecuteTaskCommandAsync(TaskCommand command)
+    {
+        string response;
+        CapsuleKind capsuleKind;
+        string capsuleTitle;
+
+        switch (command.Type)
+        {
+            case TaskCommandType.OpenTasks:
+                ShowAnimated();
+                NavigateTo("Tasks", animate: true);
+                response = "Abrí tus tareas.";
+                capsuleTitle = "Tareas abiertas";
+                capsuleKind = CapsuleKind.Success;
+                break;
+
+            case TaskCommandType.ListToday:
+                response = _taskManager.BuildTodaySummary(DateTimeOffset.Now);
+                capsuleTitle = "Pendientes de hoy";
+                capsuleKind = CapsuleKind.Information;
+                break;
+
+            case TaskCommandType.ListPending:
+                response = _taskManager.BuildPendingSummary(DateTimeOffset.Now);
+                capsuleTitle = "Tareas pendientes";
+                capsuleKind = CapsuleKind.Information;
+                break;
+
+            case TaskCommandType.Create when !string.IsNullOrWhiteSpace(command.Title):
+            {
+                if (command.ReminderEnabled && !command.DueAt.HasValue)
+                {
+                    response = "Dime cuándo debo recordártelo, por ejemplo: mañana a las 8.";
+                    capsuleTitle = "Falta la fecha";
+                    capsuleKind = CapsuleKind.Warning;
+                    break;
+                }
+
+                var task = _taskManager.Create(
+                    command.Title,
+                    dueAt: command.DueAt,
+                    priority: command.Priority,
+                    reminderEnabled: command.ReminderEnabled);
+                _tasksView.Refresh();
+
+                var schedule = task.DueAt.HasValue
+                    ? task.DueAt.Value.ToString("ddd d MMM · HH:mm", new CultureInfo("es-MX"))
+                    : "sin fecha";
+                response = task.ReminderEnabled
+                    ? $"Guardé el recordatorio “{task.Title}” para {schedule}."
+                    : $"Agregué “{task.Title}” · {schedule}.";
+                capsuleTitle = task.ReminderEnabled ? "Recordatorio guardado" : "Tarea agregada";
+                capsuleKind = CapsuleKind.Success;
+                break;
+            }
+
+            case TaskCommandType.Complete when !string.IsNullOrWhiteSpace(command.Title):
+            {
+                var result = _taskManager.CompleteMatching(command.Title);
+                _tasksView.Refresh();
+                response = result.Message;
+                capsuleTitle = result.Success ? "Tarea completada" : "Tarea no encontrada";
+                capsuleKind = result.Success ? CapsuleKind.Success : CapsuleKind.Warning;
+                break;
+            }
+
+            case TaskCommandType.Delete when !string.IsNullOrWhiteSpace(command.Title):
+            {
+                var result = _taskManager.DeleteMatching(command.Title);
+                _tasksView.Refresh();
+                response = result.Message;
+                capsuleTitle = result.Success ? "Tarea eliminada" : "Tarea no encontrada";
+                capsuleKind = result.Success ? CapsuleKind.Success : CapsuleKind.Warning;
+                break;
+            }
+
+            default:
+                response = "No pude interpretar esa instrucción de tareas.";
+                capsuleTitle = "Instrucción incompleta";
+                capsuleKind = CapsuleKind.Warning;
+                break;
+        }
+
+        _assistantView.AddNexoMessage(response);
+        _capsuleWindow.ShowMessage(
+            capsuleKind,
+            capsuleTitle,
+            response.Replace("\n", " "),
+            _preferences.Position);
+        SpeakVoiceResult(response);
+        return Task.CompletedTask;
+    }
+
     private async Task ExecuteLocalCommandAsync(LocalCommandIntent intent)
     {
         switch (intent.Type)
@@ -1791,6 +1939,10 @@ public partial class MainWindow : Window
         {
             _assistantView.FocusPrompt();
         }
+        else if (_currentDestination == "Tasks")
+        {
+            _tasksView.FocusPrimaryControl();
+        }
     }
 
     private void UpdateNavigationState(string destination)
@@ -1798,6 +1950,7 @@ public partial class MainWindow : Window
         var buttons = new Dictionary<string, Button>(StringComparer.OrdinalIgnoreCase)
         {
             ["Assistant"] = AssistantNavButton,
+            ["Tasks"] = TasksNavButton,
             ["Audio"] = AudioNavButton,
             ["Capture"] = CaptureNavButton,
             ["System"] = SystemNavButton
@@ -1925,7 +2078,7 @@ public partial class MainWindow : Window
 
     private void UpdateNavigationColumns()
     {
-        var visibleCount = 1;
+        var visibleCount = 2;
         visibleCount += AudioNavButton.Visibility == Visibility.Visible ? 1 : 0;
         visibleCount += CaptureNavButton.Visibility == Visibility.Visible ? 1 : 0;
         visibleCount += SystemNavButton.Visibility == Visibility.Visible ? 1 : 0;

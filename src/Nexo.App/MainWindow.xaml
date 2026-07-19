@@ -151,10 +151,15 @@
                     BorderThickness="1"
                     CornerRadius="16"
                     Padding="6">
-                <UniformGrid x:Name="NavigationGrid" Columns="4">
+                <UniformGrid x:Name="NavigationGrid" Columns="5">
                     <Button x:Name="AssistantNavButton"
                             Tag="Assistant"
                             Content="IA"
+                            Click="NavigationButton_Click"
+                            Style="{StaticResource NavButtonStyle}" />
+                    <Button x:Name="TasksNavButton"
+                            Tag="Tasks"
+                            Content="Hoy"
                             Click="NavigationButton_Click"
                             Style="{StaticResource NavButtonStyle}" />
                     <Button x:Name="AudioNavButton"
