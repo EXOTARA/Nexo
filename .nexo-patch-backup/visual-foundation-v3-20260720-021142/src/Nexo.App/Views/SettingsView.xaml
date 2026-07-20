@@ -1,0 +1,308 @@
+<UserControl x:Class="Nexo.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,4,0">
+            <TextBlock Text="Personalización" Style="{StaticResource SectionTitleStyle}" />
+            <TextBlock Margin="0,4,0,18"
+                       Text="Los cambios se aplican al momento y se guardan en este equipo."
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <TextBlock Text="Posición" FontWeight="SemiBold" />
+            <Grid Margin="0,9,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="LeftButton" Margin="0,0,5,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Content="Izquierda" Click="LeftButton_Click" />
+                <Button x:Name="RightButton" Grid.Column="1" Margin="5,0,0,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Content="Derecha" Click="RightButton_Click" />
+            </Grid>
+
+            <Grid Margin="0,0,0,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Ancho" FontWeight="SemiBold" />
+                <TextBlock x:Name="WidthValueText" Grid.Column="1"
+                           Foreground="{DynamicResource BrushTextSecondary}" />
+                <Slider x:Name="WidthSlider" Grid.Row="1" Grid.ColumnSpan="2"
+                        Margin="0,8,0,0" Minimum="380" Maximum="520"
+                        TickFrequency="10" IsSnapToTickEnabled="True"
+                        ValueChanged="WidthSlider_ValueChanged"
+                        Style="{StaticResource NexoSliderStyle}" />
+            </Grid>
+
+            <Grid Margin="0,0,0,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Transparencia" FontWeight="SemiBold" />
+                <TextBlock x:Name="OpacityValueText" Grid.Column="1"
+                           Foreground="{DynamicResource BrushTextSecondary}" />
+                <Slider x:Name="OpacitySlider" Grid.Row="1" Grid.ColumnSpan="2"
+                        Margin="0,8,0,0" Minimum="0.82" Maximum="1"
+                        TickFrequency="0.02" IsSnapToTickEnabled="True"
+                        ValueChanged="OpacitySlider_ValueChanged"
+                        Style="{StaticResource NexoSliderStyle}" />
+            </Grid>
+
+            <TextBlock Text="Color de acento" FontWeight="SemiBold" />
+            <UniformGrid Columns="4" Margin="0,9,0,18">
+                <Button Margin="0,0,5,0" Height="36" Background="#8B6CFF"
+                        ToolTip="Violeta" Click="AccentButton_Click" Tag="#8B6CFF"
+                        Style="{StaticResource PrimaryButtonStyle}" />
+                <Button Margin="5,0" Height="36" Background="#4D8DFF"
+                        ToolTip="Azul" Click="AccentButton_Click" Tag="#4D8DFF"
+                        Style="{StaticResource PrimaryButtonStyle}" />
+                <Button Margin="5,0" Height="36" Background="#35C58A"
+                        ToolTip="Verde" Click="AccentButton_Click" Tag="#35C58A"
+                        Style="{StaticResource PrimaryButtonStyle}" />
+                <Button Margin="5,0,0,0" Height="36" Background="#F06CA8"
+                        ToolTip="Rosa" Click="AccentButton_Click" Tag="#F06CA8"
+                        Style="{StaticResource PrimaryButtonStyle}" />
+            </UniformGrid>
+
+            <CheckBox x:Name="AnimationsCheckBox"
+                      Content="Usar animaciones ligeras"
+                      Checked="AnimationsCheckBox_Changed"
+                      Unchecked="AnimationsCheckBox_Changed" />
+
+            <TextBlock Margin="0,20,0,9" Text="Integración con Windows" FontWeight="SemiBold" />
+            <CheckBox x:Name="StartWithWindowsCheckBox"
+                      Margin="0,0,0,8"
+                      Content="Iniciar Nexo con Windows"
+                      Checked="StartWithWindowsCheckBox_Changed"
+                      Unchecked="StartWithWindowsCheckBox_Changed" />
+            <TextBlock Margin="24,0,0,10"
+                       Text="Se iniciará en segundo plano y podrás abrirlo con Alt + A o desde la bandeja."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+            <CheckBox x:Name="MinimizeToTrayCheckBox"
+                      Margin="0,0,0,8"
+                      Content="Ocultar en la bandeja al cerrar"
+                      Checked="MinimizeToTrayCheckBox_Changed"
+                      Unchecked="MinimizeToTrayCheckBox_Changed" />
+            <CheckBox x:Name="WindowsNotificationsCheckBox"
+                      Margin="0,0,0,8"
+                      Content="Mostrar notificaciones de Windows"
+                      Checked="WindowsNotificationsCheckBox_Changed"
+                      Unchecked="WindowsNotificationsCheckBox_Changed" />
+            <CheckBox x:Name="NotificationSoundsCheckBox"
+                      Content="Reproducir sonido en recordatorios y sesiones terminadas"
+                      Checked="NotificationSoundsCheckBox_Changed"
+                      Unchecked="NotificationSoundsCheckBox_Changed" />
+            <TextBlock x:Name="WindowsIntegrationStatusText"
+                       Margin="24,8,0,0"
+                       Text="Nexo seguirá activo mientras esté visible en la bandeja."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+            <WrapPanel Margin="0,12,0,0">
+                <Button Content="Abrir diagnóstico"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="DiagnosticsButton_Click" />
+                <Button Margin="9,0,0,0"
+                        Content="Repetir configuración inicial"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="OnboardingButton_Click" />
+            </WrapPanel>
+
+            <TextBlock Margin="0,20,0,9" Text="Vista rápida" FontWeight="SemiBold" />
+            <CheckBox x:Name="PeekEnabledCheckBox" Margin="0,0,0,8"
+                      Content="Activar Peek con Alt + Shift + A"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Enabled" />
+            <CheckBox x:Name="PeekCpuCheckBox" Margin="0,0,0,8"
+                      Content="Mostrar CPU"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Cpu" />
+            <CheckBox x:Name="PeekMemoryCheckBox" Margin="0,0,0,8"
+                      Content="Mostrar RAM"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Memory" />
+            <CheckBox x:Name="PeekGpuCheckBox" Margin="0,0,0,8"
+                      Content="Mostrar GPU"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Gpu" />
+            <CheckBox x:Name="PeekDiskCheckBox" Margin="0,0,0,8"
+                      Content="Mostrar disco del sistema"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Disk" />
+            <CheckBox x:Name="PeekTopProcessCheckBox"
+                      Content="Mostrar proceso con mayor uso de memoria"
+                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="TopProcess" />
+
+            <TextBlock Margin="0,20,0,9" Text="Asistente" FontWeight="SemiBold" />
+            <CheckBox x:Name="SaveConversationHistoryCheckBox"
+                      Content="Guardar el historial de conversación"
+                      Checked="SaveConversationHistoryCheckBox_Changed"
+                      Unchecked="SaveConversationHistoryCheckBox_Changed" />
+            <TextBlock Margin="24,6,0,0"
+                       Text="Desactivado por defecto: Nexo conserva solo los 8 mensajes más recientes durante la sesión y los elimina al cerrar."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <TextBlock Margin="0,20,0,9" Text="Inteligencia artificial" FontWeight="SemiBold" />
+            <TextBlock Margin="0,0,0,8"
+                       Text="Proveedor"
+                       Style="{StaticResource MutedTextStyle}" />
+            <WrapPanel>
+                <RadioButton x:Name="AiDisabledRadioButton"
+                             Margin="0,0,14,8"
+                             GroupName="AiProvider"
+                             Content="Desactivada"
+                             Tag="Disabled"
+                             Checked="AiProviderRadioButton_Checked" />
+                <RadioButton x:Name="AiOpenAiRadioButton"
+                             Margin="0,0,14,8"
+                             GroupName="AiProvider"
+                             Content="OpenAI"
+                             Tag="OpenAI"
+                             Checked="AiProviderRadioButton_Checked" />
+                <RadioButton x:Name="AiOllamaRadioButton"
+                             Margin="0,0,14,8"
+                             GroupName="AiProvider"
+                             Content="Ollama"
+                             Tag="Ollama"
+                             Checked="AiProviderRadioButton_Checked" />
+                <RadioButton x:Name="AiLmStudioRadioButton"
+                             Margin="0,0,14,8"
+                             GroupName="AiProvider"
+                             Content="LM Studio"
+                             Tag="LMStudio"
+                             Checked="AiProviderRadioButton_Checked" />
+                <RadioButton x:Name="AiCompatibleRadioButton"
+                             Margin="0,0,0,8"
+                             GroupName="AiProvider"
+                             Content="Compatible"
+                             Tag="OpenAICompatible"
+                             Checked="AiProviderRadioButton_Checked" />
+            </WrapPanel>
+
+            <TextBlock Margin="0,5,0,6" Text="URL base" FontWeight="SemiBold" />
+            <TextBox x:Name="AiBaseUrlTextBox"
+                     Style="{StaticResource CompactTextBoxStyle}"
+                     Tag="BaseUrl"
+                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+
+            <TextBlock Margin="0,12,0,6" Text="Modelo" FontWeight="SemiBold" />
+            <TextBox x:Name="AiModelTextBox"
+                     Style="{StaticResource CompactTextBoxStyle}"
+                     Tag="Model"
+                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+
+            <TextBlock Margin="0,12,0,6" Text="Variable de entorno de la clave" FontWeight="SemiBold" />
+            <TextBox x:Name="AiApiKeyVariableTextBox"
+                     Style="{StaticResource CompactTextBoxStyle}"
+                     Tag="ApiKeyVariable"
+                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+            <TextBlock Margin="0,6,0,0"
+                       Text="Nexo guarda solo el nombre de la variable, nunca la clave. OpenAI usa OPENAI_API_KEY; los proveedores locales normalmente no requieren una."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <CheckBox x:Name="ShareSystemMetricsWithAiCheckBox"
+                      Margin="0,12,0,0"
+                      Content="Compartir CPU, RAM, GPU y proceso principal con la IA"
+                      Checked="ShareSystemMetricsWithAiCheckBox_Changed"
+                      Unchecked="ShareSystemMetricsWithAiCheckBox_Changed" />
+            <TextBlock Margin="24,6,0,0"
+                       Text="Desactivado por defecto. Solo se adjunta una captura resumida cuando haces una consulta abierta."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <CheckBox x:Name="VisionEnabledCheckBox"
+                      Margin="0,12,0,0"
+                      Content="Permitir capturas bajo demanda con Nexo Vision"
+                      Checked="VisionEnabledCheckBox_Changed"
+                      Unchecked="VisionEnabledCheckBox_Changed" />
+            <TextBlock Margin="24,6,0,0"
+                       Text="Nexo solo captura después de que eliges una ventana o monitor y confirmas la vista previa. La imagen no se guarda en el historial."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <WrapPanel Margin="0,12,0,0">
+                <Button x:Name="AiTestConnectionButton"
+                        Content="Probar conexión"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="AiTestConnectionButton_Click" />
+                <Button x:Name="ManageModelsButton"
+                        Margin="9,0,0,0"
+                        Content="Administrar modelos"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="ManageModelsButton_Click" />
+            </WrapPanel>
+            <TextBlock x:Name="AiConnectionStatusText"
+                       Margin="0,8,0,0"
+                       Text="La IA está desactivada."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <TextBlock Margin="0,20,0,9" Text="Voz" FontWeight="SemiBold" />
+            <CheckBox x:Name="SpeakVoiceResponsesCheckBox"
+                      Content="Leer en voz alta las confirmaciones de voz"
+                      Checked="SpeakVoiceResponsesCheckBox_Changed"
+                      Unchecked="SpeakVoiceResponsesCheckBox_Changed" />
+
+            <TextBlock Margin="0,14,0,6"
+                       Text="Micrófono"
+                       FontWeight="SemiBold" />
+            <ComboBox x:Name="VoiceInputDeviceComboBox"
+                      MinHeight="34"
+                      DisplayMemberPath="Name"
+                      SelectedValuePath="DeviceNumber"
+                      SelectionChanged="VoiceInputDeviceComboBox_SelectionChanged" />
+            <TextBlock x:Name="VoiceInputDeviceStatusText"
+                       Margin="0,6,0,0"
+                       Text="Nexo usa el micrófono predeterminado de Windows."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <CheckBox x:Name="WakeWordEnabledCheckBox"
+                      Margin="0,12,0,0"
+                      Content="Activar Nexo mediante una frase de voz (experimental)"
+                      Checked="WakeWordEnabledCheckBox_Changed"
+                      Unchecked="WakeWordEnabledCheckBox_Changed" />
+
+            <StackPanel Margin="24,10,0,0">
+                <TextBlock Margin="0,0,0,7"
+                           Text="Frase de activación"
+                           FontWeight="SemiBold" />
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="WakeWordNexoRadioButton"
+                                 GroupName="WakeWordPhrase"
+                                 Content="Nexo"
+                                 Tag="Nexo"
+                                 Checked="WakeWordPhraseRadioButton_Checked" />
+                    <RadioButton x:Name="WakeWordOyeNexoRadioButton"
+                                 Margin="18,0,0,0"
+                                 GroupName="WakeWordPhrase"
+                                 Content="Oye Nexo"
+                                 Tag="OyeNexo"
+                                 Checked="WakeWordPhraseRadioButton_Checked" />
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock Margin="24,8,0,0"
+                       Text="La escucha se realiza localmente y es opcional. Mientras está activa, el modelo ligero de Vosk puede usar alrededor de 300 MB de RAM. Whisper solo se carga después de detectar la frase."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
+            <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
+                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />
+            <CheckBox x:Name="CaptureModuleCheckBox" Margin="0,0,0,8" Content="Captura"
+                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Capture" />
+            <CheckBox x:Name="SystemModuleCheckBox" Content="Sistema"
+                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="System" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

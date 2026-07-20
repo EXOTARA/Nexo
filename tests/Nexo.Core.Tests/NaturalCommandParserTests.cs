@@ -104,6 +104,63 @@ public sealed class NaturalCommandParserTests
         Assert.Equal("discord", unmute.Intent?.Target);
     }
 
+
+    [Theory]
+    [InlineData("abre descargas", "downloads")]
+    [InlineData("ábreme mis documentos", "documents")]
+    [InlineData("abre mi escritorio", "desktop")]
+    [InlineData("abre mis imágenes", "pictures")]
+    public void Parse_OpenKnownFolder_RoutesLocally(string text, string expectedTarget)
+    {
+        var result = _parser.Parse(text);
+
+        Assert.Equal(CommandRoute.Local, result.Route);
+        Assert.Equal(LocalCommandType.OpenKnownFolder, result.Intent?.Type);
+        Assert.Equal(expectedTarget, result.Intent?.Target);
+    }
+
+    [Theory]
+    [InlineData("abre Visual Studio Code", "vscode")]
+    [InlineData("abre la calculadora", "calculator")]
+    [InlineData("abre el administrador de tareas", "taskmanager")]
+    [InlineData("abre configuración de Windows", "windows-settings")]
+    public void Parse_OpenKnownApplication_RoutesLocally(string text, string expectedTarget)
+    {
+        var result = _parser.Parse(text);
+
+        Assert.Equal(CommandRoute.Local, result.Route);
+        Assert.Equal(LocalCommandType.OpenKnownApplication, result.Intent?.Type);
+        Assert.Equal(expectedTarget, result.Intent?.Target);
+    }
+
+
+    [Theory]
+    [InlineData("descargas", LocalCommandType.OpenKnownFolder, "downloads")]
+    [InlineData("explorador de archivos", LocalCommandType.OpenKnownApplication, "explorer")]
+    [InlineData("visual studio code", LocalCommandType.OpenKnownApplication, "vscode")]
+    [InlineData("calculadora", LocalCommandType.OpenKnownApplication, "calculator")]
+    [InlineData("administrador de tareas", LocalCommandType.OpenKnownApplication, "taskmanager")]
+    public void Parse_DirectKnownTarget_RoutesLocally(
+        string text,
+        LocalCommandType expectedType,
+        string expectedTarget)
+    {
+        var result = _parser.Parse(text);
+
+        Assert.Equal(CommandRoute.Local, result.Route);
+        Assert.Equal(expectedType, result.Intent?.Type);
+        Assert.Equal(expectedTarget, result.Intent?.Target);
+    }
+
+    [Fact]
+    public void Parse_MiraEstaVentana_UsesVisionCapture()
+    {
+        var result = _parser.Parse("mira esta ventana");
+
+        Assert.Equal(CommandRoute.Local, result.Route);
+        Assert.Equal(LocalCommandType.CaptureForVision, result.Intent?.Type);
+    }
+
     [Theory]
     [InlineData("Explícame por qué mi navegador usa tanta memoria")]
     [InlineData("por qué bajas Spotify cuando abro un juego")]

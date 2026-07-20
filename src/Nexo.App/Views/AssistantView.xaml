@@ -1,6 +1,8 @@
 <UserControl x:Class="Nexo.App.Views.AssistantView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             TextOptions.TextFormattingMode="Display"
+             TextOptions.TextRenderingMode="ClearType">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -17,53 +19,74 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel>
-                <TextBlock Text="¿Qué necesitas?" Style="{StaticResource SectionTitleStyle}" />
-                <TextBlock Margin="0,4,0,0"
-                           Text="Escribe una consulta, usa Mirar o mantén Mic para hablar."
-                           Style="{StaticResource MutedTextStyle}" />
-                <TextBlock x:Name="AiProviderStatusText"
-                           Margin="0,4,0,0"
-                           Text="IA desactivada · los comandos locales siguen disponibles"
-                           TextTrimming="CharacterEllipsis"
-                           Style="{StaticResource MutedTextStyle}" />
+                <TextBlock Text="¿Qué necesitas?"
+                           FontSize="22"
+                           FontWeight="SemiBold" />
+                <TextBlock Margin="0,5,0,0"
+                           Text="Ordena algo, pregunta o comparte lo que estás viendo."
+                           Foreground="{DynamicResource BrushTextSecondary}"
+                           FontSize="12.5"
+                           LineHeight="18" />
+                <Border Margin="0,9,0,0"
+                        Padding="9,6"
+                        HorizontalAlignment="Left"
+                        Background="#66202735"
+                        BorderBrush="#22FFFFFF"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="7"
+                                 Height="7"
+                                 Margin="0,0,7,0"
+                                 VerticalAlignment="Center"
+                                 Fill="{DynamicResource BrushSuccess}" />
+                        <TextBlock x:Name="AiProviderStatusText"
+                                   Text="IA desactivada · los comandos locales siguen disponibles"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   FontSize="11.5" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
 
             <Button Grid.Column="1"
-                    Margin="10,0,0,0"
-                    Padding="10,6"
+                    Margin="11,0,0,0"
+                    Padding="0"
                     VerticalAlignment="Top"
-                    Content="Limpiar"
-                    ToolTip="Vaciar la conversación visible"
-                    Style="{StaticResource SecondaryButtonStyle}"
+                    Content="⌫"
+                    FontSize="16"
+                    ToolTip="Limpiar conversación"
+                    Style="{StaticResource IconButtonStyle}"
                     Click="ClearConversationButton_Click" />
         </Grid>
 
         <ScrollViewer x:Name="ConversationScroll"
                       Grid.Row="1"
-                      Margin="0,16,0,10"
-                      VerticalScrollBarVisibility="Auto">
+                      Margin="0,16,0,12"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
             <StackPanel x:Name="ConversationPanel" />
         </ScrollViewer>
 
         <Border x:Name="VisionAttachmentPanel"
                 Grid.Row="2"
-                Margin="0,0,0,10"
-                Padding="8"
+                Margin="0,0,0,11"
+                Padding="9"
                 Visibility="Collapsed"
-                CornerRadius="12"
-                Background="{StaticResource BrushSurfaceRaised}"
-                BorderBrush="{StaticResource BrushBorder}"
+                CornerRadius="15"
+                Background="#B01B2230"
+                BorderBrush="#38FFFFFF"
                 BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="74" />
+                    <ColumnDefinition Width="78" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Border Width="68"
-                        Height="54"
-                        CornerRadius="8"
+                <Border Width="72"
+                        Height="58"
+                        CornerRadius="11"
                         ClipToBounds="True"
                         Background="#080A0F">
                     <Image x:Name="VisionPreviewImage"
@@ -71,81 +94,104 @@
                 </Border>
 
                 <StackPanel Grid.Column="1"
-                            Margin="9,0,8,0"
+                            Margin="11,0,9,0"
                             VerticalAlignment="Center">
                     <TextBlock Text="Captura lista"
+                               FontSize="13.5"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="VisionSourceTitleText"
                                Margin="0,3,0,0"
                                TextTrimming="CharacterEllipsis"
                                Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock Margin="0,2,0,0"
+                    <TextBlock Margin="0,3,0,0"
                                Text="Se enviará solo con tu siguiente consulta."
-                               Style="{StaticResource MutedTextStyle}" />
+                               Foreground="{DynamicResource BrushTextTertiary}"
+                               FontSize="11" />
                 </StackPanel>
 
                 <Button Grid.Column="2"
-                        Width="30"
-                        Height="30"
+                        Width="34"
+                        Height="34"
                         Padding="0"
                         VerticalAlignment="Center"
                         Content="×"
                         ToolTip="Descartar captura"
-                        Style="{StaticResource SecondaryButtonStyle}"
+                        Style="{StaticResource IconButtonStyle}"
                         Click="DiscardVisionButton_Click" />
             </Grid>
         </Border>
 
         <TextBlock x:Name="VoiceStatusText"
                    Grid.Row="3"
-                   Margin="2,0,0,8"
+                   Margin="4,0,0,9"
                    Text="Preparando reconocimiento local…"
                    TextTrimming="CharacterEllipsis"
-                   Style="{StaticResource MutedTextStyle}" />
+                   Foreground="{DynamicResource BrushTextSecondary}"
+                   FontSize="11.5" />
 
-        <Grid Grid.Row="4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <Border Grid.Row="4"
+                Padding="9"
+                Background="#C00E141E"
+                BorderBrush="#42FFFFFF"
+                BorderThickness="1"
+                CornerRadius="19">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-            <TextBox x:Name="PromptBox"
-                     Height="74"
-                     AcceptsReturn="True"
-                     Style="{StaticResource PromptTextBoxStyle}"
-                     PreviewKeyDown="PromptBox_PreviewKeyDown" />
+                <TextBox x:Name="PromptBox"
+                         MinHeight="58"
+                         MaxHeight="124"
+                         Padding="9,8"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         FontSize="14"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         VerticalScrollBarVisibility="Auto"
+                         PreviewKeyDown="PromptBox_PreviewKeyDown" />
 
-            <Button x:Name="VisionButton"
-                    Grid.Column="1"
-                    Margin="10,0,0,0"
-                    Width="58"
-                    Content="Mirar"
-                    ToolTip="Capturar una ventana o monitor para preguntarle a Nexo"
-                    Style="{StaticResource SecondaryButtonStyle}"
-                    Click="VisionButton_Click" />
+                <Button x:Name="VisionButton"
+                        Grid.Column="1"
+                        Margin="9,0,0,0"
+                        MinWidth="62"
+                        Padding="12,10"
+                        Content="Mirar"
+                        ToolTip="Capturar una ventana o monitor para preguntarle a Nexo"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="VisionButton_Click" />
 
-            <Button x:Name="MicButton"
-                    Grid.Column="2"
-                    Margin="10,0,0,0"
-                    Width="58"
-                    IsEnabled="False"
-                    Content="Mic"
-                    ToolTip="Mantén presionado para hablar"
-                    Style="{StaticResource SecondaryButtonStyle}"
-                    PreviewMouseLeftButtonDown="MicButton_PreviewMouseLeftButtonDown"
-                    PreviewMouseLeftButtonUp="MicButton_PreviewMouseLeftButtonUp"
-                    LostMouseCapture="MicButton_LostMouseCapture"
-                    PreviewKeyDown="MicButton_PreviewKeyDown"
-                    PreviewKeyUp="MicButton_PreviewKeyUp" />
+                <Button x:Name="MicButton"
+                        Grid.Column="2"
+                        Margin="8,0,0,0"
+                        MinWidth="56"
+                        Padding="12,10"
+                        IsEnabled="False"
+                        Content="Mic"
+                        ToolTip="Mantén presionado para hablar"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        PreviewMouseLeftButtonDown="MicButton_PreviewMouseLeftButtonDown"
+                        PreviewMouseLeftButtonUp="MicButton_PreviewMouseLeftButtonUp"
+                        LostMouseCapture="MicButton_LostMouseCapture"
+                        PreviewKeyDown="MicButton_PreviewKeyDown"
+                        PreviewKeyUp="MicButton_PreviewKeyUp" />
 
-            <Button Grid.Column="3"
-                    Margin="10,0,0,0"
-                    Width="74"
-                    Style="{StaticResource PrimaryButtonStyle}"
-                    Content="Enviar"
-                    Click="SendButton_Click" />
-        </Grid>
+                <Button Grid.Column="3"
+                        Margin="8,0,0,0"
+                        Width="52"
+                        Height="52"
+                        Padding="0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Content="↑"
+                        FontSize="20"
+                        ToolTip="Enviar"
+                        Click="SendButton_Click" />
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

@@ -4,6 +4,13 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ## [Sin publicar]
 
+- Nueva base visual **Obsidian Bloom** con tipografía e iconos más legibles.
+- Barra lateral expandible por clic, sin reducir el espacio permanente de trabajo.
+- Paleta sin animación de escala para conservar texto nítido al aparecer.
+- Entrada inteligente: comandos claros se ejecutan y prompts naturales se envían completos.
+- `Ctrl + Enter` fuerza una consulta y `Shift + Enter` permite prompts multilínea.
+- Scrollbars compactas, tooltips oscuros y estados de foco consistentes.
+- Ancho mínimo protegido para evitar recortes en la nueva navegación.
 - La copia privada de Ollama se inicia automáticamente al abrir Nexo.
 - El runtime local se supervisa y se recupera si deja de responder.
 - Las consultas abiertas reintentan el arranque del motor antes de fallar.

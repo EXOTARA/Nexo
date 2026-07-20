@@ -13,7 +13,7 @@ namespace Nexo.App.Views;
 public partial class AssistantView : UserControl
 {
     private const string WelcomeText =
-        "Hola. Puedo ejecutar órdenes locales y mostrar confirmaciones discretas. Prueba “muestra Peek”, “cómo está mi PC” o “abre PowerShell”.";
+        "Escribe una orden o consulta. Los comandos locales se ejecutan al instante; la IA entra solo cuando realmente hace falta.";
 
     private readonly List<ConversationMessage> _messages = [];
     private readonly StringBuilder _streamingBuffer = new();
@@ -490,18 +490,26 @@ public partial class AssistantView : UserControl
         HorizontalAlignment alignment,
         Brush background)
     {
+        var isUser = alignment == HorizontalAlignment.Right;
         return new Border
         {
             Margin = new Thickness(0, 8, 0, 0),
-            Padding = new Thickness(12),
-            CornerRadius = new CornerRadius(13),
+            Padding = new Thickness(12, 10, 12, 10),
+            CornerRadius = isUser
+                ? new CornerRadius(16, 16, 6, 16)
+                : new CornerRadius(16, 16, 16, 6),
             Background = background,
+            BorderBrush = (Brush)Application.Current.FindResource(
+                isUser ? "BrushAccent" : "BrushBorder"),
+            BorderThickness = new Thickness(isUser ? 0.5 : 0.7),
             HorizontalAlignment = alignment,
-            MaxWidth = 310,
+            MaxWidth = isUser ? 300 : 340,
             Child = new TextBlock
             {
                 Text = text,
                 TextWrapping = TextWrapping.Wrap,
+                FontSize = 13,
+                LineHeight = 20,
                 Foreground = (Brush)Application.Current.FindResource("BrushTextPrimary")
             }
         };

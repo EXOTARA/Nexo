@@ -1,0 +1,240 @@
+<UserControl x:Class="Nexo.App.Views.RoutinesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Rutinas" Style="{StaticResource SectionTitleStyle}" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="Combina acciones locales permitidas y ejecútalas con una frase."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Content="Nueva"
+                    Padding="14,8"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Click="NewRoutineButton_Click" />
+        </Grid>
+
+        <Border Grid.Row="1"
+                Margin="0,12,0,10"
+                Style="{StaticResource SubtleCardStyle}">
+            <StackPanel>
+                <TextBlock Text="Motor seguro"
+                           FontWeight="SemiBold" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="Nexo solo ejecuta acciones de una lista permitida. Los pasos sensibles muestran una vista previa antes de comenzar."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <ScrollViewer x:Name="ListScrollViewer"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <ItemsControl x:Name="RoutinesItemsControl">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,8"
+                                        Style="{StaticResource SubtleCardStyle}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontSize="15"
+                                                           FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding TriggerPhrase}"
+                                                           Margin="0,3,0,0"
+                                                           Style="{StaticResource MutedTextStyle}" />
+                                            </StackPanel>
+                                            <Border Grid.Column="1"
+                                                    Padding="7,3"
+                                                    Background="{DynamicResource BrushAccentSoft}"
+                                                    CornerRadius="8"
+                                                    VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding Status}"
+                                                           FontSize="9"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Grid.Row="1"
+                                                   Margin="0,9,0,0"
+                                                   Text="{Binding StepSummary}"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource MutedTextStyle}" />
+                                        <UniformGrid Grid.Row="2" Columns="3" Margin="0,10,0,0">
+                                            <Button Content="Ejecutar"
+                                                    Tag="{Binding Id}"
+                                                    Margin="0,0,4,0"
+                                                    Style="{StaticResource PrimaryButtonStyle}"
+                                                    Click="RunRoutineButton_Click" />
+                                            <Button Content="Editar"
+                                                    Tag="{Binding Id}"
+                                                    Margin="2,0"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Click="EditRoutineButton_Click" />
+                                            <Button Content="Eliminar"
+                                                    Tag="{Binding Id}"
+                                                    Margin="4,0,0,0"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Click="DeleteRoutineButton_Click" />
+                                        </UniformGrid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock x:Name="EmptyStateText"
+                               Text="No hay rutinas disponibles."
+                               Margin="0,20,0,0"
+                               HorizontalAlignment="Center"
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <ScrollViewer x:Name="EditorScrollViewer"
+                          Visibility="Collapsed"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <TextBlock x:Name="EditorTitleText"
+                               Text="Nueva rutina"
+                               Style="{StaticResource SectionTitleStyle}" />
+
+                    <TextBlock Text="Nombre" Margin="0,12,0,5" FontWeight="SemiBold" />
+                    <TextBox x:Name="NameTextBox" Style="{StaticResource CompactTextBoxStyle}" />
+
+                    <TextBlock Text="Frase de activación" Margin="0,12,0,5" FontWeight="SemiBold" />
+                    <TextBox x:Name="TriggerTextBox" Style="{StaticResource CompactTextBoxStyle}" />
+
+                    <CheckBox x:Name="EnabledCheckBox"
+                              Margin="0,12,0,0"
+                              Content="Rutina activa"
+                              IsChecked="True" />
+                    <CheckBox x:Name="ConfirmationCheckBox"
+                              Margin="0,8,0,0"
+                              Content="Mostrar vista previa antes de ejecutar"
+                              IsChecked="True" />
+
+                    <TextBlock Text="Acciones" Margin="0,16,0,8" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource SubtleCardStyle}">
+                        <StackPanel>
+                            <CheckBox x:Name="OpenCodeCheckBox" Content="Abrir VS Code" />
+                            <CheckBox x:Name="OpenTerminalCheckBox" Margin="0,8,0,0" Content="Abrir PowerShell" />
+                            <TextBlock Text="Carpeta del proyecto" Margin="0,9,0,5" Style="{StaticResource MutedTextStyle}" />
+                            <TextBox x:Name="ProjectFolderTextBox"
+                                     Text="{}"
+                                     Style="{StaticResource CompactTextBoxStyle}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Margin="0,8,0,0" Style="{StaticResource SubtleCardStyle}">
+                        <StackPanel>
+                            <CheckBox x:Name="SpotifyVolumeCheckBox" Content="Ajustar volumen de Spotify" />
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Porcentaje" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}" />
+                                <TextBox x:Name="SpotifyVolumeTextBox"
+                                         Grid.Column="1"
+                                         Text="20"
+                                         Style="{StaticResource CompactTextBoxStyle}" />
+                            </Grid>
+                            <CheckBox x:Name="MuteDiscordCheckBox"
+                                      Margin="0,9,0,0"
+                                      Content="Silenciar Discord" />
+                            <CheckBox x:Name="UnmuteDiscordCheckBox"
+                                      Margin="0,8,0,0"
+                                      Content="Reactivar Discord" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Margin="0,8,0,0" Style="{StaticResource SubtleCardStyle}">
+                        <StackPanel>
+                            <CheckBox x:Name="StartFocusCheckBox" Content="Iniciar sesión de enfoque" />
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Minutos" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}" />
+                                <TextBox x:Name="FocusMinutesTextBox"
+                                         Grid.Column="1"
+                                         Text="50"
+                                         Style="{StaticResource CompactTextBoxStyle}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Margin="0,8,0,0" Style="{StaticResource SubtleCardStyle}">
+                        <StackPanel>
+                            <CheckBox x:Name="StartBreakCheckBox" Content="Iniciar descanso" />
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="70" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Minutos" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}" />
+                                <TextBox x:Name="BreakMinutesTextBox"
+                                         Grid.Column="1"
+                                         Text="10"
+                                         Style="{StaticResource CompactTextBoxStyle}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Margin="0,8,0,0" Style="{StaticResource SubtleCardStyle}">
+                        <StackPanel>
+                            <CheckBox x:Name="CreateTaskCheckBox" Content="Crear una tarea" />
+                            <TextBox x:Name="TaskTitleTextBox"
+                                     Margin="0,8,0,0"
+                                     Style="{StaticResource CompactTextBoxStyle}"
+                                     ToolTip="Título de la tarea" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock x:Name="EditorErrorText"
+                               Margin="0,10,0,0"
+                               Foreground="#FF7777"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed" />
+
+                    <UniformGrid Columns="2" Margin="0,14,0,0">
+                        <Button Content="Cancelar"
+                                Margin="0,0,4,0"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="CancelEditorButton_Click" />
+                        <Button Content="Guardar"
+                                Margin="4,0,0,0"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                Click="SaveRoutineButton_Click" />
+                    </UniformGrid>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

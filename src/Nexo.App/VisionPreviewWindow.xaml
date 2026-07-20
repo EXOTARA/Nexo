@@ -52,7 +52,7 @@
                        Text="La imagen se mantendrá solo hasta terminar el análisis o descartarla."
                        TextWrapping="Wrap"
                        Foreground="{StaticResource BrushTextSecondary}"
-                       FontSize="11" />
+                       FontSize="12" />
             <Button Grid.Column="1"
                     Margin="12,0,0,0"
                     Padding="14,8"

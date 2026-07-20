@@ -19,6 +19,22 @@ public sealed class ShellPreferencesTests
         Assert.Equal(0.82, preferences.Opacity);
     }
 
+
+    [Fact]
+    public void Normalize_ProtectsReadableShellWidth()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 10,
+            Width = 320
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(468, preferences.Width);
+    }
+
+
     [Fact]
     public void Normalize_RestoresDefaultAccentWhenEmpty()
     {

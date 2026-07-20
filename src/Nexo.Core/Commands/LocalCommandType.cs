@@ -16,6 +16,8 @@ public enum LocalCommandType
     OpenPowerShell,
     OpenCommandPrompt,
     OpenWindowsTerminal,
+    OpenKnownFolder,
+    OpenKnownApplication,
     SetApplicationVolume,
     ScaleApplicationVolume,
     ChangeApplicationVolume,
