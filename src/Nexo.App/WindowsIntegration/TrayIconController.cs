@@ -7,6 +7,7 @@ public sealed class TrayIconController : IDisposable
 {
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly Forms.ContextMenuStrip _menu;
+    private readonly Drawing.Icon _applicationIcon;
     private bool _disposed;
 
     public TrayIconController(
@@ -32,9 +33,10 @@ public sealed class TrayIconController : IDisposable
         _menu.Items.Add(new Forms.ToolStripSeparator());
         _menu.Items.Add(exitItem);
 
+        _applicationIcon = LoadApplicationIcon();
         _notifyIcon = new Forms.NotifyIcon
         {
-            Icon = Drawing.SystemIcons.Application,
+            Icon = _applicationIcon,
             Text = "Nexo — asistente local",
             ContextMenuStrip = _menu,
             Visible = true
@@ -113,7 +115,29 @@ public sealed class TrayIconController : IDisposable
         _disposed = true;
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
+        _applicationIcon.Dispose();
         _menu.Dispose();
+    }
+
+    private static Drawing.Icon LoadApplicationIcon()
+    {
+        var executablePath = Environment.ProcessPath;
+        if (!string.IsNullOrWhiteSpace(executablePath))
+        {
+            try
+            {
+                using var extracted = Drawing.Icon.ExtractAssociatedIcon(executablePath);
+                if (extracted is not null)
+                {
+                    return (Drawing.Icon)extracted.Clone();
+                }
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+
+        return (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
     }
 }
 

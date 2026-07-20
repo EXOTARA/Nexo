@@ -7,6 +7,7 @@ using Nexo.Core.Diagnostics;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
 using Nexo.Windows.Diagnostics;
+using Nexo.Windows.Updates;
 using System.IO;
 
 namespace Nexo.App;
@@ -105,6 +106,57 @@ public partial class DiagnosticsWindow : Window
             FileName = NexoDataPaths.RootDirectory,
             UseShellExecute = true
         });
+    }
+
+
+    private async void UpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateButton.IsEnabled = false;
+        SummaryText.Text = "Buscando una nueva versión…";
+
+        try
+        {
+            using var service = new GitHubUpdateService(ReleaseMetadata.RepositoryUrl);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                _lifetimeCancellation.Token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(15));
+
+            var result = await service.CheckAsync(
+                ReleaseMetadata.CurrentVersion,
+                timeout.Token);
+
+            SummaryText.Text = result.Message;
+            if (!result.IsUpdateAvailable || string.IsNullOrWhiteSpace(result.ReleaseUrl))
+            {
+                return;
+            }
+
+            var decision = MessageBox.Show(
+                $"{result.ReleaseName}\n\n" +
+                $"Actual: {result.CurrentVersion}\n" +
+                $"Disponible: {result.LatestVersion}\n\n" +
+                "¿Quieres abrir la página de descarga?",
+                "Actualización de Nexo",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (decision == MessageBoxResult.Yes)
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = result.ReleaseUrl,
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            SummaryText.Text = "La comprobación de actualizaciones fue cancelada.";
+        }
+        finally
+        {
+            UpdateButton.IsEnabled = true;
+        }
     }
 
     private void ClearTemporaryButton_Click(object sender, RoutedEventArgs e)

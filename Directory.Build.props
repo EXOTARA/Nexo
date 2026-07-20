@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <VersionPrefix>0.9.0</VersionPrefix>
+    <VersionSuffix>beta</VersionSuffix>
+    <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
+    <AssemblyVersion>0.9.0.0</AssemblyVersion>
+    <FileVersion>0.9.0.0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <Authors>Adler Rodríguez de la gala Soberanis</Authors>
+    <Company>Nexo</Company>
+    <Product>Nexo</Product>
+    <Description>Asistente local y modular para Windows.</Description>
+    <Copyright>Copyright © 2026</Copyright>
+    <NeutralLanguage>es-MX</NeutralLanguage>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>

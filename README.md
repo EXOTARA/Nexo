@@ -4,7 +4,7 @@ Nexo es un asistente ligero y modular para Windows que permite consultar, entend
 
 ## Estado
 
-Nexo está actualmente en fase `0.4-alpha`. La aplicación ya cuenta con una interfaz funcional, métricas del sistema y una primera versión del motor de comandos locales.
+Nexo está actualmente en fase `0.9.0-beta`. La aplicación ya cuenta con una interfaz funcional, métricas del sistema y una primera versión del motor de comandos locales.
 
 Actualmente incluye:
 
@@ -80,7 +80,6 @@ El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incl
 - Selección manual de una región para ampliar errores pequeños.
 - OCR y copia de texto desde capturas.
 - Difuminado manual de zonas sensibles.
-- Instalador de Windows, actualizaciones y publicación de la primera beta.
 
 
 ## Rutinas y automatización segura
@@ -98,3 +97,23 @@ Nexo puede permanecer activo en la bandeja aunque la barra esté oculta. Desde e
 
 Las notificaciones y sonidos se controlan desde **Personalización → Integración con Windows**. Al reanudar el equipo después de una suspensión, Nexo vuelve a comprobar inmediatamente recordatorios y sesiones de enfoque.
 
+
+
+## Publicación e instalación
+
+Nexo se publica como aplicación WPF nativa y autocontenida para Windows x64.
+No utiliza Electron ni incorpora Chromium. La edición portable y el instalador
+incluyen el runtime de .NET, pero no incluyen Ollama, modelos de IA ni datos del
+usuario.
+
+Para generar la beta localmente:
+
+```powershell
+.\scripts\publish.ps1 -Version "0.9.0-beta"
+.\scripts\build-installer.ps1 -Version "0.9.0-beta"
+```
+
+Consulta `docs/PUBLISHING.md` y `RELEASE_CHECKLIST.md` antes de crear una
+etiqueta. Las compilaciones de GitHub reciben automáticamente la URL del
+repositorio, lo que habilita **Buscar actualización** en el centro de
+diagnóstico.
