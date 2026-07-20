@@ -4,6 +4,12 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ## [Sin publicar]
 
+- La copia privada de Ollama se inicia automáticamente al abrir Nexo.
+- El runtime local se supervisa y se recupera si deja de responder.
+- Las consultas abiertas reintentan el arranque del motor antes de fallar.
+- Ollama se mantiene activo al ocultar Nexo y se detiene al salir completamente.
+- Registro local de diagnóstico en `%LocalAppData%\Nexo\Logs\ollama-runtime.log`.
+
 ## 0.9.0-beta - Primera edición distribuible
 
 - Versión y metadatos centralizados para los ensamblados.
