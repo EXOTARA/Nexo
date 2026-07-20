@@ -86,9 +86,9 @@ public partial class CommandPaletteWindow : Window
             "P",
             ["p", "powershell", "terminal", "consola"]),
         new(
-            "Mirar lo que está abierto",
+            "Mirar esta ventana",
             "mira esta ventana",
-            "Usar contexto visual temporal de la ventana activa",
+            "Capturar y analizar la ventana activa",
             "◫",
             "M",
             ["m", "mirar", "captura", "vision", "ventana"]),
@@ -136,7 +136,6 @@ public partial class CommandPaletteWindow : Window
     {
         InitializeComponent();
         _state = _stateStore.Load();
-        NormalizeRecentHistory();
         ReduceMotionCheckBox.IsChecked = _state.ReduceMotion;
         UpdateMotionSelection();
         RefreshSuggestions(string.Empty);
@@ -290,6 +289,7 @@ public partial class CommandPaletteWindow : Window
         }
 
         SetExpanded(true, animate: true);
+        TryApplyShortcutCompletion(query);
         UpdateInputMode();
     }
 
@@ -494,48 +494,6 @@ public partial class CommandPaletteWindow : Window
         }
     }
 
-    private void NormalizeRecentHistory()
-    {
-        var normalized = _state.RecentCommands
-            .Select(NormalizeRecentCommand)
-            .Where(command => !string.IsNullOrWhiteSpace(command))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(12)
-            .ToList();
-
-        if (_state.RecentCommands.SequenceEqual(
-                normalized,
-                StringComparer.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        _state.RecentCommands = normalized;
-        _stateStore.Save(_state);
-    }
-
-    private static string NormalizeRecentCommand(string command)
-    {
-        var trimmed = command.Trim();
-        if (CommandPaletteInputPolicy.IsLikelyNaturalPrompt(trimmed))
-        {
-            return trimmed;
-        }
-
-        var best = BuiltInSuggestions
-            .Select(suggestion => new
-            {
-                Suggestion = suggestion,
-                Score = ScoreSuggestion(suggestion, trimmed)
-            })
-            .OrderByDescending(candidate => candidate.Score)
-            .FirstOrDefault();
-
-        return best is not null && best.Score >= 170
-            ? best.Suggestion.Command
-            : trimmed;
-    }
-
     private void CustomizeButton_Click(object sender, RoutedEventArgs e)
     {
         _customizationVisible = !_customizationVisible;
@@ -703,18 +661,7 @@ public partial class CommandPaletteWindow : Window
     {
         if (e.Key == Key.Escape)
         {
-            if (!string.IsNullOrEmpty(PromptTextBox.Text))
-            {
-                PromptTextBox.Clear();
-                SetExpanded(false, animate: false);
-                InputModeText.Text = "Escribe para buscar o preguntar";
-                InputModeDot.Fill = (Brush)FindResource("BrushTextTertiary");
-            }
-            else
-            {
-                HidePalette();
-            }
-
+            HidePalette();
             e.Handled = true;
             return;
         }
@@ -729,7 +676,7 @@ public partial class CommandPaletteWindow : Window
         {
             if (SuggestionsList.SelectedItem is CommandPaletteSuggestion selected)
             {
-                ApplyCompletion(selected, selected.Command);
+                ApplyCompletion(selected);
                 PromptTextBox.CaretIndex = PromptTextBox.Text.Length;
                 UpdateInputMode();
             }

@@ -44,7 +44,6 @@ public partial class MainWindow : Window
     private const int ShellHotkeyId = 0x4E58;
     private const int PeekHotkeyId = 0x4E59;
     private const int CommandPaletteHotkeyId = 0x4E5A;
-    private const int LookHotkeyId = 0x4E5B;
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
@@ -59,7 +58,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _metricsTimer;
     private readonly DispatcherTimer _taskReminderTimer;
     private readonly DispatcherTimer _focusTickTimer;
-    private readonly DispatcherTimer _visualContextExpiryTimer = new();
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly WindowsStartupService _startupService = new();
     private readonly JsonConversationStore _conversationStore = new();
@@ -116,8 +114,6 @@ public partial class MainWindow : Window
     private bool _managedAiRuntimeFailureNotified;
     private bool _promptFromCommandPalette;
     private bool _sideRailExpanded;
-    private bool _visualContextPersistent;
-    private string? _visualContextMetadata;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
     private long _lastExternalWindowHandle;
@@ -200,7 +196,6 @@ public partial class MainWindow : Window
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
         NavigateTo("Home", animate: false);
-        ApplySideRailButtonLayout(expanded: false);
 
         _clockTimer = new DispatcherTimer
         {
@@ -225,13 +220,6 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(1)
         };
         _focusTickTimer.Tick += (_, _) => CheckFocusTimer();
-
-        _visualContextExpiryTimer.Interval = TimeSpan.FromMinutes(2);
-        _visualContextExpiryTimer.Tick += (_, _) =>
-        {
-            _visualContextExpiryTimer.Stop();
-            ClearPendingVisionAttachment();
-        };
     }
 
     private void WireSettingsEvents()
@@ -516,7 +504,6 @@ public partial class MainWindow : Window
         SideRailToggleButton.ToolTip = expanded
             ? "Contraer navegación"
             : "Expandir navegación";
-        ApplySideRailButtonLayout(expanded);
 
         var targetWidth = expanded ? 194d : 68d;
 
@@ -544,28 +531,6 @@ public partial class MainWindow : Window
             SideRailBorder.Width = targetWidth;
         };
         SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, animation);
-    }
-
-    private void ApplySideRailButtonLayout(bool expanded)
-    {
-        var buttonWidth = expanded ? 178d : 52d;
-        SideRailToggleButton.Width = buttonWidth;
-        SettingsNavButton.Width = buttonWidth;
-
-        foreach (var button in new[]
-                 {
-                     HomeNavButton,
-                     AssistantNavButton,
-                     TasksNavButton,
-                     FocusNavButton,
-                     RoutinesNavButton,
-                     AudioNavButton,
-                     CaptureNavButton,
-                     SystemNavButton
-                 })
-        {
-            button.Width = buttonWidth;
-        }
     }
 
     private void CommandPaletteButton_Click(object sender, RoutedEventArgs e)
@@ -622,7 +587,7 @@ public partial class MainWindow : Window
 
     private async void HomeView_ContextRequested(object? sender, EventArgs e)
     {
-        await LookAtForegroundWindowAsync();
+        await CaptureForVisionAsync();
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -649,16 +614,6 @@ public partial class MainWindow : Window
         {
             _assistantView.AddNexoMessage(
                 "Ctrl + Espacio ya está siendo utilizado por otra aplicación.");
-        }
-
-        if (!RegisterHotKey(
-                windowHandle,
-                LookHotkeyId,
-                ModControl | ModShift,
-                VirtualKeySpace))
-        {
-            _assistantView.AddNexoMessage(
-                "Ctrl + Shift + Espacio ya está siendo utilizado por otra aplicación.");
         }
     }
 
@@ -696,7 +651,6 @@ public partial class MainWindow : Window
         _metricsTimer.Stop();
         _taskReminderTimer.Stop();
         _focusTickTimer.Stop();
-        _visualContextExpiryTimer.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
 
@@ -725,7 +679,6 @@ public partial class MainWindow : Window
             UnregisterHotKey(windowHandle, ShellHotkeyId);
             UnregisterHotKey(windowHandle, PeekHotkeyId);
             UnregisterHotKey(windowHandle, CommandPaletteHotkeyId);
-            UnregisterHotKey(windowHandle, LookHotkeyId);
         }
 
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -767,12 +720,6 @@ public partial class MainWindow : Window
         else if (wParam.ToInt32() == CommandPaletteHotkeyId)
         {
             ShowCommandPalette();
-            handled = true;
-        }
-        else if (wParam.ToInt32() == LookHotkeyId)
-        {
-            RememberForegroundWindow();
-            _ = LookAtForegroundWindowAsync();
             handled = true;
         }
 
@@ -1066,12 +1013,12 @@ public partial class MainWindow : Window
 
     private async void AssistantView_VisionCaptureRequested(object? sender, EventArgs e)
     {
-        await LookAtForegroundWindowAsync();
+        await CaptureForVisionAsync();
     }
 
     private void AssistantView_VisionAttachmentCleared(object? sender, EventArgs e)
     {
-        ClearPendingVisionAttachment();
+        _pendingVisionAttachment = null;
     }
 
     private async void CaptureView_CaptureRequested(object? sender, EventArgs e)
@@ -1216,14 +1163,6 @@ public partial class MainWindow : Window
                 systemContext = BuildAiSystemContext(_latestSnapshot);
             }
 
-            if (_pendingVisionAttachment is not null &&
-                !string.IsNullOrWhiteSpace(_visualContextMetadata))
-            {
-                systemContext = string.IsNullOrWhiteSpace(systemContext)
-                    ? _visualContextMetadata
-                    : systemContext + Environment.NewLine + _visualContextMetadata;
-            }
-
             var images = _pendingVisionAttachment is { } image
                 ? new[] { image }
                 : null;
@@ -1289,14 +1228,7 @@ public partial class MainWindow : Window
                 SummarizeForCapsule(finalText),
                 _preferences.Position);
 
-            if (_visualContextPersistent)
-            {
-                RestartVisualContextExpiry();
-            }
-            else
-            {
-                ClearPendingVisionAttachment();
-            }
+            ClearPendingVisionAttachment();
 
             if (fromVoice)
             {
@@ -1353,100 +1285,6 @@ public partial class MainWindow : Window
             _assistantView.SetAiActivity(null);
             _aiGate.Release();
         }
-    }
-
-    private async Task LookAtForegroundWindowAsync()
-    {
-        if (!_preferences.VisionEnabled)
-        {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Warning,
-                "Nexo Vision desactivado",
-                "Actívalo desde Personalización.",
-                _preferences.Position);
-            return;
-        }
-
-        RememberForegroundWindow();
-
-        var ownHandle = new WindowInteropHelper(this).Handle;
-        var targets = _screenCaptureService.GetAvailableTargets(ownHandle.ToInt64());
-        var target = targets.FirstOrDefault(candidate =>
-            candidate.Kind == VisionCaptureKind.Window &&
-            candidate.NativeHandle == _lastExternalWindowHandle);
-
-        if (target is null)
-        {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Information,
-                "Elige qué mirar",
-                "Activa la ventana y usa Ctrl + Shift + Espacio.",
-                _preferences.Position);
-            return;
-        }
-
-        _capsuleWindow.ShowMessage(
-            CapsuleKind.Processing,
-            "Mirando la ventana activa",
-            target.Title,
-            _preferences.Position);
-
-        VisionCaptureResult result;
-        try
-        {
-            result = await _screenCaptureService.CaptureAsync(
-                target,
-                _lifetimeCancellation.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        if (!result.IsSuccess || result.PngBytes is null)
-        {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Error,
-                "No pude mirar esta ventana",
-                result.Detail,
-                _preferences.Position);
-            return;
-        }
-
-        _visualContextPersistent = true;
-        _visualContextMetadata =
-            "Contexto visual temporal de Windows.\n" +
-            $"Aplicación: {target.Subtitle}\n" +
-            $"Ventana: {target.Title}\n" +
-            $"Tamaño visible: {result.Width} × {result.Height} píxeles.";
-        _pendingVisionAttachment = AiImageAttachment.FromBytes(
-            result.PngBytes,
-            "image/png",
-            target.Title);
-        _assistantView.SetVisionAttachment(
-            target.Title,
-            result.PngBytes,
-            isVisualContext: true);
-        RestartVisualContextExpiry();
-
-        ShowAnimated();
-        NavigateTo("Assistant", animate: true);
-        _capsuleWindow.ShowMessage(
-            CapsuleKind.Success,
-            "Contexto visual listo",
-            $"Estoy viendo {target.Title}. Pregunta lo que necesites.",
-            _preferences.Position);
-    }
-
-    private void RestartVisualContextExpiry()
-    {
-        if (!_visualContextPersistent)
-        {
-            return;
-        }
-
-        _visualContextExpiryTimer.Stop();
-        _visualContextExpiryTimer.Start();
     }
 
     private async Task CaptureForVisionAsync()
@@ -1542,9 +1380,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        _visualContextExpiryTimer.Stop();
-        _visualContextPersistent = false;
-        _visualContextMetadata = null;
         _pendingVisionAttachment = AiImageAttachment.FromBytes(
             result.PngBytes,
             "image/png",
@@ -1560,9 +1395,6 @@ public partial class MainWindow : Window
 
     private void ClearPendingVisionAttachment()
     {
-        _visualContextExpiryTimer.Stop();
-        _visualContextPersistent = false;
-        _visualContextMetadata = null;
         _pendingVisionAttachment = null;
         _assistantView.ClearVisionAttachment();
     }
@@ -1571,11 +1403,7 @@ public partial class MainWindow : Window
     {
         var foreground = GetForegroundWindow();
         var ownHandle = new WindowInteropHelper(this).Handle;
-        var paletteHandle = new WindowInteropHelper(_commandPaletteWindow).Handle;
-
-        if (foreground != IntPtr.Zero &&
-            foreground != ownHandle &&
-            foreground != paletteHandle)
+        if (foreground != IntPtr.Zero && foreground != ownHandle)
         {
             _lastExternalWindowHandle = foreground.ToInt64();
         }
@@ -2599,7 +2427,7 @@ public partial class MainWindow : Window
                 break;
 
             case LocalCommandType.CaptureForVision:
-                await LookAtForegroundWindowAsync();
+                await CaptureForVisionAsync();
                 break;
 
             case LocalCommandType.NavigateAssistant:

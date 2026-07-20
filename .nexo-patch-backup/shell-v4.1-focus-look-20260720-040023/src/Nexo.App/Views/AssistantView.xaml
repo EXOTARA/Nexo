@@ -3,12 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              TextOptions.TextFormattingMode="Display"
              TextOptions.TextRenderingMode="ClearType">
-    <UserControl.Resources>
-        <Geometry x:Key="IconLook">M2,10 C5,4.8 8,3 10,3 C12,3 15,4.8 18,10 C15,15.2 12,17 10,17 C8,17 5,15.2 2,10 Z M7,10 C7,11.7 8.3,13 10,13 C11.7,13 13,11.7 13,10 C13,8.3 11.7,7 10,7 C8.3,7 7,8.3 7,10 Z</Geometry>
-        <Geometry x:Key="IconMic">M7,4 C7,1.8 8.3,1 10,1 C11.7,1 13,1.8 13,4 L13,10 C13,12.2 11.7,13 10,13 C8.3,13 7,12.2 7,10 Z M4,9 C4,13 6.7,16 10,16 C13.3,16 16,13 16,9 M10,16 L10,19 M7,19 L13,19</Geometry>
-        <Geometry x:Key="IconSend">M3,10 L17,3 L13,17 L9.5,11.5 Z M9.5,11.5 L17,3</Geometry>
-    </UserControl.Resources>
-
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -102,16 +96,14 @@
                 <StackPanel Grid.Column="1"
                             Margin="11,0,9,0"
                             VerticalAlignment="Center">
-                    <TextBlock x:Name="VisionAttachmentTitleText"
-                               Text="Contexto visual listo"
+                    <TextBlock Text="Captura lista"
                                FontSize="13.5"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="VisionSourceTitleText"
                                Margin="0,3,0,0"
                                TextTrimming="CharacterEllipsis"
                                Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="VisionAttachmentHintText"
-                               Margin="0,3,0,0"
+                    <TextBlock Margin="0,3,0,0"
                                Text="Se enviará solo con tu siguiente consulta."
                                Foreground="{DynamicResource BrushTextTertiary}"
                                FontSize="11" />
@@ -131,19 +123,18 @@
 
         <TextBlock x:Name="VoiceStatusText"
                    Grid.Row="3"
-                   Margin="4,0,0,8"
+                   Margin="4,0,0,9"
                    Text="Preparando reconocimiento local…"
                    TextTrimming="CharacterEllipsis"
                    Foreground="{DynamicResource BrushTextSecondary}"
-                   FontSize="11.5"
-                   Visibility="Collapsed" />
+                   FontSize="11.5" />
 
         <Border Grid.Row="4"
-                Padding="8"
+                Padding="9"
                 Background="#C00E141E"
                 BorderBrush="#42FFFFFF"
                 BorderThickness="1"
-                CornerRadius="20">
+                CornerRadius="19">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -153,9 +144,9 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBox x:Name="PromptBox"
-                         MinHeight="46"
-                         MaxHeight="108"
-                         Padding="10,7"
+                         MinHeight="58"
+                         MaxHeight="124"
+                         Padding="9,8"
                          AcceptsReturn="True"
                          TextWrapping="Wrap"
                          FontSize="14"
@@ -166,67 +157,40 @@
 
                 <Button x:Name="VisionButton"
                         Grid.Column="1"
-                        Margin="7,0,0,0"
-                        Width="42"
-                        Height="42"
-                        Padding="0"
-                        VerticalAlignment="Center"
-                        ToolTip="Mirar la ventana activa · Ctrl + Shift + Espacio"
-                        Style="{StaticResource IconButtonStyle}"
-                        Click="VisionButton_Click">
-                    <Path Width="19"
-                          Height="19"
-                          Stretch="Uniform"
-                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                          Data="{StaticResource IconLook}" />
-                </Button>
+                        Margin="9,0,0,0"
+                        MinWidth="62"
+                        Padding="12,10"
+                        Content="Mirar"
+                        ToolTip="Capturar una ventana o monitor para preguntarle a Nexo"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="VisionButton_Click" />
 
                 <Button x:Name="MicButton"
                         Grid.Column="2"
-                        Margin="7,0,0,0"
-                        Width="42"
-                        Height="42"
-                        Padding="0"
-                        VerticalAlignment="Center"
+                        Margin="8,0,0,0"
+                        MinWidth="56"
+                        Padding="12,10"
                         IsEnabled="False"
+                        Content="Mic"
                         ToolTip="Mantén presionado para hablar"
-                        Style="{StaticResource IconButtonStyle}"
+                        Style="{StaticResource SecondaryButtonStyle}"
                         PreviewMouseLeftButtonDown="MicButton_PreviewMouseLeftButtonDown"
                         PreviewMouseLeftButtonUp="MicButton_PreviewMouseLeftButtonUp"
                         LostMouseCapture="MicButton_LostMouseCapture"
                         PreviewKeyDown="MicButton_PreviewKeyDown"
-                        PreviewKeyUp="MicButton_PreviewKeyUp">
-                    <Path x:Name="MicGlyph"
-                          Width="18"
-                          Height="18"
-                          Stretch="Uniform"
-                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                          StrokeThickness="1.8"
-                          StrokeStartLineCap="Round"
-                          StrokeEndLineCap="Round"
-                          StrokeLineJoin="Round"
-                          Data="{StaticResource IconMic}" />
-                </Button>
+                        PreviewKeyUp="MicButton_PreviewKeyUp" />
 
                 <Button Grid.Column="3"
-                        Margin="7,0,0,0"
-                        Width="44"
-                        Height="44"
+                        Margin="8,0,0,0"
+                        Width="52"
+                        Height="52"
                         Padding="0"
                         VerticalAlignment="Center"
                         Style="{StaticResource PrimaryButtonStyle}"
+                        Content="↑"
+                        FontSize="20"
                         ToolTip="Enviar"
-                        Click="SendButton_Click">
-                    <Path Width="18"
-                          Height="18"
-                          Stretch="Uniform"
-                          Stroke="White"
-                          StrokeThickness="1.8"
-                          StrokeStartLineCap="Round"
-                          StrokeEndLineCap="Round"
-                          StrokeLineJoin="Round"
-                          Data="{StaticResource IconSend}" />
-                </Button>
+                        Click="SendButton_Click" />
             </Grid>
         </Border>
     </Grid>

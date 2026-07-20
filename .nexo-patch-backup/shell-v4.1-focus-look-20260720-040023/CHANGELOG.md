@@ -4,15 +4,6 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ## [Sin publicar]
 
-- Nuevo **Look Mode** con `Ctrl + Shift + Espacio`: Nexo observa en memoria la ventana activa y abre contexto visual temporal sin selector manual.
-- El contexto visual permanece hasta dos minutos para hacer preguntas consecutivas y adjunta aplicación, título y dimensiones visibles.
-- El compositor del asistente se simplifica a un campo principal con acciones visuales compactas para Mirar, voz y enviar.
-- La paleta deja de reemplazar físicamente lo escrito: `Backspace` vuelve a comportarse de forma natural y `Tab` acepta la sugerencia.
-- Las entradas recientes incompletas se normalizan hacia su acción canónica, por ejemplo `desca` → `abre descargas`.
-- `Esc` limpia primero la paleta y una segunda pulsación la cierra.
-- La barra lateral contraída usa botones realmente compactos para conservar esquinas redondeadas y evitar selecciones recortadas.
-- Nuevo slider visual propio y migración del workspace a un ancho legible entre 680 y 820 px.
-
 - Nuevo **Nexo Shell v4** con Inicio tipo bento y workspace separado de la paleta.
 - La barra lateral ahora empuja el contenido al expandirse y deja de cubrir el módulo activo.
 - Navegación con iconos vectoriales consistentes y una entrada Inicio dedicada.

@@ -1,0 +1,334 @@
+<UserControl x:Class="Nexo.App.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <UserControl.Resources>
+        <Style x:Key="BentoCardButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+            <Setter Property="Background" Value="#C8161D29" />
+            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface"
+                                Padding="17"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="20">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource BrushSurfaceHover}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource BrushAccentBorder}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource BrushAccent}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="BentoIconSurfaceStyle" TargetType="Border">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="13" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="2">
+        <Grid Margin="2,1,4,4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="2,0,2,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock x:Name="GreetingText"
+                               Text="Hola"
+                               FontSize="25"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="GreetingDetailText"
+                               Margin="0,5,0,0"
+                               Text="Tu espacio está listo."
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               FontSize="13.5" />
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Width="46"
+                        Height="46"
+                        Margin="12,0,0,0"
+                        Style="{StaticResource IconButtonStyle}"
+                        ToolTip="Abrir paleta · Ctrl + Espacio"
+                        Click="CommandButton_Click">
+                    <Path Width="20"
+                          Height="20"
+                          Stretch="Uniform"
+                          Fill="{DynamicResource BrushAccent}"
+                          Data="M10,1 L12.4,7.6 L19,10 L12.4,12.4 L10,19 L7.6,12.4 L1,10 L7.6,7.6 Z" />
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        Margin="0,0,6,0"
+                        MinHeight="152"
+                        Style="{StaticResource BentoCardButtonStyle}"
+                        Click="TasksCard_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource BentoIconSurfaceStyle}">
+                                <Path Width="19"
+                                      Height="19"
+                                      Stretch="Uniform"
+                                      Stroke="{DynamicResource BrushAccent}"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Data="M3,10 L7.2,14.2 L17,4.5" />
+                            </Border>
+                            <TextBlock Grid.Column="1"
+                                       Margin="11,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="Pendientes"
+                                       FontSize="14"
+                                       FontWeight="SemiBold" />
+                        </Grid>
+                        <TextBlock Grid.Row="1"
+                                   x:Name="TaskCountText"
+                                   Margin="0,18,0,0"
+                                   Text="0"
+                                   FontSize="31"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="2"
+                                   x:Name="TaskDetailText"
+                                   Margin="0,8,0,0"
+                                   Text="Nada urgente por ahora"
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   FontSize="12.5"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+                </Button>
+
+                <Button Grid.Column="1"
+                        Margin="6,0,0,0"
+                        MinHeight="152"
+                        Style="{StaticResource BentoCardButtonStyle}"
+                        Click="FocusCard_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource BentoIconSurfaceStyle}">
+                                <Grid>
+                                    <Ellipse Width="19"
+                                             Height="19"
+                                             Stroke="{DynamicResource BrushAccent}"
+                                             StrokeThickness="2" />
+                                    <Ellipse Width="6"
+                                             Height="6"
+                                             Fill="{DynamicResource BrushAccent}" />
+                                </Grid>
+                            </Border>
+                            <TextBlock Grid.Column="1"
+                                       Margin="11,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="Enfoque"
+                                       FontSize="14"
+                                       FontWeight="SemiBold" />
+                        </Grid>
+                        <TextBlock Grid.Row="1"
+                                   x:Name="FocusValueText"
+                                   Margin="0,18,0,0"
+                                   Text="25 min"
+                                   FontSize="28"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="2"
+                                   x:Name="FocusDetailText"
+                                   Margin="0,8,0,0"
+                                   Text="Listo para empezar"
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   FontSize="12.5"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+                </Button>
+            </Grid>
+
+            <Button Grid.Row="2"
+                    Margin="0,0,0,12"
+                    MinHeight="142"
+                    Style="{StaticResource BentoCardButtonStyle}"
+                    Click="ContextCard_Click">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource BentoIconSurfaceStyle}">
+                                <Path Width="19"
+                                      Height="19"
+                                      Stretch="Uniform"
+                                      Stroke="{DynamicResource BrushAccent}"
+                                      StrokeThickness="1.8"
+                                      Data="M2.5,4 L17.5,4 L17.5,15 L2.5,15 Z M6.5,18 L13.5,18" />
+                            </Border>
+                            <StackPanel Margin="12,1,0,0">
+                                <TextBlock Text="Contexto rápido"
+                                           FontSize="15"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="La ventana que estabas usando"
+                                           Margin="0,4,0,0"
+                                           Foreground="{DynamicResource BrushTextSecondary}"
+                                           FontSize="12.5" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock x:Name="ContextTitleText"
+                                   Margin="0,18,0,0"
+                                   Text="Lista para analizar"
+                                   FontSize="18"
+                                   FontWeight="SemiBold" />
+                        <TextBlock x:Name="ContextDetailText"
+                                   Margin="0,5,0,0"
+                                   Text="Nexo puede capturarla con tu autorización."
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   FontSize="12.5"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1"
+                            Width="38"
+                            Height="38"
+                            Margin="18,0,0,0"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource BrushSurfaceRaised}"
+                            CornerRadius="13">
+                        <Path Width="15"
+                              Height="15"
+                              Stretch="Uniform"
+                              Stroke="{DynamicResource BrushTextPrimary}"
+                              StrokeThickness="2"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              Data="M4,10 L16,10 M11,5 L16,10 L11,15" />
+                    </Border>
+                </Grid>
+            </Button>
+
+            <Border Grid.Row="3"
+                    Padding="17"
+                    Background="#A8121822"
+                    BorderBrush="#26FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Actividad reciente"
+                                   FontSize="15"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1"
+                                   Text="Solo esta sesión"
+                                   Foreground="{DynamicResource BrushTextTertiary}"
+                                   FontSize="11.5" />
+                    </Grid>
+                    <Grid Grid.Row="1" Margin="0,13,0,0">
+                        <TextBlock x:Name="EmptyActivityText"
+                                   Text="Las acciones que ejecutes aparecerán aquí."
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   FontSize="12.5" />
+                        <ItemsControl x:Name="RecentItems">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="8"
+                                                Height="8"
+                                                Margin="1,4,11,0"
+                                                VerticalAlignment="Top"
+                                                Background="{DynamicResource BrushSuccess}"
+                                                CornerRadius="4" />
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="12.5"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Detail}"
+                                                       Margin="0,2,0,0"
+                                                       Foreground="{DynamicResource BrushTextSecondary}"
+                                                       FontSize="11.5"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2"
+                                                   Margin="12,0,0,0"
+                                                   Text="{Binding Time}"
+                                                   Foreground="{DynamicResource BrushTextTertiary}"
+                                                   FontSize="11" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</UserControl>
