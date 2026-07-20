@@ -75,7 +75,7 @@
                                                     CornerRadius="8"
                                                     VerticalAlignment="Top">
                                                 <TextBlock Text="{Binding Status}"
-                                                           FontSize="9"
+                                                           FontSize="10.5"
                                                            FontWeight="SemiBold" />
                                             </Border>
                                         </Grid>

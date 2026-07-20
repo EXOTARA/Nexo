@@ -91,7 +91,9 @@ public sealed class TaskManagerTests
     [Fact]
     public void BuildTodaySummary_ReportsTodayAndOverdueTasks()
     {
-        var now = DateTimeOffset.Now;
+        var now = new DateTimeOffset(
+            2026, 7, 19, 12, 0, 0,
+            TimeSpan.FromHours(-6));
         var store = new MemoryTaskStore([
             new NexoTask { Title = "Tarea de hoy", DueAt = now.AddHours(1) },
             new NexoTask { Title = "Tarea vencida", DueAt = now.AddDays(-1) }

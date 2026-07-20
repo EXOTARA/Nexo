@@ -43,9 +43,12 @@ public partial class MainWindow : Window
 {
     private const int ShellHotkeyId = 0x4E58;
     private const int PeekHotkeyId = 0x4E59;
+    private const int CommandPaletteHotkeyId = 0x4E5A;
     private const uint ModAlt = 0x0001;
+    private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
     private const uint VirtualKeyA = 0x41;
+    private const uint VirtualKeySpace = 0x20;
     private const int WmHotkey = 0x0312;
     private const int WmPowerBroadcast = 0x0218;
     private const int PbtApmResumeSuspend = 0x0007;
@@ -91,6 +94,7 @@ public partial class MainWindow : Window
     private readonly SettingsView _settingsView = new();
     private readonly PeekWindow _peekWindow = new();
     private readonly CapsuleWindow _capsuleWindow = new();
+    private readonly CommandPaletteWindow _commandPaletteWindow;
     private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
     private readonly bool _startHidden;
@@ -107,6 +111,8 @@ public partial class MainWindow : Window
     private string _previousDestination = "Assistant";
     private bool _voicePromptActive;
     private bool _managedAiRuntimeFailureNotified;
+    private bool _promptFromCommandPalette;
+    private bool _sideRailExpanded;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
     private long _lastExternalWindowHandle;
@@ -116,6 +122,7 @@ public partial class MainWindow : Window
         ManagedOllamaSupervisor? managedOllamaSupervisor = null)
     {
         InitializeComponent();
+        _commandPaletteWindow = new CommandPaletteWindow();
 
         _startHidden = startHidden;
         _managedOllamaSupervisor = managedOllamaSupervisor;
@@ -164,6 +171,9 @@ public partial class MainWindow : Window
         _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
         _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
+        _captureView.CaptureRequested += CaptureView_CaptureRequested;
+        _commandPaletteWindow.PromptSubmitted += CommandPaletteWindow_PromptSubmitted;
+        _commandPaletteWindow.WorkspaceRequested += CommandPaletteWindow_WorkspaceRequested;
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -477,6 +487,83 @@ public partial class MainWindow : Window
         await ApplyWakeWordPreferenceAsync(showCapsule: false);
     }
 
+    private void SideRailToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetSideRailExpanded(!_sideRailExpanded, animate: true);
+    }
+
+    private void SetSideRailExpanded(bool expanded, bool animate)
+    {
+        _sideRailExpanded = expanded;
+        SideRailToggleButton.ToolTip = expanded
+            ? "Contraer navegación"
+            : "Expandir navegación";
+
+        var targetWidth = expanded ? 182d : 68d;
+
+        if (!animate || !_preferences.AnimationsEnabled)
+        {
+            SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
+            SideRailBorder.Width = targetWidth;
+            return;
+        }
+
+        var currentWidth = SideRailBorder.ActualWidth > 0
+            ? SideRailBorder.ActualWidth
+            : SideRailBorder.Width;
+        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var animation = new DoubleAnimation(
+            currentWidth,
+            targetWidth,
+            TimeSpan.FromMilliseconds(180))
+        {
+            EasingFunction = easing
+        };
+        animation.Completed += (_, _) =>
+        {
+            SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
+            SideRailBorder.Width = targetWidth;
+        };
+        SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, animation);
+    }
+
+    private void CommandPaletteButton_Click(object sender, RoutedEventArgs e)
+    {
+        ShowCommandPalette();
+    }
+
+    private void ShowCommandPalette()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        RememberForegroundWindow();
+        _commandPaletteWindow.ShowPalette(_preferences.AnimationsEnabled);
+    }
+
+    private async void CommandPaletteWindow_PromptSubmitted(
+        object? sender,
+        CommandPalettePromptEventArgs e)
+    {
+        _promptFromCommandPalette = true;
+        try
+        {
+            await ProcessPromptAsync(e.Prompt, fromVoice: false);
+        }
+        finally
+        {
+            _promptFromCommandPalette = false;
+        }
+    }
+
+    private void CommandPaletteWindow_WorkspaceRequested(object? sender, EventArgs e)
+    {
+        ShowAnimated();
+        NavigateTo("Assistant", animate: true);
+    }
+
     private void Window_SourceInitialized(object? sender, EventArgs e)
     {
         var windowHandle = new WindowInteropHelper(this).Handle;
@@ -491,6 +578,16 @@ public partial class MainWindow : Window
         if (!RegisterHotKey(windowHandle, PeekHotkeyId, ModAlt | ModShift, VirtualKeyA))
         {
             _assistantView.AddNexoMessage("Alt + Shift + A ya está siendo utilizado por otra aplicación.");
+        }
+
+        if (!RegisterHotKey(
+                windowHandle,
+                CommandPaletteHotkeyId,
+                ModControl,
+                VirtualKeySpace))
+        {
+            _assistantView.AddNexoMessage(
+                "Ctrl + Espacio ya está siendo utilizado por otra aplicación.");
         }
     }
 
@@ -538,6 +635,7 @@ public partial class MainWindow : Window
 
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
+        _commandPaletteWindow.Close();
         _wakeWordService.WakeWordDetected -= WakeWordService_WakeWordDetected;
         _wakeWordService.Dispose();
         if (_aiChatService is IDisposable disposableAiService)
@@ -554,6 +652,7 @@ public partial class MainWindow : Window
         {
             UnregisterHotKey(windowHandle, ShellHotkeyId);
             UnregisterHotKey(windowHandle, PeekHotkeyId);
+            UnregisterHotKey(windowHandle, CommandPaletteHotkeyId);
         }
 
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -590,6 +689,11 @@ public partial class MainWindow : Window
         else if (wParam.ToInt32() == PeekHotkeyId)
         {
             _ = ShowPeekAsync();
+            handled = true;
+        }
+        else if (wParam.ToInt32() == CommandPaletteHotkeyId)
+        {
+            ShowCommandPalette();
             handled = true;
         }
 
@@ -846,11 +950,21 @@ public partial class MainWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape)
+        if (e.Key != Key.Escape)
+        {
+            return;
+        }
+
+        if (_sideRailExpanded)
+        {
+            SetSideRailExpanded(expanded: false, animate: true);
+        }
+        else
         {
             HideAnimated();
-            e.Handled = true;
         }
+
+        e.Handled = true;
     }
 
     private void AssistantView_ConversationChanged(object? sender, EventArgs e)
@@ -876,6 +990,11 @@ public partial class MainWindow : Window
         _pendingVisionAttachment = null;
     }
 
+    private async void CaptureView_CaptureRequested(object? sender, EventArgs e)
+    {
+        await CaptureForVisionAsync();
+    }
+
     private async void AssistantView_PromptSubmitted(
         object? sender,
         PromptSubmittedEventArgs e)
@@ -895,12 +1014,9 @@ public partial class MainWindow : Window
         try
         {
             _assistantView.AddUserMessage(prompt);
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Processing,
-                fromVoice ? "Ejecutando por voz" : "Nexo está procesando",
-                prompt,
-                _preferences.Position);
 
+            // Las rutas locales ya muestran su propio resultado. Evitamos una
+            // cápsula genérica que parpadee antes de acciones instantáneas.
             await Task.Yield();
 
             var routineCommand = _routineCommandParser.Parse(prompt);
@@ -942,6 +1058,12 @@ public partial class MainWindow : Window
 
     private async Task SendPromptToAiAsync(string prompt, bool fromVoice)
     {
+        if (_promptFromCommandPalette)
+        {
+            ShowAnimated();
+            NavigateTo("Assistant", animate: true);
+        }
+
         var configuration = BuildAiConfiguration();
         if (!configuration.IsEnabled)
         {
@@ -2298,6 +2420,14 @@ public partial class MainWindow : Window
                 OpenShell("wt.exe", string.Empty, "Terminal abierta");
                 break;
 
+            case LocalCommandType.OpenKnownFolder:
+                OpenKnownFolder(intent.Target);
+                break;
+
+            case LocalCommandType.OpenKnownApplication:
+                OpenKnownApplication(intent.Target);
+                break;
+
             case LocalCommandType.SetApplicationVolume:
             case LocalCommandType.ScaleApplicationVolume:
             case LocalCommandType.ChangeApplicationVolume:
@@ -2381,6 +2511,132 @@ public partial class MainWindow : Window
         ShowAnimated();
         NavigateTo(destination, animate: true);
         ShowCommandSuccess(confirmation, "La orden se ejecutó localmente.");
+    }
+
+    private void OpenKnownFolder(string? target)
+    {
+        var (argument, displayName) = target switch
+        {
+            "downloads" => ("shell:Downloads", "Descargas"),
+            "documents" => (QuoteExplorerPath(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)), "Documentos"),
+            "pictures" => (QuoteExplorerPath(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)), "Imágenes"),
+            "desktop" => (QuoteExplorerPath(
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)), "Escritorio"),
+            "profile" => (QuoteExplorerPath(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)), "Carpeta personal"),
+            _ => (string.Empty, string.Empty)
+        };
+
+        if (string.IsNullOrWhiteSpace(argument))
+        {
+            ShowLocalLaunchFailure("Carpeta no reconocida");
+            return;
+        }
+
+        if (!TryStartProcess("explorer.exe", argument))
+        {
+            ShowLocalLaunchFailure(displayName);
+            return;
+        }
+
+        _assistantView.AddNexoMessage($"Abrí {displayName}.");
+        ShowCommandSuccess($"{displayName} abierto", "La carpeta se abrió localmente.");
+    }
+
+    private static string QuoteExplorerPath(string path) =>
+        string.IsNullOrWhiteSpace(path) ? string.Empty : $"\"{path}\"";
+
+    private void OpenKnownApplication(string? target)
+    {
+        var opened = target switch
+        {
+            "vscode" => TryOpenVisualStudioCode(),
+            "calculator" => TryStartProcess("calc.exe"),
+            "taskmanager" => TryStartProcess("taskmgr.exe"),
+            "explorer" => TryStartProcess("explorer.exe"),
+            "windows-settings" => TryStartProcess("ms-settings:"),
+            _ => false
+        };
+
+        var displayName = target switch
+        {
+            "vscode" => "Visual Studio Code",
+            "calculator" => "Calculadora",
+            "taskmanager" => "Administrador de tareas",
+            "explorer" => "Explorador de archivos",
+            "windows-settings" => "Configuración de Windows",
+            _ => "Aplicación"
+        };
+
+        if (!opened)
+        {
+            ShowLocalLaunchFailure(displayName);
+            return;
+        }
+
+        _assistantView.AddNexoMessage($"Abrí {displayName}.");
+        ShowCommandSuccess($"{displayName} abierto", "La acción se ejecutó localmente.");
+    }
+
+    private static bool TryOpenVisualStudioCode()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Programs",
+                "Microsoft VS Code",
+                "Code.exe"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "Microsoft VS Code",
+                "Code.exe"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                "Microsoft VS Code",
+                "Code.exe")
+        };
+
+        foreach (var candidate in candidates.Where(File.Exists))
+        {
+            if (TryStartProcess(candidate))
+            {
+                return true;
+            }
+        }
+
+        return TryStartProcess("code");
+    }
+
+    private static bool TryStartProcess(string fileName, string arguments = "")
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or Win32Exception)
+        {
+            return false;
+        }
+    }
+
+    private void ShowLocalLaunchFailure(string displayName)
+    {
+        _assistantView.AddNexoMessage($"No pude abrir {displayName}.");
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Error,
+            "No se pudo abrir",
+            displayName,
+            _preferences.Position);
     }
 
     private void OpenShell(string fileName, string arguments, string confirmation)
@@ -2613,9 +2869,13 @@ public partial class MainWindow : Window
                 : (Brush)FindResource("BrushTextSecondary");
         }
 
-        SettingsButton.Background = destination.Equals("Settings", StringComparison.OrdinalIgnoreCase)
+        var settingsSelected = destination.Equals("Settings", StringComparison.OrdinalIgnoreCase);
+        SettingsNavButton.Background = settingsSelected
             ? (Brush)FindResource("BrushAccentSoft")
-            : (Brush)FindResource("BrushSurfaceRaised");
+            : Brushes.Transparent;
+        SettingsNavButton.Foreground = settingsSelected
+            ? (Brush)FindResource("BrushTextPrimary")
+            : (Brush)FindResource("BrushTextSecondary");
     }
 
     private void ApplyPreferences()
@@ -2630,7 +2890,7 @@ public partial class MainWindow : Window
 
     private void ApplyShellOpacity()
     {
-        var baseColor = (Color)ColorConverter.ConvertFromString("#11131A");
+        var baseColor = (Color)ColorConverter.ConvertFromString("#0D1119");
         var alpha = (byte)Math.Round(_preferences.Opacity * 255);
         ShellBorder.Background = new SolidColorBrush(Color.FromArgb(
             alpha,
@@ -2652,6 +2912,8 @@ public partial class MainWindow : Window
 
             Application.Current.Resources["BrushAccent"] = new SolidColorBrush(accent);
             Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush(soft);
+            Application.Current.Resources["BrushAccentBorder"] = new SolidColorBrush(
+                Color.FromArgb(112, accent.R, accent.G, accent.B));
         }
         catch (Exception exception) when (exception is FormatException or NotSupportedException)
         {
@@ -2659,6 +2921,8 @@ public partial class MainWindow : Window
                 (Color)ColorConverter.ConvertFromString("#8B6CFF"));
             Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush(
                 (Color)ColorConverter.ConvertFromString("#2D2748"));
+            Application.Current.Resources["BrushAccentBorder"] = new SolidColorBrush(
+                (Color)ColorConverter.ConvertFromString("#668B6CFF"));
         }
     }
 
@@ -2724,11 +2988,8 @@ public partial class MainWindow : Window
 
     private void UpdateNavigationColumns()
     {
-        var visibleCount = 4;
-        visibleCount += AudioNavButton.Visibility == Visibility.Visible ? 1 : 0;
-        visibleCount += CaptureNavButton.Visibility == Visibility.Visible ? 1 : 0;
-        visibleCount += SystemNavButton.Visibility == Visibility.Visible ? 1 : 0;
-        NavigationGrid.Columns = visibleCount;
+        // La navegación ahora es vertical. Las preferencias solo cambian
+        // la visibilidad de cada acceso, no el número de columnas.
     }
 
     private void SetMetricsCadence(bool isShellVisible)

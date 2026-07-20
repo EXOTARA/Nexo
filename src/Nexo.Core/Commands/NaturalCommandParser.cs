@@ -44,6 +44,7 @@ public sealed partial class NaturalCommandParser
         if (Matches(normalized,
                 "mira esto",
                 "mira la pantalla",
+                "mira esta ventana",
                 "analiza esto",
                 "analiza la pantalla",
                 "revisa esto",
@@ -88,6 +89,26 @@ public sealed partial class NaturalCommandParser
                 "revisa el equipo"))
         {
             return Local(original, normalized, LocalCommandType.ShowSystemStatus);
+        }
+
+        if (TryParseKnownFolder(normalized, out var folderTarget))
+        {
+            return CommandInterpretation.ForLocal(
+                original,
+                normalized,
+                new LocalCommandIntent(
+                    LocalCommandType.OpenKnownFolder,
+                    folderTarget));
+        }
+
+        if (TryParseKnownApplication(normalized, out var applicationTarget))
+        {
+            return CommandInterpretation.ForLocal(
+                original,
+                normalized,
+                new LocalCommandIntent(
+                    LocalCommandType.OpenKnownApplication,
+                    applicationTarget));
         }
 
         if (TryParseNavigation(normalized, out var navigationType))
@@ -227,6 +248,58 @@ public sealed partial class NaturalCommandParser
         return WhitespaceRegex().Replace(builder.ToString(), " ").Trim();
     }
 
+    private static bool TryParseKnownFolder(string text, out string target)
+    {
+        target = string.Empty;
+        var requested = ReadDirectOrOpenTarget(text);
+
+        target = requested switch
+        {
+            "descargas" or "mis descargas" or "carpeta de descargas" => "downloads",
+            "documentos" or "mis documentos" or "carpeta de documentos" => "documents",
+            "imagenes" or "mis imagenes" or "fotos" or "mis fotos" => "pictures",
+            "escritorio" or "mi escritorio" => "desktop",
+            "carpeta personal" or "mi carpeta personal" or "carpeta de usuario" or "mi usuario" => "profile",
+            _ => string.Empty
+        };
+
+        return target.Length > 0;
+    }
+
+    private static bool TryParseKnownApplication(string text, out string target)
+    {
+        target = string.Empty;
+        var requested = ReadDirectOrOpenTarget(text);
+
+        target = requested switch
+        {
+            "visual studio code" or "vs code" or "vscode" or "code" => "vscode",
+            "calculadora" or "la calculadora" => "calculator",
+            "administrador de tareas" or "el administrador de tareas" => "taskmanager",
+            "explorador" or "explorador de archivos" or "el explorador de archivos" => "explorer",
+            "configuracion de windows" or "ajustes de windows" => "windows-settings",
+            _ => string.Empty
+        };
+
+        return target.Length > 0;
+    }
+
+    private static string ReadOpenTarget(string text)
+    {
+        var match = OpenTargetRegex().Match(text);
+        return match.Success
+            ? match.Groups["target"].Value.Trim()
+            : string.Empty;
+    }
+
+    private static string ReadDirectOrOpenTarget(string text)
+    {
+        var requested = ReadOpenTarget(text);
+        return string.IsNullOrWhiteSpace(requested)
+            ? text.Trim()
+            : requested;
+    }
+
     private static bool TryParseNavigation(string text, out LocalCommandType type)
     {
         type = LocalCommandType.None;
@@ -344,6 +417,9 @@ public sealed partial class NaturalCommandParser
 
         return !double.IsNaN(percentage);
     }
+
+    [GeneratedRegex(@"^(?:abre|abreme|inicia|lanza|ejecuta)\s+(?:(?:el|la|los|las|mi|mis)\s+)?(?<target>.+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex OpenTargetRegex();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();

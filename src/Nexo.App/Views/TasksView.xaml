@@ -163,14 +163,14 @@
                                                     Background="{DynamicResource BrushAccentSoft}"
                                                     CornerRadius="7">
                                                 <TextBlock Text="{Binding PriorityLabel}"
-                                                           FontSize="9"
+                                                           FontSize="10.5"
                                                            Foreground="{DynamicResource BrushTextSecondary}" />
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Margin="0,4,0,0"
                                                    Text="{Binding ScheduleText}"
                                                    Foreground="{Binding ScheduleBrush}"
-                                                   FontSize="11" />
+                                                   FontSize="12" />
                                         <TextBlock Margin="0,4,0,0"
                                                    Text="{Binding Notes}"
                                                    TextWrapping="Wrap"
