@@ -15,7 +15,7 @@ public sealed class ShellPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(820, preferences.Width);
+        Assert.Equal(760, preferences.Width);
         Assert.Equal(0.82, preferences.Opacity);
     }
 
@@ -25,13 +25,13 @@ public sealed class ShellPreferencesTests
     {
         var preferences = new ShellPreferences
         {
-            SchemaVersion = 12,
+            SchemaVersion = 11,
             Width = 320
         };
 
         preferences.Normalize();
 
-        Assert.Equal(680, preferences.Width);
+        Assert.Equal(600, preferences.Width);
     }
 
     [Fact]
@@ -45,8 +45,8 @@ public sealed class ShellPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(700, preferences.Width);
-        Assert.Equal(12, preferences.SchemaVersion);
+        Assert.Equal(650, preferences.Width);
+        Assert.Equal(11, preferences.SchemaVersion);
     }
 
 

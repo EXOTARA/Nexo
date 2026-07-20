@@ -89,26 +89,17 @@ public partial class AssistantView : UserControl
         {
             VisionButton.IsEnabled = available;
             VisionButton.ToolTip = available
-                ? "Mirar la ventana activa · Ctrl + Shift + Espacio"
+                ? "Capturar una ventana o monitor para preguntarle a Nexo"
                 : "Nexo Vision está desactivado en Personalización";
         }
     }
 
-    public void SetVisionAttachment(
-        string sourceTitle,
-        byte[] pngBytes,
-        bool isVisualContext = false)
+    public void SetVisionAttachment(string sourceTitle, byte[] pngBytes)
     {
         ArgumentNullException.ThrowIfNull(pngBytes);
 
         VisionPreviewImage.Source = LoadBitmap(pngBytes);
         VisionSourceTitleText.Text = sourceTitle;
-        VisionAttachmentTitleText.Text = isVisualContext
-            ? "Contexto visual activo"
-            : "Captura lista";
-        VisionAttachmentHintText.Text = isVisualContext
-            ? "Puedes hacer varias preguntas durante los próximos 2 minutos."
-            : "Se enviará solo con tu siguiente consulta.";
         VisionAttachmentPanel.Visibility = Visibility.Visible;
         FocusPrompt();
     }
@@ -154,15 +145,12 @@ public partial class AssistantView : UserControl
 
         if (!_voiceInputActive)
         {
+            MicButton.Content = "Mic";
             MicButton.IsEnabled = available;
             MicButton.ClearValue(BackgroundProperty);
         }
 
-        MicButton.ToolTip = detail;
         VoiceStatusText.Text = detail;
-        VoiceStatusText.Visibility = available
-            ? Visibility.Collapsed
-            : Visibility.Visible;
     }
 
     public void SetVoiceState(AssistantVoiceState state, string? detail = null)
@@ -175,35 +163,31 @@ public partial class AssistantView : UserControl
         switch (state)
         {
             case AssistantVoiceState.Listening:
+                MicButton.Content = "Suelta";
                 MicButton.IsEnabled = true;
                 MicButton.Background = (Brush)FindResource("BrushAccentSoft");
-                VoiceStatusText.Text = detail ?? "Escuchando… suelta el botón cuando termines.";
-                VoiceStatusText.Visibility = Visibility.Visible;
-                MicButton.ToolTip = VoiceStatusText.Text;
+                VoiceStatusText.Text = detail ?? "Escuchando… suelta Mic cuando termines.";
                 break;
 
             case AssistantVoiceState.Processing:
+                MicButton.Content = "…";
                 MicButton.IsEnabled = false;
                 VoiceStatusText.Text = detail ?? "Convirtiendo tu voz en una orden…";
-                VoiceStatusText.Visibility = Visibility.Visible;
-                MicButton.ToolTip = VoiceStatusText.Text;
                 break;
 
             case AssistantVoiceState.Error:
+                MicButton.Content = "Mic";
                 MicButton.IsEnabled = _voiceAvailable;
                 MicButton.ClearValue(BackgroundProperty);
                 VoiceStatusText.Text = detail ?? "No pude usar el micrófono.";
-                VoiceStatusText.Visibility = Visibility.Visible;
-                MicButton.ToolTip = VoiceStatusText.Text;
                 break;
 
             default:
+                MicButton.Content = "Mic";
                 MicButton.IsEnabled = _voiceAvailable;
                 MicButton.ClearValue(BackgroundProperty);
                 VoiceStatusText.Text = detail ??
-                    "Voz local lista. Mantén presionado el icono para hablar.";
-                VoiceStatusText.Visibility = Visibility.Collapsed;
-                MicButton.ToolTip = VoiceStatusText.Text;
+                    "Voz local lista. Mantén Mic presionado mientras hablas.";
                 break;
         }
     }

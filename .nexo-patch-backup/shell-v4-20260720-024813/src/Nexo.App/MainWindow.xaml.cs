@@ -44,7 +44,6 @@ public partial class MainWindow : Window
     private const int ShellHotkeyId = 0x4E58;
     private const int PeekHotkeyId = 0x4E59;
     private const int CommandPaletteHotkeyId = 0x4E5A;
-    private const int LookHotkeyId = 0x4E5B;
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
@@ -59,7 +58,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _metricsTimer;
     private readonly DispatcherTimer _taskReminderTimer;
     private readonly DispatcherTimer _focusTickTimer;
-    private readonly DispatcherTimer _visualContextExpiryTimer = new();
     private readonly JsonSettingsStore _settingsStore = new();
     private readonly WindowsStartupService _startupService = new();
     private readonly JsonConversationStore _conversationStore = new();
@@ -86,7 +84,6 @@ public partial class MainWindow : Window
     private readonly JsonRoutineStore _routineStore = new();
     private readonly RoutineManager _routineManager;
     private readonly RoutineRunner _routineRunner;
-    private readonly HomeView _homeView = new();
     private readonly AssistantView _assistantView = new();
     private readonly TasksView _tasksView;
     private readonly FocusView _focusView;
@@ -110,14 +107,12 @@ public partial class MainWindow : Window
     private bool _allowExit;
     private bool _trayHintShown;
     private int _metricsRefreshInProgress;
-    private string _currentDestination = "Home";
-    private string _previousDestination = "Home";
+    private string _currentDestination = "Assistant";
+    private string _previousDestination = "Assistant";
     private bool _voicePromptActive;
     private bool _managedAiRuntimeFailureNotified;
     private bool _promptFromCommandPalette;
     private bool _sideRailExpanded;
-    private bool _visualContextPersistent;
-    private string? _visualContextMetadata;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
     private long _lastExternalWindowHandle;
@@ -149,7 +144,6 @@ public partial class MainWindow : Window
         _audioView = new AudioView(_audioMixerService);
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Home"] = _homeView,
             ["Assistant"] = _assistantView,
             ["Tasks"] = _tasksView,
             ["Focus"] = _focusView,
@@ -180,10 +174,6 @@ public partial class MainWindow : Window
         _captureView.CaptureRequested += CaptureView_CaptureRequested;
         _commandPaletteWindow.PromptSubmitted += CommandPaletteWindow_PromptSubmitted;
         _commandPaletteWindow.WorkspaceRequested += CommandPaletteWindow_WorkspaceRequested;
-        _homeView.CommandRequested += HomeView_CommandRequested;
-        _homeView.TasksRequested += HomeView_TasksRequested;
-        _homeView.FocusRequested += HomeView_FocusRequested;
-        _homeView.ContextRequested += HomeView_ContextRequested;
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -199,8 +189,7 @@ public partial class MainWindow : Window
         ApplyPreferences();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
-        NavigateTo("Home", animate: false);
-        ApplySideRailButtonLayout(expanded: false);
+        NavigateTo("Assistant", animate: false);
 
         _clockTimer = new DispatcherTimer
         {
@@ -225,13 +214,6 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(1)
         };
         _focusTickTimer.Tick += (_, _) => CheckFocusTimer();
-
-        _visualContextExpiryTimer.Interval = TimeSpan.FromMinutes(2);
-        _visualContextExpiryTimer.Tick += (_, _) =>
-        {
-            _visualContextExpiryTimer.Stop();
-            ClearPendingVisionAttachment();
-        };
     }
 
     private void WireSettingsEvents()
@@ -516,9 +498,8 @@ public partial class MainWindow : Window
         SideRailToggleButton.ToolTip = expanded
             ? "Contraer navegación"
             : "Expandir navegación";
-        ApplySideRailButtonLayout(expanded);
 
-        var targetWidth = expanded ? 194d : 68d;
+        var targetWidth = expanded ? 182d : 68d;
 
         if (!animate || !_preferences.AnimationsEnabled)
         {
@@ -544,28 +525,6 @@ public partial class MainWindow : Window
             SideRailBorder.Width = targetWidth;
         };
         SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, animation);
-    }
-
-    private void ApplySideRailButtonLayout(bool expanded)
-    {
-        var buttonWidth = expanded ? 178d : 52d;
-        SideRailToggleButton.Width = buttonWidth;
-        SettingsNavButton.Width = buttonWidth;
-
-        foreach (var button in new[]
-                 {
-                     HomeNavButton,
-                     AssistantNavButton,
-                     TasksNavButton,
-                     FocusNavButton,
-                     RoutinesNavButton,
-                     AudioNavButton,
-                     CaptureNavButton,
-                     SystemNavButton
-                 })
-        {
-            button.Width = buttonWidth;
-        }
     }
 
     private void CommandPaletteButton_Click(object sender, RoutedEventArgs e)
@@ -605,26 +564,6 @@ public partial class MainWindow : Window
         NavigateTo("Assistant", animate: true);
     }
 
-    private void HomeView_CommandRequested(object? sender, EventArgs e)
-    {
-        ShowCommandPalette();
-    }
-
-    private void HomeView_TasksRequested(object? sender, EventArgs e)
-    {
-        NavigateTo("Tasks", animate: true);
-    }
-
-    private void HomeView_FocusRequested(object? sender, EventArgs e)
-    {
-        NavigateTo("Focus", animate: true);
-    }
-
-    private async void HomeView_ContextRequested(object? sender, EventArgs e)
-    {
-        await LookAtForegroundWindowAsync();
-    }
-
     private void Window_SourceInitialized(object? sender, EventArgs e)
     {
         var windowHandle = new WindowInteropHelper(this).Handle;
@@ -649,16 +588,6 @@ public partial class MainWindow : Window
         {
             _assistantView.AddNexoMessage(
                 "Ctrl + Espacio ya está siendo utilizado por otra aplicación.");
-        }
-
-        if (!RegisterHotKey(
-                windowHandle,
-                LookHotkeyId,
-                ModControl | ModShift,
-                VirtualKeySpace))
-        {
-            _assistantView.AddNexoMessage(
-                "Ctrl + Shift + Espacio ya está siendo utilizado por otra aplicación.");
         }
     }
 
@@ -696,7 +625,6 @@ public partial class MainWindow : Window
         _metricsTimer.Stop();
         _taskReminderTimer.Stop();
         _focusTickTimer.Stop();
-        _visualContextExpiryTimer.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
 
@@ -725,7 +653,6 @@ public partial class MainWindow : Window
             UnregisterHotKey(windowHandle, ShellHotkeyId);
             UnregisterHotKey(windowHandle, PeekHotkeyId);
             UnregisterHotKey(windowHandle, CommandPaletteHotkeyId);
-            UnregisterHotKey(windowHandle, LookHotkeyId);
         }
 
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -767,12 +694,6 @@ public partial class MainWindow : Window
         else if (wParam.ToInt32() == CommandPaletteHotkeyId)
         {
             ShowCommandPalette();
-            handled = true;
-        }
-        else if (wParam.ToInt32() == LookHotkeyId)
-        {
-            RememberForegroundWindow();
-            _ = LookAtForegroundWindowAsync();
             handled = true;
         }
 
@@ -1025,11 +946,6 @@ public partial class MainWindow : Window
         var now = DateTime.Now;
         ClockText.Text = now.ToString("HH:mm", CultureInfo.InvariantCulture);
         DateText.Text = now.ToString("dddd, d 'de' MMMM", new CultureInfo("es-MX"));
-
-        if (_currentDestination.Equals("Home", StringComparison.OrdinalIgnoreCase))
-        {
-            RefreshHomeView();
-        }
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -1066,12 +982,12 @@ public partial class MainWindow : Window
 
     private async void AssistantView_VisionCaptureRequested(object? sender, EventArgs e)
     {
-        await LookAtForegroundWindowAsync();
+        await CaptureForVisionAsync();
     }
 
     private void AssistantView_VisionAttachmentCleared(object? sender, EventArgs e)
     {
-        ClearPendingVisionAttachment();
+        _pendingVisionAttachment = null;
     }
 
     private async void CaptureView_CaptureRequested(object? sender, EventArgs e)
@@ -1216,14 +1132,6 @@ public partial class MainWindow : Window
                 systemContext = BuildAiSystemContext(_latestSnapshot);
             }
 
-            if (_pendingVisionAttachment is not null &&
-                !string.IsNullOrWhiteSpace(_visualContextMetadata))
-            {
-                systemContext = string.IsNullOrWhiteSpace(systemContext)
-                    ? _visualContextMetadata
-                    : systemContext + Environment.NewLine + _visualContextMetadata;
-            }
-
             var images = _pendingVisionAttachment is { } image
                 ? new[] { image }
                 : null;
@@ -1289,14 +1197,7 @@ public partial class MainWindow : Window
                 SummarizeForCapsule(finalText),
                 _preferences.Position);
 
-            if (_visualContextPersistent)
-            {
-                RestartVisualContextExpiry();
-            }
-            else
-            {
-                ClearPendingVisionAttachment();
-            }
+            ClearPendingVisionAttachment();
 
             if (fromVoice)
             {
@@ -1353,100 +1254,6 @@ public partial class MainWindow : Window
             _assistantView.SetAiActivity(null);
             _aiGate.Release();
         }
-    }
-
-    private async Task LookAtForegroundWindowAsync()
-    {
-        if (!_preferences.VisionEnabled)
-        {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Warning,
-                "Nexo Vision desactivado",
-                "Actívalo desde Personalización.",
-                _preferences.Position);
-            return;
-        }
-
-        RememberForegroundWindow();
-
-        var ownHandle = new WindowInteropHelper(this).Handle;
-        var targets = _screenCaptureService.GetAvailableTargets(ownHandle.ToInt64());
-        var target = targets.FirstOrDefault(candidate =>
-            candidate.Kind == VisionCaptureKind.Window &&
-            candidate.NativeHandle == _lastExternalWindowHandle);
-
-        if (target is null)
-        {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Information,
-                "Elige qué mirar",
-                "Activa la ventana y usa Ctrl + Shift + Espacio.",
-                _preferences.Position);
-            return;
-        }
-
-        _capsuleWindow.ShowMessage(
-            CapsuleKind.Processing,
-            "Mirando la ventana activa",
-            target.Title,
-            _preferences.Position);
-
-        VisionCaptureResult result;
-        try
-        {
-            result = await _screenCaptureService.CaptureAsync(
-                target,
-                _lifetimeCancellation.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        if (!result.IsSuccess || result.PngBytes is null)
-        {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Error,
-                "No pude mirar esta ventana",
-                result.Detail,
-                _preferences.Position);
-            return;
-        }
-
-        _visualContextPersistent = true;
-        _visualContextMetadata =
-            "Contexto visual temporal de Windows.\n" +
-            $"Aplicación: {target.Subtitle}\n" +
-            $"Ventana: {target.Title}\n" +
-            $"Tamaño visible: {result.Width} × {result.Height} píxeles.";
-        _pendingVisionAttachment = AiImageAttachment.FromBytes(
-            result.PngBytes,
-            "image/png",
-            target.Title);
-        _assistantView.SetVisionAttachment(
-            target.Title,
-            result.PngBytes,
-            isVisualContext: true);
-        RestartVisualContextExpiry();
-
-        ShowAnimated();
-        NavigateTo("Assistant", animate: true);
-        _capsuleWindow.ShowMessage(
-            CapsuleKind.Success,
-            "Contexto visual listo",
-            $"Estoy viendo {target.Title}. Pregunta lo que necesites.",
-            _preferences.Position);
-    }
-
-    private void RestartVisualContextExpiry()
-    {
-        if (!_visualContextPersistent)
-        {
-            return;
-        }
-
-        _visualContextExpiryTimer.Stop();
-        _visualContextExpiryTimer.Start();
     }
 
     private async Task CaptureForVisionAsync()
@@ -1542,9 +1349,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        _visualContextExpiryTimer.Stop();
-        _visualContextPersistent = false;
-        _visualContextMetadata = null;
         _pendingVisionAttachment = AiImageAttachment.FromBytes(
             result.PngBytes,
             "image/png",
@@ -1560,9 +1364,6 @@ public partial class MainWindow : Window
 
     private void ClearPendingVisionAttachment()
     {
-        _visualContextExpiryTimer.Stop();
-        _visualContextPersistent = false;
-        _visualContextMetadata = null;
         _pendingVisionAttachment = null;
         _assistantView.ClearVisionAttachment();
     }
@@ -1571,11 +1372,7 @@ public partial class MainWindow : Window
     {
         var foreground = GetForegroundWindow();
         var ownHandle = new WindowInteropHelper(this).Handle;
-        var paletteHandle = new WindowInteropHelper(_commandPaletteWindow).Handle;
-
-        if (foreground != IntPtr.Zero &&
-            foreground != ownHandle &&
-            foreground != paletteHandle)
+        if (foreground != IntPtr.Zero && foreground != ownHandle)
         {
             _lastExternalWindowHandle = foreground.ToInt64();
         }
@@ -2322,7 +2119,6 @@ public partial class MainWindow : Window
     private void FocusView_FocusChanged(object? sender, EventArgs e)
     {
         CheckFocusTimer();
-        RefreshHomeView();
     }
 
     private void CheckFocusTimer()
@@ -2330,7 +2126,6 @@ public partial class MainWindow : Window
         var now = DateTimeOffset.Now;
         var completion = _focusManager.CollectCompletion(now);
         _focusView.Refresh(now);
-        RefreshHomeView();
 
         if (completion is null)
         {
@@ -2427,13 +2222,6 @@ public partial class MainWindow : Window
             capsuleTitle,
             response,
             _preferences.Position);
-
-        if (operation?.Success == true)
-        {
-            _homeView.AddRecentAction(capsuleTitle, response);
-        }
-
-        RefreshHomeView();
         SpeakVoiceResult(response);
         return Task.CompletedTask;
     }
@@ -2441,13 +2229,11 @@ public partial class MainWindow : Window
     private void TasksView_TasksChanged(object? sender, EventArgs e)
     {
         CheckTaskReminders();
-        RefreshHomeView();
     }
 
     private void CheckTaskReminders()
     {
         var reminders = _taskManager.CollectDueReminders(DateTimeOffset.Now);
-        RefreshHomeView();
         if (reminders.Count == 0)
         {
             return;
@@ -2599,7 +2385,7 @@ public partial class MainWindow : Window
                 break;
 
             case LocalCommandType.CaptureForVision:
-                await LookAtForegroundWindowAsync();
+                await CaptureForVisionAsync();
                 break;
 
             case LocalCommandType.NavigateAssistant:
@@ -2946,12 +2732,6 @@ public partial class MainWindow : Window
             result.Title,
             result.Detail,
             _preferences.Position);
-
-        if (result.Status == AudioActionStatus.Success)
-        {
-            _homeView.AddRecentAction(result.Title, result.Detail);
-        }
-
         SpeakVoiceResult(result.Detail);
     }
 
@@ -2962,8 +2742,6 @@ public partial class MainWindow : Window
             title,
             detail,
             _preferences.Position);
-        _homeView.AddRecentAction(title, detail);
-        RefreshHomeView();
         SpeakVoiceResult(title);
     }
 
@@ -2990,10 +2768,6 @@ public partial class MainWindow : Window
         if (sender is Button { Tag: string destination })
         {
             NavigateTo(destination, animate: true);
-            if (_sideRailExpanded)
-            {
-                SetSideRailExpanded(expanded: false, animate: true);
-            }
         }
     }
 
@@ -3024,12 +2798,6 @@ public partial class MainWindow : Window
         _currentDestination = destination;
         ModuleHost.Content = view;
         UpdateNavigationState(destination);
-        UpdateWorkspaceHeader(destination);
-
-        if (destination.Equals("Home", StringComparison.OrdinalIgnoreCase))
-        {
-            RefreshHomeView();
-        }
 
         if (!animate || !_preferences.AnimationsEnabled)
         {
@@ -3081,7 +2849,6 @@ public partial class MainWindow : Window
     {
         var buttons = new Dictionary<string, Button>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Home"] = HomeNavButton,
             ["Assistant"] = AssistantNavButton,
             ["Tasks"] = TasksNavButton,
             ["Focus"] = FocusNavButton,
@@ -3109,105 +2876,6 @@ public partial class MainWindow : Window
         SettingsNavButton.Foreground = settingsSelected
             ? (Brush)FindResource("BrushTextPrimary")
             : (Brush)FindResource("BrushTextSecondary");
-    }
-
-    private void UpdateWorkspaceHeader(string destination)
-    {
-        var (title, subtitle) = destination switch
-        {
-            "Home" => ("Inicio", "Una vista breve de lo que importa ahora"),
-            "Assistant" => ("Asistente", "Consulta, conversa o comparte contexto"),
-            "Tasks" => ("Hoy", "Tareas, prioridades y recordatorios"),
-            "Focus" => ("Enfoque", "Sesiones cortas sin perder el ritmo"),
-            "Routines" => ("Rutinas", "Acciones repetibles, claras y controladas"),
-            "Audio" => ("Audio", "Control local por aplicación"),
-            "Capture" => ("Captura", "Selecciona qué puede ver Nexo"),
-            "System" => ("Sistema", "Estado y diagnóstico del equipo"),
-            "Settings" => ("Personalizar", "Apariencia, privacidad y comportamiento"),
-            _ => ("Nexo", "Tu espacio de acciones y contexto")
-        };
-
-        WorkspaceTitleText.Text = title;
-        WorkspaceSubtitleText.Text = subtitle;
-    }
-
-    private void RefreshHomeView()
-    {
-        var now = DateTimeOffset.Now;
-        var localNow = now.LocalDateTime;
-        var greeting = localNow.Hour switch
-        {
-            < 6 => "Buenas noches",
-            < 12 => "Buenos días",
-            < 19 => "Buenas tardes",
-            _ => "Buenas noches"
-        };
-
-        var culture = new CultureInfo("es-MX");
-        var greetingDetail =
-            $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Nexo está listo";
-
-        var pending = _taskManager.GetAll()
-            .Where(task => !task.IsCompleted)
-            .OrderBy(task => task.DueAt ?? DateTimeOffset.MaxValue)
-            .ThenByDescending(task => task.Priority)
-            .ToArray();
-        var today = pending
-            .Where(task => task.DueAt.HasValue &&
-                           task.DueAt.Value.LocalDateTime.Date == localNow.Date)
-            .ToArray();
-        var overdue = pending.Count(task => task.IsOverdue(now));
-
-        var taskValue = today.Length > 0
-            ? today.Length.ToString(CultureInfo.InvariantCulture)
-            : overdue > 0
-                ? overdue.ToString(CultureInfo.InvariantCulture)
-                : "0";
-        var taskDetail = today.FirstOrDefault() is { } nextToday
-            ? nextToday.DueAt.HasValue
-                ? $"Siguiente: {nextToday.Title} · {nextToday.DueAt.Value:HH:mm}"
-                : $"Siguiente: {nextToday.Title}"
-            : overdue > 0
-                ? $"{overdue} vencida{(overdue == 1 ? string.Empty : "s")} necesita atención"
-                : pending.FirstOrDefault() is { } nextPending
-                    ? $"Próxima: {nextPending.Title}"
-                    : "Nada urgente por ahora";
-
-        var focus = _focusManager.GetSnapshot(now);
-        string focusValue;
-        string focusDetail;
-        if (focus.ActiveTimer is { } timer)
-        {
-            var minutes = Math.Max(0, (int)Math.Ceiling(focus.Remaining.TotalMinutes));
-            focusValue = $"{minutes} min";
-            focusDetail = timer.Status == FocusTimerStatus.Paused
-                ? $"{timer.Label} · en pausa"
-                : timer.Label;
-        }
-        else
-        {
-            focusValue = "25 min";
-            focusDetail = focus.FocusMinutesToday > 0
-                ? $"{focus.FocusMinutesToday} min completados hoy"
-                : "Listo para empezar";
-        }
-
-        var contextTitle = _lastExternalWindowHandle != 0
-            ? "Ventana activa recordada"
-            : "Lista para analizar";
-        var contextDetail = _lastExternalWindowHandle != 0
-            ? "Pulsa aquí para capturarla con tu autorización."
-            : "Abre una ventana y Nexo podrá verla cuando lo pidas.";
-
-        _homeView.Refresh(new HomeDashboardViewModel(
-            greeting,
-            greetingDetail,
-            taskValue,
-            taskDetail,
-            focusValue,
-            focusDetail,
-            contextTitle,
-            contextDetail));
     }
 
     private void ApplyPreferences()

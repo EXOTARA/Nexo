@@ -14,7 +14,7 @@ public sealed class ShellPreferences
     public int SchemaVersion { get; set; }
     public SidebarPosition Position { get; set; } = SidebarPosition.Right;
 
-    public double Width { get; set; } = 700;
+    public double Width { get; set; } = 650;
 
     public double Opacity { get; set; } = 0.96;
 
@@ -145,13 +145,7 @@ public sealed class ShellPreferences
             SchemaVersion = 11;
         }
 
-        if (SchemaVersion < 12)
-        {
-            Width = Math.Max(Width, 700);
-            SchemaVersion = 12;
-        }
-
-        Width = Math.Clamp(Width, 680, 820);
+        Width = Math.Clamp(Width, 600, 760);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
             ? Math.Clamp(RecentConversationMessageLimit, 8, 30)
