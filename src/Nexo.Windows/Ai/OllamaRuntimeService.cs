@@ -12,10 +12,6 @@ public sealed class OllamaRuntimeService :
     IOllamaRuntimeService,
     IDisposable
 {
-    private const string ExternalBaseUrl = "http://localhost:11434/v1";
-    private const string ExternalTagsEndpoint = "http://localhost:11434/api/tags";
-    private const string ManagedBaseUrl = "http://localhost:11435/v1";
-    private const string ManagedTagsEndpoint = "http://localhost:11435/api/tags";
     private const string LatestReleaseApi =
         "https://api.github.com/repos/ollama/ollama/releases/latest";
     private const string WindowsAssetName = "ollama-windows-amd64.zip";
@@ -23,6 +19,7 @@ public sealed class OllamaRuntimeService :
     private readonly HttpClient _httpClient;
     private readonly bool _ownsClient;
     private readonly string _managedExecutablePath;
+    private readonly SemaphoreSlim _runtimeGate = new(1, 1);
 
     public OllamaRuntimeService(
         HttpClient? httpClient = null,
@@ -45,23 +42,23 @@ public sealed class OllamaRuntimeService :
         var managedInstalled = File.Exists(_managedExecutablePath);
 
         if (await IsEndpointRunningAsync(
-                ManagedTagsEndpoint,
+                OllamaRuntimeEndpoints.ManagedTagsEndpoint,
                 cancellationToken))
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedRunning,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 "La IA local administrada por Nexo está funcionando.");
         }
 
         if (await IsEndpointRunningAsync(
-                ExternalTagsEndpoint,
+                OllamaRuntimeEndpoints.ExternalTagsEndpoint,
                 cancellationToken))
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ExternalRunning,
-                ExternalBaseUrl,
+                OllamaRuntimeEndpoints.ExternalBaseUrl,
                 null,
                 "Se detectó una instalación externa de Ollama en funcionamiento.");
         }
@@ -70,14 +67,14 @@ public sealed class OllamaRuntimeService :
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedInstalled,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 "La IA local de Nexo está instalada, pero no está iniciada.");
         }
 
         return new OllamaRuntimeSnapshot(
             OllamaRuntimeState.Unavailable,
-            ManagedBaseUrl,
+            OllamaRuntimeEndpoints.ManagedBaseUrl,
             null,
             "Ollama no está disponible. Nexo puede instalarlo por ti.");
     }
@@ -235,13 +232,27 @@ public sealed class OllamaRuntimeService :
     public async Task<OllamaRuntimeSnapshot> StartManagedAsync(
         CancellationToken cancellationToken = default)
     {
+        await _runtimeGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await StartManagedCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            _runtimeGate.Release();
+        }
+    }
+
+    private async Task<OllamaRuntimeSnapshot> StartManagedCoreAsync(
+        CancellationToken cancellationToken)
+    {
         if (await IsEndpointRunningAsync(
-                ManagedTagsEndpoint,
+                OllamaRuntimeEndpoints.ManagedTagsEndpoint,
                 cancellationToken))
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedRunning,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 "La IA local administrada por Nexo está funcionando.");
         }
@@ -257,7 +268,7 @@ public sealed class OllamaRuntimeService :
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedInstalled,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 "La ruta de la IA local no es válida.");
         }
@@ -289,7 +300,7 @@ public sealed class OllamaRuntimeService :
             {
                 return new OllamaRuntimeSnapshot(
                     OllamaRuntimeState.ManagedInstalled,
-                    ManagedBaseUrl,
+                    OllamaRuntimeEndpoints.ManagedBaseUrl,
                     _managedExecutablePath,
                     "Windows no pudo iniciar la IA local.");
             }
@@ -302,7 +313,7 @@ public sealed class OllamaRuntimeService :
             {
                 return new OllamaRuntimeSnapshot(
                     OllamaRuntimeState.ManagedInstalled,
-                    ManagedBaseUrl,
+                    OllamaRuntimeEndpoints.ManagedBaseUrl,
                     _managedExecutablePath,
                     process.HasExited
                         ? "Ollama se cerró antes de completar el inicio."
@@ -311,7 +322,7 @@ public sealed class OllamaRuntimeService :
 
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedRunning,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 "La IA local administrada por Nexo está funcionando.");
         }
@@ -319,7 +330,7 @@ public sealed class OllamaRuntimeService :
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedInstalled,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 "El inicio de la IA local fue cancelado.");
         }
@@ -327,7 +338,7 @@ public sealed class OllamaRuntimeService :
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedInstalled,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 $"Windows no pudo iniciar Ollama: {exception.Message}");
         }
@@ -335,7 +346,7 @@ public sealed class OllamaRuntimeService :
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedInstalled,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 "Windows impidió iniciar la IA local.");
         }
@@ -343,7 +354,7 @@ public sealed class OllamaRuntimeService :
         {
             return new OllamaRuntimeSnapshot(
                 OllamaRuntimeState.ManagedInstalled,
-                ManagedBaseUrl,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
                 $"No pude iniciar la IA local: {exception.Message}");
         }
@@ -353,12 +364,95 @@ public sealed class OllamaRuntimeService :
         }
     }
 
+    public async Task<OllamaRuntimeSnapshot> StopManagedAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _runtimeGate.WaitAsync(cancellationToken);
+        try
+        {
+            foreach (var process in Process.GetProcessesByName("ollama"))
+            {
+                using (process)
+                {
+                    if (!IsManagedProcess(process, _managedExecutablePath))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            process.Kill(entireProcessTree: true);
+
+                            using var timeout =
+                                CancellationTokenSource.CreateLinkedTokenSource(
+                                    cancellationToken);
+                            timeout.CancelAfter(TimeSpan.FromSeconds(5));
+                            await process.WaitForExitAsync(timeout.Token);
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // El proceso terminó mientras Nexo lo cerraba.
+                    }
+                    catch (Win32Exception)
+                    {
+                        // Se verificará el endpoint antes de informar el resultado.
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        // Se verificará el endpoint antes de informar el resultado.
+                    }
+                    catch (OperationCanceledException)
+                        when (!cancellationToken.IsCancellationRequested)
+                    {
+                        // El proceso tardó en cerrar; se verificará el endpoint.
+                    }
+                }
+            }
+
+            if (await IsEndpointRunningAsync(
+                    OllamaRuntimeEndpoints.ManagedTagsEndpoint,
+                    cancellationToken))
+            {
+                return new OllamaRuntimeSnapshot(
+                    OllamaRuntimeState.ManagedRunning,
+                    OllamaRuntimeEndpoints.ManagedBaseUrl,
+                    _managedExecutablePath,
+                    "No pude detener la IA local administrada por Nexo.");
+            }
+
+            return File.Exists(_managedExecutablePath)
+                ? new OllamaRuntimeSnapshot(
+                    OllamaRuntimeState.ManagedInstalled,
+                    OllamaRuntimeEndpoints.ManagedBaseUrl,
+                    _managedExecutablePath,
+                    "La IA local administrada por Nexo se detuvo correctamente.")
+                : InstallationFailure("La IA local no está instalada.");
+        }
+        catch (OperationCanceledException)
+        {
+            return new OllamaRuntimeSnapshot(
+                OllamaRuntimeState.ManagedRunning,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
+                _managedExecutablePath,
+                "Se canceló el cierre de la IA local.");
+        }
+        finally
+        {
+            _runtimeGate.Release();
+        }
+    }
+
     public void Dispose()
     {
         if (_ownsClient)
         {
             _httpClient.Dispose();
         }
+
+        _runtimeGate.Dispose();
     }
 
     private async Task<ReleaseAsset?> GetLatestWindowsAssetAsync(
@@ -544,7 +638,7 @@ public sealed class OllamaRuntimeService :
             }
 
             if (await IsEndpointRunningAsync(
-                    ManagedTagsEndpoint,
+                    OllamaRuntimeEndpoints.ManagedTagsEndpoint,
                     cancellationToken))
             {
                 return true;
@@ -556,6 +650,37 @@ public sealed class OllamaRuntimeService :
         }
 
         return false;
+    }
+
+    private static bool IsManagedProcess(
+        Process process,
+        string expectedExecutablePath)
+    {
+        try
+        {
+            var processPath = process.MainModule?.FileName;
+            if (string.IsNullOrWhiteSpace(processPath))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                Path.GetFullPath(processPath),
+                Path.GetFullPath(expectedExecutablePath),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Win32Exception)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private void ReplaceRuntimeDirectory(string payloadDirectory)
@@ -627,7 +752,7 @@ public sealed class OllamaRuntimeService :
     private static OllamaRuntimeSnapshot InstallationFailure(string message) =>
         new(
             OllamaRuntimeState.Unavailable,
-            ManagedBaseUrl,
+            OllamaRuntimeEndpoints.ManagedBaseUrl,
             null,
             message);
 

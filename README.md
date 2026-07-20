@@ -45,6 +45,7 @@ Actualmente incluye:
 - Recuperación automática de recordatorios, temporizadores y métricas después de suspender el equipo.
 - Configuración inicial guiada para voz, Ollama, privacidad e integración con Windows.
 - Administrador de modelos locales de Ollama con descarga, selección y eliminación.
+- Inicio, supervisión y recuperación automática del runtime privado de Ollama.
 - Centro de diagnóstico local con estado de micrófono, Whisper, wake word, IA, Vision y datos.
 - Respaldo automático de archivos de datos dañados y limpieza de temporales.
 

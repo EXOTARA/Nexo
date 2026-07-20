@@ -24,6 +24,12 @@ public static class NexoDataPaths
     public static string OllamaInstallerTempDirectory =>
         Path.Combine(TempDirectory, "OllamaInstaller");
 
+    public static string LogsDirectory =>
+        Path.Combine(RootDirectory, "Logs");
+
+    public static string OllamaRuntimeLog =>
+        Path.Combine(LogsDirectory, "ollama-runtime.log");
+
     public static string Settings => Path.Combine(RootDirectory, "settings.json");
     public static string Tasks => Path.Combine(RootDirectory, "tasks.json");
     public static string Focus => Path.Combine(RootDirectory, "focus.json");

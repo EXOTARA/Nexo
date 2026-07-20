@@ -11,4 +11,7 @@ public interface IOllamaRuntimeService
 
     Task<OllamaRuntimeSnapshot> StartManagedAsync(
         CancellationToken cancellationToken = default);
+
+    Task<OllamaRuntimeSnapshot> StopManagedAsync(
+        CancellationToken cancellationToken = default);
 }

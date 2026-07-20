@@ -94,6 +94,7 @@ public partial class MainWindow : Window
     private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
     private readonly bool _startHidden;
+    private readonly ManagedOllamaSupervisor? _managedOllamaSupervisor;
 
     private HwndSource? _windowSource;
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
@@ -105,15 +106,19 @@ public partial class MainWindow : Window
     private string _currentDestination = "Assistant";
     private string _previousDestination = "Assistant";
     private bool _voicePromptActive;
+    private bool _managedAiRuntimeFailureNotified;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
     private long _lastExternalWindowHandle;
 
-    public MainWindow(bool startHidden = false)
+    public MainWindow(
+        bool startHidden = false,
+        ManagedOllamaSupervisor? managedOllamaSupervisor = null)
     {
         InitializeComponent();
 
         _startHidden = startHidden;
+        _managedOllamaSupervisor = managedOllamaSupervisor;
         _preferences = _settingsStore.Load();
         _preferences.StartWithWindows = _startupService.IsEnabled();
         _taskManager = new TaskManager(_taskStore);
@@ -313,12 +318,14 @@ public partial class MainWindow : Window
             _preferences.AiApiKeyEnvironmentVariable = preset.ApiKeyEnvironmentVariable;
             UpdateAiProviderStatus();
             SavePreferences();
+            ConfigureManagedOllamaSupervisor();
         };
 
         _settingsView.AiBaseUrlChanged += baseUrl =>
         {
             _preferences.AiBaseUrl = AiProviderDefaults.NormalizeBaseUrl(baseUrl);
             SavePreferences();
+            ConfigureManagedOllamaSupervisor();
         };
 
         _settingsView.AiModelChanged += model =>
@@ -464,6 +471,7 @@ public partial class MainWindow : Window
         _settingsView.ApplyPreferences(_preferences);
         ApplyPreferences();
         UpdateAiProviderStatus();
+        ConfigureManagedOllamaSupervisor();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
         await ApplyWakeWordPreferenceAsync(showCapsule: false);
@@ -508,6 +516,7 @@ public partial class MainWindow : Window
             ShowAnimated();
         }
 
+        ConfigureManagedOllamaSupervisor();
         await RefreshMetricsAsync();
         _ = InitializeVoiceFeaturesAsync();
     }
@@ -598,6 +607,87 @@ public partial class MainWindow : Window
         ShowAnimated();
     }
 
+    private void ConfigureManagedOllamaSupervisor()
+    {
+        if (_managedOllamaSupervisor is null || _isClosed)
+        {
+            return;
+        }
+
+        if (!_managedOllamaSupervisor.Configure(_preferences))
+        {
+            return;
+        }
+
+        SetManagedAiRuntimePreparing();
+        _managedOllamaSupervisor.StartMonitoring(snapshot =>
+            Dispatcher.BeginInvoke(new Action(() =>
+                UpdateManagedAiRuntimeState(snapshot))));
+    }
+
+    public void SetManagedAiRuntimePreparing()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
+            ? "modelo local"
+            : _preferences.AiModel;
+        _assistantView.SetAiProviderStatus(
+            $"Ollama · {model} · preparando IA local…");
+    }
+
+    public void UpdateManagedAiRuntimeState(OllamaRuntimeSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (_isClosed)
+        {
+            return;
+        }
+
+        if (snapshot.IsRunning)
+        {
+            var recovered = _managedAiRuntimeFailureNotified;
+            _managedAiRuntimeFailureNotified = false;
+            UpdateAiProviderStatus();
+
+            if (recovered)
+            {
+                _assistantView.AddNexoMessage(
+                    "La IA local volvió a estar disponible automáticamente.");
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Success,
+                    "IA local recuperada",
+                    "Nexo volvió a iniciar el motor local.",
+                    _preferences.Position);
+            }
+
+            return;
+        }
+
+        var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
+            ? "modelo local"
+            : _preferences.AiModel;
+        _assistantView.SetAiProviderStatus(
+            $"Ollama · {model} · IA local no disponible");
+
+        if (_managedAiRuntimeFailureNotified)
+        {
+            return;
+        }
+
+        _managedAiRuntimeFailureNotified = true;
+        _assistantView.AddNexoMessage(
+            $"No pude preparar la IA local: {snapshot.Message}");
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Error,
+            "IA local no disponible",
+            snapshot.Message,
+            _preferences.Position);
+    }
+
     private void HandleSystemResume()
     {
         if (_isClosed)
@@ -608,6 +698,37 @@ public partial class MainWindow : Window
         CheckTaskReminders();
         CheckFocusTimer();
         _ = RefreshMetricsAsync();
+        _ = EnsureManagedAiRuntimeAfterResumeAsync();
+    }
+
+    private async Task EnsureManagedAiRuntimeAfterResumeAsync()
+    {
+        if (_managedOllamaSupervisor is null || _isClosed)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(
+                TimeSpan.FromMilliseconds(800),
+                _lifetimeCancellation.Token);
+            var snapshot = await _managedOllamaSupervisor.EnsureRunningAsync(
+                _lifetimeCancellation.Token);
+            UpdateManagedAiRuntimeState(snapshot);
+        }
+        catch (OperationCanceledException)
+        {
+            // Nexo se está cerrando.
+        }
+        catch (Exception exception)
+        {
+            UpdateManagedAiRuntimeState(new OllamaRuntimeSnapshot(
+                OllamaRuntimeState.ManagedInstalled,
+                OllamaRuntimeEndpoints.ManagedBaseUrl,
+                null,
+                exception.Message));
+        }
     }
 
     private void ToggleWindow()
@@ -834,6 +955,40 @@ public partial class MainWindow : Window
                 _preferences.Position);
             SpeakVoiceResult("La inteligencia artificial está desactivada.");
             return;
+        }
+
+        if (_managedOllamaSupervisor is not null &&
+            OllamaRuntimeEndpoints.IsManagedBaseUrl(configuration.BaseUrl))
+        {
+            _assistantView.SetAiActivity("preparando IA local…");
+
+            OllamaRuntimeSnapshot runtimeSnapshot;
+            try
+            {
+                runtimeSnapshot = await _managedOllamaSupervisor.EnsureRunningAsync(
+                    _lifetimeCancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                _assistantView.SetAiActivity(null);
+                return;
+            }
+            catch (Exception exception)
+            {
+                runtimeSnapshot = new OllamaRuntimeSnapshot(
+                    OllamaRuntimeState.ManagedInstalled,
+                    OllamaRuntimeEndpoints.ManagedBaseUrl,
+                    null,
+                    exception.Message);
+            }
+
+            UpdateManagedAiRuntimeState(runtimeSnapshot);
+            if (!runtimeSnapshot.IsRunning)
+            {
+                _assistantView.SetAiActivity(null);
+                SpeakVoiceResult("La inteligencia artificial local no está disponible.");
+                return;
+            }
         }
 
         await _aiGate.WaitAsync(_lifetimeCancellation.Token);

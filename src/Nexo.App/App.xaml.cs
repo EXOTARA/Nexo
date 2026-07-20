@@ -8,6 +8,7 @@ namespace Nexo.App;
 public partial class App : System.Windows.Application
 {
     private SingleInstanceCoordinator? _singleInstance;
+    private ManagedOllamaSupervisor? _managedOllamaSupervisor;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -33,7 +34,11 @@ public partial class App : System.Windows.Application
             requestedHiddenStart = false;
         }
 
-        var mainWindow = new MainWindow(requestedHiddenStart);
+        _managedOllamaSupervisor = new ManagedOllamaSupervisor();
+
+        var mainWindow = new MainWindow(
+            requestedHiddenStart,
+            _managedOllamaSupervisor);
         MainWindow = mainWindow;
 
         _singleInstance.ActivationRequested += (_, _) =>
@@ -45,6 +50,9 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _managedOllamaSupervisor?.Dispose();
+        _managedOllamaSupervisor = null;
+
         _singleInstance?.Dispose();
         _singleInstance = null;
         base.OnExit(e);
