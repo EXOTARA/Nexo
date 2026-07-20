@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Extraer versión
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "prerelease=$($version.Contains('-'))" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Publicar e instalar
+        shell: pwsh
+        run: |
+          .\scripts\build-installer.ps1 `
+            -Version "${{ steps.version.outputs.value }}" `
+            -RepositoryUrl "https://github.com/${{ github.repository }}"
+
+      - name: Verificar publicación
+        shell: pwsh
+        run: .\scripts\verify-release.ps1
+
+      - name: Guardar artefactos
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexo-${{ steps.version.outputs.value }}
+          path: |
+            artifacts/dist/*.zip
+            artifacts/dist/*.sha256
+            artifacts/installer/*.exe
+            artifacts/installer/*.sha256
+          if-no-files-found: error
+
+      - name: Crear GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $arguments = @(
+            "release", "create", "${{ github.ref_name }}",
+            "--title", "Nexo ${{ steps.version.outputs.value }}",
+            "--generate-notes"
+          )
+
+          if ("${{ steps.version.outputs.prerelease }}" -eq "True") {
+            $arguments += "--prerelease"
+          }
+
+          $assets = Get-ChildItem `
+            artifacts\dist\*.zip,
+            artifacts\dist\*.sha256,
+            artifacts\installer\*.exe,
+            artifacts\installer\*.sha256 |
+            ForEach-Object { $_.FullName }
+
+          & gh @arguments @assets

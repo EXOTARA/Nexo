@@ -4,6 +4,20 @@ Todos los cambios importantes de Nexo se documentarán aquí.
 
 ## [Sin publicar]
 
+## 0.9.0-beta - Primera edición distribuible
+
+- Versión y metadatos centralizados para los ensamblados.
+- Ejecutable `Nexo.exe` con icono propio y manifiesto Per-Monitor V2.
+- Publicación autocontenida para Windows x64 sin depender de Electron.
+- ZIP portable con archivo SHA256.
+- Instalador por usuario mediante Inno Setup, sin requerir administrador.
+- Desinstalación limpia con opción de conservar o eliminar datos locales.
+- CI de GitHub para compilación, pruebas y artefactos portables.
+- Workflow de releases para etiquetas `v*`.
+- Comprobación manual de actualizaciones desde el centro de diagnóstico.
+- Lista de verificación para probar la beta en una instalación limpia.
+
+
 ### Agregado
 
 - Barra lateral modular para Windows.

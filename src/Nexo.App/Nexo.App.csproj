@@ -12,6 +12,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <AssemblyName>Nexo</AssemblyName>
+    <RootNamespace>Nexo.App</RootNamespace>
+    <ApplicationIcon>Assets\Nexo.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishSingleFile>false</PublishSingleFile>
+    <DebugType Condition="'$(Configuration)' == 'Release'">embedded</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(RepositoryUrl)' != ''">
+    <AssemblyMetadata Include="RepositoryUrl" Value="$(RepositoryUrl)" />
+  </ItemGroup>
 
 </Project>
