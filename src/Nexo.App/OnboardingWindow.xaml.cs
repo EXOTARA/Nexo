@@ -13,10 +13,13 @@ namespace Nexo.App;
 
 public partial class OnboardingWindow : Window
 {
+    private const string RecommendedModel = "qwen3.5:4b";
+
     private readonly ShellPreferences _preferences;
     private readonly JsonSettingsStore _settingsStore;
     private readonly WindowsStartupService _startupService = new();
     private readonly OllamaModelService _modelService = new();
+    private readonly OllamaRuntimeService _runtimeService = new();
     private readonly WhisperVoiceInputService _voiceInputService = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly string[] _stepTitles =
@@ -27,8 +30,12 @@ public partial class OnboardingWindow : Window
         "Privacidad y Windows"
     ];
 
+    private CancellationTokenSource? _aiOperationCancellation;
+    private OllamaRuntimeSnapshot? _runtimeSnapshot;
+    private string _activeAiBaseUrl = string.Empty;
     private int _step;
     private bool _allowClose;
+    private bool _aiBusy;
 
     public OnboardingWindow(
         ShellPreferences preferences,
@@ -54,7 +61,7 @@ public partial class OnboardingWindow : Window
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         LoadMicrophones();
-        await LoadModelsAsync();
+        await RefreshAiStateAsync();
     }
 
     private void LoadMicrophones()
@@ -73,44 +80,176 @@ public partial class OnboardingWindow : Window
         };
     }
 
-    private async Task LoadModelsAsync()
+    private async Task RefreshAiStateAsync()
     {
-        AiStatusText.Text = "Comprobando Ollama…";
+        if (_aiBusy)
+        {
+            return;
+        }
+
+        SetAiBusy(true, canCancel: false);
+        ShowAiProgress("Comprobando la IA local…", indeterminate: true);
+
         try
         {
-            var selectedModel = (AiModelComboBox.Text ?? string.Empty).Trim();
-            var models = await _modelService.ListAsync(
-                "http://localhost:11434/v1",
+            var snapshot = await _runtimeService.InspectAsync(
                 _lifetimeCancellation.Token);
-            var modelNames = models.Select(model => model.Name).ToArray();
-            AiModelComboBox.ItemsSource = modelNames;
-            var selectedIndex = Array.FindIndex(modelNames, model =>
-                model.Equals(selectedModel, StringComparison.OrdinalIgnoreCase));
-            if (selectedIndex >= 0)
-            {
-                AiModelComboBox.SelectedIndex = selectedIndex;
-            }
-            else if (!string.IsNullOrWhiteSpace(selectedModel))
-            {
-                AiModelComboBox.Text = selectedModel;
-            }
-            else if (models.Count > 0)
-            {
-                AiModelComboBox.SelectedIndex = 0;
-            }
-
-            AiStatusText.Text = models.Count == 0
-                ? "Ollama respondió, pero no hay modelos instalados."
-                : $"Ollama conectado · {models.Count} modelo(s) instalado(s).";
+            await ApplyRuntimeSnapshotAsync(
+                snapshot,
+                _lifetimeCancellation.Token);
         }
-        catch (HttpRequestException)
+        catch (OperationCanceledException)
         {
-            AiStatusText.Text = "No pude conectar con Ollama. Puedes omitir este paso y configurarlo después.";
+            AiRuntimeTitleText.Text = "Comprobación cancelada";
+            AiStatusText.Text = "Puedes volver a intentarlo con Actualizar.";
         }
         catch (Exception exception)
         {
-            AiStatusText.Text = $"No pude consultar Ollama: {exception.Message}";
+            AiRuntimeTitleText.Text = "No pude comprobar la IA local";
+            AiStatusText.Text = exception.Message;
+            InstallAiButton.Content = "Volver a intentar";
+            InstallAiButton.Visibility = Visibility.Visible;
         }
+        finally
+        {
+            HideAiProgress();
+            SetAiBusy(false);
+        }
+    }
+
+    private async Task ApplyRuntimeSnapshotAsync(
+        OllamaRuntimeSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        _runtimeSnapshot = snapshot;
+        AiStatusText.Text = snapshot.Message;
+
+        if (!snapshot.IsRunning)
+        {
+            _activeAiBaseUrl = string.Empty;
+            AiModelComboBox.ItemsSource = null;
+            AiModelComboBox.IsEnabled = false;
+            RefreshModelsButton.IsEnabled = false;
+            ManageModelsButton.IsEnabled = false;
+            InstallAiButton.Visibility = Visibility.Visible;
+
+            if (snapshot.State == OllamaRuntimeState.ManagedInstalled)
+            {
+                AiRuntimeTitleText.Text = "IA local instalada";
+                InstallAiButton.Content = "Iniciar IA local";
+            }
+            else
+            {
+                AiRuntimeTitleText.Text = "IA local no instalada";
+                InstallAiButton.Content = "Instalar IA local";
+            }
+
+            return;
+        }
+
+        _activeAiBaseUrl = snapshot.BaseUrl;
+        AiRuntimeTitleText.Text = snapshot.State == OllamaRuntimeState.ManagedRunning
+            ? "IA local de Nexo lista"
+            : "Ollama conectado";
+
+        await LoadModelsAsync(snapshot.BaseUrl, cancellationToken);
+    }
+
+    private async Task LoadModelsAsync(
+        string baseUrl,
+        CancellationToken cancellationToken)
+    {
+        var selectedModel = (AiModelComboBox.Text ?? string.Empty).Trim();
+        var models = await _modelService.ListAsync(baseUrl, cancellationToken);
+        var modelNames = models.Select(model => model.Name).ToArray();
+        AiModelComboBox.ItemsSource = modelNames;
+
+        var selectedIndex = Array.FindIndex(modelNames, model =>
+            model.Equals(selectedModel, StringComparison.OrdinalIgnoreCase));
+        var recommendedIndex = Array.FindIndex(modelNames, model =>
+            model.Equals(RecommendedModel, StringComparison.OrdinalIgnoreCase));
+
+        if (selectedIndex >= 0)
+        {
+            AiModelComboBox.SelectedIndex = selectedIndex;
+        }
+        else if (recommendedIndex >= 0)
+        {
+            AiModelComboBox.SelectedIndex = recommendedIndex;
+        }
+        else if (models.Count > 0)
+        {
+            AiModelComboBox.SelectedIndex = 0;
+        }
+
+        if (models.Count == 0)
+        {
+            AiStatusText.Text =
+                "El motor local está listo. Falta descargar el modelo recomendado.";
+            InstallAiButton.Content = "Descargar modelo recomendado";
+            InstallAiButton.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            AiStatusText.Text =
+                $"IA local conectada · {models.Count} modelo(s) disponible(s).";
+            InstallAiButton.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async Task<bool> DownloadRecommendedModelAsync(
+        string baseUrl,
+        CancellationToken cancellationToken)
+    {
+        var installedModels = await _modelService.ListAsync(
+            baseUrl,
+            cancellationToken);
+
+        var installed = installedModels.Any(model =>
+            model.Name.Equals(
+                RecommendedModel,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (installed)
+        {
+            AiModelComboBox.Text = RecommendedModel;
+            return true;
+        }
+
+        ShowAiProgress(
+            $"Descargando {RecommendedModel}…",
+            indeterminate: true);
+
+        var progress = new Progress<OllamaPullProgress>(update =>
+        {
+            AiProgressText.Text = update.Percentage is double percentage
+                ? $"{update.Status} · {percentage:0}%"
+                : update.Status;
+            AiProgressText.Visibility = Visibility.Visible;
+
+            if (update.Percentage is double value)
+            {
+                AiProgressBar.IsIndeterminate = false;
+                AiProgressBar.Value = value;
+            }
+        });
+
+        var result = await _modelService.PullAsync(
+            baseUrl,
+            RecommendedModel,
+            progress,
+            cancellationToken);
+
+        AiStatusText.Text = result.Detail;
+        if (!result.Success)
+        {
+            InstallAiButton.Content = "Volver a descargar";
+            InstallAiButton.Visibility = Visibility.Visible;
+            return false;
+        }
+
+        AiModelComboBox.Text = RecommendedModel;
+        return true;
     }
 
     private void ShowStep(int step)
@@ -122,7 +261,7 @@ public partial class OnboardingWindow : Window
         PrivacyPanel.Visibility = _step == 3 ? Visibility.Visible : Visibility.Collapsed;
         StepTitleText.Text = _stepTitles[_step];
         StepIndicatorText.Text = $"{_step + 1} de 4";
-        BackButton.IsEnabled = _step > 0;
+        BackButton.IsEnabled = !_aiBusy && _step > 0;
         NextButton.Content = _step == 3 ? "Terminar" : "Siguiente";
     }
 
@@ -150,22 +289,183 @@ public partial class OnboardingWindow : Window
     }
 
     private async void RefreshModelsButton_Click(object sender, RoutedEventArgs e) =>
-        await LoadModelsAsync();
+        await RefreshAiStateAsync();
+
+    private async void InstallAiButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_aiBusy)
+        {
+            return;
+        }
+
+        _aiOperationCancellation?.Dispose();
+        _aiOperationCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            _lifetimeCancellation.Token);
+        var cancellationToken = _aiOperationCancellation.Token;
+
+        SetAiBusy(true, canCancel: true);
+        ShowAiProgress("Preparando la IA local…", indeterminate: true);
+
+        try
+        {
+            var snapshot = await _runtimeService.InspectAsync(cancellationToken);
+
+            if (snapshot.State == OllamaRuntimeState.Unavailable)
+            {
+                var runtimeProgress = new Progress<OllamaRuntimeInstallProgress>(update =>
+                {
+                    AiProgressText.Text = update.Percentage is double percentage
+                        ? $"{update.Message} · {percentage:0}%"
+                        : update.Message;
+                    AiProgressText.Visibility = Visibility.Visible;
+
+                    if (update.Percentage is double value)
+                    {
+                        AiProgressBar.IsIndeterminate = false;
+                        AiProgressBar.Value = value;
+                    }
+                    else
+                    {
+                        AiProgressBar.IsIndeterminate = true;
+                    }
+                });
+
+                snapshot = await _runtimeService.InstallManagedAsync(
+                    runtimeProgress,
+                    cancellationToken);
+            }
+            else if (snapshot.State == OllamaRuntimeState.ManagedInstalled)
+            {
+                AiProgressText.Text = "Iniciando la IA local…";
+                AiProgressText.Visibility = Visibility.Visible;
+                snapshot = await _runtimeService.StartManagedAsync(
+                    cancellationToken);
+            }
+
+            _runtimeSnapshot = snapshot;
+            if (!snapshot.IsRunning)
+            {
+                AiRuntimeTitleText.Text = "No se pudo preparar la IA local";
+                AiStatusText.Text = snapshot.Message;
+                InstallAiButton.Content = "Volver a intentar";
+                InstallAiButton.Visibility = Visibility.Visible;
+                return;
+            }
+
+            _activeAiBaseUrl = snapshot.BaseUrl;
+            AiRuntimeTitleText.Text = snapshot.State == OllamaRuntimeState.ManagedRunning
+                ? "IA local de Nexo lista"
+                : "Ollama conectado";
+
+            var modelReady = await DownloadRecommendedModelAsync(
+                snapshot.BaseUrl,
+                cancellationToken);
+            if (!modelReady)
+            {
+                return;
+            }
+
+            await LoadModelsAsync(snapshot.BaseUrl, cancellationToken);
+            AiRuntimeTitleText.Text = "Todo listo";
+            AiStatusText.Text =
+                $"{RecommendedModel} está instalado. Ya puedes usar la IA de Nexo.";
+        }
+        catch (OperationCanceledException)
+        {
+            AiRuntimeTitleText.Text = "Instalación cancelada";
+            AiStatusText.Text = "No se hicieron cambios incompletos. Puedes intentarlo de nuevo.";
+            InstallAiButton.Content = "Volver a intentar";
+            InstallAiButton.Visibility = Visibility.Visible;
+        }
+        catch (HttpRequestException exception)
+        {
+            AiRuntimeTitleText.Text = "No se pudo completar la descarga";
+            AiStatusText.Text = exception.Message;
+            InstallAiButton.Content = "Volver a intentar";
+            InstallAiButton.Visibility = Visibility.Visible;
+        }
+        catch (Exception exception)
+        {
+            AiRuntimeTitleText.Text = "No se pudo preparar la IA local";
+            AiStatusText.Text = exception.Message;
+            InstallAiButton.Content = "Volver a intentar";
+            InstallAiButton.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            HideAiProgress();
+            SetAiBusy(false);
+            _aiOperationCancellation?.Dispose();
+            _aiOperationCancellation = null;
+        }
+    }
+
+    private void CancelAiInstallButton_Click(object sender, RoutedEventArgs e)
+    {
+        CancelAiInstallButton.IsEnabled = false;
+        AiProgressText.Text = "Cancelando…";
+        AiProgressText.Visibility = Visibility.Visible;
+        _aiOperationCancellation?.Cancel();
+    }
 
     private async void ManageModelsButton_Click(object sender, RoutedEventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(_activeAiBaseUrl))
+        {
+            AiStatusText.Text = "Primero inicia o instala la IA local.";
+            return;
+        }
+
         var window = new ModelManagerWindow(
-            "http://localhost:11434/v1",
+            _activeAiBaseUrl,
             AiModelComboBox.Text)
         {
             Owner = this
         };
-        if (window.ShowDialog() == true && !string.IsNullOrWhiteSpace(window.SelectedModel))
+        if (window.ShowDialog() == true &&
+            !string.IsNullOrWhiteSpace(window.SelectedModel))
         {
             AiModelComboBox.Text = window.SelectedModel;
         }
 
-        await LoadModelsAsync();
+        await LoadModelsAsync(
+            _activeAiBaseUrl,
+            _lifetimeCancellation.Token);
+    }
+
+    private void ShowAiProgress(string message, bool indeterminate)
+    {
+        AiProgressBar.Value = 0;
+        AiProgressBar.IsIndeterminate = indeterminate;
+        AiProgressBar.Visibility = Visibility.Visible;
+        AiProgressText.Text = message;
+        AiProgressText.Visibility = Visibility.Visible;
+    }
+
+    private void HideAiProgress()
+    {
+        AiProgressBar.IsIndeterminate = false;
+        AiProgressBar.Value = 0;
+        AiProgressBar.Visibility = Visibility.Collapsed;
+        AiProgressText.Visibility = Visibility.Collapsed;
+        CancelAiInstallButton.IsEnabled = true;
+    }
+
+    private void SetAiBusy(bool busy, bool canCancel = false)
+    {
+        _aiBusy = busy;
+        SkipButton.IsEnabled = !busy;
+        BackButton.IsEnabled = !busy && _step > 0;
+        NextButton.IsEnabled = !busy;
+        InstallAiButton.IsEnabled = !busy;
+        CancelAiInstallButton.Visibility = busy && canCancel
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        var runtimeRunning = _runtimeSnapshot?.IsRunning == true;
+        AiModelComboBox.IsEnabled = !busy && runtimeRunning;
+        RefreshModelsButton.IsEnabled = !busy && runtimeRunning;
+        ManageModelsButton.IsEnabled = !busy && runtimeRunning;
     }
 
     private void CompleteOnboarding()
@@ -197,8 +497,16 @@ public partial class OnboardingWindow : Window
         }
         else
         {
+            if (string.IsNullOrWhiteSpace(_activeAiBaseUrl))
+            {
+                AiStatusText.Text =
+                    "La IA local no está conectada. Instálala, iníciala o deja el modelo vacío para continuar sin IA.";
+                ShowStep(2);
+                return;
+            }
+
             _preferences.AiProvider = AiProviderKind.Ollama;
-            _preferences.AiBaseUrl = "http://localhost:11434/v1";
+            _preferences.AiBaseUrl = _activeAiBaseUrl;
             _preferences.AiModel = model;
             _preferences.AiApiKeyEnvironmentVariable = string.Empty;
         }
@@ -250,8 +558,12 @@ public partial class OnboardingWindow : Window
         }
 
         _lifetimeCancellation.Cancel();
+        _aiOperationCancellation?.Cancel();
+        _aiOperationCancellation?.Dispose();
+        _aiOperationCancellation = null;
         _voiceInputService.Dispose();
         _modelService.Dispose();
+        _runtimeService.Dispose();
         _lifetimeCancellation.Dispose();
     }
 }

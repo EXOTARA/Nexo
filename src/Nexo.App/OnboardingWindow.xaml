@@ -53,7 +53,7 @@
                         <StackPanel>
                             <TextBlock Text="Durante esta configuración" FontWeight="SemiBold" />
                             <TextBlock Margin="0,8,0,0"
-                                       Text="• Elegirás el micrófono.&#x0a;• Conectarás Ollama y un modelo local.&#x0a;• Revisarás privacidad y funcionamiento en segundo plano."
+                                       Text="• Elegirás el micrófono.&#x0a;• Nexo preparará la IA local con un solo botón.&#x0a;• Revisarás privacidad y funcionamiento en segundo plano."
                                        TextWrapping="Wrap"
                                        Style="{StaticResource MutedTextStyle}" />
                         </StackPanel>
@@ -90,9 +90,51 @@
                 <StackPanel x:Name="AiPanel" Visibility="Collapsed">
                     <TextBlock Text="IA local" FontSize="22" FontWeight="SemiBold" />
                     <TextBlock Margin="0,6,0,16"
-                               Text="Nexo usa Ollama para conversar y analizar imágenes. Selecciona uno de los modelos instalados."
+                               Text="Nexo puede preparar su propia IA local sin pedirte instalar programas ni usar PowerShell."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
+
+                    <Border Style="{StaticResource SubtleCardStyle}">
+                        <StackPanel>
+                            <TextBlock x:Name="AiRuntimeTitleText"
+                                       Text="Comprobando la IA local…"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="AiStatusText"
+                                       Margin="0,7,0,0"
+                                       Text="Revisando si Ollama está disponible."
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+                            <ProgressBar x:Name="AiProgressBar"
+                                         Margin="0,14,0,0"
+                                         Height="7"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         IsIndeterminate="True"
+                                         Visibility="Collapsed" />
+                            <TextBlock x:Name="AiProgressText"
+                                       Margin="0,7,0,0"
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed"
+                                       Style="{StaticResource MutedTextStyle}" />
+                            <StackPanel Margin="0,14,0,0" Orientation="Horizontal">
+                                <Button x:Name="InstallAiButton"
+                                        Content="Instalar IA local"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Visibility="Collapsed"
+                                        Click="InstallAiButton_Click" />
+                                <Button x:Name="CancelAiInstallButton"
+                                        Margin="10,0,0,0"
+                                        Content="Cancelar"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Visibility="Collapsed"
+                                        Click="CancelAiInstallButton_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Margin="0,20,0,8"
+                               Text="Modelo"
+                               FontWeight="SemiBold" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -100,25 +142,25 @@
                         </Grid.ColumnDefinitions>
                         <ComboBox x:Name="AiModelComboBox"
                                   MinHeight="38"
-                                  IsEditable="True" />
-                        <Button Grid.Column="1"
+                                  IsEditable="True"
+                                  IsEnabled="False" />
+                        <Button x:Name="RefreshModelsButton"
+                                Grid.Column="1"
                                 Margin="10,0,0,0"
                                 Content="Actualizar"
+                                IsEnabled="False"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 Click="RefreshModelsButton_Click" />
                     </Grid>
-                    <TextBlock x:Name="AiStatusText"
-                               Margin="0,8,0,0"
-                               Text="Comprobando Ollama…"
-                               TextWrapping="Wrap"
-                               Style="{StaticResource MutedTextStyle}" />
-                    <Button Margin="0,16,0,0"
+                    <Button x:Name="ManageModelsButton"
+                            Margin="0,16,0,0"
                             HorizontalAlignment="Left"
-                            Content="Administrar modelos"
+                            Content="Opciones avanzadas"
+                            IsEnabled="False"
                             Style="{StaticResource SecondaryButtonStyle}"
                             Click="ManageModelsButton_Click" />
                     <Border Margin="0,20,0,0" Style="{StaticResource SubtleCardStyle}">
-                        <TextBlock Text="Recomendación: qwen3.5:4b para equipos medios; qwen3.5:9b cuando cabe completamente en la GPU."
+                        <TextBlock Text="Nexo recomienda qwen3.5:4b: funciona con texto e imágenes y mantiene un tamaño razonable para un equipo medio."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                     </Border>
