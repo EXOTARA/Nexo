@@ -12,6 +12,9 @@ public static class NexoDataPaths
     public static string OllamaRuntimeDirectory =>
         Path.Combine(RuntimeDirectory, "Ollama");
 
+    public static string OllamaModelsDirectory =>
+        Path.Combine(RootDirectory, "Models", "Ollama");
+
     public static string OllamaExecutable =>
         Path.Combine(OllamaRuntimeDirectory, "ollama.exe");
 
