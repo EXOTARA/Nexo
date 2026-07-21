@@ -17,8 +17,6 @@ public partial class CapsuleWindow : Window
     private readonly DispatcherTimer _dismissTimer;
     private bool _isClosingAnimation;
 
-    public bool SuppressTransientMessages { get; set; }
-
     public CapsuleWindow()
     {
         InitializeComponent();
@@ -45,16 +43,8 @@ public partial class CapsuleWindow : Window
         string title,
         string detail,
         SidebarPosition sidebarPosition,
-        TimeSpan? duration = null,
-        bool force = false)
+        TimeSpan? duration = null)
     {
-        if (SuppressTransientMessages &&
-            !force &&
-            kind is CapsuleKind.Information or CapsuleKind.Processing or CapsuleKind.Success)
-        {
-            return;
-        }
-
         _dismissTimer.Stop();
         _isClosingAnimation = false;
 

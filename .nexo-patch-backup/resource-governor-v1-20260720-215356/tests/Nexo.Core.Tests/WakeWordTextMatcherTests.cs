@@ -9,8 +9,6 @@ public sealed class WakeWordTextMatcherTests
     [InlineData("nexo.")]
     [InlineData("  NÉXO  ")]
     [InlineData("oye nexo")]
-    [InlineData("hey nexo")]
-    [InlineData("ey nexo")]
     public void NexoMode_AcceptsConfiguredPhrases(string text)
     {
         Assert.True(WakeWordTextMatcher.IsMatch(text, WakeWordPhrase.Nexo));
@@ -35,14 +33,4 @@ public sealed class WakeWordTextMatcherTests
         Assert.True(WakeWordTextMatcher.IsMatch(text, WakeWordPhrase.OyeNexo));
         Assert.False(WakeWordTextMatcher.IsMatch("nexo", WakeWordPhrase.OyeNexo));
     }
-    [Theory]
-    [InlineData("hey nexo")]
-    [InlineData("ey nexo")]
-    [InlineData("¡Hey, Nexo!")]
-    public void HeyNexoMode_AcceptsCommonSpanishRecognitionVariants(string text)
-    {
-        Assert.True(WakeWordTextMatcher.IsMatch(text, WakeWordPhrase.HeyNexo));
-        Assert.False(WakeWordTextMatcher.IsMatch("nexo", WakeWordPhrase.HeyNexo));
-    }
-
 }

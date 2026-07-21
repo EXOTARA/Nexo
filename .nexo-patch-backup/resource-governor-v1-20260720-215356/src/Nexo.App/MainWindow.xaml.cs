@@ -20,7 +20,6 @@ using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Focus;
 using Nexo.Core.Metrics;
-using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
@@ -31,7 +30,6 @@ using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Focus;
 using Nexo.Windows.Metrics;
-using Nexo.Windows.Resources;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Tasks;
 using Nexo.Windows.Voice;
@@ -78,10 +76,8 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
     private readonly SemaphoreSlim _aiGate = new(1, 1);
-    private readonly SemaphoreSlim _resourceGovernorVoiceGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
-    private readonly WindowsResourceGovernorService _resourceGovernorService = new();
     private readonly ShellPreferences _preferences;
     private readonly JsonTaskStore _taskStore = new();
     private readonly TaskManager _taskManager;
@@ -109,7 +105,6 @@ public partial class MainWindow : Window
 
     private HwndSource? _windowSource;
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
-    private ResourceGovernorDecision _resourceDecision = ResourceGovernorDecision.Normal;
     private bool _isHiding;
     private bool _isClosed;
     private bool _allowExit;
@@ -122,8 +117,6 @@ public partial class MainWindow : Window
     private bool _promptFromCommandPalette;
     private bool _sideRailExpanded;
     private bool _visualContextPersistent;
-    private bool _silentVisualContext;
-    private bool _resourceGovernorWakeWordPaused;
     private string? _visualContextMetadata;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
@@ -208,7 +201,6 @@ public partial class MainWindow : Window
         ConfigureVoiceInputDevices();
         NavigateTo("Home", animate: false);
         ApplySideRailButtonLayout(expanded: false);
-        UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
 
         _clockTimer = new DispatcherTimer
         {
@@ -391,26 +383,6 @@ public partial class MainWindow : Window
             {
                 ClearPendingVisionAttachment();
             }
-            SavePreferences();
-        };
-
-        _settingsView.ResourceGovernorEnabledChanged += enabled =>
-        {
-            _preferences.ResourceGovernorEnabled = enabled;
-            SavePreferences();
-            _ = RefreshMetricsAsync();
-        };
-
-        _settingsView.PauseWakeWordInGameModeChanged += enabled =>
-        {
-            _preferences.PauseWakeWordInGameMode = enabled;
-            SavePreferences();
-            _ = ApplyResourceGovernorDecisionAsync(_resourceDecision);
-        };
-
-        _settingsView.ProtectVisionWhenBusyChanged += enabled =>
-        {
-            _preferences.ProtectVisionWhenBusy = enabled;
             SavePreferences();
         };
 
@@ -1125,15 +1097,6 @@ public partial class MainWindow : Window
 
         try
         {
-            if (_pendingVisionAttachment is null &&
-                VisualContextPromptPolicy.ShouldAcquireVisualContext(prompt, fromVoice))
-            {
-                await PrepareVisualContextAsync(
-                    showWorkspace: false,
-                    showFeedback: false,
-                    silentContext: true);
-            }
-
             _assistantView.AddUserMessage(prompt);
 
             // Las rutas locales ya muestran su propio resultado. Evitamos una
@@ -1197,23 +1160,6 @@ public partial class MainWindow : Window
                 "Elige un proveedor desde Personalización.",
                 _preferences.Position);
             SpeakVoiceResult("La inteligencia artificial está desactivada.");
-            return;
-        }
-
-        var resourceDecision = await EnsureFreshResourceDecisionAsync();
-        var usesLocalRuntime = AiExecutionLocationPolicy.UsesLocalRuntime(configuration);
-        var aiAllowed = usesLocalRuntime
-            ? resourceDecision.AllowLocalAi
-            : resourceDecision.AllowRemoteAi;
-
-        if (!aiAllowed)
-        {
-            PresentResourceRestriction(
-                resourceDecision,
-                usesLocalRuntime
-                    ? "La IA local está pausada para proteger el rendimiento."
-                    : "Las consultas de IA están pausadas durante el Modo Juego.",
-                fromVoice);
             return;
         }
 
@@ -1409,40 +1355,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private Task LookAtForegroundWindowAsync() =>
-        PrepareVisualContextAsync(
-            showWorkspace: true,
-            showFeedback: true,
-            silentContext: false);
-
-    private async Task<bool> PrepareVisualContextAsync(
-        bool showWorkspace,
-        bool showFeedback,
-        bool silentContext)
+    private async Task LookAtForegroundWindowAsync()
     {
         if (!_preferences.VisionEnabled)
         {
-            if (showFeedback)
-            {
-                _capsuleWindow.ShowMessage(
-                    CapsuleKind.Warning,
-                    "Nexo Vision desactivado",
-                    "Actívalo desde Personalización.",
-                    _preferences.Position,
-                    force: true);
-            }
-
-            return false;
-        }
-
-        var resourceDecision = await EnsureFreshResourceDecisionAsync();
-        if (_preferences.ProtectVisionWhenBusy && !resourceDecision.AllowVision)
-        {
-            PresentResourceRestriction(
-                resourceDecision,
-                "Mirar está pausado para evitar tirones o pérdida de rendimiento.",
-                fromVoice: silentContext);
-            return false;
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "Nexo Vision desactivado",
+                "Actívalo desde Personalización.",
+                _preferences.Position);
+            return;
         }
 
         RememberForegroundWindow();
@@ -1455,27 +1377,19 @@ public partial class MainWindow : Window
 
         if (target is null)
         {
-            if (showFeedback)
-            {
-                _capsuleWindow.ShowMessage(
-                    CapsuleKind.Information,
-                    "No encontré qué mirar",
-                    "Activa una ventana y vuelve a intentarlo.",
-                    _preferences.Position,
-                    force: true);
-            }
-
-            return false;
-        }
-
-        if (showFeedback)
-        {
             _capsuleWindow.ShowMessage(
-                CapsuleKind.Processing,
-                "Mirando la ventana activa",
-                target.Title,
+                CapsuleKind.Information,
+                "Elige qué mirar",
+                "Activa la ventana y usa Ctrl + Shift + Espacio.",
                 _preferences.Position);
+            return;
         }
+
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Processing,
+            "Mirando la ventana activa",
+            target.Title,
+            _preferences.Position);
 
         VisionCaptureResult result;
         try
@@ -1486,63 +1400,42 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            return false;
+            return;
         }
 
         if (!result.IsSuccess || result.PngBytes is null)
         {
-            if (showFeedback)
-            {
-                _capsuleWindow.ShowMessage(
-                    CapsuleKind.Error,
-                    "No pude mirar esta ventana",
-                    result.Detail,
-                    _preferences.Position,
-                    force: true);
-            }
-
-            return false;
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Error,
+                "No pude mirar esta ventana",
+                result.Detail,
+                _preferences.Position);
+            return;
         }
 
         _visualContextPersistent = true;
-        _silentVisualContext = silentContext;
         _visualContextMetadata =
             "Contexto visual temporal de Windows.\n" +
             $"Aplicación: {target.Subtitle}\n" +
             $"Ventana: {target.Title}\n" +
-            $"Tamaño visible: {result.Width} × {result.Height} píxeles.\n" +
-            "La imagen se procesó en memoria y no se guardó en disco.";
+            $"Tamaño visible: {result.Width} × {result.Height} píxeles.";
         _pendingVisionAttachment = AiImageAttachment.FromBytes(
             result.PngBytes,
             "image/png",
             target.Title);
-
-        if (!silentContext)
-        {
-            _assistantView.SetVisionAttachment(
-                target.Title,
-                result.PngBytes,
-                isVisualContext: true);
-        }
-
+        _assistantView.SetVisionAttachment(
+            target.Title,
+            result.PngBytes,
+            isVisualContext: true);
         RestartVisualContextExpiry();
 
-        if (showWorkspace)
-        {
-            ShowAnimated();
-            NavigateTo("Assistant", animate: true);
-        }
-
-        if (showFeedback)
-        {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Success,
-                "Contexto visual listo",
-                $"Estoy viendo {target.Title}. Pregunta lo que necesites.",
-                _preferences.Position);
-        }
-
-        return true;
+        ShowAnimated();
+        NavigateTo("Assistant", animate: true);
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            "Contexto visual listo",
+            $"Estoy viendo {target.Title}. Pregunta lo que necesites.",
+            _preferences.Position);
     }
 
     private void RestartVisualContextExpiry()
@@ -1651,7 +1544,6 @@ public partial class MainWindow : Window
 
         _visualContextExpiryTimer.Stop();
         _visualContextPersistent = false;
-        _silentVisualContext = false;
         _visualContextMetadata = null;
         _pendingVisionAttachment = AiImageAttachment.FromBytes(
             result.PngBytes,
@@ -1670,7 +1562,6 @@ public partial class MainWindow : Window
     {
         _visualContextExpiryTimer.Stop();
         _visualContextPersistent = false;
-        _silentVisualContext = false;
         _visualContextMetadata = null;
         _pendingVisionAttachment = null;
         _assistantView.ClearVisionAttachment();
@@ -2055,7 +1946,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        RememberForegroundWindow();
         await _voiceGate.WaitAsync();
         try
         {
@@ -2173,15 +2063,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (_preferences.PauseWakeWordInGameMode && _resourceDecision.PauseWakeWord)
-            {
-                SetWakeWordIndicator(active: false);
-                _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
-                    "Activación por voz pausada por Modo Juego.");
-                return;
-            }
-
             var requiresDownload = !_wakeWordService.IsReady;
             var progress = new Progress<VoicePreparationProgress>(update =>
             {
@@ -2288,9 +2169,7 @@ public partial class MainWindow : Window
 
     private Task ResumeWakeWordIfEnabledAsync()
     {
-        return _preferences.WakeWordEnabled &&
-               !_isClosed &&
-               !(_preferences.PauseWakeWordInGameMode && _resourceDecision.PauseWakeWord)
+        return _preferences.WakeWordEnabled && !_isClosed
             ? ApplyWakeWordPreferenceAsync(showCapsule: false)
             : Task.CompletedTask;
     }
@@ -3461,16 +3340,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var ownHandle = new WindowInteropHelper(this).Handle.ToInt64();
-            var preferredExternalWindow = _lastExternalWindowHandle;
             var snapshot = await Task.Run(_metricsService.ReadSnapshot);
-            var decision = _preferences.ResourceGovernorEnabled
-                ? await Task.Run(() => _resourceGovernorService.Evaluate(
-                    snapshot,
-                    preferredExternalWindow,
-                    ownHandle))
-                : ResourceGovernorDecision.Normal;
-
             if (_isClosed)
             {
                 return;
@@ -3478,7 +3348,6 @@ public partial class MainWindow : Window
 
             _latestSnapshot = snapshot;
             UpdateMetricControls(snapshot);
-            await ApplyResourceGovernorDecisionAsync(decision);
         }
         catch (Exception)
         {
@@ -3487,148 +3356,6 @@ public partial class MainWindow : Window
         finally
         {
             Interlocked.Exchange(ref _metricsRefreshInProgress, 0);
-        }
-    }
-
-    private async Task<ResourceGovernorDecision> EnsureFreshResourceDecisionAsync()
-    {
-        if (!_preferences.ResourceGovernorEnabled)
-        {
-            return ResourceGovernorDecision.Normal;
-        }
-
-        var snapshotAge = DateTimeOffset.Now - _latestSnapshot.CapturedAt;
-        if (_latestSnapshot.CapturedAt == DateTimeOffset.MinValue ||
-            snapshotAge > TimeSpan.FromSeconds(4))
-        {
-            await RefreshMetricsAsync();
-        }
-
-        return _resourceDecision;
-    }
-
-    private async Task ApplyResourceGovernorDecisionAsync(
-        ResourceGovernorDecision decision)
-    {
-        ArgumentNullException.ThrowIfNull(decision);
-
-        var previous = _resourceDecision;
-        _resourceDecision = decision;
-        _capsuleWindow.SuppressTransientMessages = decision.SuppressTransientOverlays;
-        if (decision.SuppressTransientOverlays)
-        {
-            _capsuleWindow.HideImmediately();
-        }
-
-        UpdateResourceModeIndicator(decision);
-
-        var decisionChanged =
-            previous.Mode != decision.Mode ||
-            !previous.Reason.Equals(decision.Reason, StringComparison.Ordinal);
-
-        if (decisionChanged)
-        {
-            WriteResourceGovernorLog(previous, decision);
-            if (previous.Mode != decision.Mode)
-            {
-                var title = decision.Mode switch
-                {
-                    ResourceMode.Game => "Modo Juego activo",
-                    ResourceMode.Busy => "Rendimiento protegido",
-                    _ => "Modo normal restaurado"
-                };
-                _homeView.AddRecentAction(title, decision.Reason);
-            }
-        }
-
-        await _resourceGovernorVoiceGate.WaitAsync();
-        try
-        {
-            var shouldPauseWakeWord =
-                _preferences.PauseWakeWordInGameMode && decision.PauseWakeWord;
-
-            if (shouldPauseWakeWord)
-            {
-                if (_wakeWordService.IsListening)
-                {
-                    await PauseWakeWordAsync();
-                }
-
-                _resourceGovernorWakeWordPaused = _preferences.WakeWordEnabled;
-                return;
-            }
-
-            if (_resourceGovernorWakeWordPaused)
-            {
-                _resourceGovernorWakeWordPaused = false;
-                await ResumeWakeWordIfEnabledAsync();
-            }
-        }
-        finally
-        {
-            _resourceGovernorVoiceGate.Release();
-        }
-    }
-
-    private void UpdateResourceModeIndicator(ResourceGovernorDecision decision)
-    {
-        ResourceModeIndicator.Visibility = decision.Mode == ResourceMode.Normal
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-        ResourceModeText.Text = decision.Mode switch
-        {
-            ResourceMode.Game => "Modo Juego",
-            ResourceMode.Busy => "Equipo ocupado",
-            _ => "Normal"
-        };
-        ResourceModeIndicator.ToolTip = decision.Reason;
-        ResourceModeDot.Fill = decision.Mode == ResourceMode.Game
-            ? (Brush)FindResource("BrushDanger")
-            : (Brush)FindResource("BrushWarning");
-    }
-
-    private void PresentResourceRestriction(
-        ResourceGovernorDecision decision,
-        string detail,
-        bool fromVoice)
-    {
-        var title = decision.Mode == ResourceMode.Game
-            ? "Nexo está en Modo Juego"
-            : "El equipo está ocupado";
-        var message = $"{detail} {decision.Reason}";
-
-        _assistantView.AddNexoMessage(message);
-        _capsuleWindow.ShowMessage(
-            CapsuleKind.Warning,
-            title,
-            detail,
-            _preferences.Position,
-            force: true);
-
-        if (fromVoice)
-        {
-            _voiceOutputService.SpeakShort(detail);
-        }
-    }
-
-    private static void WriteResourceGovernorLog(
-        ResourceGovernorDecision previous,
-        ResourceGovernorDecision current)
-    {
-        try
-        {
-            Directory.CreateDirectory(Nexo.Core.Diagnostics.NexoDataPaths.LogsDirectory);
-            File.AppendAllText(
-                Nexo.Core.Diagnostics.NexoDataPaths.ResourceGovernorLog,
-                $"{DateTimeOffset.Now:O} | {previous.Mode} -> {current.Mode} | {current.Reason}{Environment.NewLine}");
-        }
-        catch (IOException)
-        {
-            // El registro no debe afectar el funcionamiento de Nexo.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // El registro no debe afectar el funcionamiento de Nexo.
         }
     }
 

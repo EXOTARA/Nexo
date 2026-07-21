@@ -1,14 +1,3 @@
-
-## Resource Governor v1 + Silent Voice Look
-
-- Estados Normal, Busy y Game basados en pantalla completa y uso de CPU/GPU/RAM.
-- Modo Juego pausa wake word, Vision, IA y cápsulas transitorias sin bloquear comandos locales.
-- Modo Busy protege Vision y runtimes locales; conserva proveedores remotos ya configurados.
-- Indicador de estado y controles de rendimiento adaptativo en Personalización.
-- Nueva frase configurable “Hey Nexo”.
-- “Hey Nexo, ¿qué es esto?” adquiere contexto visual de forma silenciosa y temporal.
-- Registro en `resource-governor.log` y nuevas pruebas de política.
-
 # Changelog
 
 Todos los cambios importantes de Nexo se documentarán aquí.

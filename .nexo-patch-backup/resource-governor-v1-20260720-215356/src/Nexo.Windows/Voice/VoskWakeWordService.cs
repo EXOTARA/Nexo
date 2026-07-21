@@ -585,8 +585,7 @@ public sealed class VoskWakeWordService : IWakeWordService
     private static string BuildGrammar(WakeWordPhrase phrase) => phrase switch
     {
         WakeWordPhrase.OyeNexo => "[\"oye nexo\", \"[unk]\"]",
-        WakeWordPhrase.HeyNexo => "[\"hey nexo\", \"ey nexo\", \"[unk]\"]",
-        _ => "[\"nexo\", \"oye nexo\", \"hey nexo\", \"ey nexo\", \"[unk]\"]"
+        _ => "[\"nexo\", \"oye nexo\", \"[unk]\"]"
     };
 
     private static string ReadRecognizedText(string? json, string propertyName)

@@ -458,29 +458,6 @@
                                                    FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>
-                                <Border x:Name="ResourceModeIndicator"
-                                        Margin="8,1,0,0"
-                                        Padding="8,3"
-                                        VerticalAlignment="Center"
-                                        Background="{DynamicResource BrushSurfaceRaised}"
-                                        BorderBrush="#2AFFFFFF"
-                                        BorderThickness="1"
-                                        CornerRadius="9"
-                                        Visibility="Collapsed">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Ellipse x:Name="ResourceModeDot"
-                                                 Width="7"
-                                                 Height="7"
-                                                 Margin="0,0,6,0"
-                                                 VerticalAlignment="Center"
-                                                 Fill="{DynamicResource BrushWarning}" />
-                                        <TextBlock x:Name="ResourceModeText"
-                                                   Text="Equipo ocupado"
-                                                   Foreground="{DynamicResource BrushTextSecondary}"
-                                                   FontSize="10.5"
-                                                   FontWeight="SemiBold" />
-                                    </StackPanel>
-                                </Border>
                             </StackPanel>
                             <TextBlock x:Name="WorkspaceSubtitleText"
                                        Margin="0,5,0,0"

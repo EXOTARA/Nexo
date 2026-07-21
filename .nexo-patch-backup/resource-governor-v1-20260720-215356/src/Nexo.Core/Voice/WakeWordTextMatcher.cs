@@ -11,8 +11,7 @@ public static class WakeWordTextMatcher
         return phrase switch
         {
             WakeWordPhrase.OyeNexo => normalized == "oye nexo",
-            WakeWordPhrase.HeyNexo => normalized is "hey nexo" or "ey nexo",
-            _ => normalized is "nexo" or "oye nexo" or "hey nexo" or "ey nexo"
+            _ => normalized is "nexo" or "oye nexo"
         };
     }
 
