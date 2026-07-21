@@ -79,6 +79,8 @@ public static class ResourceGovernorPolicy
             "explorer" or
             "searchhost" or
             "startmenuexperiencehost" or
+            "snippingtool" or
+            "screenclippinghost" or
             "shellexperiencehost";
     }
 }

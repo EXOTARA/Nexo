@@ -79,6 +79,23 @@ public sealed class ResourceGovernorPolicyTests
         Assert.Equal(ResourceMode.Normal, decision.Mode);
     }
 
+    [Theory]
+    [InlineData("SnippingTool")]
+    [InlineData("ScreenClippingHost")]
+    public void WindowsCaptureOverlay_IsNotTreatedAsGame(string processName)
+    {
+        var decision = ResourceGovernorPolicy.Evaluate(new ResourceGovernorInput(
+            CreateSnapshot(cpu: 10, memory: 30, gpu: 5),
+            IsForegroundFullScreen: true,
+            ForegroundProcessName: processName,
+            ForegroundWindowTitle: "Captura de pantalla",
+            IsOnBattery: false));
+
+        Assert.Equal(ResourceMode.Normal, decision.Mode);
+        Assert.False(decision.PauseWakeWord);
+        Assert.True(decision.AllowVision);
+    }
+
     private static SystemSnapshot CreateSnapshot(
         double cpu,
         double memory,
