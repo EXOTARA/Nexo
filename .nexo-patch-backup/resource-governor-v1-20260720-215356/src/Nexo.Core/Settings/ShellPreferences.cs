@@ -74,12 +74,6 @@ public sealed class ShellPreferences
 
     public bool HasCompletedOnboarding { get; set; }
 
-    public bool ResourceGovernorEnabled { get; set; } = true;
-
-    public bool PauseWakeWordInGameMode { get; set; } = true;
-
-    public bool ProtectVisionWhenBusy { get; set; } = true;
-
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -155,14 +149,6 @@ public sealed class ShellPreferences
         {
             Width = Math.Max(Width, 700);
             SchemaVersion = 12;
-        }
-
-        if (SchemaVersion < 13)
-        {
-            ResourceGovernorEnabled = true;
-            PauseWakeWordInGameMode = true;
-            ProtectVisionWhenBusy = true;
-            SchemaVersion = 13;
         }
 
         Width = Math.Clamp(Width, 680, 820);

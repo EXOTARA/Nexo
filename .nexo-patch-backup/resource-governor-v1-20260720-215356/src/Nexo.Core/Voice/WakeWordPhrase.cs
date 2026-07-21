@@ -3,8 +3,7 @@ namespace Nexo.Core.Voice;
 public enum WakeWordPhrase
 {
     Nexo,
-    OyeNexo,
-    HeyNexo
+    OyeNexo
 }
 
 public static class WakeWordPhraseExtensions
@@ -12,7 +11,6 @@ public static class WakeWordPhraseExtensions
     public static string ToSpokenText(this WakeWordPhrase phrase) => phrase switch
     {
         WakeWordPhrase.OyeNexo => "Oye Nexo",
-        WakeWordPhrase.HeyNexo => "Hey Nexo",
         _ => "Nexo"
     };
 }

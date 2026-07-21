@@ -28,9 +28,6 @@ public partial class SettingsView : UserControl
     public event Action<string>? AiApiKeyEnvironmentVariableChanged;
     public event Action<bool>? ShareSystemMetricsWithAiChanged;
     public event Action<bool>? VisionEnabledChanged;
-    public event Action<bool>? ResourceGovernorEnabledChanged;
-    public event Action<bool>? PauseWakeWordInGameModeChanged;
-    public event Action<bool>? ProtectVisionWhenBusyChanged;
     public event Action<bool>? StartWithWindowsChanged;
     public event Action<bool>? MinimizeToTrayChanged;
     public event Action<bool>? WindowsNotificationsChanged;
@@ -69,17 +66,12 @@ public partial class SettingsView : UserControl
         WakeWordEnabledCheckBox.IsChecked = preferences.WakeWordEnabled;
         WakeWordNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.Nexo;
         WakeWordOyeNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.OyeNexo;
-        WakeWordHeyNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.HeyNexo;
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
         AiApiKeyVariableTextBox.Text = preferences.AiApiKeyEnvironmentVariable;
         ShareSystemMetricsWithAiCheckBox.IsChecked = preferences.ShareSystemMetricsWithAi;
         VisionEnabledCheckBox.IsChecked = preferences.VisionEnabled;
-        ResourceGovernorEnabledCheckBox.IsChecked = preferences.ResourceGovernorEnabled;
-        PauseWakeWordInGameModeCheckBox.IsChecked = preferences.PauseWakeWordInGameMode;
-        ProtectVisionWhenBusyCheckBox.IsChecked = preferences.ProtectVisionWhenBusy;
-        UpdateResourceGovernorOptionsAvailability();
         StartWithWindowsCheckBox.IsChecked = preferences.StartWithWindows;
         MinimizeToTrayCheckBox.IsChecked = preferences.MinimizeToTray;
         WindowsNotificationsCheckBox.IsChecked = preferences.ShowWindowsNotifications;
@@ -194,49 +186,6 @@ public partial class SettingsView : UserControl
         {
             VisionEnabledChanged?.Invoke(VisionEnabledCheckBox.IsChecked == true);
         }
-    }
-
-    private void ResourceGovernorCheckBox_Changed(object sender, RoutedEventArgs e)
-    {
-        if (ResourceGovernorEnabledCheckBox is null)
-        {
-            return;
-        }
-
-        UpdateResourceGovernorOptionsAvailability();
-        if (_isApplyingPreferences)
-        {
-            return;
-        }
-
-        if (sender == ResourceGovernorEnabledCheckBox)
-        {
-            ResourceGovernorEnabledChanged?.Invoke(
-                ResourceGovernorEnabledCheckBox.IsChecked == true);
-        }
-        else if (sender == PauseWakeWordInGameModeCheckBox)
-        {
-            PauseWakeWordInGameModeChanged?.Invoke(
-                PauseWakeWordInGameModeCheckBox.IsChecked == true);
-        }
-        else if (sender == ProtectVisionWhenBusyCheckBox)
-        {
-            ProtectVisionWhenBusyChanged?.Invoke(
-                ProtectVisionWhenBusyCheckBox.IsChecked == true);
-        }
-    }
-
-    private void UpdateResourceGovernorOptionsAvailability()
-    {
-        if (PauseWakeWordInGameModeCheckBox is null ||
-            ProtectVisionWhenBusyCheckBox is null)
-        {
-            return;
-        }
-
-        var enabled = ResourceGovernorEnabledCheckBox.IsChecked == true;
-        PauseWakeWordInGameModeCheckBox.IsEnabled = enabled;
-        ProtectVisionWhenBusyCheckBox.IsEnabled = enabled;
     }
 
     private void SpeakVoiceResponsesCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -524,9 +473,7 @@ public partial class SettingsView : UserControl
 
         var value = phrase.Equals("OyeNexo", StringComparison.OrdinalIgnoreCase)
             ? WakeWordPhrase.OyeNexo
-            : phrase.Equals("HeyNexo", StringComparison.OrdinalIgnoreCase)
-                ? WakeWordPhrase.HeyNexo
-                : WakeWordPhrase.Nexo;
+            : WakeWordPhrase.Nexo;
         WakeWordPhraseChanged?.Invoke(value);
     }
 
@@ -540,7 +487,6 @@ public partial class SettingsView : UserControl
         var enabled = WakeWordEnabledCheckBox.IsChecked == true;
         WakeWordNexoRadioButton.IsEnabled = enabled;
         WakeWordOyeNexoRadioButton.IsEnabled = enabled;
-        WakeWordHeyNexoRadioButton.IsEnabled = enabled;
     }
 
     private void UpdatePeekOptionsAvailability()

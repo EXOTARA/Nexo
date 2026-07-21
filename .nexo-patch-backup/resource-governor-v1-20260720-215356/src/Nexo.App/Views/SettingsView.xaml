@@ -276,7 +276,7 @@
                 <TextBlock Margin="0,0,0,7"
                            Text="Frase de activación"
                            FontWeight="SemiBold" />
-                <WrapPanel>
+                <StackPanel Orientation="Horizontal">
                     <RadioButton x:Name="WakeWordNexoRadioButton"
                                  GroupName="WakeWordPhrase"
                                  Content="Nexo"
@@ -288,39 +288,11 @@
                                  Content="Oye Nexo"
                                  Tag="OyeNexo"
                                  Checked="WakeWordPhraseRadioButton_Checked" />
-                    <RadioButton x:Name="WakeWordHeyNexoRadioButton"
-                                 Margin="18,0,0,0"
-                                 GroupName="WakeWordPhrase"
-                                 Content="Hey Nexo"
-                                 Tag="HeyNexo"
-                                 Checked="WakeWordPhraseRadioButton_Checked" />
-                </WrapPanel>
+                </StackPanel>
             </StackPanel>
 
             <TextBlock Margin="24,8,0,0"
                        Text="La escucha se realiza localmente y es opcional. Mientras está activa, el modelo ligero de Vosk puede usar alrededor de 300 MB de RAM. Whisper solo se carga después de detectar la frase."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-
-            <TextBlock Margin="0,20,0,9"
-                       Text="Rendimiento adaptativo"
-                       FontWeight="SemiBold" />
-            <CheckBox x:Name="ResourceGovernorEnabledCheckBox"
-                      Content="Adaptar Nexo al uso de CPU, GPU y pantalla completa"
-                      Checked="ResourceGovernorCheckBox_Changed"
-                      Unchecked="ResourceGovernorCheckBox_Changed" />
-            <CheckBox x:Name="PauseWakeWordInGameModeCheckBox"
-                      Margin="24,9,0,0"
-                      Content="Pausar la activación por voz en Modo Juego"
-                      Checked="ResourceGovernorCheckBox_Changed"
-                      Unchecked="ResourceGovernorCheckBox_Changed" />
-            <CheckBox x:Name="ProtectVisionWhenBusyCheckBox"
-                      Margin="24,9,0,0"
-                      Content="Pausar Mirar cuando el equipo esté ocupado"
-                      Checked="ResourceGovernorCheckBox_Changed"
-                      Unchecked="ResourceGovernorCheckBox_Changed" />
-            <TextBlock Margin="24,8,0,0"
-                       Text="Los comandos locales siempre permanecen disponibles. Nexo vuelve al modo normal automáticamente."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 

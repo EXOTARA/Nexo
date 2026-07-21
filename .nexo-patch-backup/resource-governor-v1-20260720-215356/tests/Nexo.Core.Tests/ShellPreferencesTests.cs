@@ -46,7 +46,7 @@ public sealed class ShellPreferencesTests
         preferences.Normalize();
 
         Assert.Equal(700, preferences.Width);
-        Assert.Equal(13, preferences.SchemaVersion);
+        Assert.Equal(12, preferences.SchemaVersion);
     }
 
 
@@ -104,24 +104,5 @@ public void Normalize_ClampsConversationMessageLimit()
     Assert.True(preferences.SaveConversationHistory);
     Assert.Equal(30, preferences.RecentConversationMessageLimit);
     }
-    [Fact]
-    public void Normalize_EnablesResourceProtectionForLegacySettings()
-    {
-        var preferences = new ShellPreferences
-        {
-            SchemaVersion = 12,
-            ResourceGovernorEnabled = false,
-            PauseWakeWordInGameMode = false,
-            ProtectVisionWhenBusy = false
-        };
-
-        preferences.Normalize();
-
-        Assert.Equal(13, preferences.SchemaVersion);
-        Assert.True(preferences.ResourceGovernorEnabled);
-        Assert.True(preferences.PauseWakeWordInGameMode);
-        Assert.True(preferences.ProtectVisionWhenBusy);
-    }
-
 }
 
