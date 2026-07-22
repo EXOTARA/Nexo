@@ -1,4 +1,5 @@
 using Nexo.Core.Ai;
+using Nexo.Core.Voice;
 using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
 
 namespace Nexo.Core.Settings;
@@ -18,7 +19,7 @@ public sealed class ShellPreferences
 
     public double Opacity { get; set; } = 0.96;
 
-    public string AccentColor { get; set; } = "#8B6CFF";
+    public string AccentColor { get; set; } = "#E98AAF";
 
     public bool AnimationsEnabled { get; set; } = true;
 
@@ -50,7 +51,7 @@ public sealed class ShellPreferences
 
     public bool WakeWordEnabled { get; set; }
 
-    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.Nexo;
+    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.OyeKohana;
 
     public AiProviderKind AiProvider { get; set; } = AiProviderKind.Disabled;
 
@@ -104,7 +105,7 @@ public sealed class ShellPreferences
         if (SchemaVersion < 5)
         {
             WakeWordEnabled = false;
-            WakeWordPhrase = WakePhrase.Nexo;
+            WakeWordPhrase = WakePhrase.OyeKohana;
             SchemaVersion = 5;
         }
 
@@ -165,6 +166,23 @@ public sealed class ShellPreferences
             SchemaVersion = 13;
         }
 
+        if (SchemaVersion < 14)
+        {
+            // La etapa Kohana conserva compatibilidad con archivos antiguos,
+            // pero recomienda una frase más distintiva para reducir activaciones accidentales.
+            if (WakeWordPhrase.IsLegacy())
+            {
+                WakeWordPhrase = WakePhrase.OyeKohana;
+            }
+
+            if (string.Equals(AccentColor, "#8B6CFF", StringComparison.OrdinalIgnoreCase))
+            {
+                AccentColor = "#E98AAF";
+            }
+
+            SchemaVersion = 14;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -174,7 +192,7 @@ public sealed class ShellPreferences
 
         if (!Enum.IsDefined(WakeWordPhrase))
         {
-            WakeWordPhrase = WakePhrase.Nexo;
+            WakeWordPhrase = WakePhrase.OyeKohana;
         }
 
         if (!Enum.IsDefined(AiProvider))
@@ -204,7 +222,7 @@ public sealed class ShellPreferences
 
         if (string.IsNullOrWhiteSpace(AccentColor))
         {
-            AccentColor = "#8B6CFF";
+            AccentColor = "#E98AAF";
         }
     }
 }

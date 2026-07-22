@@ -1,57 +1,76 @@
-## Voice Reliability v1
-
-- “Hey Nexo” acepta variantes frecuentes de reconocimiento como `ey`, `ei`, `ahí` y `neso`.
-- El traspaso Vosk → Whisper conserva audio previo y una ventana posterior separada.
-- La orden puede durar hasta 20 segundos y solo termina después de 1.5 segundos de silencio.
-- Una ventana protegida de 2.5 segundos evita que la cola de la frase de activación corte la consulta.
-- Detección de voz con confirmación temporal, umbral más sensible e histéresis.
-- El micrófono manual cambia a pulsar para iniciar y pulsar para terminar.
-- Prompt de Whisper ampliado para preguntas visuales y conversación natural.
-- Métricas privadas de captura en `voice-capture.log`, sin audio ni transcripciones.
-
-## Resource Governor v1 + Silent Voice Look
-
-- Estados Normal, Busy y Game basados en pantalla completa y uso de CPU/GPU/RAM.
-- Modo Juego pausa wake word, Vision, IA y cápsulas transitorias sin bloquear comandos locales.
-- Modo Busy protege Vision y runtimes locales; conserva proveedores remotos ya configurados.
-- Indicador de estado y controles de rendimiento adaptativo en Personalización.
-- Nueva frase configurable “Hey Nexo”.
-- “Hey Nexo, ¿qué es esto?” adquiere contexto visual de forma silenciosa y temporal.
-- Registro en `resource-governor.log` y nuevas pruebas de política.
-
 # Changelog
 
-Todos los cambios importantes de Nexo se documentarán aquí.
+Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.
 
-## [Sin publicar]
+## 0.9.3-beta — Sakura Shell + Chat Refresh
 
-- Nuevo **Look Mode** con `Ctrl + Shift + Espacio`: Nexo observa en memoria la ventana activa y abre contexto visual temporal sin selector manual.
-- El contexto visual permanece hasta dos minutos para hacer preguntas consecutivas y adjunta aplicación, título y dimensiones visibles.
-- El compositor del asistente se simplifica a un campo principal con acciones visuales compactas para Mirar, voz y enviar.
-- La paleta deja de reemplazar físicamente lo escrito: `Backspace` vuelve a comportarse de forma natural y `Tab` acepta la sugerencia.
-- Las entradas recientes incompletas se normalizan hacia su acción canónica, por ejemplo `desca` → `abre descargas`.
-- `Esc` limpia primero la paleta y una segunda pulsación la cierra.
-- La barra lateral contraída usa botones realmente compactos para conservar esquinas redondeadas y evitar selecciones recortadas.
-- Nuevo slider visual propio y migración del workspace a un ancho legible entre 680 y 820 px.
+### Agregado
 
-- Nuevo **Nexo Shell v4** con Inicio tipo bento y workspace separado de la paleta.
-- La barra lateral ahora empuja el contenido al expandirse y deja de cubrir el módulo activo.
-- Navegación con iconos vectoriales consistentes y una entrada Inicio dedicada.
-- Encabezado contextual por módulo y acceso compacto a `Ctrl + Espacio`.
-- Inicio con pendientes, enfoque, contexto rápido y actividad reciente de la sesión.
-- Migración visual a un ancho de workspace entre 600 y 760 px.
-- Nueva base visual **Obsidian Bloom** con tipografía e iconos más legibles.
-- Barra lateral expandible por clic, sin reducir el espacio permanente de trabajo.
-- Paleta sin animación de escala para conservar texto nítido al aparecer.
-- Entrada inteligente: comandos claros se ejecutan y prompts naturales se envían completos.
-- `Ctrl + Enter` fuerza una consulta y `Shift + Enter` permite prompts multilínea.
-- Scrollbars compactas, tooltips oscuros y estados de foco consistentes.
-- Ancho mínimo protegido para evitar recortes en la nueva navegación.
-- La copia privada de Ollama se inicia automáticamente al abrir Nexo.
-- El runtime local se supervisa y se recupera si deja de responder.
-- Las consultas abiertas reintentan el arranque del motor antes de fallar.
-- Ollama se mantiene activo al ocultar Nexo y se detiene al salir completamente.
-- Registro local de diagnóstico en `%LocalAppData%\Nexo\Logs\ollama-runtime.log`.
+- Pantalla inicial de chat con acciones rápidas para PowerShell, pendientes, enfoque y Vision.
+- Composer de conversación rediseñado con placeholder, acceso visual, voz y envío.
+- Set vectorial Kohana Core Modules para navegación consistente.
+- Acento azul frío secundario para equilibrar la identidad sakura.
+
+### Cambiado
+
+- Paleta Sakura Premium más neutral y con menos rosa dominante.
+- Logo público reemplazado por una marca floral lineal inspirada en el sistema de Figma.
+- Navegación lateral unificada con trazos funcionales de 1.65 px.
+- Burbujas de conversación más amplias y legibles.
+- Los nombres internos de streaming ahora usan Kohana, conservando aliases temporales de Nexo.
+- El catálogo de voz acepta Kohana, Oye Kohana, Hey Kohana y aliases heredados de Nexo.
+
+### Corregido
+
+- Prueba de comandos de audio que todavía esperaba únicamente el alias Nexo.
+- Contraste insuficiente en iconos, bordes y textos secundarios.
+
+## 0.9.2-beta — Kohana Brand Foundation
+
+### Agregado
+
+- Identidad pública centralizada mediante `ProductIdentity`.
+- Nombre, lema y mensajes visibles de Kohana en Hub, Capsule, Peek, onboarding y bandeja.
+- Diseño Sakura Fluent con nueva paleta grafito y acento rosa sakura.
+- Logo floral vectorial y recursos PNG/ICO para aplicación e instalador.
+- Ejecutable y artefactos públicos `Kohana.exe` y `Kohana-*-portable.zip`.
+- Wake words `Kohana`, `Oye Kohana` y `Hey Kohana`.
+- Compatibilidad temporal con las frases anteriores de Nexo.
+- Migración conservadora de `%LocalAppData%\Nexo` a `%LocalAppData%\Kohana`.
+- Scripts, instalador, CI, release workflow y documentación actualizados.
+
+### Cambiado
+
+- Esquema de preferencias actualizado a 14.
+- El color predeterminado migra del morado anterior al acento sakura.
+- Los valores antiguos de wake word migran a `Oye Kohana`.
+- El inicio con Windows registra Kohana y limpia la entrada heredada al activarse.
+- La instancia única usa identificadores de Kohana.
+- Buscar actualizaciones conserva temporalmente `EXOTARA/Nexo` como repositorio estable.
+
+### Compatibilidad
+
+- Los namespaces y la solución siguen llamándose `Nexo.*` y `Nexo.slnx` durante esta etapa.
+- La carpeta anterior de datos no se elimina ni se sobrescribe.
+- El Resource Governor ignora tanto `Kohana.exe` como `Nexo.exe` en pantalla completa.
+
+## Mejoras integradas antes del cambio de marca
+
+### Voice Reliability v1
+
+- Variantes frecuentes para la frase de activación.
+- Traspaso Vosk → Whisper con audio previo y ventana posterior separada.
+- Orden de hasta 20 segundos y final después de 1.5 segundos de silencio.
+- Protección para que la cola de la frase de activación no corte la consulta.
+- Micrófono manual con pulsar para iniciar y pulsar para terminar.
+- Métricas privadas en `voice-capture.log`, sin audio ni transcripciones.
+
+### Resource Governor v1 y Silent Voice Look
+
+- Estados Normal, Busy y Game basados en pantalla completa y CPU/GPU/RAM.
+- Modo Juego protege wake word, Vision, IA y cápsulas transitorias.
+- Exclusión de SnippingTool y ScreenClippingHost para evitar falsos positivos.
+- Look Mode con contexto visual temporal y silencioso.
 
 ## 0.9.0-beta - Primera edición distribuible
 

@@ -1,7 +1,7 @@
 <Window x:Class="Nexo.App.OnboardingWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Configurar Nexo"
+        Title="Configurar Kohana"
         Width="680"
         Height="610"
         MinWidth="620"
@@ -23,12 +23,25 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock Text="NEXO"
-                           Foreground="{DynamicResource BrushAccent}"
-                           FontSize="14"
-                           FontWeight="Bold" />
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Width="24"
+                                    Height="24"
+                                    Margin="0,0,9,0"
+                                    Foreground="{DynamicResource BrushAccent}"
+                                    Style="{StaticResource KohanaFlowerMarkStyle}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="KOHANA"
+                                   Foreground="{DynamicResource BrushAccent}"
+                                   FontSize="13"
+                                   FontWeight="Bold" />
+                        <TextBlock Text="Tu Windows, en flor."
+                                   Margin="0,1,0,0"
+                                   Foreground="{DynamicResource BrushTextTertiary}"
+                                   FontSize="10.5" />
+                    </StackPanel>
+                </StackPanel>
                 <TextBlock x:Name="StepTitleText"
-                           Margin="0,6,0,0"
+                           Margin="0,10,0,0"
                            Text="Bienvenido"
                            Style="{StaticResource SectionTitleStyle}" />
             </StackPanel>
@@ -46,14 +59,14 @@
                                FontSize="24"
                                FontWeight="SemiBold" />
                     <TextBlock Margin="0,12,0,0"
-                               Text="Nexo puede responder con IA local, escuchar órdenes, analizar una ventana, administrar tareas, temporizadores y rutinas sin obligarte a usar servicios de pago."
+                               Text="Kohana puede responder con IA local, escuchar órdenes, analizar una ventana, administrar tareas, temporizadores y rutinas sin obligarte a usar servicios de pago."
                                TextWrapping="Wrap"
                                FontSize="14" />
                     <Border Margin="0,22,0,0" Style="{StaticResource SubtleCardStyle}">
                         <StackPanel>
                             <TextBlock Text="Durante esta configuración" FontWeight="SemiBold" />
                             <TextBlock Margin="0,8,0,0"
-                                       Text="• Elegirás el micrófono.&#x0a;• Nexo preparará la IA local con un solo botón.&#x0a;• Revisarás privacidad y funcionamiento en segundo plano."
+                                       Text="• Elegirás el micrófono.&#x0a;• Kohana preparará la IA local con un solo botón.&#x0a;• Revisarás privacidad y funcionamiento en segundo plano."
                                        TextWrapping="Wrap"
                                        Style="{StaticResource MutedTextStyle}" />
                         </StackPanel>
@@ -81,7 +94,7 @@
                                Style="{StaticResource MutedTextStyle}" />
                     <CheckBox x:Name="WakeWordCheckBox"
                               Margin="0,22,0,0"
-                              Content="Activar la frase “Nexo” (experimental)" />
+                              Content="Activar la frase “Oye Kohana” (experimental)" />
                     <TextBlock Margin="24,7,0,0"
                                Text="Puedes dejarla desactivada y usar el botón Mic."
                                Style="{StaticResource MutedTextStyle}" />
@@ -90,7 +103,7 @@
                 <StackPanel x:Name="AiPanel" Visibility="Collapsed">
                     <TextBlock Text="IA local" FontSize="22" FontWeight="SemiBold" />
                     <TextBlock Margin="0,6,0,16"
-                               Text="Nexo puede preparar su propia IA local sin pedirte instalar programas ni usar PowerShell."
+                               Text="Kohana puede preparar su propia IA local sin pedirte instalar programas ni usar PowerShell."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -160,7 +173,7 @@
                             Style="{StaticResource SecondaryButtonStyle}"
                             Click="ManageModelsButton_Click" />
                     <Border Margin="0,20,0,0" Style="{StaticResource SubtleCardStyle}">
-                        <TextBlock Text="Nexo recomienda qwen3.5:4b: funciona con texto e imágenes y mantiene un tamaño razonable para un equipo medio."
+                        <TextBlock Text="Kohana recomienda qwen3.5:4b: funciona con texto e imágenes y mantiene un tamaño razonable para un equipo medio."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                     </Border>
@@ -174,10 +187,10 @@
                                Style="{StaticResource MutedTextStyle}" />
                     <CheckBox x:Name="VisionCheckBox"
                               Margin="0,0,0,12"
-                              Content="Permitir capturas bajo demanda con Nexo Vision" />
+                              Content="Permitir capturas bajo demanda con Kohana Vision" />
                     <CheckBox x:Name="StartWithWindowsCheckBox"
                               Margin="0,0,0,12"
-                              Content="Iniciar Nexo con Windows" />
+                              Content="Iniciar Kohana con Windows" />
                     <CheckBox x:Name="MinimizeToTrayCheckBox"
                               Margin="0,0,0,12"
                               Content="Ocultar en la bandeja al cerrar" />

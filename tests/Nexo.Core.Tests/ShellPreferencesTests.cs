@@ -46,7 +46,7 @@ public sealed class ShellPreferencesTests
         preferences.Normalize();
 
         Assert.Equal(700, preferences.Width);
-        Assert.Equal(13, preferences.SchemaVersion);
+        Assert.Equal(14, preferences.SchemaVersion);
     }
 
 
@@ -60,7 +60,7 @@ public sealed class ShellPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal("#8B6CFF", preferences.AccentColor);
+        Assert.Equal("#E98AAF", preferences.AccentColor);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public void Normalize_ClampsConversationMessageLimit()
 
         preferences.Normalize();
 
-        Assert.Equal(13, preferences.SchemaVersion);
+        Assert.Equal(14, preferences.SchemaVersion);
         Assert.True(preferences.ResourceGovernorEnabled);
         Assert.True(preferences.PauseWakeWordInGameMode);
         Assert.True(preferences.ProtectVisionWhenBusy);

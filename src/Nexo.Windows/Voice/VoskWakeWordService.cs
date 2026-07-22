@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text.Json;
 using NAudio;
 using NAudio.Wave;
+using Nexo.Core.Diagnostics;
 using Nexo.Core.Voice;
 using Vosk;
 
@@ -60,11 +61,7 @@ public sealed class VoskWakeWordService : IWakeWordService
 
     public VoskWakeWordService()
     {
-        _modelsRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Nexo",
-            "Models",
-            "Vosk");
+        _modelsRoot = NexoDataPaths.VoskModelsDirectory;
         _modelDirectory = Path.Combine(_modelsRoot, ModelName);
         IsReady = IsUsableModelDirectory();
     }
@@ -101,7 +98,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             progress?.Report(VoicePreparationProgress.Preparing(
-                "Preparando la activación por “Nexo”…"));
+                "Preparando la activación por “Kohana”…"));
 
             Directory.CreateDirectory(_modelsRoot);
             var archivePath = Path.Combine(_modelsRoot, ModelName + ".zip.download");
@@ -165,7 +162,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             progress?.Report(VoicePreparationProgress.Preparing(
-                "Instalando el detector local de la palabra Nexo…"));
+                "Instalando el detector local de la palabra Kohana…"));
 
             Directory.CreateDirectory(stagingDirectory);
             ZipFile.ExtractToDirectory(archivePath, stagingDirectory, overwriteFiles: true);
@@ -298,7 +295,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             return VoiceStartResult.Unavailable(
-                "No pude iniciar la escucha de la palabra Nexo. Revisa el micrófono y la arquitectura de Windows.");
+                "No pude iniciar la escucha de la palabra Kohana. Revisa el micrófono y la arquitectura de Windows.");
         }
     }
 
@@ -641,6 +638,16 @@ public sealed class VoskWakeWordService : IWakeWordService
 
     private static string BuildGrammar(WakeWordPhrase phrase) => phrase switch
     {
+        WakeWordPhrase.OyeKohana =>
+            "[\"oye kohana\", \"oi kohana\", \"oye koana\", " +
+            "\"oi koana\", \"oye cohana\", \"oye nexo\", \"oi nexo\", \"[unk]\"]",
+        WakeWordPhrase.HeyKohana =>
+            "[\"hey kohana\", \"ey kohana\", \"ei kohana\", \"ai kohana\", " +
+            "\"ahi kohana\", \"hey koana\", \"hey nexo\", \"ey nexo\", \"[unk]\"]",
+        WakeWordPhrase.Kohana =>
+            "[\"kohana\", \"koana\", \"cohana\", \"kojana\", " +
+            "\"oye kohana\", \"oi kohana\", \"hey kohana\", \"ey kohana\", " +
+            "\"nexo\", \"oye nexo\", \"hey nexo\", \"[unk]\"]",
         WakeWordPhrase.OyeNexo =>
             "[\"oye nexo\", \"oi nexo\", \"[unk]\"]",
         WakeWordPhrase.HeyNexo =>

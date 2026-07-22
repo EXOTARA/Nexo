@@ -49,7 +49,7 @@ public sealed class OllamaRuntimeService :
                 OllamaRuntimeState.ManagedRunning,
                 OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
-                "La IA local administrada por Nexo está funcionando.");
+                "La IA local administrada por Kohana está funcionando.");
         }
 
         if (await IsEndpointRunningAsync(
@@ -69,14 +69,14 @@ public sealed class OllamaRuntimeService :
                 OllamaRuntimeState.ManagedInstalled,
                 OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
-                "La IA local de Nexo está instalada, pero no está iniciada.");
+                "La IA local de Kohana está instalada, pero no está iniciada.");
         }
 
         return new OllamaRuntimeSnapshot(
             OllamaRuntimeState.Unavailable,
             OllamaRuntimeEndpoints.ManagedBaseUrl,
             null,
-            "Ollama no está disponible. Nexo puede instalarlo por ti.");
+            "Ollama no está disponible. Kohana puede instalarlo por ti.");
     }
 
     public async Task<OllamaRuntimeSnapshot> InstallManagedAsync(
@@ -180,7 +180,7 @@ public sealed class OllamaRuntimeService :
             if (!File.Exists(_managedExecutablePath))
             {
                 return InstallationFailure(
-                    "La instalación terminó, pero Nexo no encontró ollama.exe.");
+                    "La instalación terminó, pero Kohana no encontró ollama.exe.");
             }
 
             progress?.Report(new OllamaRuntimeInstallProgress(
@@ -254,7 +254,7 @@ public sealed class OllamaRuntimeService :
                 OllamaRuntimeState.ManagedRunning,
                 OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
-                "La IA local administrada por Nexo está funcionando.");
+                "La IA local administrada por Kohana está funcionando.");
         }
 
         if (!File.Exists(_managedExecutablePath))
@@ -324,7 +324,7 @@ public sealed class OllamaRuntimeService :
                 OllamaRuntimeState.ManagedRunning,
                 OllamaRuntimeEndpoints.ManagedBaseUrl,
                 _managedExecutablePath,
-                "La IA local administrada por Nexo está funcionando.");
+                "La IA local administrada por Kohana está funcionando.");
         }
         catch (OperationCanceledException)
         {
@@ -420,7 +420,7 @@ public sealed class OllamaRuntimeService :
                     OllamaRuntimeState.ManagedRunning,
                     OllamaRuntimeEndpoints.ManagedBaseUrl,
                     _managedExecutablePath,
-                    "No pude detener la IA local administrada por Nexo.");
+                    "No pude detener la IA local administrada por Kohana.");
             }
 
             return File.Exists(_managedExecutablePath)
@@ -428,7 +428,7 @@ public sealed class OllamaRuntimeService :
                     OllamaRuntimeState.ManagedInstalled,
                     OllamaRuntimeEndpoints.ManagedBaseUrl,
                     _managedExecutablePath,
-                    "La IA local administrada por Nexo se detuvo correctamente.")
+                    "La IA local administrada por Kohana se detuvo correctamente.")
                 : InstallationFailure("La IA local no está instalada.");
         }
         catch (OperationCanceledException)
@@ -461,7 +461,7 @@ public sealed class OllamaRuntimeService :
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             LatestReleaseApi);
-        request.Headers.UserAgent.ParseAdd("Nexo/0.10");
+        request.Headers.UserAgent.ParseAdd("Kohana/0.10");
         request.Headers.Accept.ParseAdd("application/vnd.github+json");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
@@ -536,7 +536,7 @@ public sealed class OllamaRuntimeService :
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             asset.DownloadUrl);
-        request.Headers.UserAgent.ParseAdd("Nexo/0.10");
+        request.Headers.UserAgent.ParseAdd("Kohana/0.10");
 
         using var response = await _httpClient.SendAsync(
             request,

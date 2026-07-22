@@ -20,7 +20,10 @@ public sealed class SpanishVoiceCommandCatalogTests
         var phrases = SpanishVoiceCommandCatalog.CreatePhrases();
 
         Assert.Contains("pon discord al veinticinco por ciento", phrases);
+        Assert.Contains("kohana pon discord al veinticinco por ciento", phrases);
+        Assert.Contains("oye kohana pon discord al veinticinco por ciento", phrases);
         Assert.Contains("nexo pon discord al veinticinco por ciento", phrases);
+        Assert.Contains("oye nexo pon discord al veinticinco por ciento", phrases);
         Assert.Contains("exo pon discord al veinticinco por ciento", phrases);
     }
 

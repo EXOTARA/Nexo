@@ -75,6 +75,7 @@ public static class ResourceGovernorPolicy
         }
 
         return processName.Trim().ToLowerInvariant() is
+            "kohana" or
             "nexo" or
             "explorer" or
             "searchhost" or

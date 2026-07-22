@@ -1,4 +1,5 @@
 using System.Reflection;
+using Nexo.Core.Branding;
 
 namespace Nexo.App;
 
@@ -23,13 +24,22 @@ public static class ReleaseMetadata
         }
     }
 
-    public static string RepositoryUrl =>
-        typeof(App).Assembly
-            .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .FirstOrDefault(attribute =>
-                string.Equals(
-                    attribute.Key,
-                    "RepositoryUrl",
-                    StringComparison.OrdinalIgnoreCase))?
-            .Value ?? string.Empty;
+    public static string RepositoryUrl
+    {
+        get
+        {
+            var configured = typeof(App).Assembly
+                .GetCustomAttributes<AssemblyMetadataAttribute>()
+                .FirstOrDefault(attribute =>
+                    string.Equals(
+                        attribute.Key,
+                        "RepositoryUrl",
+                        StringComparison.OrdinalIgnoreCase))?
+                .Value;
+
+            return string.IsNullOrWhiteSpace(configured)
+                ? ProductIdentity.RepositoryUrl
+                : configured;
+        }
+    }
 }

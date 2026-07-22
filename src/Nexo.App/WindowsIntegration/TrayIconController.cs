@@ -1,3 +1,4 @@
+using Nexo.Core.Branding;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 
@@ -20,7 +21,7 @@ public sealed class TrayIconController : IDisposable
         ArgumentNullException.ThrowIfNull(exitRequested);
 
         _menu = new Forms.ContextMenuStrip();
-        var openItem = new Forms.ToolStripMenuItem("Abrir Nexo");
+        var openItem = new Forms.ToolStripMenuItem($"Abrir {ProductIdentity.ProductName}");
         var peekItem = new Forms.ToolStripMenuItem("Mostrar Peek");
         var exitItem = new Forms.ToolStripMenuItem("Salir completamente");
 
@@ -37,7 +38,7 @@ public sealed class TrayIconController : IDisposable
         _notifyIcon = new Forms.NotifyIcon
         {
             Icon = _applicationIcon,
-            Text = "Nexo — asistente local",
+            Text = $"{ProductIdentity.ProductName} — {ProductIdentity.AssistantDescription}",
             ContextMenuStrip = _menu,
             Visible = true
         };

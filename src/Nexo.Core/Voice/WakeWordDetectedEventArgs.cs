@@ -27,14 +27,14 @@ public sealed class WakeWordDetectedEventArgs : EventArgs
 
     /// <summary>
     /// PCM mono de 16 kHz y 16 bits capturado justo antes del traspaso a Whisper.
-    /// Se usa para no perder el inicio de órdenes como “Nexo, abre PowerShell”.
+    /// Se usa para no perder el inicio de órdenes como “Kohana, abre PowerShell”.
     /// </summary>
     public ReadOnlyMemory<byte> PreRollAudio => _preRollAudio;
 
     /// <summary>
     /// PCM capturado después de detectar la frase y antes de entregar el
     /// micrófono a Whisper. Sirve como evidencia de que la orden comenzó
-    /// inmediatamente después de “Hey Nexo”.
+    /// inmediatamente después de “Hey Kohana”.
     /// </summary>
     public ReadOnlyMemory<byte> PostWakeAudio => _postWakeAudio;
 }

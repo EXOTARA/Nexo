@@ -8,10 +8,10 @@ $root = Split-Path -Parent $PSScriptRoot
 $publishDirectory = Join-Path $root "artifacts\publish\$Runtime"
 
 $required = @(
-    "Nexo.exe",
-    "Nexo.dll",
-    "Nexo.deps.json",
-    "Nexo.runtimeconfig.json",
+    "Kohana.exe",
+    "Kohana.dll",
+    "Kohana.deps.json",
+    "Kohana.runtimeconfig.json",
     "Nexo.Core.dll",
     "Nexo.Windows.dll"
 )
@@ -30,7 +30,7 @@ $forbidden = Get-ChildItem $publishDirectory -Recurse -File | Where-Object {
         "tasks.json",
         "focus.json",
         "routines.json",
-        "conversation.json"
+        "conversation-history.json"
     ) -or
     $_.Extension -in @(".key", ".pfx")
 }
@@ -42,6 +42,6 @@ if ($forbidden) {
 $size = (Get-ChildItem $publishDirectory -Recurse -File |
     Measure-Object Length -Sum).Sum
 
-Write-Host "Publicación verificada."
+Write-Host "Publicación de Kohana verificada."
 Write-Host ("Archivos: {0}" -f (Get-ChildItem $publishDirectory -Recurse -File).Count)
 Write-Host ("Tamaño:   {0:N1} MB" -f ($size / 1MB))

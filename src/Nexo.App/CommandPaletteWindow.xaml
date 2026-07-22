@@ -1,7 +1,7 @@
 <Window x:Class="Nexo.App.CommandPaletteWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Comandos de Nexo"
+        Title="Comandos de Kohana"
         Width="720"
         SizeToContent="Height"
         WindowStyle="None"
@@ -399,7 +399,7 @@
                             <TextBlock Text="Movimiento"
                                        FontWeight="SemiBold"
                                        FontSize="14" />
-                            <TextBlock Text="Sutil por defecto; cambia la sensación sin recargar Nexo."
+                            <TextBlock Text="Sutil por defecto; cambia la sensación sin recargar Kohana."
                                        Margin="0,3,0,0"
                                        Style="{StaticResource MutedTextStyle}" />
                         </StackPanel>

@@ -17,7 +17,7 @@ public sealed partial class NaturalCommandParser
         }
 
         // Se normaliza antes y después de quitar la palabra de activación para
-        // aceptar frases como "oye Nexo, bájale a Spotify".
+        // aceptar frases como "oye Kohana, bájale a Spotify".
         normalized = SpanishCommandLexicon.NormalizeForParsing(normalized);
         normalized = RemoveWakeWord(normalized);
         normalized = SpanishCommandLexicon.NormalizeForParsing(normalized);
@@ -346,26 +346,8 @@ public sealed partial class NaturalCommandParser
     private static bool Matches(string value, params string[] options) =>
         options.Any(option => value.Equals(option, StringComparison.OrdinalIgnoreCase));
 
-    private static string RemoveWakeWord(string text)
-    {
-        if (text.Equals("nexo", StringComparison.OrdinalIgnoreCase) ||
-            text.Equals("exo", StringComparison.OrdinalIgnoreCase))
-        {
-            return string.Empty;
-        }
-
-        if (text.StartsWith("nexo ", StringComparison.OrdinalIgnoreCase))
-        {
-            return text[5..].Trim();
-        }
-
-        if (text.StartsWith("exo ", StringComparison.OrdinalIgnoreCase))
-        {
-            return text[4..].Trim();
-        }
-
-        return text;
-    }
+    private static string RemoveWakeWord(string text) =>
+        WakeWordPrefixRegex().Replace(text, string.Empty, 1).Trim();
 
     private static string CleanTarget(string target)
     {
@@ -420,6 +402,11 @@ public sealed partial class NaturalCommandParser
 
     [GeneratedRegex(@"^(?:abre|abreme|inicia|lanza|ejecuta)\s+(?:(?:el|la|los|las|mi|mis)\s+)?(?<target>.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex OpenTargetRegex();
+
+    [GeneratedRegex(
+        @"^(?:(?:oye|hey)\s+)?(?:kohana|nexo|exo)(?:\s+|$)",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex WakeWordPrefixRegex();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();

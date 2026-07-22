@@ -8,6 +8,7 @@ public sealed class SpanishFocusCommandParserTests
 
     [Theory]
     [InlineData("Abre enfoque")]
+    [InlineData("Kohana abre temporizador")]
     [InlineData("Nexo abre temporizador")]
     public void Parse_OpenFocus_IsRecognized(string text)
     {

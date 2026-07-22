@@ -26,7 +26,7 @@ public sealed record UpdateCheckResult(
             latestVersion,
             releaseName,
             releaseUrl,
-            "Ya tienes la versión más reciente de Nexo.");
+            "Ya tienes la versión más reciente de Kohana.");
 
     public static UpdateCheckResult Available(
         string currentVersion,

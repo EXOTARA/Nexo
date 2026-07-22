@@ -1,0 +1,77 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Responsive vector mark based on the Figma Sakura Premium direction. -->
+    <Geometry x:Key="KohanaPetalGeometry">M12,12 C9.3,9.6 8.6,6.2 12,3.8 C15.4,6.2 14.7,9.6 12,12 Z</Geometry>
+
+    <Style x:Key="KohanaFlowerMarkStyle" TargetType="ContentControl">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Foreground" Value="{DynamicResource BrushAccent}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Viewbox Stretch="Uniform">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="{StaticResource KohanaPetalGeometry}"
+                                  Fill="{TemplateBinding Foreground}"
+                                  Opacity="0.12"
+                                  Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="1.25"
+                                  StrokeLineJoin="Round" />
+                            <Path Data="{StaticResource KohanaPetalGeometry}"
+                                  Fill="{TemplateBinding Foreground}"
+                                  Opacity="0.12"
+                                  Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="1.25"
+                                  StrokeLineJoin="Round">
+                                <Path.RenderTransform><RotateTransform Angle="72" CenterX="12" CenterY="12" /></Path.RenderTransform>
+                            </Path>
+                            <Path Data="{StaticResource KohanaPetalGeometry}"
+                                  Fill="{TemplateBinding Foreground}"
+                                  Opacity="0.12"
+                                  Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="1.25"
+                                  StrokeLineJoin="Round">
+                                <Path.RenderTransform><RotateTransform Angle="144" CenterX="12" CenterY="12" /></Path.RenderTransform>
+                            </Path>
+                            <Path Data="{StaticResource KohanaPetalGeometry}"
+                                  Fill="{TemplateBinding Foreground}"
+                                  Opacity="0.12"
+                                  Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="1.25"
+                                  StrokeLineJoin="Round">
+                                <Path.RenderTransform><RotateTransform Angle="216" CenterX="12" CenterY="12" /></Path.RenderTransform>
+                            </Path>
+                            <Path Data="{StaticResource KohanaPetalGeometry}"
+                                  Fill="{TemplateBinding Foreground}"
+                                  Opacity="0.12"
+                                  Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="1.25"
+                                  StrokeLineJoin="Round">
+                                <Path.RenderTransform><RotateTransform Angle="288" CenterX="12" CenterY="12" /></Path.RenderTransform>
+                            </Path>
+                            <Ellipse Width="3.6" Height="3.6" Canvas.Left="10.2" Canvas.Top="10.2"
+                                     Fill="{DynamicResource BrushCoolBlue}" />
+                        </Canvas>
+                    </Viewbox>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Kohana Core Modules: functional first, floral only as a subtle geometry language. -->
+    <Geometry x:Key="IconKohanaHome">M3,11.8 L12,3.5 L21,11.8 M5,10.2 L5,21 L10,21 L10,15 L14,15 L14,21 L19,21 L19,10.2</Geometry>
+    <Geometry x:Key="IconKohanaAssistant">M5,3 L19,3 C20.1,3 21,3.9 21,5 L21,15 C21,16.1 20.1,17 19,17 L9,17 L4,21 L4,17.6 C3.4,17.2 3,16.5 3,15.7 L3,5 C3,3.9 3.9,3 5,3 Z M9,10 L15,10 M12,7 L12,13</Geometry>
+    <Geometry x:Key="IconKohanaTasks">M6,3 L18,3 C19.1,3 20,3.9 20,5 L20,19 C20,20.1 19.1,21 18,21 L6,21 C4.9,21 4,20.1 4,19 L4,5 C4,3.9 4.9,3 6,3 Z M7,12 L10.2,15.2 L17,8.5</Geometry>
+    <Geometry x:Key="IconKohanaFocus">M12,3 A9,9 0 1 1 11.999,3 M12,7 L12,12 L15.5,14.5</Geometry>
+    <Geometry x:Key="IconKohanaRoutines">M3,7 A2,2 0 1 0 7,7 A2,2 0 1 0 3,7 M10,12 A2,2 0 1 0 14,12 A2,2 0 1 0 10,12 M17,17 A2,2 0 1 0 21,17 A2,2 0 1 0 17,17 M7,7 L10.5,10.5 M13.5,13.5 L17,17</Geometry>
+    <Geometry x:Key="IconKohanaAudio">M9,5 C9,3.3 10.3,2 12,2 C13.7,2 15,3.3 15,5 L15,11 C15,12.7 13.7,14 12,14 C10.3,14 9,12.7 9,11 Z M5,10 C5,14.4 8.1,18 12,18 C15.9,18 19,14.4 19,10 M12,18 L12,22 M9,22 L15,22</Geometry>
+    <Geometry x:Key="IconKohanaCapture">M8,3 L5,3 C3.9,3 3,3.9 3,5 L3,8 M16,3 L19,3 C20.1,3 21,3.9 21,5 L21,8 M8,21 L5,21 C3.9,21 3,20.1 3,19 L3,16 M16,21 L19,21 C20.1,21 21,20.1 21,19 L21,16 M6,12 C8.1,8.9 15.9,8.9 18,12 C15.9,15.1 8.1,15.1 6,12 Z M10,12 A2,2 0 1 0 14,12 A2,2 0 1 0 10,12</Geometry>
+    <Geometry x:Key="IconKohanaSystem">M4,4 L20,4 C21.1,4 22,4.9 22,6 L22,16 C22,17.1 21.1,18 20,18 L4,18 C2.9,18 2,17.1 2,16 L2,6 C2,4.9 2.9,4 4,4 Z M7,21 L17,21 M12,18 L12,21 M5,11 L8,11 L10,7 L13,15 L15,11 L19,11</Geometry>
+    <Geometry x:Key="IconKohanaSettings">M4,6 L20,6 M4,12 L20,12 M4,18 L20,18 M7,4 A2,2 0 1 0 11,4 A2,2 0 1 0 7,4 M13,10 A2,2 0 1 0 17,10 A2,2 0 1 0 13,10 M7,16 A2,2 0 1 0 11,16 A2,2 0 1 0 7,16</Geometry>
+
+    <Geometry x:Key="IconKohanaLook">M3,12 C6.2,7.4 17.8,7.4 21,12 C17.8,16.6 6.2,16.6 3,12 Z M9,12 A3,3 0 1 0 15,12 A3,3 0 1 0 9,12</Geometry>
+    <Geometry x:Key="IconKohanaMic">M9,5 C9,3.3 10.3,2 12,2 C13.7,2 15,3.3 15,5 L15,11 C15,12.7 13.7,14 12,14 C10.3,14 9,12.7 9,11 Z M5,10 C5,14.4 8.1,18 12,18 C15.9,18 19,14.4 19,10 M12,18 L12,22 M9,22 L15,22</Geometry>
+    <Geometry x:Key="IconKohanaSend">M3,12 L21,4 L16,21 L11.5,14 Z M11.5,14 L21,4</Geometry>
+    <Geometry x:Key="IconKohanaPlus">M12,5 L12,19 M5,12 L19,12</Geometry>
+</ResourceDictionary>

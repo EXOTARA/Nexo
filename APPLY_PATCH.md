@@ -1,26 +1,16 @@
-# Aplicar Sprint 10
+# Aplicar Kohana 0.9.3-beta
 
-Copia únicamente el contenido de la carpeta `patch` sobre la raíz de
-`C:\Dev\Nexo` y acepta combinar/reemplazar archivos.
+1. Cierra Kohana y Nexo desde la bandeja.
+2. Extrae el ZIP encima del repositorio conservando `.git`.
+3. Limpia `bin` y `obj`.
+4. Ejecuta restore, test y build en Release.
+5. Abre `src\Nexo.App\bin\Release\net10.0-windows\Kohana.exe`.
 
-Antes de compilar, sal completamente de Nexo desde la bandeja.
+Pruebas manuales prioritarias:
 
-```powershell
-cd C:\Dev\Nexo
-dotnet restore .\Nexo.slnx
-dotnet build .\Nexo.slnx
-dotnet test .\Nexo.slnx
-```
-
-Para crear la edición portable:
-
-```powershell
-.\scripts\publish.ps1 -Version "0.9.0-beta"
-.\scripts\verify-release.ps1
-```
-
-Para el instalador, instala Inno Setup 6 y ejecuta:
-
-```powershell
-.\scripts\build-installer.ps1 -Version "0.9.0-beta"
-```
+- navegación y legibilidad de los nueve iconos;
+- pantalla vacía del chat y sus cuatro acciones rápidas;
+- Enter envía y Shift+Enter crea una línea nueva;
+- voz con Kohana, Oye Kohana y Nexo durante la transición;
+- captura de Windows sin falso Modo Juego;
+- icono de ventana y bandeja.

@@ -13,7 +13,7 @@ public sealed record NexoDiagnosticSnapshot(
     public string ToClipboardText()
     {
         var builder = new StringBuilder();
-        builder.AppendLine("Nexo · diagnóstico local");
+        builder.AppendLine("Kohana · diagnóstico local");
         builder.AppendLine($"Capturado: {CapturedAt:O}");
         builder.AppendLine($"Versión: {AppVersion}");
         builder.AppendLine($"Sistema: {OperatingSystem}");

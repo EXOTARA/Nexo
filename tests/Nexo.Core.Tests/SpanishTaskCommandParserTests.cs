@@ -70,12 +70,13 @@ public sealed class SpanishTaskCommandParserTests
         Assert.Equal("comprar alcohol", result.Title);
     }
 
-    [Fact]
-    public void Parse_SpokenHourWord_UsesCorrectHour()
+    [Theory]
+    [InlineData("Kohana recuérdame llamar a mamá hoy a las ocho pm")]
+    [InlineData("Oye Kohana recuérdame llamar a mamá hoy a las ocho pm")]
+    [InlineData("Nexo recuérdame llamar a mamá hoy a las ocho pm")]
+    public void Parse_SpokenHourWord_UsesCorrectHour(string input)
     {
-        var result = _parser.Parse(
-            "Nexo recuérdame llamar a mamá hoy a las ocho pm",
-            ReferenceNow);
+        var result = _parser.Parse(input, ReferenceNow);
 
         Assert.Equal(TaskCommandType.Create, result.Type);
         Assert.Equal("llamar a mamá", result.Title);

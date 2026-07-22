@@ -1,7 +1,7 @@
 <Window x:Class="Nexo.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Nexo"
+        Title="Kohana"
         Width="720"
         Height="790"
         MinWidth="680"
@@ -24,21 +24,13 @@
         SnapsToDevicePixels="True">
 
     <Window.Resources>
-        <Geometry x:Key="IconHome">M3,9.5 L10,3 L17,9.5 L17,17 L12.5,17 L12.5,12.5 L7.5,12.5 L7.5,17 L3,17 Z</Geometry>
-        <Geometry x:Key="IconSparkle">M10,1 L12.3,7.7 L19,10 L12.3,12.3 L10,19 L7.7,12.3 L1,10 L7.7,7.7 Z</Geometry>
-        <Geometry x:Key="IconCheck">M3,10 L7.2,14.2 L17,4.5</Geometry>
-        <Geometry x:Key="IconRoutine">M4,7 C6,3 14,3 16,7 M16,4 L16,8 L12,8 M16,13 C14,17 6,17 4,13 M4,16 L4,12 L8,12</Geometry>
-        <Geometry x:Key="IconAudio">M12,3 L12,14 C12,16.2 10.2,18 8,18 C5.8,18 4,16.5 4,14.5 C4,12.5 5.8,11 8,11 C9,11 9.8,11.2 10.5,11.6 L10.5,5 L17,3.5 L17,6 L12,7.2</Geometry>
-        <Geometry x:Key="IconCapture">M3,5 L17,5 L17,15 L3,15 Z M7,18 L13,18</Geometry>
-        <Geometry x:Key="IconSystem">M2,11 L5,11 L7,6 L10,15 L13,9 L15,11 L18,11</Geometry>
-        <Geometry x:Key="IconSettings">M10,1 L11.5,5.2 L15.5,3.4 L16.6,4.5 L14.8,8.5 L19,10 L14.8,11.5 L16.6,15.5 L15.5,16.6 L11.5,14.8 L10,19 L8.5,14.8 L4.5,16.6 L3.4,15.5 L5.2,11.5 L1,10 L5.2,8.5 L3.4,4.5 L4.5,3.4 L8.5,5.2 Z</Geometry>
 
         <Style x:Key="SideRailIconStyle" TargetType="Path">
-            <Setter Property="Width" Value="20" />
-            <Setter Property="Height" Value="20" />
+            <Setter Property="Width" Value="21" />
+            <Setter Property="Height" Value="21" />
             <Setter Property="Stretch" Value="Uniform" />
             <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-            <Setter Property="StrokeThickness" Value="1.8" />
+            <Setter Property="StrokeThickness" Value="1.65" />
             <Setter Property="StrokeStartLineCap" Value="Round" />
             <Setter Property="StrokeEndLineCap" Value="Round" />
             <Setter Property="StrokeLineJoin" Value="Round" />
@@ -154,7 +146,7 @@
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#70FFFFFF" Offset="0" />
                 <GradientStop Color="#20FFFFFF" Offset="0.45" />
-                <GradientStop Color="#458B6CFF" Offset="1" />
+                <GradientStop Color="#35C4889A" Offset="1" />
             </LinearGradientBrush>
         </Border.BorderBrush>
         <Border.Effect>
@@ -171,9 +163,9 @@
             <Border CornerRadius="29">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#32192331" Offset="0" />
+                        <GradientStop Color="#24111528" Offset="0" />
                         <GradientStop Color="#0D101820" Offset="0.52" />
-                        <GradientStop Color="#2B171A29" Offset="1" />
+                        <GradientStop Color="#24151922" Offset="1" />
                     </LinearGradientBrush>
                 </Border.Background>
             </Border>
@@ -183,7 +175,7 @@
                      Margin="-120,-140,0,0"
                      HorizontalAlignment="Left"
                      VerticalAlignment="Top"
-                     Fill="#188B6CFF"
+                     Fill="#12C4889A"
                      IsHitTestVisible="False">
                 <Ellipse.Effect>
                     <BlurEffect Radius="65" />
@@ -195,7 +187,7 @@
                      Margin="0,0,-100,-120"
                      HorizontalAlignment="Right"
                      VerticalAlignment="Bottom"
-                     Fill="#1255DFA4"
+                     Fill="#1264D7A5"
                      IsHitTestVisible="False">
                 <Ellipse.Effect>
                     <BlurEffect Radius="70" />
@@ -246,23 +238,22 @@
                                 <Border Width="42"
                                         Height="42"
                                         HorizontalAlignment="Left"
-                                        Background="{DynamicResource BrushAccentSoft}"
-                                        BorderBrush="{DynamicResource BrushAccentBorder}"
+                                        Background="{DynamicResource BrushSurfaceRaised}"
+                                        BorderBrush="{DynamicResource BrushBorder}"
                                         BorderThickness="1"
                                         CornerRadius="14">
-                                    <Path Width="19"
-                                          Height="19"
-                                          Stretch="Uniform"
-                                          Fill="{DynamicResource BrushAccent}"
-                                          Data="{StaticResource IconSparkle}" />
+                                    <ContentControl Width="21"
+                                                    Height="21"
+                                                    Foreground="{DynamicResource BrushAccent}"
+                                                    Style="{StaticResource KohanaFlowerMarkStyle}" />
                                 </Border>
                                 <StackPanel Grid.Column="1"
                                             Margin="10,0,0,0"
                                             VerticalAlignment="Center">
-                                    <TextBlock Text="Nexo"
+                                    <TextBlock Text="Kohana"
                                                FontSize="15"
                                                FontWeight="SemiBold" />
-                                    <TextBlock Text="workspace"
+                                    <TextBlock Text="Tu Windows, en flor"
                                                Margin="0,2,0,0"
                                                Foreground="{DynamicResource BrushTextTertiary}"
                                                FontSize="11.5" />
@@ -284,7 +275,7 @@
                                         <ColumnDefinition Width="46" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconHome}" />
+                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaHome}" />
                                     <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Inicio" FontSize="14" />
                                 </Grid>
                             </Button>
@@ -299,8 +290,8 @@
                                         <ColumnDefinition Width="46" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource FilledSideRailIconStyle}" Data="{StaticResource IconSparkle}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Asistente" FontSize="14" />
+                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaAssistant}" />
+                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Chat" FontSize="14" />
                                 </Grid>
                             </Button>
 
@@ -314,7 +305,7 @@
                                         <ColumnDefinition Width="46" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconCheck}" />
+                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaTasks}" />
                                     <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Hoy" FontSize="14" />
                                 </Grid>
                             </Button>
@@ -329,10 +320,7 @@
                                         <ColumnDefinition Width="46" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Grid Width="20" Height="20" HorizontalAlignment="Center">
-                                        <Ellipse Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" />
-                                        <Ellipse Width="6" Height="6" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                    </Grid>
+                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaFocus}" />
                                     <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Enfoque" FontSize="14" />
                                 </Grid>
                             </Button>
@@ -347,7 +335,7 @@
                                         <ColumnDefinition Width="46" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconRoutine}" />
+                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaRoutines}" />
                                     <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Rutinas" FontSize="14" />
                                 </Grid>
                             </Button>
@@ -362,7 +350,7 @@
                                         <ColumnDefinition Width="46" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconAudio}" />
+                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaAudio}" />
                                     <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Audio" FontSize="14" />
                                 </Grid>
                             </Button>
@@ -377,7 +365,7 @@
                                         <ColumnDefinition Width="46" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconCapture}" />
+                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaCapture}" />
                                     <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Captura" FontSize="14" />
                                 </Grid>
                             </Button>
@@ -392,7 +380,7 @@
                                         <ColumnDefinition Width="46" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconSystem}" />
+                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaSystem}" />
                                     <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Sistema" FontSize="14" />
                                 </Grid>
                             </Button>
@@ -409,7 +397,7 @@
                                     <ColumnDefinition Width="46" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Path Style="{StaticResource FilledSideRailIconStyle}" Data="{StaticResource IconSettings}" />
+                                <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaSettings}" />
                                 <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Text="Personalizar" FontSize="14" />
                             </Grid>
                         </Button>
@@ -452,7 +440,7 @@
                                                  VerticalAlignment="Center"
                                                  Fill="{DynamicResource BrushSuccess}" />
                                         <TextBlock x:Name="WakeWordIndicatorText"
-                                                   Text="Nexo atento"
+                                                   Text="Kohana atenta"
                                                    Foreground="{DynamicResource BrushTextSecondary}"
                                                    FontSize="10.5"
                                                    FontWeight="SemiBold" />
@@ -496,7 +484,7 @@
                                     Margin="0,0,11,0"
                                     Background="{DynamicResource BrushSuccess}"
                                     CornerRadius="5"
-                                    ToolTip="Nexo está activo" />
+                                    ToolTip="Kohana está activa" />
                             <Button x:Name="CommandPaletteButton"
                                     Width="42"
                                     Height="42"
@@ -504,11 +492,10 @@
                                     Style="{StaticResource HeaderCommandButtonStyle}"
                                     Click="CommandPaletteButton_Click"
                                     ToolTip="Abrir comandos · Ctrl + Espacio">
-                                <Path Width="17"
-                                      Height="17"
-                                      Stretch="Uniform"
-                                      Fill="{DynamicResource BrushAccent}"
-                                      Data="{StaticResource IconSparkle}" />
+                                <ContentControl Width="18"
+                                                Height="18"
+                                                Foreground="{DynamicResource BrushAccent}"
+                                                Style="{StaticResource KohanaFlowerMarkStyle}" />
                             </Button>
                         </StackPanel>
                     </Grid>

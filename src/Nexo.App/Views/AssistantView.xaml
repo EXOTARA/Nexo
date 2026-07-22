@@ -4,9 +4,14 @@
              TextOptions.TextFormattingMode="Display"
              TextOptions.TextRenderingMode="ClearType">
     <UserControl.Resources>
-        <Geometry x:Key="IconLook">M2,10 C5,4.8 8,3 10,3 C12,3 15,4.8 18,10 C15,15.2 12,17 10,17 C8,17 5,15.2 2,10 Z M7,10 C7,11.7 8.3,13 10,13 C11.7,13 13,11.7 13,10 C13,8.3 11.7,7 10,7 C8.3,7 7,8.3 7,10 Z</Geometry>
-        <Geometry x:Key="IconMic">M7,4 C7,1.8 8.3,1 10,1 C11.7,1 13,1.8 13,4 L13,10 C13,12.2 11.7,13 10,13 C8.3,13 7,12.2 7,10 Z M4,9 C4,13 6.7,16 10,16 C13.3,16 16,13 16,9 M10,16 L10,19 M7,19 L13,19</Geometry>
-        <Geometry x:Key="IconSend">M3,10 L17,3 L13,17 L9.5,11.5 Z M9.5,11.5 L17,3</Geometry>
+        <Style x:Key="QuickPromptButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="Padding" Value="13,10" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -25,54 +30,110 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel>
-                <TextBlock Text="¿Qué necesitas?"
+                <TextBlock Text="Chat con Kohana"
                            FontSize="22"
                            FontWeight="SemiBold" />
-                <TextBlock Margin="0,5,0,0"
-                           Text="Ordena algo, pregunta o comparte lo que estás viendo."
-                           Foreground="{DynamicResource BrushTextSecondary}"
-                           FontSize="12.5"
-                           LineHeight="18" />
-                <Border Margin="0,9,0,0"
-                        Padding="9,6"
-                        HorizontalAlignment="Left"
-                        Background="#66202735"
-                        BorderBrush="#22FFFFFF"
-                        BorderThickness="1"
-                        CornerRadius="10">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="7"
-                                 Height="7"
-                                 Margin="0,0,7,0"
-                                 VerticalAlignment="Center"
-                                 Fill="{DynamicResource BrushSuccess}" />
-                        <TextBlock x:Name="AiProviderStatusText"
-                                   Text="IA desactivada · los comandos locales siguen disponibles"
-                                   TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="11.5" />
-                    </StackPanel>
-                </Border>
+                <StackPanel Margin="0,7,0,0" Orientation="Horizontal">
+                    <Ellipse Width="7"
+                             Height="7"
+                             Margin="0,0,7,0"
+                             VerticalAlignment="Center"
+                             Fill="{DynamicResource BrushSuccess}" />
+                    <TextBlock x:Name="AiProviderStatusText"
+                               Text="IA desactivada · los comandos locales siguen disponibles"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               FontSize="11.5" />
+                </StackPanel>
             </StackPanel>
 
             <Button Grid.Column="1"
-                    Margin="11,0,0,0"
-                    Padding="0"
+                    Margin="12,0,0,0"
+                    Padding="11,8"
                     VerticalAlignment="Top"
-                    Content="⌫"
-                    FontSize="16"
-                    ToolTip="Limpiar conversación"
-                    Style="{StaticResource IconButtonStyle}"
-                    Click="ClearConversationButton_Click" />
+                    ToolTip="Nueva conversación"
+                    Style="{StaticResource SecondaryButtonStyle}"
+                    Click="ClearConversationButton_Click">
+                <StackPanel Orientation="Horizontal">
+                    <Path Width="15"
+                          Height="15"
+                          Margin="0,0,7,0"
+                          Stretch="Uniform"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.7"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round"
+                          Data="{StaticResource IconKohanaPlus}" />
+                    <TextBlock Text="Nuevo" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
         </Grid>
 
-        <ScrollViewer x:Name="ConversationScroll"
-                      Grid.Row="1"
-                      Margin="0,16,0,12"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
-            <StackPanel x:Name="ConversationPanel" />
-        </ScrollViewer>
+        <Grid Grid.Row="1" Margin="0,14,0,12">
+            <Border x:Name="EmptyStatePanel"
+                    Padding="24"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource BrushSurfaceRaised}"
+                    BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1"
+                    CornerRadius="22">
+                <StackPanel HorizontalAlignment="Center">
+                    <Border Width="58"
+                            Height="58"
+                            HorizontalAlignment="Center"
+                            Background="{DynamicResource BrushSurface}"
+                            BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="1"
+                            CornerRadius="19">
+                        <ContentControl Width="31"
+                                        Height="31"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Foreground="{DynamicResource BrushAccent}"
+                                        Style="{StaticResource KohanaFlowerMarkStyle}" />
+                    </Border>
+                    <TextBlock Margin="0,17,0,0"
+                               Text="¿Qué hacemos hoy?"
+                               HorizontalAlignment="Center"
+                               FontSize="20"
+                               FontWeight="SemiBold" />
+                    <TextBlock Margin="0,7,0,14"
+                               MaxWidth="430"
+                               Text="Pide una acción, pregunta algo o comparte una ventana. Kohana ejecuta primero lo que puede resolver de forma local."
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushTextSecondary}"
+                               FontSize="12.5"
+                               LineHeight="19" />
+                    <WrapPanel MaxWidth="470" HorizontalAlignment="Center">
+                        <Button Tag="Abre PowerShell en mi carpeta de usuario"
+                                Content="Abrir PowerShell"
+                                Style="{StaticResource QuickPromptButtonStyle}"
+                                Click="QuickPromptButton_Click" />
+                        <Button Tag="¿Qué tengo pendiente hoy?"
+                                Content="Ver mis pendientes"
+                                Style="{StaticResource QuickPromptButtonStyle}"
+                                Click="QuickPromptButton_Click" />
+                        <Button Tag="Inicia una sesión de enfoque de 25 minutos"
+                                Content="Empezar enfoque"
+                                Style="{StaticResource QuickPromptButtonStyle}"
+                                Click="QuickPromptButton_Click" />
+                        <Button Tag="Mira la ventana activa y ayúdame con lo que aparece"
+                                Content="Analizar una ventana"
+                                Style="{StaticResource QuickPromptButtonStyle}"
+                                Click="QuickPromptButton_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <ScrollViewer x:Name="ConversationScroll"
+                          Visibility="Collapsed"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="ConversationPanel" />
+            </ScrollViewer>
+        </Grid>
 
         <Border x:Name="VisionAttachmentPanel"
                 Grid.Row="2"
@@ -80,8 +141,8 @@
                 Padding="9"
                 Visibility="Collapsed"
                 CornerRadius="15"
-                Background="#B01B2230"
-                BorderBrush="#38FFFFFF"
+                Background="{DynamicResource BrushSurfaceRaised}"
+                BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -94,9 +155,8 @@
                         Height="58"
                         CornerRadius="11"
                         ClipToBounds="True"
-                        Background="#080A0F">
-                    <Image x:Name="VisionPreviewImage"
-                           Stretch="UniformToFill" />
+                        Background="{DynamicResource BrushBackground}">
+                    <Image x:Name="VisionPreviewImage" Stretch="UniformToFill" />
                 </Border>
 
                 <StackPanel Grid.Column="1"
@@ -140,33 +200,21 @@
 
         <Border Grid.Row="4"
                 Padding="8"
-                Background="#C00E141E"
-                BorderBrush="#42FFFFFF"
+                Background="{DynamicResource BrushInput}"
+                BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1"
                 CornerRadius="20">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBox x:Name="PromptBox"
-                         MinHeight="46"
-                         MaxHeight="108"
-                         Padding="10,7"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         FontSize="14"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         VerticalScrollBarVisibility="Auto"
-                         PreviewKeyDown="PromptBox_PreviewKeyDown" />
-
                 <Button x:Name="VisionButton"
-                        Grid.Column="1"
-                        Margin="7,0,0,0"
+                        Grid.Column="0"
+                        Margin="0,0,7,0"
                         Width="42"
                         Height="42"
                         Padding="0"
@@ -177,9 +225,35 @@
                     <Path Width="19"
                           Height="19"
                           Stretch="Uniform"
-                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                          Data="{StaticResource IconLook}" />
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.65"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round"
+                          StrokeLineJoin="Round"
+                          Data="{StaticResource IconKohanaLook}" />
                 </Button>
+
+                <Grid Grid.Column="1">
+                    <TextBlock x:Name="PromptHintText"
+                               Margin="11,0,0,0"
+                               VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               Text="Escribe una orden o pregunta…"
+                               Foreground="{DynamicResource BrushTextTertiary}"
+                               FontSize="14" />
+                    <TextBox x:Name="PromptBox"
+                             MinHeight="46"
+                             MaxHeight="108"
+                             Padding="10,7"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             FontSize="14"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             VerticalScrollBarVisibility="Auto"
+                             TextChanged="PromptBox_TextChanged"
+                             PreviewKeyDown="PromptBox_PreviewKeyDown" />
+                </Grid>
 
                 <Button x:Name="MicButton"
                         Grid.Column="2"
@@ -197,11 +271,11 @@
                           Height="18"
                           Stretch="Uniform"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                          StrokeThickness="1.8"
+                          StrokeThickness="1.65"
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
                           StrokeLineJoin="Round"
-                          Data="{StaticResource IconMic}" />
+                          Data="{StaticResource IconKohanaMic}" />
                 </Button>
 
                 <Button Grid.Column="3"
@@ -217,11 +291,11 @@
                           Height="18"
                           Stretch="Uniform"
                           Stroke="White"
-                          StrokeThickness="1.8"
+                          StrokeThickness="1.7"
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
                           StrokeLineJoin="Round"
-                          Data="{StaticResource IconSend}" />
+                          Data="{StaticResource IconKohanaSend}" />
                 </Button>
             </Grid>
         </Border>

@@ -67,9 +67,9 @@ public partial class SettingsView : UserControl
         SpeakVoiceResponsesCheckBox.IsChecked = preferences.SpeakVoiceResponses;
         VoiceInputDeviceComboBox.SelectedValue = preferences.VoiceInputDeviceNumber;
         WakeWordEnabledCheckBox.IsChecked = preferences.WakeWordEnabled;
-        WakeWordNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.Nexo;
-        WakeWordOyeNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.OyeNexo;
-        WakeWordHeyNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.HeyNexo;
+        WakeWordKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.Kohana or WakeWordPhrase.Nexo;
+        WakeWordOyeKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeNexo;
+        WakeWordHeyKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
@@ -330,8 +330,8 @@ public partial class SettingsView : UserControl
         VoiceInputDeviceStatusText.Text = devices.Count switch
         {
             0 => "Windows no encontró micrófonos disponibles.",
-            1 => "Se encontró un micrófono. Nexo lo usará para Mic y la frase de activación.",
-            _ => "El micrófono elegido se usa tanto para Mic como para “Nexo”."
+            1 => "Se encontró un micrófono. Kohana lo usará para Mic y la frase de activación.",
+            _ => "El micrófono elegido se usa tanto para Mic como para “Oye Kohana”."
         };
         _isApplyingPreferences = false;
     }
@@ -522,25 +522,25 @@ public partial class SettingsView : UserControl
             return;
         }
 
-        var value = phrase.Equals("OyeNexo", StringComparison.OrdinalIgnoreCase)
-            ? WakeWordPhrase.OyeNexo
-            : phrase.Equals("HeyNexo", StringComparison.OrdinalIgnoreCase)
-                ? WakeWordPhrase.HeyNexo
-                : WakeWordPhrase.Nexo;
+        var value = phrase.Equals("OyeKohana", StringComparison.OrdinalIgnoreCase)
+            ? WakeWordPhrase.OyeKohana
+            : phrase.Equals("HeyKohana", StringComparison.OrdinalIgnoreCase)
+                ? WakeWordPhrase.HeyKohana
+                : WakeWordPhrase.Kohana;
         WakeWordPhraseChanged?.Invoke(value);
     }
 
     private void UpdateWakeWordOptionsAvailability()
     {
-        if (WakeWordNexoRadioButton is null)
+        if (WakeWordKohanaRadioButton is null)
         {
             return;
         }
 
         var enabled = WakeWordEnabledCheckBox.IsChecked == true;
-        WakeWordNexoRadioButton.IsEnabled = enabled;
-        WakeWordOyeNexoRadioButton.IsEnabled = enabled;
-        WakeWordHeyNexoRadioButton.IsEnabled = enabled;
+        WakeWordKohanaRadioButton.IsEnabled = enabled;
+        WakeWordOyeKohanaRadioButton.IsEnabled = enabled;
+        WakeWordHeyKohanaRadioButton.IsEnabled = enabled;
     }
 
     private void UpdatePeekOptionsAvailability()

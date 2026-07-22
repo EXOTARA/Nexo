@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.9.0-beta",
+    [string]$Version = "0.9.3-beta",
     [string]$Runtime = "win-x64",
-    [string]$RepositoryUrl = "",
+    [string]$RepositoryUrl = "https://github.com/EXOTARA/Nexo",
     [switch]$SkipPublish,
     [string]$InnoSetupPath = ""
 )
@@ -13,18 +13,17 @@ Set-StrictMode -Version Latest
 $root = Split-Path -Parent $PSScriptRoot
 $publishDirectory = Join-Path $root "artifacts\publish\$Runtime"
 $outputDirectory = Join-Path $root "artifacts\installer"
-$installerScript = Join-Path $root "installer\Nexo.iss"
+$installerScript = Join-Path $root "installer\Kohana.iss"
 
 if (-not $SkipPublish) {
     & (Join-Path $PSScriptRoot "publish.ps1") `
         -Version $Version `
         -Runtime $Runtime `
         -RepositoryUrl $RepositoryUrl
-
 }
 
-if (-not (Test-Path (Join-Path $publishDirectory "Nexo.exe"))) {
-    throw "No existe una publicación en $publishDirectory."
+if (-not (Test-Path (Join-Path $publishDirectory "Kohana.exe"))) {
+    throw "No existe una publicación válida de Kohana en $publishDirectory."
 }
 
 if ([string]::IsNullOrWhiteSpace($InnoSetupPath)) {
@@ -42,12 +41,20 @@ if ([string]::IsNullOrWhiteSpace($InnoSetupPath) -or -not (Test-Path $InnoSetupP
     throw "No encontré Inno Setup 6. Instálalo o usa -InnoSetupPath con la ruta de ISCC.exe."
 }
 
-New-Item $outputDirectory -ItemType Directory -Force | Out-Null
-Remove-Item (Join-Path $outputDirectory "Nexo-*-Setup.exe") -Force -ErrorAction SilentlyContinue
+$numericVersion = if ($Version -match '^(?<number>\d+\.\d+\.\d+)') {
+    $Matches.number
+}
+else {
+    throw "La versión '$Version' no tiene el formato X.Y.Z[-sufijo]."
+}
 
-Write-Host "==> Creando instalador"
+New-Item $outputDirectory -ItemType Directory -Force | Out-Null
+Remove-Item (Join-Path $outputDirectory "Kohana-*-Setup.exe") -Force -ErrorAction SilentlyContinue
+
+Write-Host "==> Creando instalador de Kohana"
 & $InnoSetupPath `
     "/DMyAppVersion=$Version" `
+    "/DMyNumericVersion=$numericVersion.0" `
     "/DSourceDir=$publishDirectory" `
     "/DOutputDir=$outputDirectory" `
     $installerScript
@@ -56,7 +63,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup no pudo crear el instalador."
 }
 
-$installer = Get-ChildItem $outputDirectory -Filter "Nexo-*-Setup.exe" |
+$installer = Get-ChildItem $outputDirectory -Filter "Kohana-*-Setup.exe" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 

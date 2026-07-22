@@ -4,8 +4,8 @@ namespace Nexo.App.WindowsIntegration;
 
 public sealed class SingleInstanceCoordinator : IDisposable
 {
-    private const string MutexName = @"Local\Nexo.Desktop.SingleInstance";
-    private const string ActivationEventName = @"Local\Nexo.Desktop.Activate";
+    private const string MutexName = @"Local\Kohana.Desktop.SingleInstance";
+    private const string ActivationEventName = @"Local\Kohana.Desktop.Activate";
 
     private readonly Mutex _mutex;
     private readonly EventWaitHandle _activationEvent;

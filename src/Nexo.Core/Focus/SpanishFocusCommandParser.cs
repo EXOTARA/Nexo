@@ -172,7 +172,7 @@ public sealed partial class SpanishFocusCommandParser
         return Regex.Replace(withoutPunctuation, @"\s+", " ").Trim();
     }
 
-    [GeneratedRegex(@"^(?:oye\s+)?(?:nexo|exo)\s+")]
+    [GeneratedRegex(@"^(?:(?:oye|hey)\s+)?(?:kohana|nexo|exo)\s+")]
     private static partial Regex WakeWordRegex();
 
     [GeneratedRegex(@"^(?:abre|muestra|ve\s+a)\s+(?:el\s+)?(?:enfoque|temporizador|sesiones?\s+de\s+enfoque)$")]

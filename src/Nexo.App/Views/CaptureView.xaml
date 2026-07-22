@@ -158,7 +158,7 @@
                            Margin="0,0,8,0"
                            Foreground="{DynamicResource BrushAccent}" />
                 <TextBlock Grid.Column="1"
-                           Text="Nexo no captura nada hasta que confirmas la selección."
+                           Text="Kohana no captura nada hasta que confirmas la selección."
                            Foreground="{DynamicResource BrushTextSecondary}"
                            FontSize="12"
                            TextWrapping="Wrap" />

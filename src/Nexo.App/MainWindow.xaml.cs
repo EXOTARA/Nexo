@@ -436,8 +436,8 @@ public partial class MainWindow : Window
             SavePreferences();
             _settingsView.SetWindowsIntegrationStatus(
                 enabled
-                    ? "Cerrar Nexo lo ocultará en la bandeja."
-                    : "Cerrar Nexo terminará completamente la aplicación.",
+                    ? "Cerrar Kohana lo ocultará en la bandeja."
+                    : "Cerrar Kohana terminará completamente la aplicación.",
                 isSuccess: null);
         };
 
@@ -661,12 +661,12 @@ public partial class MainWindow : Window
 
         if (!RegisterHotKey(windowHandle, ShellHotkeyId, ModAlt, VirtualKeyA))
         {
-            _assistantView.AddNexoMessage("Alt + A ya está siendo utilizado por otra aplicación.");
+            _assistantView.AddKohanaMessage("Alt + A ya está siendo utilizado por otra aplicación.");
         }
 
         if (!RegisterHotKey(windowHandle, PeekHotkeyId, ModAlt | ModShift, VirtualKeyA))
         {
-            _assistantView.AddNexoMessage("Alt + Shift + A ya está siendo utilizado por otra aplicación.");
+            _assistantView.AddKohanaMessage("Alt + Shift + A ya está siendo utilizado por otra aplicación.");
         }
 
         if (!RegisterHotKey(
@@ -675,7 +675,7 @@ public partial class MainWindow : Window
                 ModControl,
                 VirtualKeySpace))
         {
-            _assistantView.AddNexoMessage(
+            _assistantView.AddKohanaMessage(
                 "Ctrl + Espacio ya está siendo utilizado por otra aplicación.");
         }
 
@@ -685,7 +685,7 @@ public partial class MainWindow : Window
                 ModControl | ModShift,
                 VirtualKeySpace))
         {
-            _assistantView.AddNexoMessage(
+            _assistantView.AddKohanaMessage(
                 "Ctrl + Shift + Espacio ya está siendo utilizado por otra aplicación.");
         }
     }
@@ -866,12 +866,12 @@ public partial class MainWindow : Window
 
             if (recovered)
             {
-                _assistantView.AddNexoMessage(
+                _assistantView.AddKohanaMessage(
                     "La IA local volvió a estar disponible automáticamente.");
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Success,
                     "IA local recuperada",
-                    "Nexo volvió a iniciar el motor local.",
+                    "Kohana volvió a iniciar el motor local.",
                     _preferences.Position);
             }
 
@@ -890,7 +890,7 @@ public partial class MainWindow : Window
         }
 
         _managedAiRuntimeFailureNotified = true;
-        _assistantView.AddNexoMessage(
+        _assistantView.AddKohanaMessage(
             $"No pude preparar la IA local: {snapshot.Message}");
         _capsuleWindow.ShowMessage(
             CapsuleKind.Error,
@@ -1190,7 +1190,7 @@ public partial class MainWindow : Window
         {
             const string unavailableMessage =
                 "La consulta es abierta, pero la IA está desactivada. Puedes elegir OpenAI, Ollama, LM Studio o un servidor compatible en Personalización.";
-            _assistantView.AddNexoMessage(unavailableMessage);
+            _assistantView.AddKohanaMessage(unavailableMessage);
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "IA desactivada",
@@ -1289,7 +1289,7 @@ public partial class MainWindow : Window
                 : "pensando…";
 
             _assistantView.SetAiActivity(activity);
-            _assistantView.BeginNexoStreamingMessage(
+            _assistantView.BeginKohanaStreamingMessage(
                 requestMode == AiRequestMode.VisionTechnicalDiagnostic
                     ? "Analizando la evidencia visible…"
                     : "Pensando…");
@@ -1325,10 +1325,10 @@ public partial class MainWindow : Window
                     _assistantView.SetAiActivity("respondiendo…");
                 }
 
-                _assistantView.AppendNexoStreamingText(chunk);
+                _assistantView.AppendKohanaStreamingText(chunk);
             }
 
-            var finalText = _assistantView.CompleteNexoStreamingMessage();
+            var finalText = _assistantView.CompleteKohanaStreamingMessage();
             streamingStarted = false;
 
             if (string.IsNullOrWhiteSpace(finalText))
@@ -1361,10 +1361,10 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelNexoStreamingMessage();
+                _assistantView.CancelKohanaStreamingMessage();
             }
 
-            _assistantView.AddNexoMessage(
+            _assistantView.AddKohanaMessage(
                 $"No pude obtener una respuesta: {exception.Message}");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
@@ -1377,12 +1377,12 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelNexoStreamingMessage();
+                _assistantView.CancelKohanaStreamingMessage();
             }
 
             if (!_isClosed)
             {
-                _assistantView.AddNexoMessage("La consulta fue cancelada.");
+                _assistantView.AddKohanaMessage("La consulta fue cancelada.");
             }
         }
         catch (Exception exception) when (
@@ -1390,12 +1390,12 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelNexoStreamingMessage();
+                _assistantView.CancelKohanaStreamingMessage();
             }
 
             const string detail =
-                "La conexión se interrumpió mientras Nexo recibía la respuesta.";
-            _assistantView.AddNexoMessage($"No pude obtener una respuesta: {detail}");
+                "La conexión se interrumpió mientras Kohana recibía la respuesta.";
+            _assistantView.AddKohanaMessage($"No pude obtener una respuesta: {detail}");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "Respuesta interrumpida",
@@ -1426,7 +1426,7 @@ public partial class MainWindow : Window
             {
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Warning,
-                    "Nexo Vision desactivado",
+                    "Kohana Vision desactivado",
                     "Actívalo desde Personalización.",
                     _preferences.Position,
                     force: true);
@@ -1560,11 +1560,11 @@ public partial class MainWindow : Window
     {
         if (!_preferences.VisionEnabled)
         {
-            _assistantView.AddNexoMessage(
-                "Nexo Vision está desactivado. Puedes activarlo en Personalización → Inteligencia artificial.");
+            _assistantView.AddKohanaMessage(
+                "Kohana Vision está desactivado. Puedes activarlo en Personalización → Inteligencia artificial.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Warning,
-                "Nexo Vision desactivado",
+                "Kohana Vision desactivado",
                 "Actívalo desde Personalización.",
                 _preferences.Position);
             return;
@@ -1876,7 +1876,7 @@ public partial class MainWindow : Window
         {
             _pendingVoicePrompt = null;
             _assistantView.AddUserMessage(prompt);
-            _assistantView.AddNexoMessage("Orden cancelada. No hice ningún cambio.");
+            _assistantView.AddKohanaMessage("Orden cancelada. No hice ningún cambio.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "Orden cancelada",
@@ -1908,7 +1908,7 @@ public partial class MainWindow : Window
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "Preparando voz local",
-                "La primera vez Nexo descarga un modelo multilingüe.",
+                "La primera vez Kohana descarga un modelo multilingüe.",
                 _preferences.Position);
         }
 
@@ -2140,9 +2140,9 @@ public partial class MainWindow : Window
             _pendingVoicePrompt = result.Text;
             var question =
                 $"Escuché “{result.Text}”, pero no estoy totalmente seguro. " +
-                "Di “Nexo, confirmar”, repite la orden o di “Nexo, cancelar”.";
+                "Di “Kohana, confirmar”, repite la orden o di “Kohana, cancelar”.";
 
-            _assistantView.AddNexoMessage(question);
+            _assistantView.AddKohanaMessage(question);
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Warning,
                 "¿Confirmas la orden?",
@@ -2234,7 +2234,7 @@ public partial class MainWindow : Window
                 {
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Error,
-                        "No pude escuchar Nexo",
+                        "No pude escuchar Kohana",
                         start.Detail,
                         _preferences.Position);
                 }
@@ -2325,7 +2325,7 @@ public partial class MainWindow : Window
             case RoutineCommandType.OpenRoutines:
                 ShowAnimated();
                 NavigateTo("Routines", animate: true);
-                _assistantView.AddNexoMessage("Abrí el módulo de rutinas.");
+                _assistantView.AddKohanaMessage("Abrí el módulo de rutinas.");
                 return;
 
             case RoutineCommandType.ListRoutines:
@@ -2333,7 +2333,7 @@ public partial class MainWindow : Window
                     .Where(routine => routine.IsEnabled)
                     .Select(routine => $"• {routine.Name}: “{routine.TriggerPhrase}”")
                     .ToArray();
-                _assistantView.AddNexoMessage(
+                _assistantView.AddKohanaMessage(
                     available.Length == 0
                         ? "No hay rutinas activas."
                         : "Rutinas disponibles:" + Environment.NewLine + string.Join(Environment.NewLine, available));
@@ -2348,7 +2348,7 @@ public partial class MainWindow : Window
                 var routine = _routineManager.FindBestMatch(command.RoutineName);
                 if (routine is null)
                 {
-                    _assistantView.AddNexoMessage(
+                    _assistantView.AddKohanaMessage(
                         $"No encontré una rutina que coincida con “{command.RoutineName}”.");
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Warning,
@@ -2367,7 +2367,7 @@ public partial class MainWindow : Window
     {
         if (!routine.IsEnabled)
         {
-            _assistantView.AddNexoMessage($"La rutina {routine.Name} está desactivada.");
+            _assistantView.AddKohanaMessage($"La rutina {routine.Name} está desactivada.");
             return;
         }
 
@@ -2379,13 +2379,13 @@ public partial class MainWindow : Window
                     .Where(step => step.IsEnabled)
                     .Select((step, index) => $"{index + 1}. {DescribeAutomationAction(step)}"));
             var decision = MessageBox.Show(
-                $"Nexo ejecutará estas acciones:" + Environment.NewLine + Environment.NewLine + preview,
+                $"Kohana ejecutará estas acciones:" + Environment.NewLine + Environment.NewLine + preview,
                 $"Ejecutar {routine.Name}",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
             if (decision != MessageBoxResult.Yes)
             {
-                _assistantView.AddNexoMessage($"Cancelé la rutina {routine.Name}.");
+                _assistantView.AddKohanaMessage($"Cancelé la rutina {routine.Name}.");
                 return;
             }
         }
@@ -2401,7 +2401,7 @@ public partial class MainWindow : Window
             var report = await _routineRunner.RunAsync(
                 routine,
                 _lifetimeCancellation.Token);
-            _assistantView.AddNexoMessage(report.BuildSummary());
+            _assistantView.AddKohanaMessage(report.BuildSummary());
             _tasksView.Refresh();
             _focusView.Refresh(DateTimeOffset.Now);
             await _audioView.RefreshAsync(force: true);
@@ -2422,7 +2422,7 @@ public partial class MainWindow : Window
         {
             if (!_isClosed)
             {
-                _assistantView.AddNexoMessage($"La rutina {routine.Name} fue cancelada.");
+                _assistantView.AddKohanaMessage($"La rutina {routine.Name} fue cancelada.");
             }
         }
     }
@@ -2543,7 +2543,7 @@ public partial class MainWindow : Window
         }
 
         _focusView.Refresh(DateTimeOffset.Now);
-        _assistantView.AddNexoMessage(response);
+        _assistantView.AddKohanaMessage(response);
         _capsuleWindow.ShowMessage(
             capsuleKind,
             capsuleTitle,
@@ -2678,7 +2678,7 @@ public partial class MainWindow : Window
                 break;
         }
 
-        _assistantView.AddNexoMessage(response);
+        _assistantView.AddKohanaMessage(response);
         _capsuleWindow.ShowMessage(
             capsuleKind,
             capsuleTitle,
@@ -2695,7 +2695,7 @@ public partial class MainWindow : Window
             case LocalCommandType.ShowPeek:
                 if (!_preferences.PeekEnabled)
                 {
-                    _assistantView.AddNexoMessage("La vista Peek está desactivada en Personalización.");
+                    _assistantView.AddKohanaMessage("La vista Peek está desactivada en Personalización.");
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Warning,
                         "Peek está desactivado",
@@ -2774,7 +2774,7 @@ public partial class MainWindow : Window
                 break;
 
             default:
-                _assistantView.AddNexoMessage("No pude ejecutar esa orden local todavía.");
+                _assistantView.AddKohanaMessage("No pude ejecutar esa orden local todavía.");
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Warning,
                     "Comando no disponible",
@@ -2792,7 +2792,7 @@ public partial class MainWindow : Window
             culture);
         var response = $"Hoy es {date}.";
 
-        _assistantView.AddNexoMessage(response);
+        _assistantView.AddKohanaMessage(response);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Fecha actual",
@@ -2806,7 +2806,7 @@ public partial class MainWindow : Window
         var time = DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
         var response = $"Son las {time}.";
 
-        _assistantView.AddNexoMessage(response);
+        _assistantView.AddKohanaMessage(response);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Hora actual",
@@ -2833,7 +2833,7 @@ public partial class MainWindow : Window
             $"GPU {FormatPercentage(_latestSnapshot.GpuUsagePercent)}. " +
             $"Mayor uso de memoria: {topProcess}.";
 
-        _assistantView.AddNexoMessage(summary);
+        _assistantView.AddKohanaMessage(summary);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Estado del equipo listo",
@@ -2877,7 +2877,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _assistantView.AddNexoMessage($"Abrí {displayName}.");
+        _assistantView.AddKohanaMessage($"Abrí {displayName}.");
         ShowCommandSuccess($"{displayName} abierto", "La carpeta se abrió localmente.");
     }
 
@@ -2912,7 +2912,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _assistantView.AddNexoMessage($"Abrí {displayName}.");
+        _assistantView.AddKohanaMessage($"Abrí {displayName}.");
         ShowCommandSuccess($"{displayName} abierto", "La acción se ejecutó localmente.");
     }
 
@@ -2967,7 +2967,7 @@ public partial class MainWindow : Window
 
     private void ShowLocalLaunchFailure(string displayName)
     {
-        _assistantView.AddNexoMessage($"No pude abrir {displayName}.");
+        _assistantView.AddKohanaMessage($"No pude abrir {displayName}.");
         _capsuleWindow.ShowMessage(
             CapsuleKind.Error,
             "No se pudo abrir",
@@ -2988,12 +2988,12 @@ public partial class MainWindow : Window
                 UseShellExecute = true
             });
 
-            _assistantView.AddNexoMessage($"{confirmation} en {userFolder}.");
+            _assistantView.AddKohanaMessage($"{confirmation} en {userFolder}.");
             ShowCommandSuccess(confirmation, userFolder);
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            _assistantView.AddNexoMessage($"No pude abrir {fileName}.");
+            _assistantView.AddKohanaMessage($"No pude abrir {fileName}.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "No se pudo abrir",
@@ -3052,7 +3052,7 @@ public partial class MainWindow : Window
     {
         if (addToConversation)
         {
-            _assistantView.AddNexoMessage(result.Detail);
+            _assistantView.AddKohanaMessage(result.Detail);
         }
 
         var capsuleKind = result.Status switch
@@ -3220,7 +3220,7 @@ public partial class MainWindow : Window
                 ? (Brush)FindResource("BrushAccentSoft")
                 : Brushes.Transparent;
             pair.Value.Foreground = selected
-                ? (Brush)FindResource("BrushTextPrimary")
+                ? (Brush)FindResource("BrushAccent")
                 : (Brush)FindResource("BrushTextSecondary");
         }
 
@@ -3229,7 +3229,7 @@ public partial class MainWindow : Window
             ? (Brush)FindResource("BrushAccentSoft")
             : Brushes.Transparent;
         SettingsNavButton.Foreground = settingsSelected
-            ? (Brush)FindResource("BrushTextPrimary")
+            ? (Brush)FindResource("BrushAccent")
             : (Brush)FindResource("BrushTextSecondary");
     }
 
@@ -3243,10 +3243,10 @@ public partial class MainWindow : Window
             "Focus" => ("Enfoque", "Sesiones cortas sin perder el ritmo"),
             "Routines" => ("Rutinas", "Acciones repetibles, claras y controladas"),
             "Audio" => ("Audio", "Control local por aplicación"),
-            "Capture" => ("Captura", "Selecciona qué puede ver Nexo"),
+            "Capture" => ("Captura", "Selecciona qué puede ver Kohana"),
             "System" => ("Sistema", "Estado y diagnóstico del equipo"),
             "Settings" => ("Personalizar", "Apariencia, privacidad y comportamiento"),
-            _ => ("Nexo", "Tu espacio de acciones y contexto")
+            _ => ("Kohana", "Tu espacio de acciones y contexto")
         };
 
         WorkspaceTitleText.Text = title;
@@ -3267,7 +3267,7 @@ public partial class MainWindow : Window
 
         var culture = new CultureInfo("es-MX");
         var greetingDetail =
-            $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Nexo está listo";
+            $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Kohana está listo";
 
         var pending = _taskManager.GetAll()
             .Where(task => !task.IsCompleted)
@@ -3319,7 +3319,7 @@ public partial class MainWindow : Window
             : "Lista para analizar";
         var contextDetail = _lastExternalWindowHandle != 0
             ? "Pulsa aquí para capturarla con tu autorización."
-            : "Abre una ventana y Nexo podrá verla cuando lo pidas.";
+            : "Abre una ventana y Kohana podrá verla cuando lo pidas.";
 
         _homeView.Refresh(new HomeDashboardViewModel(
             greeting,
@@ -3594,11 +3594,11 @@ public partial class MainWindow : Window
         bool fromVoice)
     {
         var title = decision.Mode == ResourceMode.Game
-            ? "Nexo está en Modo Juego"
+            ? "Kohana está en Modo Juego"
             : "El equipo está ocupado";
         var message = $"{detail} {decision.Reason}";
 
-        _assistantView.AddNexoMessage(message);
+        _assistantView.AddKohanaMessage(message);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Warning,
             title,
@@ -3645,7 +3645,7 @@ public partial class MainWindow : Window
     {
         if (!_preferences.PeekEnabled)
         {
-            _assistantView.AddNexoMessage("La vista Peek está desactivada en Personalización.");
+            _assistantView.AddKohanaMessage("La vista Peek está desactivada en Personalización.");
             return;
         }
 
@@ -3666,11 +3666,11 @@ public partial class MainWindow : Window
         }
         catch (IOException)
         {
-            _assistantView.AddNexoMessage("No se pudo guardar la configuración en este momento.");
+            _assistantView.AddKohanaMessage("No se pudo guardar la configuración en este momento.");
         }
         catch (UnauthorizedAccessException)
         {
-            _assistantView.AddNexoMessage("Windows no permitió guardar la configuración.");
+            _assistantView.AddKohanaMessage("Windows no permitió guardar la configuración.");
         }
     }
 
@@ -3719,7 +3719,7 @@ public partial class MainWindow : Window
 
         _trayHintShown = true;
         _trayIcon.Notify(
-            "Nexo sigue activo",
+            "Kohana sigue activo",
             "Ábrelo con Alt + A o desde el icono de la bandeja.",
             TrayNotificationKind.Information,
             _preferences.ShowWindowsNotifications,

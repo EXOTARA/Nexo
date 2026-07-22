@@ -136,7 +136,7 @@ public partial class DiagnosticsWindow : Window
                 $"Actual: {result.CurrentVersion}\n" +
                 $"Disponible: {result.LatestVersion}\n\n" +
                 "¿Quieres abrir la página de descarga?",
-                "Actualización de Nexo",
+                "Actualización de Kohana",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Information);
 

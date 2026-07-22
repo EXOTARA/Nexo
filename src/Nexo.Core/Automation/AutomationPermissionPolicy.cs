@@ -89,7 +89,7 @@ public static class AutomationPermissionPolicy
                 return true;
 
             default:
-                error = "La acción no está permitida por Nexo.";
+                error = "La acción no está permitida por Kohana.";
                 return false;
         }
     }

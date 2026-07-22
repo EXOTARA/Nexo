@@ -280,7 +280,7 @@ if (deleteMatch.Success)
     {
         return Regex.Replace(
             normalized,
-            @"^(?:oye\s+)?(?:nexo|exo)\s+",
+            @"^(?:(?:oye|hey)\s+)?(?:kohana|nexo|exo)\s+",
             string.Empty,
             RegexOptions.IgnoreCase).Trim();
     }
@@ -320,7 +320,7 @@ if (deleteMatch.Success)
     private static partial Regex PriorityOriginalRegex();
 
     [GeneratedRegex(
-    @"^(?:oye\s+)?(?:nexo|exo)[\s,.:;!?-]+",
+    @"^(?:(?:oye|hey)\s+)?(?:kohana|nexo|exo)[\s,.:;!?-]+",
     RegexOptions.IgnoreCase)]
     private static partial Regex WakeWordOriginalRegex();
 

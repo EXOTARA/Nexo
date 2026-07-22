@@ -53,7 +53,7 @@ public sealed class NexoAutomationActionExecutor : IAutomationActionExecutor
             _ => AutomationActionResult.Failed(
                 action,
                 "Acción no disponible",
-                "Nexo bloqueó una acción que no pertenece a la lista permitida.")
+                "Kohana bloqueó una acción que no pertenece a la lista permitida.")
         };
     }
 
@@ -176,7 +176,8 @@ public sealed class NexoAutomationActionExecutor : IAutomationActionExecutor
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current is not null)
         {
-            if (File.Exists(Path.Combine(current.FullName, "Nexo.slnx")))
+            if (File.Exists(Path.Combine(current.FullName, "Nexo.slnx")) ||
+                File.Exists(Path.Combine(current.FullName, "Kohana.slnx")))
             {
                 return current.FullName;
             }

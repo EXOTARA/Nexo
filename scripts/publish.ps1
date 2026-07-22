@@ -2,8 +2,8 @@
 param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
-    [string]$Version = "0.9.0-beta",
-    [string]$RepositoryUrl = "",
+    [string]$Version = "0.9.3-beta",
+    [string]$RepositoryUrl = "https://github.com/EXOTARA/Nexo",
     [switch]$SkipTests
 )
 
@@ -16,13 +16,13 @@ $project = Join-Path $root "src\Nexo.App\Nexo.App.csproj"
 $artifactRoot = Join-Path $root "artifacts"
 $publishDirectory = Join-Path $artifactRoot "publish\$Runtime"
 $distributionDirectory = Join-Path $artifactRoot "dist"
-$portableZip = Join-Path $distributionDirectory "Nexo-$Version-$Runtime-portable.zip"
+$portableZip = Join-Path $distributionDirectory "Kohana-$Version-$Runtime-portable.zip"
 $checksumFile = "$portableZip.sha256"
 
-$running = Get-Process -Name "Nexo", "Nexo.App" -ErrorAction SilentlyContinue
+$running = Get-Process -Name "Kohana", "Nexo", "Nexo.App" -ErrorAction SilentlyContinue
 if ($running) {
     $ids = ($running | Select-Object -ExpandProperty Id) -join ", "
-    throw "Nexo sigue ejecutándose (PID: $ids). Usa 'Salir completamente' desde la bandeja antes de publicar."
+    throw "Kohana sigue ejecutándose (PID: $ids). Usa 'Salir completamente' desde la bandeja antes de publicar."
 }
 
 Write-Host "==> Limpiando artefactos anteriores"
@@ -80,24 +80,27 @@ Write-Host "==> Publicando $Runtime"
 & dotnet @publishArguments
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish falló." }
 
-$executable = Join-Path $publishDirectory "Nexo.exe"
+$executable = Join-Path $publishDirectory "Kohana.exe"
 if (-not (Test-Path $executable)) {
     throw "La publicación terminó, pero no se encontró $executable."
 }
 
 @"
-Nexo $Version
-============
+Kohana $Version
+===============
+
+Tu Windows, en flor.
 
 Esta es la edición portable y autocontenida para Windows x64.
 
 1. Extrae toda la carpeta antes de ejecutar.
-2. Abre Nexo.exe.
+2. Abre Kohana.exe.
 3. Ollama y sus modelos no están incluidos.
-4. Los datos personales se guardan en %LocalAppData%\Nexo.
-5. Windows puede mostrar una advertencia mientras la beta no tenga firma digital.
+4. Los datos personales se guardan en %LocalAppData%\Kohana.
+5. Si existe una instalación anterior de Nexo, Kohana copia sus datos sin borrar el origen.
+6. Windows puede mostrar una advertencia mientras la beta no tenga firma digital.
 
-No muevas únicamente Nexo.exe: conserva todos los archivos de esta carpeta.
+No muevas únicamente Kohana.exe: conserva todos los archivos de esta carpeta.
 "@ | Set-Content (Join-Path $publishDirectory "LEEME.txt") -Encoding UTF8
 
 Write-Host "==> Creando ZIP portable"

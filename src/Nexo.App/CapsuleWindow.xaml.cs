@@ -144,26 +144,31 @@ public partial class CapsuleWindow : Window
             case CapsuleKind.Processing:
                 StatusIcon.Text = "✦";
                 StatusIcon.Foreground = accentBrush;
+                BrandFlowerIcon.Foreground = accentBrush;
                 StatusBadge.Background = accentSoftBrush;
                 break;
             case CapsuleKind.Success:
                 StatusIcon.Text = "✓";
                 StatusIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#67D9A2"));
+                BrandFlowerIcon.Foreground = StatusIcon.Foreground;
                 StatusBadge.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#203A32"));
                 break;
             case CapsuleKind.Warning:
                 StatusIcon.Text = "!";
                 StatusIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F3C969"));
+                BrandFlowerIcon.Foreground = StatusIcon.Foreground;
                 StatusBadge.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3C3422"));
                 break;
             case CapsuleKind.Error:
                 StatusIcon.Text = "×";
                 StatusIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF7D8A"));
+                BrandFlowerIcon.Foreground = StatusIcon.Foreground;
                 StatusBadge.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#40262C"));
                 break;
             default:
                 StatusIcon.Text = "i";
                 StatusIcon.Foreground = accentBrush;
+                BrandFlowerIcon.Foreground = accentBrush;
                 StatusBadge.Background = accentSoftBrush;
                 break;
         }

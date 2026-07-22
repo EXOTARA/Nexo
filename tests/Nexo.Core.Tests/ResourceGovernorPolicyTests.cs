@@ -66,14 +66,16 @@ public sealed class ResourceGovernorPolicyTests
         Assert.False(decision.PauseWakeWord);
     }
 
-    [Fact]
-    public void NexoFullScreen_IsNotTreatedAsGame()
+    [Theory]
+    [InlineData("Kohana")]
+    [InlineData("Nexo")]
+    public void ProductFullScreen_IsNotTreatedAsGame(string processName)
     {
         var decision = ResourceGovernorPolicy.Evaluate(new ResourceGovernorInput(
             CreateSnapshot(cpu: 10, memory: 30, gpu: 5),
             IsForegroundFullScreen: true,
-            ForegroundProcessName: "Nexo",
-            ForegroundWindowTitle: "Nexo",
+            ForegroundProcessName: processName,
+            ForegroundWindowTitle: processName,
             IsOnBattery: false));
 
         Assert.Equal(ResourceMode.Normal, decision.Mode);

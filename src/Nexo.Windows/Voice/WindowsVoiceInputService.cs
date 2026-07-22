@@ -17,8 +17,8 @@ namespace Nexo.Windows.Voice;
 public sealed class WhisperVoiceInputService : IVoiceInputService
 {
     private const string CommandPrompt =
-        "Conversación natural y órdenes para Nexo en español. Frases frecuentes: " +
-        "Hey Nexo; qué es esto; qué problema es este; por qué falla; mira la pantalla; " +
+        "Conversación natural y órdenes para Kohana en español. Frases frecuentes: " +
+        "Oye Kohana; qué es esto; qué problema es este; por qué falla; mira la pantalla; " +
         "abre Calculadora; abre PowerShell; muestra Peek; cómo está mi PC; " +
         "baja Spotify; sube Spotify al 50 por ciento; silencia Discord.";
 
@@ -68,12 +68,8 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
     public WhisperVoiceInputService()
     {
-        var nexoDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Nexo");
-
-        _modelPath = Path.Combine(nexoDirectory, "Models", "ggml-base.bin");
-        _temporaryDirectory = Path.Combine(nexoDirectory, "Temp");
+        _modelPath = NexoDataPaths.WhisperModel;
+        _temporaryDirectory = NexoDataPaths.TempDirectory;
         IsReady = IsUsableModelFile();
     }
 
@@ -306,7 +302,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         {
             if (!IsListening || _recorder is null)
             {
-                return VoiceRecognitionResult.NoSpeech("Nexo no estaba escuchando.");
+                return VoiceRecognitionResult.NoSpeech("Kohana no estaba escuchando.");
             }
 
             IsListening = false;
@@ -577,7 +573,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         catch (Exception)
         {
             return VoiceRecognitionResult.NoSpeech(
-                "No pude transcribir el audio localmente. Reinicia Nexo e inténtalo otra vez.");
+                "No pude transcribir el audio localmente. Reinicia Kohana e inténtalo otra vez.");
         }
         finally
         {

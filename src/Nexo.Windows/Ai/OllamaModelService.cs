@@ -156,7 +156,7 @@ public sealed class OllamaModelService : IOllamaModelService, IDisposable
         catch (JsonException)
         {
             return OllamaOperationResult.Failed(
-                "Ollama respondió con un progreso que Nexo no pudo interpretar.");
+                "Ollama respondió con un progreso que Kohana no pudo interpretar.");
         }
         catch (Exception exception)
         {

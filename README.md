@@ -1,120 +1,128 @@
-# Nexo
+# Kohana
 
-Nexo es un asistente ligero y modular para Windows que permite consultar, entender y controlar el equipo sin abandonar lo que estás haciendo.
+**Tu Windows, en flor.**
+
+Kohana es un agente personal nativo para Windows. Combina comandos locales, voz, visión, tareas, rutinas, métricas del equipo e inteligencia artificial en una interfaz ligera que puede permanecer activa en segundo plano.
+
+> El producto ya se presenta como **Kohana**. Los nombres internos `Nexo.App`, `Nexo.Core`, `Nexo.Windows` y `Nexo.slnx` se conservan temporalmente para reducir el riesgo del cambio de marca.
 
 ## Estado
 
-Nexo está actualmente en fase `0.9.0-beta`. La aplicación ya cuenta con una interfaz funcional, métricas del sistema y una primera versión del motor de comandos locales.
+La versión actual es `0.9.3-beta — Sakura Shell + Chat Refresh`.
 
-Actualmente incluye:
+Esta etapa incorpora:
 
-- Barra lateral modular para Windows.
-- Atajo global `Alt + A`.
-- Vista rápida con CPU, RAM y GPU.
-- Modo Peek mediante `Alt + Shift + A`.
-- Personalización de posición, ancho, transparencia y color.
-- Navegación entre IA, Audio, Captura y Sistema.
-- Interpretación inicial de comandos locales.
-- Apertura de PowerShell, CMD y Terminal en la carpeta del usuario.
-- Cápsulas flotantes para mostrar confirmaciones y errores.
-- Historial de conversación privado y opcional.
+- Identidad pública centralizada como Kohana.
+- Diseño **Sakura Fluent** con grafito, rosa sakura e iconografía floral vectorial.
+- Nuevo icono para la aplicación, la bandeja, el portable y el instalador.
+- Ejecutable público `Kohana.exe`.
+- Palabras de activación `Kohana`, `Oye Kohana` y `Hey Kohana`.
+- Compatibilidad temporal con `Nexo`, `Oye Nexo` y `Hey Nexo`.
+- Migración conservadora de `%LocalAppData%\Nexo` a `%LocalAppData%\Kohana`.
+- Publicación portable e instalador renombrados como Kohana.
+
+## Capacidades actuales
+
+### Windows y productividad
+
+- Barra lateral modular, Inicio tipo bento y modo Peek.
+- Atajos globales `Alt + A`, `Alt + Shift + A`, `Ctrl + Espacio` y `Ctrl + Shift + Espacio`.
+- Bandeja del sistema, inicio opcional con Windows e instancia única.
+- Tareas, recordatorios, sesiones de enfoque y rutinas locales.
+- Acciones seguras para abrir aplicaciones, carpetas y terminales.
 - Mezclador real de volumen general y por aplicación.
-- Comandos locales para controlar Discord, Spotify, Zen y otras sesiones de audio.
-- Voz local push-to-talk mediante Whisper, sin enviar el audio a una API.
-- Activación opcional mediante `Nexo` u `Oye Nexo`, usando un detector Vosk local.
-- Consultas reales con OpenAI, Ollama, LM Studio o servidores compatibles con la API de OpenAI.
-- Contexto de métricas opcional y desactivado de forma predeterminada.
-- Respuestas de IA mostradas progresivamente mientras se generan.
-- Fecha y hora resueltas localmente sin gastar tokens ni esperar al modelo.
-- Nexo Vision bajo demanda para capturar una ventana o monitor, revisar una vista previa y hacer preguntas sobre la imagen.
-- Compatibilidad visual con modelos multimodales mediante el formato compatible con OpenAI.
-- Integración nativa con Ollama mediante `/api/chat`, con streaming, `keep_alive` y control explícito del modo de pensamiento.
-- Diagnóstico visual técnico en dos etapas: primero extrae evidencia estructurada y después propone una corrección verificable.
-- Reintento automático cuando una respuesta visual es demasiado genérica o evade el problema.
-- Módulo **Hoy** con tareas, fechas, prioridades y recordatorios locales.
-- Guardado privado de actividades en `%LocalAppData%\Nexo\tasks.json`.
-- Órdenes locales para crear, consultar, completar y eliminar tareas sin usar la IA.
-- Módulo **Enfoque** con temporizadores, sesiones de estudio, pausas y progreso diario.
-- Persistencia local del temporizador activo en `%LocalAppData%\Nexo\focus.json`.
-- Control por texto o voz para iniciar, pausar, continuar, consultar y cancelar sesiones.
-- Icono permanente en la bandeja del sistema con acceso rápido a Nexo, Peek y salida completa.
-- Segundo plano real: cerrar puede ocultar la barra sin detener tareas, voz ni temporizadores.
-- Inicio opcional con Windows en modo oculto.
-- Protección contra múltiples instancias y reapertura de la instancia existente.
-- Notificaciones de Windows y sonidos configurables para recordatorios y sesiones terminadas.
-- Recuperación automática de recordatorios, temporizadores y métricas después de suspender el equipo.
-- Configuración inicial guiada para voz, Ollama, privacidad e integración con Windows.
-- Administrador de modelos locales de Ollama con descarga, selección y eliminación.
-- Inicio, supervisión y recuperación automática del runtime privado de Ollama.
-- Centro de diagnóstico local con estado de micrófono, Whisper, wake word, IA, Vision y datos.
-- Respaldo automático de archivos de datos dañados y limpieza de temporales.
+- Métricas de CPU, RAM, GPU, VRAM, almacenamiento y proceso principal.
+- Resource Governor con modos Normal, Busy y Game.
 
-La primera ejecución de voz descarga el modelo multilingüe `base` en `%LocalAppData%\Nexo\Models`. Después de una transcripción, Whisper puede permanecer hasta cinco minutos en memoria para acelerar órdenes consecutivas y luego se libera.
+### Voz e IA
 
-La activación por frase es experimental y permanece apagada de forma predeterminada. Al habilitarla, Nexo descarga el modelo español pequeño de Vosk y mantiene un indicador visible mientras está atento. Un búfer previo conserva el inicio del audio para poder decir `Nexo, abre PowerShell` de corrido, aunque también puedes esperar la cápsula **Te escucho**.
+- Push-to-talk local con Whisper.
+- Wake word local con Vosk.
+- Búfer previo para decir la activación y la orden de corrido.
+- Proveedores OpenAI, Ollama, LM Studio y endpoints compatibles.
+- Runtime privado de Ollama administrado por Kohana.
+- Streaming de respuestas y contexto de sistema opcional.
+- Comandos conocidos resueltos localmente antes de consultar un modelo.
 
-Nexo Vision incluye un modo **Mirar** bajo demanda. Con `Ctrl + Shift + Espacio`, el botón visual del asistente o una orden como `Nexo, mira esto`, Nexo toma en memoria la ventana que estabas usando, adjunta su título y aplicación, y mantiene ese contexto durante dos minutos para permitir varias preguntas. No graba continuamente, no guarda la imagen en disco y sigue bloqueando gestores de contraseñas y ventanas sensibles. La captura manual con selector y vista previa continúa disponible desde el módulo Captura.
+### Vision y privacidad
 
-Las órdenes conocidas se ejecutan localmente antes de consultar una IA. Las consultas abiertas pueden enviarse al proveedor configurado y se muestran conforme llegan. Nexo no guarda claves dentro del repositorio ni en `settings.json`: para OpenAI lee `OPENAI_API_KEY` desde las variables de entorno. Compartir CPU, RAM, GPU y el proceso principal con la IA es una opción separada y apagada por defecto; incluso al activarla, las métricas solo se adjuntan cuando la consulta trata del equipo.
+- Captura bajo demanda de ventanas y monitores.
+- Look Mode temporal para consultar la ventana activa.
+- Vista previa antes de compartir una imagen.
+- Bloqueo inicial de gestores de contraseñas y ventanas sensibles.
+- Diagnóstico técnico visual con evidencia y comprobación.
+- Capturas mantenidas en memoria y fuera del historial de texto.
 
-## Objetivo
+## Datos y migración
 
-Nexo busca ser la forma más rápida de pedir, entender y controlar algo en Windows sin abandonar la aplicación que estás usando.
+Los datos nuevos se guardan en:
 
-## Tecnología
+```text
+%LocalAppData%\Kohana
+```
 
-- C#
-- WPF
-- .NET 10
-- Windows 11
+En la primera ejecución, Kohana busca una carpeta anterior:
+
+```text
+%LocalAppData%\Nexo
+```
+
+Si existe, copia los archivos que falten sin sobrescribir datos nuevos y sin eliminar la carpeta anterior. Las carpetas temporales, logs, modelos y runtimes pesados no se copian. Se crea un marcador local para evitar repetir el proceso.
+
+Los modelos de voz y el runtime local no se duplican: Kohana reutiliza temporalmente sus rutas anteriores cuando todavía no existen copias nuevas. Las claves no se almacenan en el repositorio ni dentro de `settings.json`.
+
+## Palabras de activación
+
+La recomendada es:
+
+```text
+Oye Kohana
+```
+
+También se puede elegir `Kohana` o `Hey Kohana`. Durante la transición siguen aceptándose las variantes de Nexo para no romper configuraciones antiguas.
 
 ## Desarrollo
 
-El proyecto se desarrolla mediante ramas y Pull Requests. Cada bloque nuevo incluye pruebas antes de integrarse en `main`.
+Requisitos:
 
-## Próximos pasos
+- Windows 10/11 x64.
+- SDK de .NET 10.
+- PowerShell 7 recomendado.
 
-- Calibración guiada de ruido y volumen del micrófono.
-- Diccionario personal de correcciones de voz.
-- Perfiles de voz rápido y equilibrado.
-- Respaldo semántico de IA para órdenes ambiguas mediante acciones permitidas.
-- Selección manual de una región para ampliar errores pequeños.
-- OCR y copia de texto desde capturas.
-- Difuminado manual de zonas sensibles.
-
-
-## Rutinas y automatización segura
-
-Nexo incluye rutinas locales guardadas en `%LocalAppData%\Nexo\routines.json`.
-Cada rutina se compone exclusivamente de acciones permitidas: abrir aplicaciones o carpetas,
-abrir PowerShell en una ubicación, controlar audio, iniciar enfoque o crear tareas.
-Las acciones continúan de forma independiente cuando un paso falla y los pasos sensibles
-muestran una vista previa antes de ejecutarse.
-
-Ejemplos: `modo programación`, `modo estudio`, `modo descanso`, `abre rutinas`.
-## Integración con Windows
-
-Nexo puede permanecer activo en la bandeja aunque la barra esté oculta. Desde el menú del icono puedes abrir Nexo, mostrar Peek o salir completamente. El inicio con Windows es opcional y usa el modo `--background`, por lo que la aplicación conserva recordatorios, temporizadores, atajos y la frase de activación sin mostrar la barra al iniciar sesión.
-
-Las notificaciones y sonidos se controlan desde **Personalización → Integración con Windows**. Al reanudar el equipo después de una suspensión, Nexo vuelve a comprobar inmediatamente recordatorios y sesiones de enfoque.
-
-
-
-## Publicación e instalación
-
-Nexo se publica como aplicación WPF nativa y autocontenida para Windows x64.
-No utiliza Electron ni incorpora Chromium. La edición portable y el instalador
-incluyen el runtime de .NET, pero no incluyen Ollama, modelos de IA ni datos del
-usuario.
-
-Para generar la beta localmente:
+Comandos:
 
 ```powershell
-.\scripts\publish.ps1 -Version "0.9.0-beta"
-.\scripts\build-installer.ps1 -Version "0.9.0-beta"
+dotnet restore .\Nexo.slnx
+dotnet test .\Nexo.slnx -c Release
+dotnet build .\Nexo.slnx -c Release
 ```
 
-Consulta `docs/PUBLISHING.md` y `RELEASE_CHECKLIST.md` antes de crear una
-etiqueta. Las compilaciones de GitHub reciben automáticamente la URL del
-repositorio, lo que habilita **Buscar actualización** en el centro de
-diagnóstico.
+El proyecto se trabaja mediante ramas cortas y Pull Requests contra `main`. La protección de `main` debe exigir CI en verde antes de fusionar.
+
+## Publicación
+
+```powershell
+.\scripts\publish.ps1 `
+  -Version "0.9.3-beta" `
+  -RepositoryUrl "https://github.com/EXOTARA/Nexo"
+```
+
+La edición portable se genera como:
+
+```text
+artifacts\dist\Kohana-0.9.3-beta-win-x64-portable.zip
+```
+
+Con Inno Setup 6 instalado:
+
+```powershell
+.\scripts\build-installer.ps1 `
+  -Version "0.9.3-beta" `
+  -RepositoryUrl "https://github.com/EXOTARA/Nexo"
+```
+
+Consulta `docs/PUBLISHING.md`, `docs/KOHANA_BRAND_FOUNDATION.md` y `RELEASE_CHECKLIST.md` antes de publicar.
+
+## Dirección final
+
+Kohana evolucionará hacia un agente completo para Windows con memoria controlable, acciones aprobables, skills, automatizaciones persistentes, navegador aislado, servicios conectados, agentes especializados y dispositivos emparejados. La prioridad será mantener una instalación sencilla, privacidad visible y control humano sobre cada acción sensible.

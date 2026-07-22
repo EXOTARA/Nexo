@@ -8,6 +8,7 @@ public sealed class VisionCommandTests
 
     [Theory]
     [InlineData("mira esto")]
+    [InlineData("Kohana, mira la pantalla")]
     [InlineData("Nexo, mira la pantalla")]
     [InlineData("analiza esto")]
     [InlineData("qué ves aquí")]
