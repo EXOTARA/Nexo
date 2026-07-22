@@ -58,6 +58,8 @@ public sealed class ShellPreferences
 
     public WakeSensitivity WakeWordSensitivity { get; set; } = WakeSensitivity.Balanced;
 
+    public List<string> WakeWordAliases { get; set; } = [];
+
     public AiProviderKind AiProvider { get; set; } = AiProviderKind.Disabled;
 
     public string AiBaseUrl { get; set; } = string.Empty;
@@ -195,6 +197,14 @@ public sealed class ShellPreferences
             SchemaVersion = 15;
         }
 
+        if (SchemaVersion < 16)
+        {
+            // Los archivos antiguos pueden no incluir esta propiedad, pero una
+            // actualización no debe borrar aliases que ya estén presentes.
+            WakeWordAliases ??= [];
+            SchemaVersion = 16;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -211,6 +221,8 @@ public sealed class ShellPreferences
         {
             WakeWordSensitivity = WakeSensitivity.Balanced;
         }
+
+        WakeWordAliases = WakeWordAliasPolicy.NormalizeMany(WakeWordAliases);
 
         if (!Enum.IsDefined(AiProvider))
         {

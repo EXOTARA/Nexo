@@ -308,22 +308,39 @@
                     <ComboBoxItem Content="Alta · reconoce más variantes" Tag="High" />
                 </ComboBox>
 
-                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
-                    <Button x:Name="WakeWordTestButton"
-                            Content="Probar frase"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            Click="WakeWordTestButton_Click" />
+                <StackPanel Margin="0,12,0,0">
+                    <WrapPanel>
+                        <Button x:Name="WakeWordTestButton"
+                                Content="Probar frase"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="WakeWordTestButton_Click" />
+                        <Button x:Name="WakeWordUseObservedAliasButton"
+                                Margin="8,0,0,0"
+                                Content="Usar lo escuchado"
+                                IsEnabled="False"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="WakeWordUseObservedAliasButton_Click" />
+                        <Button x:Name="WakeWordClearAliasesButton"
+                                Margin="8,0,0,0"
+                                Content="Borrar aliases"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="WakeWordClearAliasesButton_Click" />
+                    </WrapPanel>
                     <TextBlock x:Name="WakeWordTestStatusText"
-                               Margin="12,0,0,0"
-                               VerticalAlignment="Center"
+                               Margin="0,9,0,0"
                                Text="Di la frase seleccionada cuando inicie la prueba."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="WakeWordAliasesText"
+                               Margin="0,5,0,0"
+                               Text="Aliases personales: ninguno"
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
                 </StackPanel>
             </StackPanel>
 
             <TextBlock Margin="24,8,0,0"
-                       Text="La escucha se realiza localmente y es opcional. ‘Ey Kohana’, ‘Hey Kohana’ y variantes frecuentes se normalizan antes de comparar. Whisper solo se carga después de detectar la frase."
+                       Text="La escucha se realiza localmente. En español, Kohana suele reconocerse como ‘cojana’ o ‘kojana’. La prueba muestra exactamente qué entendió Vosk y permite guardar una variante personal. Whisper solo se carga después de detectar la frase."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 

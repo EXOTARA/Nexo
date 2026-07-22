@@ -9,10 +9,12 @@ public sealed class WakeWordDetectedEventArgs : EventArgs
         WakeWordPhrase phrase,
         string recognizedText,
         ReadOnlyMemory<byte> preRollAudio = default,
-        ReadOnlyMemory<byte> postWakeAudio = default)
+        ReadOnlyMemory<byte> postWakeAudio = default,
+        WakeWordMatchKind matchKind = WakeWordMatchKind.Exact)
     {
         Phrase = phrase;
         RecognizedText = recognizedText;
+        MatchKind = matchKind;
         _preRollAudio = preRollAudio.IsEmpty
             ? []
             : preRollAudio.ToArray();
@@ -24,6 +26,8 @@ public sealed class WakeWordDetectedEventArgs : EventArgs
     public WakeWordPhrase Phrase { get; }
 
     public string RecognizedText { get; }
+
+    public WakeWordMatchKind MatchKind { get; }
 
     /// <summary>
     /// PCM mono de 16 kHz y 16 bits capturado justo antes del traspaso a Whisper.

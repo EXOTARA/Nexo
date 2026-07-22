@@ -1,8 +1,20 @@
+## [0.9.5-beta-hotfix.1]
+
+### Corregido
+
+- La migración al esquema 16 conserva y normaliza los aliases personales de la palabra de activación en lugar de borrarlos.
+
+# Changelog
+
+## [Unreleased]
+
+- Kohana 0.9.5-beta.
+
 # Changelog
 
 Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.
 
-## 0.9.4-beta — Shell Reliability + Voice Reliability v2
+## 0.9.5-beta — Shell Reliability + Voice Reliability v2
 
 ### Agregado
 

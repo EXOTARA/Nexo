@@ -24,13 +24,14 @@ Kohana busca convertirse en un agente personal nativo para Windows: capaz de esc
 - Onboarding, administración de modelos y diagnóstico local.
 - Portable autocontenido, scripts de publicación, CI e instalador.
 
-## 0.9.4-beta — Shell Reliability + Voice Reliability v2
+## 0.9.5-beta — Voice Reliability v3 + Runtime v1
 
-- Contracción completa y persistente de la barra lateral.
-- Iconografía funcional v2.
-- Paleta de comandos diferenciada visualmente.
-- Sensibilidad configurable para wake word.
-- Prueba local de “Ey/Hey Kohana”.
+- Pronunciación española `cojana`/`kojana` como variante principal.
+- Diagnóstico parcial y final de lo que entiende Vosk.
+- Aliases personales sin guardar audio.
+- Separación completa entre frases Kohana y aliases heredados de Nexo.
+- Panel Runtime para voz, IA, Vision y rendimiento.
+- Reinicio de voz y diagnóstico desde Sistema.
 
 ## 0.9.3-beta — Sakura Shell + Chat Refresh
 
@@ -50,7 +51,7 @@ Kohana busca convertirse en un agente personal nativo para Windows: capaz de esc
 - Migración conservadora de `%LocalAppData%\Nexo`.
 - Documentación y workflows renombrados.
 
-## 0.9.3-beta — Setup y onboarding definitivo
+## 0.9.6-beta — Setup y onboarding definitivo
 
 - Instalador probado en una cuenta limpia.
 - Actualización conservando datos y posibilidad de recuperación.

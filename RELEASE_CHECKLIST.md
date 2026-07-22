@@ -15,10 +15,18 @@
 - [ ] La ventana, Capsule, Peek, bandeja y onboarding muestran Kohana.
 - [ ] El ejecutable generado es `Kohana.exe`.
 - [ ] El icono de aplicación se ve a 16, 32 y 256 px.
-- [ ] `Oye Kohana`, `Kohana` y `Hey Kohana` funcionan.
-- [ ] Las frases antiguas de Nexo siguen funcionando durante la transición.
+- [ ] `Oye Kohana`, `Kohana`, `Ey Kohana`, `cojana` y `kojana` funcionan según la frase seleccionada.
+- [ ] El modo Kohana no acepta `Nexo` por error.
+- [ ] La prueba muestra exactamente lo que entendió Vosk.
+- [ ] Los aliases personales se guardan sin audio.
 - [ ] `%LocalAppData%\Nexo` se copia a `%LocalAppData%\Kohana` sin borrar el origen.
 - [ ] Una segunda ejecución no duplica ni sobrescribe la migración.
+
+## Runtime
+
+- [ ] Sistema muestra estado de voz, IA, Vision y rendimiento.
+- [ ] Reiniciar voz funciona sin reiniciar Kohana.
+- [ ] Diagnóstico abre desde el panel Runtime.
 
 ## Artefactos
 

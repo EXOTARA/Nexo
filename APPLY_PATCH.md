@@ -1,4 +1,4 @@
-# Aplicar Kohana 0.9.4-beta
+# Aplicar Kohana 0.9.5-beta
 
 1. Cierra Kohana desde la bandeja.
 2. Extrae el ZIP sobre `C:\Dev\Nexo` conservando `.git`.

@@ -24,6 +24,8 @@ public partial class SettingsView : UserControl
     public event Action<WakeWordPhrase>? WakeWordPhraseChanged;
     public event Action<WakeWordSensitivity>? WakeWordSensitivityChanged;
     public event EventHandler? WakeWordTestRequested;
+    public event EventHandler? WakeWordAliasFromLastRequested;
+    public event EventHandler? WakeWordAliasesClearRequested;
     public event Action<AiProviderKind>? AiProviderChanged;
     public event Action<string>? AiBaseUrlChanged;
     public event Action<string>? AiModelChanged;
@@ -73,6 +75,7 @@ public partial class SettingsView : UserControl
         WakeWordOyeKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeNexo;
         WakeWordHeyKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
         SelectWakeWordSensitivity(preferences.WakeWordSensitivity);
+        SetWakeWordAliases(preferences.WakeWordAliases);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
@@ -564,6 +567,38 @@ public partial class SettingsView : UserControl
         };
     }
 
+    public void SetWakeWordObservation(WakeWordRecognitionObservedEventArgs observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        var state = observation.IsFinal ? "final" : "parcial";
+        SetWakeWordTestStatus(
+            $"Vosk ({state}) escuchó “{observation.RecognizedText}”. {observation.Match.Detail}",
+            observation.Match.IsMatch ? true : null);
+        WakeWordUseObservedAliasButton.IsEnabled =
+            !observation.Match.IsMatch &&
+            WakeWordAliasPolicy.TryNormalize(observation.RecognizedText, out _, out _);
+    }
+
+    public void SetWakeWordAliases(IReadOnlyCollection<string> aliases)
+    {
+        aliases ??= Array.Empty<string>();
+        WakeWordAliasesText.Text = aliases.Count == 0
+            ? "Aliases personales: ninguno"
+            : "Aliases personales: " + string.Join(", ", aliases.Select(alias => $"“{alias}”"));
+        WakeWordClearAliasesButton.IsEnabled = aliases.Count > 0;
+    }
+
+    public void ClearWakeWordObservation()
+    {
+        WakeWordUseObservedAliasButton.IsEnabled = false;
+    }
+
+    private void WakeWordUseObservedAliasButton_Click(object sender, RoutedEventArgs e) =>
+        WakeWordAliasFromLastRequested?.Invoke(this, EventArgs.Empty);
+
+    private void WakeWordClearAliasesButton_Click(object sender, RoutedEventArgs e) =>
+        WakeWordAliasesClearRequested?.Invoke(this, EventArgs.Empty);
+
     private void SelectWakeWordSensitivity(WakeWordSensitivity sensitivity)
     {
         foreach (var item in WakeWordSensitivityComboBox.Items.OfType<ComboBoxItem>())
@@ -593,6 +628,9 @@ public partial class SettingsView : UserControl
         WakeWordHeyKohanaRadioButton.IsEnabled = enabled;
         WakeWordSensitivityComboBox.IsEnabled = enabled;
         WakeWordTestButton.IsEnabled = enabled;
+        WakeWordUseObservedAliasButton.IsEnabled = false;
+        WakeWordClearAliasesButton.IsEnabled = enabled &&
+            !WakeWordAliasesText.Text.EndsWith("ninguno", StringComparison.OrdinalIgnoreCase);
     }
 
     private void UpdatePeekOptionsAvailability()

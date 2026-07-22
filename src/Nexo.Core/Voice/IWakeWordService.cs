@@ -4,6 +4,8 @@ public interface IWakeWordService : IDisposable
 {
     event EventHandler<WakeWordDetectedEventArgs>? WakeWordDetected;
 
+    event EventHandler<WakeWordRecognitionObservedEventArgs>? RecognitionObserved;
+
     bool IsReady { get; }
 
     bool IsListening { get; }
@@ -11,6 +13,8 @@ public interface IWakeWordService : IDisposable
     int InputDeviceNumber { get; set; }
 
     WakeWordSensitivity Sensitivity { get; set; }
+
+    IReadOnlyList<string> CustomAliases { get; set; }
 
     Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,

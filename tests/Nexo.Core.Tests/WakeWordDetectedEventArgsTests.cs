@@ -42,4 +42,15 @@ public sealed class WakeWordDetectedEventArgsTests
         Assert.True(args.PreRollAudio.IsEmpty);
         Assert.True(args.PostWakeAudio.IsEmpty);
     }
+
+    [Fact]
+    public void Constructor_PreservesMatchKind()
+    {
+        var args = new WakeWordDetectedEventArgs(
+            WakeWordPhrase.OyeKohana,
+            "oye cojana",
+            matchKind: WakeWordMatchKind.Phonetic);
+
+        Assert.Equal(WakeWordMatchKind.Phonetic, args.MatchKind);
+    }
 }

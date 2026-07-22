@@ -5,58 +5,44 @@ namespace Nexo.Core.Voice;
 
 public static class WakeWordTextMatcher
 {
-    private static readonly HashSet<string> KohanaShortPhrases =
+    private static readonly HashSet<string> ExactBrandNames =
         new(StringComparer.Ordinal)
         {
-            "kohana",
-            "koana",
-            "cohana",
+            "kohana"
+        };
+
+    // Formas probables al pronunciar Kohana en español: co-ja-na / ko-ja-na.
+    private static readonly HashSet<string> PhoneticBrandNames =
+        new(StringComparer.Ordinal)
+        {
+            "cojana",
             "kojana",
+            "cohana",
+            "koana",
+            "coana",
+            "cogana",
+            "coyana",
+            "cujana",
+            "kujana",
+            "juana",
+            "joana",
+            "johana",
+            "johanna",
+            "conana",
             "ohana",
-            "kohanna",
-            "coana"
+            "kohanna"
         };
 
-    private static readonly HashSet<string> OyeKohanaPhrases =
+    private static readonly HashSet<string> OyePrefixes =
         new(StringComparer.Ordinal)
         {
-            "oye kohana",
-            "oi kohana",
-            "oy kohana",
-            "oye koana",
-            "oi koana",
-            "oye cohana",
-            "oye coana",
-            "oye kojana",
-            "oye ohana"
+            "oye", "oi", "oy"
         };
 
-    private static readonly HashSet<string> HeyKohanaPhrases =
+    private static readonly HashSet<string> HeyPrefixes =
         new(StringComparer.Ordinal)
         {
-            "hey kohana",
-            "ey kohana",
-            "ei kohana",
-            "e kohana",
-            "eh kohana",
-            "he kohana",
-            "ai kohana",
-            "ay kohana",
-            "ahi kohana",
-            "hay kohana",
-            "y kohana",
-            "hey koana",
-            "ey koana",
-            "ei koana",
-            "e koana",
-            "hey cohana",
-            "ey cohana",
-            "hey coana",
-            "ey coana",
-            "hey kojana",
-            "ey kojana",
-            "hey ohana",
-            "ey ohana"
+            "hey", "ey", "ei", "e", "eh", "he", "jei", "ay", "ai", "ahi", "hay"
         };
 
     private static readonly HashSet<string> NexoShortPhrases =
@@ -68,71 +54,143 @@ public static class WakeWordTextMatcher
     private static readonly HashSet<string> OyeNexoPhrases =
         new(StringComparer.Ordinal)
         {
-            "oye nexo",
-            "oi nexo"
+            "oye nexo", "oi nexo"
         };
 
     private static readonly HashSet<string> HeyNexoPhrases =
         new(StringComparer.Ordinal)
         {
-            "hey nexo",
-            "ey nexo",
-            "ei nexo",
-            "ai nexo",
-            "ahi nexo",
-            "hey neso",
-            "ey neso"
+            "hey nexo", "ey nexo", "ei nexo", "ai nexo", "ahi nexo", "hey neso", "ey neso"
         };
 
     public static bool IsMatch(
         string? text,
         WakeWordPhrase phrase,
-        WakeWordSensitivity sensitivity = WakeWordSensitivity.Balanced)
+        WakeWordSensitivity sensitivity = WakeWordSensitivity.Balanced,
+        IEnumerable<string>? customAliases = null) =>
+        Evaluate(text, phrase, sensitivity, customAliases).IsMatch;
+
+    public static WakeWordMatchResult Evaluate(
+        string? text,
+        WakeWordPhrase phrase,
+        WakeWordSensitivity sensitivity = WakeWordSensitivity.Balanced,
+        IEnumerable<string>? customAliases = null)
     {
-        var normalized = Canonicalize(Normalize(text));
+        var recognizedText = text?.Trim() ?? string.Empty;
+        var normalized = Canonicalize(Normalize(recognizedText));
         if (normalized.Length == 0)
         {
-            return false;
+            return WakeWordMatchResult.Rejected(
+                recognizedText,
+                normalized,
+                "Vosk todavía no produjo una frase reconocible.");
+        }
+
+        if (phrase.IsLegacy())
+        {
+            return EvaluateLegacy(recognizedText, normalized, phrase);
+        }
+
+        var aliases = WakeWordAliasPolicy.NormalizeMany(customAliases)
+            .Select(Canonicalize)
+            .ToHashSet(StringComparer.Ordinal);
+        if (aliases.Contains(normalized))
+        {
+            return WakeWordMatchResult.Accepted(
+                recognizedText,
+                normalized,
+                WakeWordMatchKind.CustomAlias,
+                "Coincidió con un alias personal guardado.");
         }
 
         if (sensitivity == WakeWordSensitivity.Strict)
         {
-            return IsStrictMatch(normalized, phrase);
+            return EvaluateStrict(recognizedText, normalized, phrase);
         }
 
-        var balancedMatch = phrase switch
+        if (TryMatchKnownPhrase(normalized, phrase, out var knownKind, out var knownDetail))
         {
-            WakeWordPhrase.OyeKohana =>
-                OyeKohanaPhrases.Contains(normalized) ||
-                OyeNexoPhrases.Contains(normalized),
-            WakeWordPhrase.HeyKohana =>
-                HeyKohanaPhrases.Contains(normalized) ||
-                HeyNexoPhrases.Contains(normalized),
-            WakeWordPhrase.Kohana =>
-                KohanaShortPhrases.Contains(normalized) ||
-                OyeKohanaPhrases.Contains(normalized) ||
-                HeyKohanaPhrases.Contains(normalized) ||
-                IsLegacyCompatibilityPhrase(normalized),
-            WakeWordPhrase.OyeNexo => OyeNexoPhrases.Contains(normalized),
-            WakeWordPhrase.HeyNexo => HeyNexoPhrases.Contains(normalized),
-            _ => NexoShortPhrases.Contains(normalized) ||
-                 OyeNexoPhrases.Contains(normalized) ||
-                 HeyNexoPhrases.Contains(normalized)
-        };
-
-        if (balancedMatch || sensitivity != WakeWordSensitivity.High)
-        {
-            return balancedMatch;
+            return WakeWordMatchResult.Accepted(
+                recognizedText,
+                normalized,
+                knownKind,
+                knownDetail);
         }
 
-        return phrase switch
+        if (sensitivity == WakeWordSensitivity.High &&
+            TryMatchApproximatePhrase(normalized, phrase, out var approximateDetail))
         {
-            WakeWordPhrase.OyeKohana or WakeWordPhrase.HeyKohana =>
-                KohanaShortPhrases.Contains(normalized) ||
-                EndsWithApproximateKohana(normalized),
-            WakeWordPhrase.Kohana => EndsWithApproximateKohana(normalized),
-            _ => false
-        };
+            return WakeWordMatchResult.Accepted(
+                recognizedText,
+                normalized,
+                WakeWordMatchKind.Approximate,
+                approximateDetail);
+        }
+
+        return WakeWordMatchResult.Rejected(
+            recognizedText,
+            normalized,
+            BuildRejectionDetail(normalized, phrase));
+    }
+
+    public static IReadOnlyList<string> GetGrammarPhrases(
+        WakeWordPhrase phrase,
+        WakeWordSensitivity sensitivity,
+        IEnumerable<string>? customAliases = null)
+    {
+        var phrases = new HashSet<string>(StringComparer.Ordinal);
+
+        if (phrase.IsLegacy())
+        {
+            foreach (var legacy in (phrase switch
+                     {
+                         WakeWordPhrase.OyeNexo => OyeNexoPhrases,
+                         WakeWordPhrase.HeyNexo => HeyNexoPhrases,
+                         _ => NexoShortPhrases
+                     }))
+            {
+                phrases.Add(legacy);
+            }
+
+            return phrases.OrderBy(value => value, StringComparer.Ordinal).ToArray();
+        }
+
+        var targets = sensitivity == WakeWordSensitivity.Strict
+            ? ExactBrandNames
+            : ExactBrandNames.Concat(PhoneticBrandNames).ToHashSet(StringComparer.Ordinal);
+
+        switch (phrase)
+        {
+            case WakeWordPhrase.OyeKohana:
+                AddPrefixed(phrases, OyePrefixes, targets);
+                if (sensitivity == WakeWordSensitivity.High)
+                {
+                    AddTargets(phrases, targets);
+                }
+                break;
+            case WakeWordPhrase.HeyKohana:
+                AddPrefixed(phrases, HeyPrefixes, targets);
+                if (sensitivity == WakeWordSensitivity.High)
+                {
+                    AddTargets(phrases, targets);
+                }
+                break;
+            default:
+                AddTargets(phrases, targets);
+                if (sensitivity != WakeWordSensitivity.Strict)
+                {
+                    AddPrefixed(phrases, OyePrefixes, targets);
+                    AddPrefixed(phrases, HeyPrefixes, targets);
+                }
+                break;
+        }
+
+        foreach (var alias in WakeWordAliasPolicy.NormalizeMany(customAliases))
+        {
+            phrases.Add(alias);
+        }
+
+        return phrases.OrderBy(value => value, StringComparer.Ordinal).ToArray();
     }
 
     public static string Normalize(string? text)
@@ -161,6 +219,172 @@ public static class WakeWordTextMatcher
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 
+    private static WakeWordMatchResult EvaluateLegacy(
+        string recognizedText,
+        string normalized,
+        WakeWordPhrase phrase)
+    {
+        var isMatch = phrase switch
+        {
+            WakeWordPhrase.OyeNexo => OyeNexoPhrases.Contains(normalized),
+            WakeWordPhrase.HeyNexo => HeyNexoPhrases.Contains(normalized),
+            _ => NexoShortPhrases.Contains(normalized)
+        };
+
+        return isMatch
+            ? WakeWordMatchResult.Accepted(
+                recognizedText,
+                normalized,
+                WakeWordMatchKind.Legacy,
+                "Coincidió con la frase heredada seleccionada.")
+            : WakeWordMatchResult.Rejected(
+                recognizedText,
+                normalized,
+                "La frase heredada seleccionada no coincide.");
+    }
+
+    private static WakeWordMatchResult EvaluateStrict(
+        string recognizedText,
+        string normalized,
+        WakeWordPhrase phrase)
+    {
+        var expected = phrase switch
+        {
+            WakeWordPhrase.OyeKohana => normalized == "oye kohana",
+            WakeWordPhrase.HeyKohana => normalized is "hey kohana" or "ey kohana",
+            _ => normalized == "kohana"
+        };
+
+        return expected
+            ? WakeWordMatchResult.Accepted(
+                recognizedText,
+                normalized,
+                WakeWordMatchKind.Exact,
+                "Coincidencia exacta con la frase configurada.")
+            : WakeWordMatchResult.Rejected(
+                recognizedText,
+                normalized,
+                "La sensibilidad Precisa requiere la forma exacta escrita como Kohana.");
+    }
+
+    private static bool TryMatchKnownPhrase(
+        string normalized,
+        WakeWordPhrase phrase,
+        out WakeWordMatchKind kind,
+        out string detail)
+    {
+        var words = normalized.Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        kind = WakeWordMatchKind.None;
+        detail = string.Empty;
+
+        string? target = null;
+        switch (phrase)
+        {
+            case WakeWordPhrase.OyeKohana when words.Length == 2 && OyePrefixes.Contains(words[0]):
+                target = words[1];
+                break;
+            case WakeWordPhrase.HeyKohana when words.Length == 2 && HeyPrefixes.Contains(words[0]):
+                target = words[1];
+                break;
+            case WakeWordPhrase.Kohana when words.Length == 1:
+                target = words[0];
+                break;
+            case WakeWordPhrase.Kohana when words.Length == 2 &&
+                                             (OyePrefixes.Contains(words[0]) || HeyPrefixes.Contains(words[0])):
+                target = words[1];
+                break;
+        }
+
+        if (target is null)
+        {
+            return false;
+        }
+
+        if (ExactBrandNames.Contains(target))
+        {
+            kind = WakeWordMatchKind.Exact;
+            detail = "Coincidió con Kohana.";
+            return true;
+        }
+
+        if (PhoneticBrandNames.Contains(target))
+        {
+            kind = WakeWordMatchKind.Phonetic;
+            detail = $"Coincidió con la pronunciación española “{target}”.";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryMatchApproximatePhrase(
+        string normalized,
+        WakeWordPhrase phrase,
+        out string detail)
+    {
+        var words = normalized.Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        detail = string.Empty;
+
+        string? target = null;
+        if (phrase == WakeWordPhrase.Kohana)
+        {
+            if (words.Length == 1)
+            {
+                target = words[0];
+            }
+            else if (words.Length == 2 &&
+                     (OyePrefixes.Contains(words[0]) || HeyPrefixes.Contains(words[0])))
+            {
+                target = words[1];
+            }
+        }
+        else if (words.Length == 2)
+        {
+            var validPrefix = phrase == WakeWordPhrase.OyeKohana
+                ? OyePrefixes.Contains(words[0])
+                : HeyPrefixes.Contains(words[0]);
+            if (validPrefix)
+            {
+                target = words[1];
+            }
+        }
+        else if (words.Length == 1)
+        {
+            // En sensibilidad Alta se tolera que Vosk omita “oye/ey”.
+            target = words[0];
+        }
+
+        if (target is null || target.Length is < 4 or > 9)
+        {
+            return false;
+        }
+
+        var distance = new[] { "kohana", "cojana", "kojana" }
+            .Min(candidate => LevenshteinDistance(target, candidate));
+        if (distance > 2)
+        {
+            return false;
+        }
+
+        detail = $"Coincidencia aproximada de alta sensibilidad con “{target}”.";
+        return true;
+    }
+
+    private static string BuildRejectionDetail(string normalized, WakeWordPhrase phrase)
+    {
+        if (normalized.Contains("nexo", StringComparison.Ordinal) ||
+            normalized.Contains("neso", StringComparison.Ordinal))
+        {
+            return "Se escuchó Nexo, pero el modo Kohana ya no acepta el nombre heredado.";
+        }
+
+        return $"“{normalized}” no coincide con “{phrase.ToSpokenText()}” ni con cojana/kojana.";
+    }
+
     private static string Canonicalize(string normalized)
     {
         if (normalized.Length == 0)
@@ -173,28 +397,37 @@ public static class WakeWordTextMatcher
             .Replace("ko ana", "koana", StringComparison.Ordinal)
             .Replace("co hana", "cohana", StringComparison.Ordinal)
             .Replace("co ana", "coana", StringComparison.Ordinal)
+            .Replace("co jana", "cojana", StringComparison.Ordinal)
+            .Replace("ko jana", "kojana", StringComparison.Ordinal)
+            .Replace("coja ana", "cojana", StringComparison.Ordinal)
+            .Replace("coja na", "cojana", StringComparison.Ordinal)
+            .Replace("koja na", "kojana", StringComparison.Ordinal)
+            .Replace("con ana", "conana", StringComparison.Ordinal)
+            .Replace("co gana", "cogana", StringComparison.Ordinal)
+            .Replace("co yana", "coyana", StringComparison.Ordinal)
             .Replace("o hana", "ohana", StringComparison.Ordinal);
     }
 
-    private static bool IsStrictMatch(string normalized, WakeWordPhrase phrase) => phrase switch
+    private static void AddTargets(HashSet<string> phrases, IEnumerable<string> targets)
     {
-        WakeWordPhrase.Kohana => normalized == "kohana",
-        WakeWordPhrase.OyeKohana => normalized == "oye kohana",
-        WakeWordPhrase.HeyKohana => normalized is "hey kohana" or "ey kohana",
-        WakeWordPhrase.OyeNexo => normalized == "oye nexo",
-        WakeWordPhrase.HeyNexo => normalized is "hey nexo" or "ey nexo",
-        _ => normalized == "nexo"
-    };
+        foreach (var target in targets)
+        {
+            phrases.Add(target);
+        }
+    }
 
-    private static bool EndsWithApproximateKohana(string normalized)
+    private static void AddPrefixed(
+        HashSet<string> phrases,
+        IEnumerable<string> prefixes,
+        IEnumerable<string> targets)
     {
-        var finalToken = normalized
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .LastOrDefault();
-
-        return finalToken is not null &&
-               (KohanaShortPhrases.Contains(finalToken) ||
-                LevenshteinDistance(finalToken, "kohana") <= 2);
+        foreach (var prefix in prefixes)
+        {
+            foreach (var target in targets)
+            {
+                phrases.Add($"{prefix} {target}");
+            }
+        }
     }
 
     private static int LevenshteinDistance(string left, string right)
@@ -232,9 +465,4 @@ public static class WakeWordTextMatcher
 
         return previous[right.Length];
     }
-
-    private static bool IsLegacyCompatibilityPhrase(string normalized) =>
-        NexoShortPhrases.Contains(normalized) ||
-        OyeNexoPhrases.Contains(normalized) ||
-        HeyNexoPhrases.Contains(normalized);
 }

@@ -126,6 +126,9 @@ public partial class MainWindow : Window
     private bool _resourceGovernorWakeWordPaused;
     private bool _wakeWordTestActive;
     private CancellationTokenSource? _wakeWordTestCancellation;
+    private WakeWordRecognitionObservedEventArgs? _lastWakeWordObservation;
+    private string _runtimeAiStatus = "Desactivada";
+    private bool _runtimeAiHealthy;
     private string? _visualContextMetadata;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
@@ -185,6 +188,8 @@ public partial class MainWindow : Window
         _focusView.FocusChanged += FocusView_FocusChanged;
         _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
         _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
+        _wakeWordService.RecognitionObserved += WakeWordService_RecognitionObserved;
+        _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _captureView.CaptureRequested += CaptureView_CaptureRequested;
         _commandPaletteWindow.PromptSubmitted += CommandPaletteWindow_PromptSubmitted;
@@ -193,6 +198,8 @@ public partial class MainWindow : Window
         _homeView.TasksRequested += HomeView_TasksRequested;
         _homeView.FocusRequested += HomeView_FocusRequested;
         _homeView.ContextRequested += HomeView_ContextRequested;
+        _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
+        _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -212,6 +219,7 @@ public partial class MainWindow : Window
         NavigateTo("Home", animate: false);
         SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
         UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
+        RefreshRuntimeDashboard();
 
         _clockTimer = new DispatcherTimer
         {
@@ -362,6 +370,12 @@ public partial class MainWindow : Window
         _settingsView.WakeWordTestRequested += async (_, _) =>
             await StartWakeWordTestAsync();
 
+        _settingsView.WakeWordAliasFromLastRequested += async (_, _) =>
+            await AddLastWakeWordObservationAsAliasAsync();
+
+        _settingsView.WakeWordAliasesClearRequested += async (_, _) =>
+            await ClearWakeWordAliasesAsync();
+
         _settingsView.AiProviderChanged += provider =>
         {
             var preset = AiProviderDefaults.Get(provider);
@@ -409,6 +423,7 @@ public partial class MainWindow : Window
                 ClearPendingVisionAttachment();
             }
             SavePreferences();
+            RefreshRuntimeDashboard();
         };
 
         _settingsView.ResourceGovernorEnabledChanged += enabled =>
@@ -782,6 +797,7 @@ public partial class MainWindow : Window
         _capsuleWindow.Close();
         _commandPaletteWindow.Close();
         _wakeWordService.WakeWordDetected -= WakeWordService_WakeWordDetected;
+        _wakeWordService.RecognitionObserved -= WakeWordService_RecognitionObserved;
         _wakeWordService.Dispose();
         if (_aiChatService is IDisposable disposableAiService)
         {
@@ -905,6 +921,9 @@ public partial class MainWindow : Window
 
         if (snapshot.IsRunning)
         {
+            _runtimeAiStatus = "Ollama listo";
+            _runtimeAiHealthy = true;
+            RefreshRuntimeDashboard();
             var recovered = _managedAiRuntimeFailureNotified;
             _managedAiRuntimeFailureNotified = false;
             UpdateAiProviderStatus();
@@ -923,6 +942,9 @@ public partial class MainWindow : Window
             return;
         }
 
+        _runtimeAiStatus = "Ollama necesita atención";
+        _runtimeAiHealthy = false;
+        RefreshRuntimeDashboard();
         var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
             ? "modelo local"
             : _preferences.AiModel;
@@ -1794,8 +1816,11 @@ public partial class MainWindow : Window
     {
         if (_preferences.AiProvider == AiProviderKind.Disabled)
         {
+            _runtimeAiStatus = "Desactivada";
+            _runtimeAiHealthy = false;
             _assistantView.SetAiProviderStatus(
                 "IA desactivada · los comandos locales siguen disponibles");
+            RefreshRuntimeDashboard();
             return;
         }
 
@@ -1803,7 +1828,12 @@ public partial class MainWindow : Window
         var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
             ? "sin modelo seleccionado"
             : _preferences.AiModel;
+        _runtimeAiStatus = _preferences.AiProvider == AiProviderKind.Ollama
+            ? "Ollama configurado"
+            : $"{providerName} configurado";
+        _runtimeAiHealthy = true;
         _assistantView.SetAiProviderStatus($"{providerName} · {model}");
+        RefreshRuntimeDashboard();
     }
 
     private AiProviderConfiguration BuildAiConfiguration()
@@ -2093,6 +2123,20 @@ public partial class MainWindow : Window
         _ = Dispatcher.InvokeAsync(() => HandleWakeWordDetectedAsync(e)).Task.Unwrap();
     }
 
+    private void WakeWordService_RecognitionObserved(
+        object? sender,
+        WakeWordRecognitionObservedEventArgs e)
+    {
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _lastWakeWordObservation = e;
+            if (_wakeWordTestActive)
+            {
+                _settingsView.SetWakeWordObservation(e);
+            }
+        }));
+    }
+
     private async Task StartWakeWordTestAsync()
     {
         if (!_preferences.WakeWordEnabled)
@@ -2107,6 +2151,8 @@ public partial class MainWindow : Window
         _wakeWordTestCancellation?.Dispose();
         _wakeWordTestCancellation = new CancellationTokenSource();
         _wakeWordTestActive = true;
+        _lastWakeWordObservation = null;
+        _settingsView.ClearWakeWordObservation();
 
         _settingsView.SetWakeWordTestStatus(
             $"Escuchando durante 12 segundos. Di “{_preferences.WakeWordPhrase.ToSpokenText()}”.",
@@ -2128,9 +2174,11 @@ public partial class MainWindow : Window
             if (_wakeWordTestActive)
             {
                 _wakeWordTestActive = false;
-                _settingsView.SetWakeWordTestStatus(
-                    "No se detectó la frase. Prueba sensibilidad Alta o revisa el micrófono.",
-                    isSuccess: false);
+                var detail = _lastWakeWordObservation is null
+                    ? "Vosk no produjo texto. Revisa el micrófono o prueba sensibilidad Alta."
+                    : $"Lo último que escuchó Vosk fue “{_lastWakeWordObservation.RecognizedText}”. " +
+                      _lastWakeWordObservation.Match.Detail;
+                _settingsView.SetWakeWordTestStatus(detail, isSuccess: false);
             }
         }
         catch (OperationCanceledException)
@@ -2138,6 +2186,80 @@ public partial class MainWindow : Window
             // La prueba terminó al detectar la frase o al iniciar otra prueba.
         }
     }
+
+    private async Task AddLastWakeWordObservationAsAliasAsync()
+    {
+        var observed = _lastWakeWordObservation?.RecognizedText;
+        if (!WakeWordAliasPolicy.TryNormalize(observed, out var alias, out var detail))
+        {
+            _settingsView.SetWakeWordTestStatus(detail, isSuccess: false);
+            return;
+        }
+
+        if (_preferences.WakeWordAliases.Contains(alias, StringComparer.Ordinal))
+        {
+            _settingsView.SetWakeWordTestStatus($"“{alias}” ya está guardado.", isSuccess: true);
+            return;
+        }
+
+        if (_preferences.WakeWordAliases.Count >= WakeWordAliasPolicy.MaximumAliases)
+        {
+            _settingsView.SetWakeWordTestStatus(
+                $"Puedes guardar hasta {WakeWordAliasPolicy.MaximumAliases} aliases.",
+                isSuccess: false);
+            return;
+        }
+
+        _preferences.WakeWordAliases.Add(alias);
+        _preferences.WakeWordAliases = WakeWordAliasPolicy.NormalizeMany(_preferences.WakeWordAliases);
+        _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
+        SavePreferences();
+        _settingsView.SetWakeWordAliases(_preferences.WakeWordAliases);
+        _settingsView.SetWakeWordTestStatus($"Alias “{alias}” guardado.", isSuccess: true);
+        await ApplyWakeWordPreferenceAsync(showCapsule: false);
+    }
+
+    private async Task ClearWakeWordAliasesAsync()
+    {
+        _preferences.WakeWordAliases.Clear();
+        _wakeWordService.CustomAliases = [];
+        SavePreferences();
+        _settingsView.SetWakeWordAliases(_preferences.WakeWordAliases);
+        _settingsView.SetWakeWordTestStatus("Aliases personales eliminados.", isSuccess: true);
+        await ApplyWakeWordPreferenceAsync(showCapsule: false);
+    }
+
+    private async Task RestartWakeWordAsync()
+    {
+        if (!_preferences.WakeWordEnabled)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "Voz desactivada",
+                "Activa una frase desde Personalización → Voz.",
+                _preferences.Position);
+            return;
+        }
+
+        await PauseWakeWordAsync();
+        await ApplyWakeWordPreferenceAsync(showCapsule: false);
+        _capsuleWindow.ShowMessage(
+            _wakeWordService.IsListening ? CapsuleKind.Success : CapsuleKind.Warning,
+            _wakeWordService.IsListening ? "Voz reiniciada" : "Voz no disponible",
+            _wakeWordService.IsListening
+                ? $"Esperando “{_preferences.WakeWordPhrase.ToSpokenText()}”."
+                : "Revisa el micrófono y el diagnóstico.",
+            _preferences.Position);
+    }
+
+    private static string GetWakeWordMatchLabel(WakeWordMatchKind kind) => kind switch
+    {
+        WakeWordMatchKind.Phonetic => "pronunciación española",
+        WakeWordMatchKind.Approximate => "coincidencia aproximada",
+        WakeWordMatchKind.CustomAlias => "alias personal",
+        WakeWordMatchKind.Legacy => "frase heredada",
+        _ => "coincidencia exacta"
+    };
 
     private async Task HandleWakeWordDetectedAsync(WakeWordDetectedEventArgs e)
     {
@@ -2151,7 +2273,7 @@ public partial class MainWindow : Window
             _wakeWordTestActive = false;
             _wakeWordTestCancellation?.Cancel();
             _settingsView.SetWakeWordTestStatus(
-                $"Detecté “{e.RecognizedText}”. La frase funciona correctamente.",
+                $"Detecté “{e.RecognizedText}” como {GetWakeWordMatchLabel(e.MatchKind)}. La frase funciona.",
                 isSuccess: true);
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Success,
@@ -2275,6 +2397,7 @@ public partial class MainWindow : Window
         {
             await _wakeWordService.StopListeningAsync();
             SetWakeWordIndicator(active: false);
+            RefreshRuntimeDashboard();
 
             if (!_preferences.WakeWordEnabled || _isClosed || _voiceInputService.IsListening)
             {
@@ -2327,6 +2450,8 @@ public partial class MainWindow : Window
                 return;
             }
 
+            _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
+            _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
             var start = await _wakeWordService.StartListeningAsync(
                 _preferences.WakeWordPhrase,
                 _lifetimeCancellation.Token);
@@ -2349,6 +2474,7 @@ public partial class MainWindow : Window
             }
 
             SetWakeWordIndicator(active: true);
+            RefreshRuntimeDashboard();
             _assistantView.SetVoiceAvailability(
                 _voiceInputService.IsReady,
                 $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” y la orden de corrido, o espera “Te escucho”.");
@@ -3694,6 +3820,20 @@ public partial class MainWindow : Window
         ResourceModeDot.Fill = decision.Mode == ResourceMode.Game
             ? (Brush)FindResource("BrushDanger")
             : (Brush)FindResource("BrushWarning");
+        RefreshRuntimeDashboard();
+    }
+
+    private void RefreshRuntimeDashboard()
+    {
+        _systemView.UpdateRuntimeStatus(
+            _voiceInputService.IsReady,
+            _preferences.WakeWordEnabled,
+            _wakeWordService.IsListening,
+            _preferences.VisionEnabled,
+            _runtimeAiStatus,
+            _runtimeAiHealthy,
+            _resourceDecision.Mode,
+            _resourceDecision.Reason);
     }
 
     private void PresentResourceRestriction(

@@ -57,6 +57,8 @@ public sealed class VoskWakeWordService : IWakeWordService
     private int _postWakeCount;
     private bool _capturePostWake;
     private CancellationTokenSource? _handoffCancellation;
+    private IReadOnlyList<string> _customAliases = [];
+    private string _lastObservedText = string.Empty;
     private bool _disposed;
 
     public VoskWakeWordService()
@@ -68,6 +70,8 @@ public sealed class VoskWakeWordService : IWakeWordService
 
     public event EventHandler<WakeWordDetectedEventArgs>? WakeWordDetected;
 
+    public event EventHandler<WakeWordRecognitionObservedEventArgs>? RecognitionObserved;
+
     public bool IsReady { get; private set; }
 
     public bool IsListening { get; private set; }
@@ -75,6 +79,24 @@ public sealed class VoskWakeWordService : IWakeWordService
     public int InputDeviceNumber { get; set; } = -1;
 
     public WakeWordSensitivity Sensitivity { get; set; } = WakeWordSensitivity.Balanced;
+
+    public IReadOnlyList<string> CustomAliases
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return [.. _customAliases];
+            }
+        }
+        set
+        {
+            lock (_sync)
+            {
+                _customAliases = WakeWordAliasPolicy.NormalizeMany(value);
+            }
+        }
+    }
 
     public async Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
@@ -271,6 +293,7 @@ public sealed class VoskWakeWordService : IWakeWordService
                 _handoffCancellation?.Cancel();
                 _handoffCancellation?.Dispose();
                 _handoffCancellation = null;
+                _lastObservedText = string.Empty;
                 IsListening = true;
                 ownershipTransferred = true;
             }
@@ -378,8 +401,15 @@ public sealed class VoskWakeWordService : IWakeWordService
             var recognizedText = ReadRecognizedText(
                 json,
                 isFinal ? "text" : "partial");
+            var aliases = CustomAliases;
+            var match = WakeWordTextMatcher.Evaluate(
+                recognizedText,
+                phrase,
+                Sensitivity,
+                aliases);
 
-            if (!WakeWordTextMatcher.IsMatch(recognizedText, phrase, Sensitivity))
+            PublishRecognitionObservation(phrase, recognizedText, isFinal, match);
+            if (!match.IsMatch)
             {
                 return;
             }
@@ -407,6 +437,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             _ = RaiseWakeWordAfterHandoffAsync(
                 phrase,
                 recognizedText,
+                match.Kind,
                 handoffCancellation.Token);
         }
         catch (ObjectDisposedException)
@@ -418,6 +449,7 @@ public sealed class VoskWakeWordService : IWakeWordService
     private async Task RaiseWakeWordAfterHandoffAsync(
         WakeWordPhrase phrase,
         string recognizedText,
+        WakeWordMatchKind matchKind,
         CancellationToken cancellationToken)
     {
         try
@@ -444,7 +476,8 @@ public sealed class VoskWakeWordService : IWakeWordService
                     phrase,
                     recognizedText,
                     preRollAudio,
-                    postWakeAudio));
+                    postWakeAudio,
+                    matchKind));
         }
         catch (OperationCanceledException)
         {
@@ -578,6 +611,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             _handoffCancellation?.Cancel();
             _handoffCancellation?.Dispose();
             _handoffCancellation = null;
+            _lastObservedText = string.Empty;
             IsListening = false;
         }
 
@@ -638,56 +672,66 @@ public sealed class VoskWakeWordService : IWakeWordService
                 File.Exists(Path.Combine(directory, "am", "final.mdl")));
     }
 
-    private static string BuildGrammar(
+    private string BuildGrammar(
         WakeWordPhrase phrase,
         WakeWordSensitivity sensitivity)
     {
-        if (sensitivity == WakeWordSensitivity.Strict)
+        var phrases = WakeWordTextMatcher.GetGrammarPhrases(
+            phrase,
+            sensitivity,
+            CustomAliases);
+        return JsonSerializer.Serialize(phrases.Append("[unk]").ToArray());
+    }
+
+    private void PublishRecognitionObservation(
+        WakeWordPhrase phrase,
+        string recognizedText,
+        bool isFinal,
+        WakeWordMatchResult match)
+    {
+        if (string.IsNullOrWhiteSpace(recognizedText))
         {
-            return phrase switch
-            {
-                WakeWordPhrase.OyeKohana => "[\"oye kohana\", \"[unk]\"]",
-                WakeWordPhrase.HeyKohana => "[\"hey kohana\", \"ey kohana\", \"[unk]\"]",
-                WakeWordPhrase.Kohana => "[\"kohana\", \"[unk]\"]",
-                WakeWordPhrase.OyeNexo => "[\"oye nexo\", \"[unk]\"]",
-                WakeWordPhrase.HeyNexo => "[\"hey nexo\", \"ey nexo\", \"[unk]\"]",
-                _ => "[\"nexo\", \"[unk]\"]"
-            };
+            return;
         }
 
-        var highSensitivityExtras = sensitivity == WakeWordSensitivity.High
-            ? ", \"kohana\", \"koana\", \"cohana\", \"ohana\""
-            : string.Empty;
-
-        return phrase switch
+        var normalized = WakeWordTextMatcher.Normalize(recognizedText);
+        lock (_sync)
         {
-            WakeWordPhrase.OyeKohana =>
-                "[\"oye kohana\", \"oi kohana\", \"oy kohana\", " +
-                "\"oye koana\", \"oi koana\", \"oye cohana\", \"oye coana\", " +
-                "\"oye kojana\", \"oye ohana\", \"oye nexo\", \"oi nexo\"" +
-                highSensitivityExtras + ", \"[unk]\"]",
-            WakeWordPhrase.HeyKohana =>
-                "[\"hey kohana\", \"ey kohana\", \"ei kohana\", \"e kohana\", " +
-                "\"eh kohana\", \"he kohana\", \"ai kohana\", \"ay kohana\", " +
-                "\"ahi kohana\", \"hay kohana\", \"y kohana\", \"hey koana\", " +
-                "\"ey koana\", \"ei koana\", \"hey cohana\", \"ey cohana\", " +
-                "\"hey coana\", \"ey coana\", \"hey kojana\", \"ey kojana\", " +
-                "\"hey ohana\", \"ey ohana\", \"hey nexo\", \"ey nexo\"" +
-                highSensitivityExtras + ", \"[unk]\"]",
-            WakeWordPhrase.Kohana =>
-                "[\"kohana\", \"koana\", \"cohana\", \"coana\", \"kojana\", " +
-                "\"ohana\", \"kohanna\", \"oye kohana\", \"oi kohana\", " +
-                "\"hey kohana\", \"ey kohana\", \"e kohana\", \"eh kohana\", " +
-                "\"nexo\", \"oye nexo\", \"hey nexo\", \"[unk]\"]",
-            WakeWordPhrase.OyeNexo =>
-                "[\"oye nexo\", \"oi nexo\", \"[unk]\"]",
-            WakeWordPhrase.HeyNexo =>
-                "[\"hey nexo\", \"ey nexo\", \"ei nexo\", \"ai nexo\", " +
-                "\"ahi nexo\", \"hey neso\", \"ey neso\", \"[unk]\"]",
-            _ =>
-                "[\"nexo\", \"oye nexo\", \"oi nexo\", \"hey nexo\", " +
-                "\"ey nexo\", \"ei nexo\", \"ai nexo\", \"ahi nexo\", \"[unk]\"]"
-        };
+            if (!isFinal && string.Equals(_lastObservedText, normalized, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastObservedText = normalized;
+        }
+
+        WriteRecognitionLog(phrase, isFinal, match);
+        RecognitionObserved?.Invoke(
+            this,
+            new WakeWordRecognitionObservedEventArgs(
+                phrase,
+                recognizedText,
+                isFinal,
+                match));
+    }
+
+    private static void WriteRecognitionLog(
+        WakeWordPhrase phrase,
+        bool isFinal,
+        WakeWordMatchResult match)
+    {
+        try
+        {
+            Directory.CreateDirectory(NexoDataPaths.LogsDirectory);
+            File.AppendAllText(
+                NexoDataPaths.WakeWordRecognitionLog,
+                $"{DateTimeOffset.Now:O} | {phrase} | {(isFinal ? "final" : "partial")} | " +
+                $"{match.Kind} | {match.NormalizedText} | {match.Detail}{Environment.NewLine}");
+        }
+        catch
+        {
+            // El diagnóstico nunca debe interrumpir la escucha.
+        }
     }
 
     private static string ReadRecognizedText(string? json, string propertyName)

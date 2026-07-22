@@ -46,7 +46,7 @@ public sealed class ShellPreferencesTests
         preferences.Normalize();
 
         Assert.Equal(700, preferences.Width);
-        Assert.Equal(15, preferences.SchemaVersion);
+        Assert.Equal(16, preferences.SchemaVersion);
     }
 
 
@@ -117,7 +117,7 @@ public void Normalize_ClampsConversationMessageLimit()
 
         preferences.Normalize();
 
-        Assert.Equal(15, preferences.SchemaVersion);
+        Assert.Equal(16, preferences.SchemaVersion);
         Assert.True(preferences.ResourceGovernorEnabled);
         Assert.True(preferences.PauseWakeWordInGameMode);
         Assert.True(preferences.ProtectVisionWhenBusy);
@@ -135,7 +135,7 @@ public void Normalize_ClampsConversationMessageLimit()
 
         preferences.Normalize();
 
-        Assert.Equal(15, preferences.SchemaVersion);
+        Assert.Equal(16, preferences.SchemaVersion);
         Assert.False(preferences.SideRailExpanded);
         Assert.Equal(
             Nexo.Core.Voice.WakeWordSensitivity.Balanced,

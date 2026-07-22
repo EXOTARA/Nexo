@@ -8,7 +8,7 @@ Kohana es un agente personal nativo para Windows. Combina comandos locales, voz,
 
 ## Estado
 
-La versión actual es `0.9.4-beta — Shell Reliability + Voice Reliability v2`.
+La versión actual es `0.9.5-beta — Voice Reliability v3 + Kohana Runtime v1`.
 
 Esta etapa incorpora:
 
@@ -17,7 +17,7 @@ Esta etapa incorpora:
 - Nuevo icono para la aplicación, la bandeja, el portable y el instalador.
 - Ejecutable público `Kohana.exe`.
 - Palabras de activación `Kohana`, `Oye Kohana` y `Hey Kohana`.
-- Compatibilidad temporal con `Nexo`, `Oye Nexo` y `Hey Nexo`.
+- Pronunciaciones españolas `cojana` y `kojana`, diagnóstico visible de Vosk y aliases personales.
 - Migración conservadora de `%LocalAppData%\Nexo` a `%LocalAppData%\Kohana`.
 - Publicación portable e instalador renombrados como Kohana.
 
@@ -43,6 +43,12 @@ Esta etapa incorpora:
 - Runtime privado de Ollama administrado por Kohana.
 - Streaming de respuestas y contexto de sistema opcional.
 - Comandos conocidos resueltos localmente antes de consultar un modelo.
+
+### Runtime y estado
+
+- Panel unificado en Sistema para voz, IA, Vision y rendimiento.
+- Reinicio de voz y acceso directo a Diagnóstico.
+- Registro textual de intentos de wake word sin conservar audio.
 
 ### Vision y privacidad
 
@@ -79,7 +85,7 @@ La recomendada es:
 Oye Kohana
 ```
 
-También se puede elegir `Kohana` o `Hey Kohana`. Durante la transición siguen aceptándose las variantes de Nexo para no romper configuraciones antiguas.
+También se puede elegir `Kohana` o `Hey Kohana`. Las frases antiguas de Nexo solo se conservan como valores heredados de configuración; el modo Kohana ya no las acepta implícitamente.
 
 ## Desarrollo
 
@@ -103,21 +109,21 @@ El proyecto se trabaja mediante ramas cortas y Pull Requests contra `main`. La p
 
 ```powershell
 .\scripts\publish.ps1 `
-  -Version "0.9.4-beta" `
+  -Version "0.9.5-beta" `
   -RepositoryUrl "https://github.com/EXOTARA/Nexo"
 ```
 
 La edición portable se genera como:
 
 ```text
-artifacts\dist\Kohana-0.9.4-beta-win-x64-portable.zip
+artifacts\dist\Kohana-0.9.5-beta-win-x64-portable.zip
 ```
 
 Con Inno Setup 6 instalado:
 
 ```powershell
 .\scripts\build-installer.ps1 `
-  -Version "0.9.4-beta" `
+  -Version "0.9.5-beta" `
   -RepositoryUrl "https://github.com/EXOTARA/Nexo"
 ```
 
