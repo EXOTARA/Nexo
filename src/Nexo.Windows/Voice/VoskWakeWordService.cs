@@ -20,15 +20,18 @@ public sealed class VoskWakeWordService : IWakeWordService
     private const int SampleRate = 16_000;
     private const int BitsPerSample = 16;
     private const int Channels = 1;
-    private const int PreRollMilliseconds = 2_200;
+    private const int PreRollMilliseconds = 3_000;
     private const int PreRollCapacityBytes =
         SampleRate * Channels * (BitsPerSample / 8) * PreRollMilliseconds / 1000;
+    private const int PostWakeCaptureMilliseconds = 1_200;
+    private const int PostWakeCapacityBytes =
+        SampleRate * Channels * (BitsPerSample / 8) * PostWakeCaptureMilliseconds / 1000;
     private const long MinimumArchiveBytes = 20L * 1024 * 1024;
     private const long ProgressStepBytes = 2L * 1024 * 1024;
 
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan DetectionCooldown = TimeSpan.FromSeconds(2.5);
-    private static readonly TimeSpan HandoffDelay = TimeSpan.FromMilliseconds(260);
+    private static readonly TimeSpan HandoffDelay = TimeSpan.FromMilliseconds(550);
     private static readonly HttpClient HttpClient = new()
     {
         Timeout = TimeSpan.FromMinutes(20)
@@ -39,6 +42,7 @@ public sealed class VoskWakeWordService : IWakeWordService
     private readonly string _modelDirectory;
     private readonly string _modelsRoot;
     private readonly byte[] _preRollBuffer = new byte[PreRollCapacityBytes];
+    private readonly byte[] _postWakeBuffer = new byte[PostWakeCapacityBytes];
 
     private Model? _model;
     private VoskRecognizer? _recognizer;
@@ -49,6 +53,8 @@ public sealed class VoskWakeWordService : IWakeWordService
     private bool _detectionRaised;
     private int _preRollWriteIndex;
     private int _preRollCount;
+    private int _postWakeCount;
+    private bool _capturePostWake;
     private CancellationTokenSource? _handoffCancellation;
     private bool _disposed;
 
@@ -261,6 +267,8 @@ public sealed class VoskWakeWordService : IWakeWordService
                 _detectionRaised = false;
                 _preRollWriteIndex = 0;
                 _preRollCount = 0;
+                _postWakeCount = 0;
+                _capturePostWake = false;
                 _handoffCancellation?.Cancel();
                 _handoffCancellation?.Dispose();
                 _handoffCancellation = null;
@@ -349,6 +357,11 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             AppendPreRollUnsafe(e.Buffer, e.BytesRecorded);
+            if (_capturePostWake)
+            {
+                AppendPostWakeUnsafe(e.Buffer, e.BytesRecorded);
+            }
+
             detectionRaised = _detectionRaised;
             recognizer = _recognizer;
             phrase = _phrase;
@@ -384,6 +397,8 @@ public sealed class VoskWakeWordService : IWakeWordService
 
                 _detectionRaised = true;
                 _lastDetection = now;
+                _postWakeCount = 0;
+                _capturePostWake = true;
                 _handoffCancellation?.Cancel();
                 _handoffCancellation?.Dispose();
                 _handoffCancellation = new CancellationTokenSource();
@@ -411,6 +426,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             await Task.Delay(HandoffDelay, cancellationToken);
 
             byte[] preRollAudio;
+            byte[] postWakeAudio;
             lock (_sync)
             {
                 if (!IsListening || cancellationToken.IsCancellationRequested)
@@ -418,7 +434,9 @@ public sealed class VoskWakeWordService : IWakeWordService
                     return;
                 }
 
+                _capturePostWake = false;
                 preRollAudio = SnapshotPreRollUnsafe();
+                postWakeAudio = SnapshotPostWakeUnsafe();
             }
 
             WakeWordDetected?.Invoke(
@@ -426,7 +444,8 @@ public sealed class VoskWakeWordService : IWakeWordService
                 new WakeWordDetectedEventArgs(
                     phrase,
                     recognizedText,
-                    preRollAudio));
+                    preRollAudio,
+                    postWakeAudio));
         }
         catch (OperationCanceledException)
         {
@@ -495,6 +514,42 @@ public sealed class VoskWakeWordService : IWakeWordService
         return result;
     }
 
+    private void AppendPostWakeUnsafe(byte[] source, int count)
+    {
+        if (_postWakeCount >= _postWakeBuffer.Length)
+        {
+            return;
+        }
+
+        var bytesToCopy = Math.Min(
+            Math.Min(count, source.Length),
+            _postWakeBuffer.Length - _postWakeCount);
+        Buffer.BlockCopy(
+            source,
+            0,
+            _postWakeBuffer,
+            _postWakeCount,
+            bytesToCopy);
+        _postWakeCount += bytesToCopy;
+    }
+
+    private byte[] SnapshotPostWakeUnsafe()
+    {
+        if (_postWakeCount == 0)
+        {
+            return [];
+        }
+
+        var result = new byte[_postWakeCount];
+        Buffer.BlockCopy(
+            _postWakeBuffer,
+            0,
+            result,
+            0,
+            _postWakeCount);
+        return result;
+    }
+
     private void Recorder_RecordingStopped(object? sender, StoppedEventArgs e)
     {
         _recordingStopped?.TrySetResult(e.Exception);
@@ -519,6 +574,8 @@ public sealed class VoskWakeWordService : IWakeWordService
             _detectionRaised = false;
             _preRollWriteIndex = 0;
             _preRollCount = 0;
+            _postWakeCount = 0;
+            _capturePostWake = false;
             _handoffCancellation?.Cancel();
             _handoffCancellation?.Dispose();
             _handoffCancellation = null;
@@ -584,9 +641,14 @@ public sealed class VoskWakeWordService : IWakeWordService
 
     private static string BuildGrammar(WakeWordPhrase phrase) => phrase switch
     {
-        WakeWordPhrase.OyeNexo => "[\"oye nexo\", \"[unk]\"]",
-        WakeWordPhrase.HeyNexo => "[\"hey nexo\", \"ey nexo\", \"[unk]\"]",
-        _ => "[\"nexo\", \"oye nexo\", \"hey nexo\", \"ey nexo\", \"[unk]\"]"
+        WakeWordPhrase.OyeNexo =>
+            "[\"oye nexo\", \"oi nexo\", \"[unk]\"]",
+        WakeWordPhrase.HeyNexo =>
+            "[\"hey nexo\", \"ey nexo\", \"ei nexo\", \"ai nexo\", " +
+            "\"ahi nexo\", \"hey neso\", \"ey neso\", \"[unk]\"]",
+        _ =>
+            "[\"nexo\", \"oye nexo\", \"oi nexo\", \"hey nexo\", " +
+            "\"ey nexo\", \"ei nexo\", \"ai nexo\", \"ahi nexo\", \"[unk]\"]"
     };
 
     private static string ReadRecognizedText(string? json, string propertyName)

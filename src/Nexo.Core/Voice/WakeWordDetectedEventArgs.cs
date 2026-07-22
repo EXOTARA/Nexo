@@ -3,17 +3,22 @@ namespace Nexo.Core.Voice;
 public sealed class WakeWordDetectedEventArgs : EventArgs
 {
     private readonly byte[] _preRollAudio;
+    private readonly byte[] _postWakeAudio;
 
     public WakeWordDetectedEventArgs(
         WakeWordPhrase phrase,
         string recognizedText,
-        ReadOnlyMemory<byte> preRollAudio = default)
+        ReadOnlyMemory<byte> preRollAudio = default,
+        ReadOnlyMemory<byte> postWakeAudio = default)
     {
         Phrase = phrase;
         RecognizedText = recognizedText;
         _preRollAudio = preRollAudio.IsEmpty
             ? []
             : preRollAudio.ToArray();
+        _postWakeAudio = postWakeAudio.IsEmpty
+            ? []
+            : postWakeAudio.ToArray();
     }
 
     public WakeWordPhrase Phrase { get; }
@@ -25,4 +30,11 @@ public sealed class WakeWordDetectedEventArgs : EventArgs
     /// Se usa para no perder el inicio de órdenes como “Nexo, abre PowerShell”.
     /// </summary>
     public ReadOnlyMemory<byte> PreRollAudio => _preRollAudio;
+
+    /// <summary>
+    /// PCM capturado después de detectar la frase y antes de entregar el
+    /// micrófono a Whisper. Sirve como evidencia de que la orden comenzó
+    /// inmediatamente después de “Hey Nexo”.
+    /// </summary>
+    public ReadOnlyMemory<byte> PostWakeAudio => _postWakeAudio;
 }

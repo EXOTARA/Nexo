@@ -120,7 +120,7 @@ public static partial class SpanishVoiceTranscriptNormalizer
     private static int WordCount(string value) =>
         value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
 
-    [GeneratedRegex(@"^(?:(?:oye|hey)\s+)?(?:nexo|exo)(?:\s+|$)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:(?:oye|oi|hey|ey|ei|ahi|ai|ay)\s+)?(?:nexo|neso|nejo|exo)(?:\s+|$)", RegexOptions.IgnoreCase)]
     private static partial Regex WakeWordPrefixRegex();
 
     [GeneratedRegex(@"\s+")]

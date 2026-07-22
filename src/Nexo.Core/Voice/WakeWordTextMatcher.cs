@@ -10,9 +10,24 @@ public static class WakeWordTextMatcher
         var normalized = Normalize(text);
         return phrase switch
         {
-            WakeWordPhrase.OyeNexo => normalized == "oye nexo",
-            WakeWordPhrase.HeyNexo => normalized is "hey nexo" or "ey nexo",
-            _ => normalized is "nexo" or "oye nexo" or "hey nexo" or "ey nexo"
+            WakeWordPhrase.OyeNexo => normalized is "oye nexo" or "oi nexo",
+            WakeWordPhrase.HeyNexo => normalized is
+                "hey nexo" or
+                "ey nexo" or
+                "ei nexo" or
+                "ai nexo" or
+                "ahi nexo" or
+                "hey neso" or
+                "ey neso",
+            _ => normalized is
+                "nexo" or
+                "oye nexo" or
+                "oi nexo" or
+                "hey nexo" or
+                "ey nexo" or
+                "ei nexo" or
+                "ai nexo" or
+                "ahi nexo"
         };
     }
 

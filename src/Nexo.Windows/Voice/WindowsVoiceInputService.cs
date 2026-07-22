@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Text;
 using NAudio;
 using NAudio.Wave;
+using Nexo.Core.Diagnostics;
 using Nexo.Core.Voice;
 using Whisper.net;
 using Whisper.net.Ggml;
@@ -16,9 +17,10 @@ namespace Nexo.Windows.Voice;
 public sealed class WhisperVoiceInputService : IVoiceInputService
 {
     private const string CommandPrompt =
-        "Órdenes breves para Nexo en español: abre PowerShell; muestra Peek; " +
-        "cómo está mi PC; baja Spotify; sube Spotify al 50 por ciento; " +
-        "silencia Discord; quita el silencio de Discord.";
+        "Conversación natural y órdenes para Nexo en español. Frases frecuentes: " +
+        "Hey Nexo; qué es esto; qué problema es este; por qué falla; mira la pantalla; " +
+        "abre Calculadora; abre PowerShell; muestra Peek; cómo está mi PC; " +
+        "baja Spotify; sube Spotify al 50 por ciento; silencia Discord.";
 
     private const int SampleRate = 16_000;
     private const int BitsPerSample = 16;
@@ -26,9 +28,10 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     private const long MinimumModelBytes = 50L * 1024 * 1024;
     private const long MinimumRecordedBytes = 4_800;
     private const long ProgressStepBytes = 4L * 1024 * 1024;
-    private const int MinimumSpeechAverageAmplitudeThreshold = 280;
-    private const int MaximumSpeechAverageAmplitudeThreshold = 1_400;
+    private const int MinimumSpeechAverageAmplitudeThreshold = 180;
+    private const int MaximumSpeechAverageAmplitudeThreshold = 1_200;
     private const int NoiseCalibrationBufferCount = 5;
+    private const int SpeechStartConfirmationMilliseconds = 250;
 
     private static readonly TimeSpan RecordingStopTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan ModelMemoryKeepAlive = TimeSpan.FromMinutes(5);
@@ -54,9 +57,13 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     private TaskCompletionSource<bool>? _automaticUtteranceCompleted;
     private TimeSpan _automaticTrailingSilence;
     private int _automaticSilentMilliseconds;
+    private int _automaticSpeechMilliseconds;
+    private int _automaticConsecutiveSpeechMilliseconds;
+    private int _automaticLiveAudioMilliseconds;
     private bool _automaticSpeechDetected;
     private bool _automaticListening;
     private byte[] _pendingInitialPcmAudio = [];
+    private byte[] _pendingInitialSpeechPcmAudio = [];
     private bool _disposed;
 
     public WhisperVoiceInputService()
@@ -353,11 +360,16 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
             try
             {
-                return await TranscribeAsync(
+                var result = await TranscribeAsync(
                     recordingPath,
                     recordedBytes,
                     captureQuality,
                     cancellationToken);
+                AppendVoiceCaptureLog(
+                    recordedBytes,
+                    captureQuality,
+                    result);
+                return result;
             }
             finally
             {
@@ -382,6 +394,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         TimeSpan maximumDuration,
         TimeSpan trailingSilence,
         ReadOnlyMemory<byte> initialPcmAudio = default,
+        ReadOnlyMemory<byte> initialSpeechPcmAudio = default,
         CancellationToken cancellationToken = default)
     {
         if (maximumDuration <= TimeSpan.Zero)
@@ -402,11 +415,17 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
             _automaticUtteranceCompleted = utteranceCompleted;
             _automaticTrailingSilence = trailingSilence;
             _automaticSilentMilliseconds = 0;
+            _automaticSpeechMilliseconds = 0;
+            _automaticConsecutiveSpeechMilliseconds = 0;
+            _automaticLiveAudioMilliseconds = 0;
             _automaticSpeechDetected = false;
             _automaticListening = true;
             _pendingInitialPcmAudio = initialPcmAudio.IsEmpty
                 ? []
                 : initialPcmAudio.ToArray();
+            _pendingInitialSpeechPcmAudio = initialSpeechPcmAudio.IsEmpty
+                ? []
+                : initialSpeechPcmAudio.ToArray();
         }
 
         var start = await StartListeningAsync(cancellationToken);
@@ -651,6 +670,11 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
             if (_automaticListening)
             {
+                _automaticLiveAudioMilliseconds += Math.Max(
+                    1,
+                    e.BytesRecorded * 1000 /
+                    (_recorder?.WaveFormat.AverageBytesPerSecond ??
+                     SampleRate * Channels * (BitsPerSample / 8)));
                 ObserveAutomaticUtterance(audio, e.BytesRecorded);
             }
         }
@@ -712,21 +736,48 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         var bufferMilliseconds = Math.Max(
             1,
             bytesRecorded * 1000 / _recorder.WaveFormat.AverageBytesPerSecond);
+        var threshold = GetSpeechThreshold();
+        var activeThreshold = _automaticSpeechDetected
+            ? threshold * 0.72
+            : threshold;
+        var isSpeech = audio.AverageAmplitude >= activeThreshold;
 
-        if (audio.AverageAmplitude >= GetSpeechThreshold())
+        if (isSpeech)
         {
-            _automaticSpeechDetected = true;
-            _automaticSilentMilliseconds = 0;
+            _automaticConsecutiveSpeechMilliseconds += bufferMilliseconds;
+            _automaticSpeechMilliseconds += bufferMilliseconds;
+
+            if (_automaticConsecutiveSpeechMilliseconds >=
+                SpeechStartConfirmationMilliseconds)
+            {
+                _automaticSpeechDetected = true;
+            }
+
+            if (_automaticSpeechDetected)
+            {
+                _automaticSilentMilliseconds = 0;
+            }
+
             return;
         }
 
         if (!_automaticSpeechDetected)
         {
+            _automaticConsecutiveSpeechMilliseconds = 0;
+            _automaticSpeechMilliseconds = 0;
             return;
         }
 
         _automaticSilentMilliseconds += bufferMilliseconds;
-        if (_automaticSilentMilliseconds >= _automaticTrailingSilence.TotalMilliseconds)
+        var snapshot = new VoiceUtteranceTimingSnapshot(
+            _automaticSpeechDetected,
+            _automaticSpeechMilliseconds,
+            _automaticSilentMilliseconds,
+            _automaticLiveAudioMilliseconds);
+
+        if (VoiceUtteranceEndPolicy.ShouldComplete(
+                snapshot,
+                _automaticTrailingSilence))
         {
             _automaticUtteranceCompleted?.TrySetResult(true);
         }
@@ -734,7 +785,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
 
     private double GetSpeechThreshold() =>
         Math.Clamp(
-            _noiseFloorAmplitude * 2.25,
+            _noiseFloorAmplitude * 1.8,
             MinimumSpeechAverageAmplitudeThreshold,
             MaximumSpeechAverageAmplitudeThreshold);
 
@@ -745,9 +796,13 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
             _automaticUtteranceCompleted = null;
             _automaticTrailingSilence = TimeSpan.Zero;
             _automaticSilentMilliseconds = 0;
+            _automaticSpeechMilliseconds = 0;
+            _automaticConsecutiveSpeechMilliseconds = 0;
+            _automaticLiveAudioMilliseconds = 0;
             _automaticSpeechDetected = false;
             _automaticListening = false;
             _pendingInitialPcmAudio = [];
+            _pendingInitialSpeechPcmAudio = [];
         }
     }
 
@@ -797,15 +852,13 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     private void WritePendingInitialAudio()
     {
         byte[] initialAudio;
+        byte[] initialSpeechAudio;
         lock (_sync)
         {
             initialAudio = _pendingInitialPcmAudio;
+            initialSpeechAudio = _pendingInitialSpeechPcmAudio;
             _pendingInitialPcmAudio = [];
-        }
-
-        if (initialAudio.Length == 0)
-        {
-            return;
+            _pendingInitialSpeechPcmAudio = [];
         }
 
         lock (_sync)
@@ -815,21 +868,40 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
                 return;
             }
 
-            _writer.Write(initialAudio, 0, initialAudio.Length);
-            _recordedBytes += initialAudio.Length;
-
             var chunkSize = SampleRate * Channels * (BitsPerSample / 8) / 10;
-            for (var offset = 0; offset < initialAudio.Length; offset += chunkSize)
+
+            if (initialAudio.Length > 0)
             {
-                var length = Math.Min(chunkSize, initialAudio.Length - offset);
-                var chunk = new byte[length];
-                Buffer.BlockCopy(initialAudio, offset, chunk, 0, length);
+                _writer.Write(initialAudio, 0, initialAudio.Length);
+                _recordedBytes += initialAudio.Length;
 
-                var audio = AnalyzeAudioBuffer(chunk, length);
-                TrackAudioQuality(audio);
-
-                if (_automaticListening)
+                for (var offset = 0; offset < initialAudio.Length; offset += chunkSize)
                 {
+                    var length = Math.Min(chunkSize, initialAudio.Length - offset);
+                    var chunk = new byte[length];
+                    Buffer.BlockCopy(initialAudio, offset, chunk, 0, length);
+
+                    var audio = AnalyzeAudioBuffer(chunk, length);
+                    TrackAudioQuality(audio);
+                }
+            }
+
+            if (_automaticListening && initialSpeechAudio.Length > 0)
+            {
+                for (var offset = 0; offset < initialSpeechAudio.Length; offset += chunkSize)
+                {
+                    var length = Math.Min(
+                        chunkSize,
+                        initialSpeechAudio.Length - offset);
+                    var chunk = new byte[length];
+                    Buffer.BlockCopy(
+                        initialSpeechAudio,
+                        offset,
+                        chunk,
+                        0,
+                        length);
+
+                    var audio = AnalyzeAudioBuffer(chunk, length);
                     ObserveAutomaticUtterance(audio, length);
                 }
             }
@@ -910,6 +982,49 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         int SpeechBufferCount,
         int PeakAmplitude,
         double NoiseFloorAmplitude);
+
+    private static void AppendVoiceCaptureLog(
+        long recordedBytes,
+        VoiceCaptureQuality quality,
+        VoiceRecognitionResult result)
+    {
+        try
+        {
+            Directory.CreateDirectory(NexoDataPaths.LogsDirectory);
+
+            var durationMilliseconds = (long)Math.Round(
+                recordedBytes * 1000d /
+                (SampleRate * Channels * (BitsPerSample / 8)));
+            var speechRatio = quality.BufferCount == 0
+                ? 0
+                : quality.SpeechBufferCount / (double)quality.BufferCount;
+            var wordCount = result.Text.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries).Length;
+
+            var line =
+                $"{DateTimeOffset.Now:O}\t" +
+                $"duration_ms={durationMilliseconds}\t" +
+                $"peak={quality.PeakAmplitude}\t" +
+                $"noise={quality.NoiseFloorAmplitude:F1}\t" +
+                $"speech_ratio={speechRatio:F3}\t" +
+                $"recognized={result.IsRecognized}\t" +
+                $"words={wordCount}\t" +
+                $"confirmation={result.RequiresConfirmation}";
+
+            File.AppendAllText(
+                NexoDataPaths.VoiceCaptureLog,
+                line + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+            // El diagnóstico de voz nunca debe interrumpir una orden.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // El diagnóstico es opcional.
+        }
+    }
 
     private bool IsUsableModelFile()
     {

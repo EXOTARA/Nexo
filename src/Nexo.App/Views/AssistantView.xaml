@@ -189,13 +189,9 @@
                         Padding="0"
                         VerticalAlignment="Center"
                         IsEnabled="False"
-                        ToolTip="Mantén presionado para hablar"
+                        ToolTip="Pulsa para hablar · pulsa de nuevo para terminar"
                         Style="{StaticResource IconButtonStyle}"
-                        PreviewMouseLeftButtonDown="MicButton_PreviewMouseLeftButtonDown"
-                        PreviewMouseLeftButtonUp="MicButton_PreviewMouseLeftButtonUp"
-                        LostMouseCapture="MicButton_LostMouseCapture"
-                        PreviewKeyDown="MicButton_PreviewKeyDown"
-                        PreviewKeyUp="MicButton_PreviewKeyUp">
+                        Click="MicButton_Click">
                     <Path x:Name="MicGlyph"
                           Width="18"
                           Height="18"

@@ -21,6 +21,9 @@ public sealed class SpanishVoiceTranscriptNormalizerTests
     [InlineData("Nexo, abre PowerShell", "abre powershell")]
     [InlineData("Oye Nexo muestra Peek", "muestra peek")]
     [InlineData("Nexo qué día es hoy", "que dia es hoy")]
+    [InlineData("Ahí Nexo, qué es esto", "que es esto")]
+    [InlineData("Ey Neso abre calculadora", "abre calculadora")]
+    [InlineData("Hey Nexo", "")]
     public void Normalize_CorrectsFrequentShortCommandErrors(
         string transcript,
         string expected)

@@ -177,12 +177,13 @@ public partial class AssistantView : UserControl
             case AssistantVoiceState.Listening:
                 MicButton.IsEnabled = true;
                 MicButton.Background = (Brush)FindResource("BrushAccentSoft");
-                VoiceStatusText.Text = detail ?? "Escuchando… suelta el botón cuando termines.";
+                VoiceStatusText.Text = detail ?? "Escuchando… pulsa otra vez cuando termines.";
                 VoiceStatusText.Visibility = Visibility.Visible;
                 MicButton.ToolTip = VoiceStatusText.Text;
                 break;
 
             case AssistantVoiceState.Processing:
+                _voiceInputActive = false;
                 MicButton.IsEnabled = false;
                 VoiceStatusText.Text = detail ?? "Convirtiendo tu voz en una orden…";
                 VoiceStatusText.Visibility = Visibility.Visible;
@@ -190,6 +191,7 @@ public partial class AssistantView : UserControl
                 break;
 
             case AssistantVoiceState.Error:
+                _voiceInputActive = false;
                 MicButton.IsEnabled = _voiceAvailable;
                 MicButton.ClearValue(BackgroundProperty);
                 VoiceStatusText.Text = detail ?? "No pude usar el micrófono.";
@@ -198,10 +200,11 @@ public partial class AssistantView : UserControl
                 break;
 
             default:
+                _voiceInputActive = false;
                 MicButton.IsEnabled = _voiceAvailable;
                 MicButton.ClearValue(BackgroundProperty);
                 VoiceStatusText.Text = detail ??
-                    "Voz local lista. Mantén presionado el icono para hablar.";
+                    "Voz local lista. Pulsa el icono para hablar y vuelve a pulsarlo para terminar.";
                 VoiceStatusText.Visibility = Visibility.Collapsed;
                 MicButton.ToolTip = VoiceStatusText.Text;
                 break;
@@ -376,43 +379,15 @@ public partial class AssistantView : UserControl
         VisionAttachmentCleared?.Invoke(this, EventArgs.Empty);
     }
 
-    private void MicButton_PreviewMouseLeftButtonDown(
-        object sender,
-        MouseButtonEventArgs e)
+    private void MicButton_Click(object sender, RoutedEventArgs e)
     {
-        BeginVoiceInput();
-        e.Handled = true;
-    }
-
-    private void MicButton_PreviewMouseLeftButtonUp(
-        object sender,
-        MouseButtonEventArgs e)
-    {
-        EndVoiceInput();
-        e.Handled = true;
-    }
-
-    private void MicButton_LostMouseCapture(object sender, MouseEventArgs e)
-    {
-        EndVoiceInput();
-    }
-
-    private void MicButton_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Space)
-        {
-            BeginVoiceInput();
-            e.Handled = true;
-        }
-    }
-
-    private void MicButton_PreviewKeyUp(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Space)
+        if (_voiceInputActive)
         {
             EndVoiceInput();
-            e.Handled = true;
+            return;
         }
+
+        BeginVoiceInput();
     }
 
     private void BeginVoiceInput()
@@ -423,7 +398,6 @@ public partial class AssistantView : UserControl
         }
 
         _voiceInputActive = true;
-        MicButton.CaptureMouse();
         VoiceInputStarted?.Invoke(this, EventArgs.Empty);
     }
 
@@ -435,11 +409,6 @@ public partial class AssistantView : UserControl
         }
 
         _voiceInputActive = false;
-        if (MicButton.IsMouseCaptured)
-        {
-            MicButton.ReleaseMouseCapture();
-        }
-
         VoiceInputStopped?.Invoke(this, EventArgs.Empty);
     }
 

@@ -33,6 +33,9 @@ public static class NexoDataPaths
     public static string ResourceGovernorLog =>
         Path.Combine(LogsDirectory, "resource-governor.log");
 
+    public static string VoiceCaptureLog =>
+        Path.Combine(LogsDirectory, "voice-capture.log");
+
     public static string Settings => Path.Combine(RootDirectory, "settings.json");
     public static string Tasks => Path.Combine(RootDirectory, "tasks.json");
     public static string Focus => Path.Combine(RootDirectory, "focus.json");

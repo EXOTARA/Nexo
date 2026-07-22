@@ -2073,17 +2073,18 @@ public partial class MainWindow : Window
 
             _assistantView.SetVoiceState(
                 AssistantVoiceState.Listening,
-                $"{e.Phrase.ToSpokenText()} detectado. Te escucho…");
+                $"{e.Phrase.ToSpokenText()} detectado. Habla con calma; no cortaré las pausas breves.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Processing,
                 "Te escucho",
-                "Di la orden después de la señal.",
+                "Habla con naturalidad. Terminaré después de 1.5 segundos de silencio.",
                 _preferences.Position);
 
             var result = await _voiceInputService.ListenForUtteranceAsync(
-                maximumDuration: TimeSpan.FromSeconds(8),
-                trailingSilence: TimeSpan.FromMilliseconds(700),
+                maximumDuration: TimeSpan.FromSeconds(20),
+                trailingSilence: TimeSpan.FromMilliseconds(1_500),
                 initialPcmAudio: e.PreRollAudio,
+                initialSpeechPcmAudio: e.PostWakeAudio,
                 cancellationToken: _lifetimeCancellation.Token);
 
             _assistantView.SetVoiceState(

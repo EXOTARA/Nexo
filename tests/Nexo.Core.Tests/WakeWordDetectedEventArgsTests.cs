@@ -19,6 +19,20 @@ public sealed class WakeWordDetectedEventArgsTests
     }
 
     [Fact]
+    public void Constructor_CopiesPostWakeAudio()
+    {
+        var source = new byte[] { 5, 6, 7 };
+        var args = new WakeWordDetectedEventArgs(
+            WakeWordPhrase.HeyNexo,
+            "hey nexo",
+            postWakeAudio: source);
+
+        source[0] = 99;
+
+        Assert.Equal(new byte[] { 5, 6, 7 }, args.PostWakeAudio.ToArray());
+    }
+
+    [Fact]
     public void Constructor_AllowsEmptyPreRoll()
     {
         var args = new WakeWordDetectedEventArgs(
@@ -26,5 +40,6 @@ public sealed class WakeWordDetectedEventArgsTests
             "oye nexo");
 
         Assert.True(args.PreRollAudio.IsEmpty);
+        Assert.True(args.PostWakeAudio.IsEmpty);
     }
 }

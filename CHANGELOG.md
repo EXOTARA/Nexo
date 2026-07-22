@@ -1,3 +1,13 @@
+## Voice Reliability v1
+
+- “Hey Nexo” acepta variantes frecuentes de reconocimiento como `ey`, `ei`, `ahí` y `neso`.
+- El traspaso Vosk → Whisper conserva audio previo y una ventana posterior separada.
+- La orden puede durar hasta 20 segundos y solo termina después de 1.5 segundos de silencio.
+- Una ventana protegida de 2.5 segundos evita que la cola de la frase de activación corte la consulta.
+- Detección de voz con confirmación temporal, umbral más sensible e histéresis.
+- El micrófono manual cambia a pulsar para iniciar y pulsar para terminar.
+- Prompt de Whisper ampliado para preguntas visuales y conversación natural.
+- Métricas privadas de captura en `voice-capture.log`, sin audio ni transcripciones.
 
 ## Resource Governor v1 + Silent Voice Look
 
