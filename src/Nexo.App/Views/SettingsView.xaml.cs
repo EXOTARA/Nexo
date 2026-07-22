@@ -22,6 +22,8 @@ public partial class SettingsView : UserControl
     public event Action<int>? VoiceInputDeviceChanged;
     public event Action<bool>? WakeWordEnabledChanged;
     public event Action<WakeWordPhrase>? WakeWordPhraseChanged;
+    public event Action<WakeWordSensitivity>? WakeWordSensitivityChanged;
+    public event EventHandler? WakeWordTestRequested;
     public event Action<AiProviderKind>? AiProviderChanged;
     public event Action<string>? AiBaseUrlChanged;
     public event Action<string>? AiModelChanged;
@@ -70,6 +72,7 @@ public partial class SettingsView : UserControl
         WakeWordKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.Kohana or WakeWordPhrase.Nexo;
         WakeWordOyeKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeNexo;
         WakeWordHeyKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
+        SelectWakeWordSensitivity(preferences.WakeWordSensitivity);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
@@ -530,6 +533,53 @@ public partial class SettingsView : UserControl
         WakeWordPhraseChanged?.Invoke(value);
     }
 
+    private void WakeWordSensitivityComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isApplyingPreferences ||
+            WakeWordSensitivityComboBox.SelectedItem is not ComboBoxItem { Tag: string value } ||
+            !Enum.TryParse<WakeWordSensitivity>(value, ignoreCase: true, out var sensitivity))
+        {
+            return;
+        }
+
+        WakeWordSensitivityChanged?.Invoke(sensitivity);
+    }
+
+    private void WakeWordTestButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            WakeWordTestRequested?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public void SetWakeWordTestStatus(string detail, bool? isSuccess)
+    {
+        WakeWordTestStatusText.Text = detail;
+        WakeWordTestStatusText.Foreground = isSuccess switch
+        {
+            true => (System.Windows.Media.Brush)FindResource("BrushSuccess"),
+            false => (System.Windows.Media.Brush)FindResource("BrushWarning"),
+            _ => (System.Windows.Media.Brush)FindResource("BrushTextSecondary")
+        };
+    }
+
+    private void SelectWakeWordSensitivity(WakeWordSensitivity sensitivity)
+    {
+        foreach (var item in WakeWordSensitivityComboBox.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string value &&
+                Enum.TryParse<WakeWordSensitivity>(value, ignoreCase: true, out var parsed) &&
+                parsed == sensitivity)
+            {
+                WakeWordSensitivityComboBox.SelectedItem = item;
+                return;
+            }
+        }
+
+        WakeWordSensitivityComboBox.SelectedIndex = 1;
+    }
+
     private void UpdateWakeWordOptionsAvailability()
     {
         if (WakeWordKohanaRadioButton is null)
@@ -541,6 +591,8 @@ public partial class SettingsView : UserControl
         WakeWordKohanaRadioButton.IsEnabled = enabled;
         WakeWordOyeKohanaRadioButton.IsEnabled = enabled;
         WakeWordHeyKohanaRadioButton.IsEnabled = enabled;
+        WakeWordSensitivityComboBox.IsEnabled = enabled;
+        WakeWordTestButton.IsEnabled = enabled;
     }
 
     private void UpdatePeekOptionsAvailability()

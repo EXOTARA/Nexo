@@ -10,6 +10,8 @@ public interface IWakeWordService : IDisposable
 
     int InputDeviceNumber { get; set; }
 
+    WakeWordSensitivity Sensitivity { get; set; }
+
     Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
         CancellationToken cancellationToken = default);

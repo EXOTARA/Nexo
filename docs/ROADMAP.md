@@ -24,6 +24,14 @@ Kohana busca convertirse en un agente personal nativo para Windows: capaz de esc
 - Onboarding, administración de modelos y diagnóstico local.
 - Portable autocontenido, scripts de publicación, CI e instalador.
 
+## 0.9.4-beta — Shell Reliability + Voice Reliability v2
+
+- Contracción completa y persistente de la barra lateral.
+- Iconografía funcional v2.
+- Paleta de comandos diferenciada visualmente.
+- Sensibilidad configurable para wake word.
+- Prueba local de “Ey/Hey Kohana”.
+
 ## 0.9.3-beta — Sakura Shell + Chat Refresh
 
 - Integración del sistema visual de Figma.

@@ -10,6 +10,10 @@ public sealed class WakeWordTextMatcherTests
     [InlineData("  KÓHANA  ")]
     [InlineData("oye kohana")]
     [InlineData("hey kohana")]
+    [InlineData("ey kohana")]
+    [InlineData("e kohana")]
+    [InlineData("hey cohana")]
+    [InlineData("ey ko ana")]
     [InlineData("Nexo")]
     [InlineData("oye nexo")]
     public void KohanaMode_AcceptsNewAndLegacyPhrases(string text)
@@ -48,6 +52,31 @@ public sealed class WakeWordTextMatcherTests
     {
         Assert.True(WakeWordTextMatcher.IsMatch(text, WakeWordPhrase.HeyKohana));
         Assert.False(WakeWordTextMatcher.IsMatch("kohana", WakeWordPhrase.HeyKohana));
+    }
+
+    [Theory]
+    [InlineData("kohana")]
+    [InlineData("koana")]
+    [InlineData("hola kohana")]
+    public void HighSensitivity_AcceptsShortOrApproximateEnding(string text)
+    {
+        Assert.True(WakeWordTextMatcher.IsMatch(
+            text,
+            WakeWordPhrase.HeyKohana,
+            WakeWordSensitivity.High));
+    }
+
+    [Fact]
+    public void StrictSensitivity_RejectsRecognitionVariants()
+    {
+        Assert.False(WakeWordTextMatcher.IsMatch(
+            "e koana",
+            WakeWordPhrase.HeyKohana,
+            WakeWordSensitivity.Strict));
+        Assert.True(WakeWordTextMatcher.IsMatch(
+            "ey kohana",
+            WakeWordPhrase.HeyKohana,
+            WakeWordSensitivity.Strict));
     }
 
     [Theory]

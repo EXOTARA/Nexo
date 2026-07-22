@@ -1,6 +1,7 @@
 using Nexo.Core.Ai;
 using Nexo.Core.Voice;
 using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
+using WakeSensitivity = Nexo.Core.Voice.WakeWordSensitivity;
 
 namespace Nexo.Core.Settings;
 
@@ -22,6 +23,8 @@ public sealed class ShellPreferences
     public string AccentColor { get; set; } = "#E98AAF";
 
     public bool AnimationsEnabled { get; set; } = true;
+
+    public bool SideRailExpanded { get; set; }
 
     public bool ShowAudioModule { get; set; } = true;
 
@@ -52,6 +55,8 @@ public sealed class ShellPreferences
     public bool WakeWordEnabled { get; set; }
 
     public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.OyeKohana;
+
+    public WakeSensitivity WakeWordSensitivity { get; set; } = WakeSensitivity.Balanced;
 
     public AiProviderKind AiProvider { get; set; } = AiProviderKind.Disabled;
 
@@ -183,6 +188,13 @@ public sealed class ShellPreferences
             SchemaVersion = 14;
         }
 
+        if (SchemaVersion < 15)
+        {
+            SideRailExpanded = false;
+            WakeWordSensitivity = WakeSensitivity.Balanced;
+            SchemaVersion = 15;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -193,6 +205,11 @@ public sealed class ShellPreferences
         if (!Enum.IsDefined(WakeWordPhrase))
         {
             WakeWordPhrase = WakePhrase.OyeKohana;
+        }
+
+        if (!Enum.IsDefined(WakeWordSensitivity))
+        {
+            WakeWordSensitivity = WakeSensitivity.Balanced;
         }
 
         if (!Enum.IsDefined(AiProvider))

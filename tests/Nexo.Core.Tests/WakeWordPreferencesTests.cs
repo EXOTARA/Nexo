@@ -17,7 +17,7 @@ public sealed class WakeWordPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(14, preferences.SchemaVersion);
+        Assert.Equal(15, preferences.SchemaVersion);
         Assert.False(preferences.WakeWordEnabled);
         Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
     }
@@ -38,7 +38,7 @@ public sealed class WakeWordPreferencesTests
         preferences.Normalize();
 
         Assert.True(preferences.WakeWordEnabled);
-        Assert.Equal(14, preferences.SchemaVersion);
+        Assert.Equal(15, preferences.SchemaVersion);
         Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
     }
 
@@ -47,7 +47,7 @@ public sealed class WakeWordPreferencesTests
     {
         var preferences = new ShellPreferences
         {
-            SchemaVersion = 14,
+            SchemaVersion = 15,
             WakeWordEnabled = true,
             WakeWordPhrase = WakeWordPhrase.Kohana
         };
@@ -63,7 +63,7 @@ public sealed class WakeWordPreferencesTests
     {
         var preferences = new ShellPreferences
         {
-            SchemaVersion = 14,
+            SchemaVersion = 15,
             WakeWordPhrase = (WakeWordPhrase)99
         };
 

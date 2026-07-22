@@ -2,6 +2,22 @@
 
 Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.
 
+## 0.9.4-beta — Shell Reliability + Voice Reliability v2
+
+### Agregado
+
+- Sensibilidad configurable para la frase de activación: Precisa, Equilibrada y Alta.
+- Prueba guiada de wake word desde Ajustes sin ejecutar una orden.
+- Variantes locales adicionales para “Ey Kohana”, “Hey Kohana” y errores frecuentes de Vosk.
+- Estado persistente de la barra lateral.
+
+### Corregido
+
+- La barra lateral libera completamente el espacio al contraerse.
+- El botón de navegación ya no comparte símbolo con Ctrl + Espacio.
+- Iconos principales redibujados con un lenguaje funcional y menos decorativo.
+- Se sincronizan el ancho del contenedor, las etiquetas y el chevrón durante la animación.
+
 ## 0.9.3-beta — Sakura Shell + Chat Refresh
 
 ### Agregado

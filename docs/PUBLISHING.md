@@ -25,7 +25,7 @@ dotnet build .\Nexo.slnx -c Release
 
 ```powershell
 .\scripts\publish.ps1 `
-  -Version "0.9.3-beta" `
+  -Version "0.9.4-beta" `
   -RepositoryUrl "https://github.com/EXOTARA/Nexo"
 ```
 
@@ -33,8 +33,8 @@ Resultados:
 
 ```text
 artifacts\publish\win-x64
-artifacts\dist\Kohana-0.9.3-beta-win-x64-portable.zip
-artifacts\dist\Kohana-0.9.3-beta-win-x64-portable.zip.sha256
+artifacts\dist\Kohana-0.9.4-beta-win-x64-portable.zip
+artifacts\dist\Kohana-0.9.4-beta-win-x64-portable.zip.sha256
 ```
 
 La publicación es autocontenida: el usuario no necesita instalar .NET. Ollama y los modelos de IA/voz se administran por separado. No se incluyen datos personales.
@@ -45,15 +45,15 @@ Instala Inno Setup 6 y ejecuta:
 
 ```powershell
 .\scripts\build-installer.ps1 `
-  -Version "0.9.3-beta" `
+  -Version "0.9.4-beta" `
   -RepositoryUrl "https://github.com/EXOTARA/Nexo"
 ```
 
 Resultados:
 
 ```text
-artifacts\installer\Kohana-0.9.3-beta-Setup.exe
-artifacts\installer\Kohana-0.9.3-beta-Setup.exe.sha256
+artifacts\installer\Kohana-0.9.4-beta-Setup.exe
+artifacts\installer\Kohana-0.9.4-beta-Setup.exe.sha256
 ```
 
 El instalador conserva el `AppId` de la etapa Nexo para permitir una actualización continua, cambia el acceso directo a Kohana y elimina las entradas antiguas de inicio con Windows cuando corresponde.
@@ -76,8 +76,8 @@ Antes de publicar, comprobar en una copia de prueba:
 Después de fusionar el PR y comprobar CI:
 
 ```powershell
-git tag v0.9.3-beta
-git push origin v0.9.3-beta
+git tag v0.9.4-beta
+git push origin v0.9.4-beta
 ```
 
 El workflow `release.yml` compila, prueba, publica, crea el instalador y adjunta ZIP, EXE y hashes.

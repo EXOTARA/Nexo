@@ -8,7 +8,7 @@ Kohana es un agente personal nativo para Windows. Combina comandos locales, voz,
 
 ## Estado
 
-La versión actual es `0.9.3-beta — Sakura Shell + Chat Refresh`.
+La versión actual es `0.9.4-beta — Shell Reliability + Voice Reliability v2`.
 
 Esta etapa incorpora:
 
@@ -103,21 +103,21 @@ El proyecto se trabaja mediante ramas cortas y Pull Requests contra `main`. La p
 
 ```powershell
 .\scripts\publish.ps1 `
-  -Version "0.9.3-beta" `
+  -Version "0.9.4-beta" `
   -RepositoryUrl "https://github.com/EXOTARA/Nexo"
 ```
 
 La edición portable se genera como:
 
 ```text
-artifacts\dist\Kohana-0.9.3-beta-win-x64-portable.zip
+artifacts\dist\Kohana-0.9.4-beta-win-x64-portable.zip
 ```
 
 Con Inno Setup 6 instalado:
 
 ```powershell
 .\scripts\build-installer.ps1 `
-  -Version "0.9.3-beta" `
+  -Version "0.9.4-beta" `
   -RepositoryUrl "https://github.com/EXOTARA/Nexo"
 ```
 

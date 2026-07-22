@@ -46,7 +46,7 @@ public sealed class ShellPreferencesTests
         preferences.Normalize();
 
         Assert.Equal(700, preferences.Width);
-        Assert.Equal(14, preferences.SchemaVersion);
+        Assert.Equal(15, preferences.SchemaVersion);
     }
 
 
@@ -117,10 +117,29 @@ public void Normalize_ClampsConversationMessageLimit()
 
         preferences.Normalize();
 
-        Assert.Equal(14, preferences.SchemaVersion);
+        Assert.Equal(15, preferences.SchemaVersion);
         Assert.True(preferences.ResourceGovernorEnabled);
         Assert.True(preferences.PauseWakeWordInGameMode);
         Assert.True(preferences.ProtectVisionWhenBusy);
+    }
+
+    [Fact]
+    public void Normalize_AddsShellAndWakeWordReliabilityDefaults()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 14,
+            SideRailExpanded = true,
+            WakeWordSensitivity = (Nexo.Core.Voice.WakeWordSensitivity)99
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(15, preferences.SchemaVersion);
+        Assert.False(preferences.SideRailExpanded);
+        Assert.Equal(
+            Nexo.Core.Voice.WakeWordSensitivity.Balanced,
+            preferences.WakeWordSensitivity);
     }
 
 }

@@ -74,6 +74,8 @@ public sealed class VoskWakeWordService : IWakeWordService
 
     public int InputDeviceNumber { get; set; } = -1;
 
+    public WakeWordSensitivity Sensitivity { get; set; } = WakeWordSensitivity.Balanced;
+
     public async Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
         CancellationToken cancellationToken = default)
@@ -240,7 +242,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             recognizer = new VoskRecognizer(
                 model,
                 SampleRate,
-                BuildGrammar(phrase));
+                BuildGrammar(phrase, Sensitivity));
             recorder = new WaveInEvent
             {
                 DeviceNumber = ResolveInputDeviceNumber(),
@@ -377,7 +379,7 @@ public sealed class VoskWakeWordService : IWakeWordService
                 json,
                 isFinal ? "text" : "partial");
 
-            if (!WakeWordTextMatcher.IsMatch(recognizedText, phrase))
+            if (!WakeWordTextMatcher.IsMatch(recognizedText, phrase, Sensitivity))
             {
                 return;
             }
@@ -636,27 +638,57 @@ public sealed class VoskWakeWordService : IWakeWordService
                 File.Exists(Path.Combine(directory, "am", "final.mdl")));
     }
 
-    private static string BuildGrammar(WakeWordPhrase phrase) => phrase switch
+    private static string BuildGrammar(
+        WakeWordPhrase phrase,
+        WakeWordSensitivity sensitivity)
     {
-        WakeWordPhrase.OyeKohana =>
-            "[\"oye kohana\", \"oi kohana\", \"oye koana\", " +
-            "\"oi koana\", \"oye cohana\", \"oye nexo\", \"oi nexo\", \"[unk]\"]",
-        WakeWordPhrase.HeyKohana =>
-            "[\"hey kohana\", \"ey kohana\", \"ei kohana\", \"ai kohana\", " +
-            "\"ahi kohana\", \"hey koana\", \"hey nexo\", \"ey nexo\", \"[unk]\"]",
-        WakeWordPhrase.Kohana =>
-            "[\"kohana\", \"koana\", \"cohana\", \"kojana\", " +
-            "\"oye kohana\", \"oi kohana\", \"hey kohana\", \"ey kohana\", " +
-            "\"nexo\", \"oye nexo\", \"hey nexo\", \"[unk]\"]",
-        WakeWordPhrase.OyeNexo =>
-            "[\"oye nexo\", \"oi nexo\", \"[unk]\"]",
-        WakeWordPhrase.HeyNexo =>
-            "[\"hey nexo\", \"ey nexo\", \"ei nexo\", \"ai nexo\", " +
-            "\"ahi nexo\", \"hey neso\", \"ey neso\", \"[unk]\"]",
-        _ =>
-            "[\"nexo\", \"oye nexo\", \"oi nexo\", \"hey nexo\", " +
-            "\"ey nexo\", \"ei nexo\", \"ai nexo\", \"ahi nexo\", \"[unk]\"]"
-    };
+        if (sensitivity == WakeWordSensitivity.Strict)
+        {
+            return phrase switch
+            {
+                WakeWordPhrase.OyeKohana => "[\"oye kohana\", \"[unk]\"]",
+                WakeWordPhrase.HeyKohana => "[\"hey kohana\", \"ey kohana\", \"[unk]\"]",
+                WakeWordPhrase.Kohana => "[\"kohana\", \"[unk]\"]",
+                WakeWordPhrase.OyeNexo => "[\"oye nexo\", \"[unk]\"]",
+                WakeWordPhrase.HeyNexo => "[\"hey nexo\", \"ey nexo\", \"[unk]\"]",
+                _ => "[\"nexo\", \"[unk]\"]"
+            };
+        }
+
+        var highSensitivityExtras = sensitivity == WakeWordSensitivity.High
+            ? ", \"kohana\", \"koana\", \"cohana\", \"ohana\""
+            : string.Empty;
+
+        return phrase switch
+        {
+            WakeWordPhrase.OyeKohana =>
+                "[\"oye kohana\", \"oi kohana\", \"oy kohana\", " +
+                "\"oye koana\", \"oi koana\", \"oye cohana\", \"oye coana\", " +
+                "\"oye kojana\", \"oye ohana\", \"oye nexo\", \"oi nexo\"" +
+                highSensitivityExtras + ", \"[unk]\"]",
+            WakeWordPhrase.HeyKohana =>
+                "[\"hey kohana\", \"ey kohana\", \"ei kohana\", \"e kohana\", " +
+                "\"eh kohana\", \"he kohana\", \"ai kohana\", \"ay kohana\", " +
+                "\"ahi kohana\", \"hay kohana\", \"y kohana\", \"hey koana\", " +
+                "\"ey koana\", \"ei koana\", \"hey cohana\", \"ey cohana\", " +
+                "\"hey coana\", \"ey coana\", \"hey kojana\", \"ey kojana\", " +
+                "\"hey ohana\", \"ey ohana\", \"hey nexo\", \"ey nexo\"" +
+                highSensitivityExtras + ", \"[unk]\"]",
+            WakeWordPhrase.Kohana =>
+                "[\"kohana\", \"koana\", \"cohana\", \"coana\", \"kojana\", " +
+                "\"ohana\", \"kohanna\", \"oye kohana\", \"oi kohana\", " +
+                "\"hey kohana\", \"ey kohana\", \"e kohana\", \"eh kohana\", " +
+                "\"nexo\", \"oye nexo\", \"hey nexo\", \"[unk]\"]",
+            WakeWordPhrase.OyeNexo =>
+                "[\"oye nexo\", \"oi nexo\", \"[unk]\"]",
+            WakeWordPhrase.HeyNexo =>
+                "[\"hey nexo\", \"ey nexo\", \"ei nexo\", \"ai nexo\", " +
+                "\"ahi nexo\", \"hey neso\", \"ey neso\", \"[unk]\"]",
+            _ =>
+                "[\"nexo\", \"oye nexo\", \"oi nexo\", \"hey nexo\", " +
+                "\"ey nexo\", \"ei nexo\", \"ai nexo\", \"ahi nexo\", \"[unk]\"]"
+        };
+    }
 
     private static string ReadRecognizedText(string? json, string propertyName)
     {

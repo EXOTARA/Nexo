@@ -16,9 +16,9 @@
     <RootNamespace>Nexo.App</RootNamespace>
     <Title>Kohana</Title>
     <Product>Kohana</Product>
-    <Version>0.9.3-beta</Version>
-    <AssemblyVersion>0.9.3.0</AssemblyVersion>
-    <FileVersion>0.9.3.0</FileVersion>
+    <Version>0.9.4-beta</Version>
+    <AssemblyVersion>0.9.4.0</AssemblyVersion>
+    <FileVersion>0.9.4.0</FileVersion>
     <Description>Kohana — Tu Windows, en flor.</Description>
     <ApplicationIcon>Assets\Kohana.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>

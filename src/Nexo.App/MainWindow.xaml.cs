@@ -124,6 +124,8 @@ public partial class MainWindow : Window
     private bool _visualContextPersistent;
     private bool _silentVisualContext;
     private bool _resourceGovernorWakeWordPaused;
+    private bool _wakeWordTestActive;
+    private CancellationTokenSource? _wakeWordTestCancellation;
     private string? _visualContextMetadata;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
@@ -204,10 +206,11 @@ public partial class MainWindow : Window
         _settingsView.ApplyPreferences(_preferences);
         UpdateAiProviderStatus();
         ApplyPreferences();
+        _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
         NavigateTo("Home", animate: false);
-        ApplySideRailButtonLayout(expanded: false);
+        SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
         UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
 
         _clockTimer = new DispatcherTimer
@@ -344,6 +347,20 @@ public partial class MainWindow : Window
                 _ = ApplyWakeWordPreferenceAsync(showCapsule: false);
             }
         };
+
+        _settingsView.WakeWordSensitivityChanged += sensitivity =>
+        {
+            _preferences.WakeWordSensitivity = sensitivity;
+            _wakeWordService.Sensitivity = sensitivity;
+            SavePreferences();
+            if (_preferences.WakeWordEnabled)
+            {
+                _ = ApplyWakeWordPreferenceAsync(showCapsule: false);
+            }
+        };
+
+        _settingsView.WakeWordTestRequested += async (_, _) =>
+            await StartWakeWordTestAsync();
 
         _settingsView.AiProviderChanged += provider =>
         {
@@ -535,12 +552,17 @@ public partial class MainWindow : Window
 
     private void SideRailToggleButton_Click(object sender, RoutedEventArgs e)
     {
-        SetSideRailExpanded(!_sideRailExpanded, animate: true);
+        SetSideRailExpanded(!_sideRailExpanded, animate: true, persist: true);
     }
 
-    private void SetSideRailExpanded(bool expanded, bool animate)
+    private void SetSideRailExpanded(bool expanded, bool animate, bool persist = true)
     {
         _sideRailExpanded = expanded;
+        if (persist)
+        {
+            _preferences.SideRailExpanded = expanded;
+            SavePreferences();
+        }
         SideRailToggleButton.ToolTip = expanded
             ? "Contraer navegación"
             : "Expandir navegación";
@@ -577,8 +599,27 @@ public partial class MainWindow : Window
     private void ApplySideRailButtonLayout(bool expanded)
     {
         var buttonWidth = expanded ? 178d : 52d;
+        SideRailContentGrid.Width = buttonWidth;
         SideRailToggleButton.Width = buttonWidth;
         SettingsNavButton.Width = buttonWidth;
+        SideRailBrandText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        SideRailChevronRotate.Angle = expanded ? 180 : 0;
+
+        foreach (var label in new[]
+                 {
+                     HomeNavLabel,
+                     AssistantNavLabel,
+                     TasksNavLabel,
+                     FocusNavLabel,
+                     RoutinesNavLabel,
+                     AudioNavLabel,
+                     CaptureNavLabel,
+                     SystemNavLabel,
+                     SettingsNavLabel
+                 })
+        {
+            label.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        }
 
         foreach (var button in new[]
                  {
@@ -733,6 +774,10 @@ public partial class MainWindow : Window
             _conversationStore.Save(_assistantView.GetConversationSnapshot());
         }
 
+        _wakeWordTestActive = false;
+        _wakeWordTestCancellation?.Cancel();
+        _wakeWordTestCancellation?.Dispose();
+        _wakeWordTestCancellation = null;
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
         _commandPaletteWindow.Close();
@@ -2048,10 +2093,72 @@ public partial class MainWindow : Window
         _ = Dispatcher.InvokeAsync(() => HandleWakeWordDetectedAsync(e)).Task.Unwrap();
     }
 
+    private async Task StartWakeWordTestAsync()
+    {
+        if (!_preferences.WakeWordEnabled)
+        {
+            _settingsView.SetWakeWordTestStatus(
+                "Activa primero la frase de voz.",
+                isSuccess: false);
+            return;
+        }
+
+        _wakeWordTestCancellation?.Cancel();
+        _wakeWordTestCancellation?.Dispose();
+        _wakeWordTestCancellation = new CancellationTokenSource();
+        _wakeWordTestActive = true;
+
+        _settingsView.SetWakeWordTestStatus(
+            $"Escuchando durante 12 segundos. Di “{_preferences.WakeWordPhrase.ToSpokenText()}”.",
+            isSuccess: null);
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Information,
+            "Prueba de activación",
+            $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” con voz natural.",
+            _preferences.Position);
+
+        if (!_wakeWordService.IsListening)
+        {
+            await ApplyWakeWordPreferenceAsync(showCapsule: false);
+        }
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(12), _wakeWordTestCancellation.Token);
+            if (_wakeWordTestActive)
+            {
+                _wakeWordTestActive = false;
+                _settingsView.SetWakeWordTestStatus(
+                    "No se detectó la frase. Prueba sensibilidad Alta o revisa el micrófono.",
+                    isSuccess: false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // La prueba terminó al detectar la frase o al iniciar otra prueba.
+        }
+    }
+
     private async Task HandleWakeWordDetectedAsync(WakeWordDetectedEventArgs e)
     {
         if (_isClosed || !_preferences.WakeWordEnabled)
         {
+            return;
+        }
+
+        if (_wakeWordTestActive)
+        {
+            _wakeWordTestActive = false;
+            _wakeWordTestCancellation?.Cancel();
+            _settingsView.SetWakeWordTestStatus(
+                $"Detecté “{e.RecognizedText}”. La frase funciona correctamente.",
+                isSuccess: true);
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Success,
+                "Frase detectada",
+                e.RecognizedText,
+                _preferences.Position);
+            await ApplyWakeWordPreferenceAsync(showCapsule: false);
             return;
         }
 
@@ -3338,6 +3445,7 @@ public partial class MainWindow : Window
         Width = _preferences.Width;
         ApplyShellOpacity();
         ApplyAccent(_preferences.AccentColor);
+        _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
         ApplyModuleVisibility();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
     }

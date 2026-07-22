@@ -291,14 +291,39 @@
                     <RadioButton x:Name="WakeWordHeyKohanaRadioButton"
                                  Margin="18,0,0,0"
                                  GroupName="WakeWordPhrase"
-                                 Content="Hey Kohana"
+                                 Content="Ey / Hey Kohana"
                                  Tag="HeyKohana"
                                  Checked="WakeWordPhraseRadioButton_Checked" />
                 </WrapPanel>
+
+                <TextBlock Margin="0,14,0,6"
+                           Text="Sensibilidad"
+                           FontWeight="SemiBold" />
+                <ComboBox x:Name="WakeWordSensitivityComboBox"
+                          Width="220"
+                          HorizontalAlignment="Left"
+                          SelectionChanged="WakeWordSensitivityComboBox_SelectionChanged">
+                    <ComboBoxItem Content="Precisa · menos activaciones accidentales" Tag="Strict" />
+                    <ComboBoxItem Content="Equilibrada · recomendada" Tag="Balanced" />
+                    <ComboBoxItem Content="Alta · reconoce más variantes" Tag="High" />
+                </ComboBox>
+
+                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                    <Button x:Name="WakeWordTestButton"
+                            Content="Probar frase"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Click="WakeWordTestButton_Click" />
+                    <TextBlock x:Name="WakeWordTestStatusText"
+                               Margin="12,0,0,0"
+                               VerticalAlignment="Center"
+                               Text="Di la frase seleccionada cuando inicie la prueba."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
             </StackPanel>
 
             <TextBlock Margin="24,8,0,0"
-                       Text="La escucha se realiza localmente y es opcional. Mientras está activa, el modelo ligero de Vosk puede usar alrededor de 300 MB de RAM. Whisper solo se carga después de detectar la frase."
+                       Text="La escucha se realiza localmente y es opcional. ‘Ey Kohana’, ‘Hey Kohana’ y variantes frecuentes se normalizan antes de comparar. Whisper solo se carga después de detectar la frase."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
