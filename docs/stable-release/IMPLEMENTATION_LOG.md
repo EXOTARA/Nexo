@@ -295,6 +295,44 @@ ninguna regla** y **ningún artefacto se versiona**.
 
 ---
 
+### Checkpoint portable — Fase 1.2 (2026-07-23)
+
+> ⚠️ **Esto es un checkpoint de desarrollo, NO una Release Candidate ni una versión estable.**
+> Mismas salvedades que el checkpoint anterior: no cumple `ACCEPTANCE_CRITERIA.md` §1, no
+> distribuir como 1.0 ni como RC. El smoke test manual **interactivo** (navegación por clics, voz,
+> wake word) no se repitió en esta sesión — ver riesgo #13.
+
+| Campo | Valor |
+|---|---|
+| **Commit** | `2195805` (`docs: record composition root migration`) |
+| **Rama** | `release/kohana-1.0-rc` |
+| **Fecha** | 2026-07-23 |
+| **SDK** | .NET 10.0.302 (host 10.0.10, RID win-x64) |
+| **Versión del producto** | `0.9.5-beta` — sin cambios, no se versionó el checkpoint |
+| **Pruebas** | **615** (576 `Nexo.Core.Tests` + 39 `Nexo.Windows.Tests`), **0 fallidas**, 0 omitidas |
+| **Warnings de compilación** | **0** |
+| **Portable** | `artifacts\Kohana-0.9.5-beta-phase1.2-win-x64\` — self-contained win-x64, 491 archivos |
+| **ZIP** | `artifacts\Kohana-0.9.5-beta-phase1.2-win-x64.zip` — 89.272.344 bytes (85,1 MB) |
+| **SHA-256** | `29c32a43e1e50d4755c8d5a2ceba233becd2c22cfe7a0463354a9ba34533181f` |
+
+Comando de publicación:
+
+```powershell
+dotnet publish src\Nexo.App\Nexo.App.csproj -c Release -r win-x64 --self-contained true -o artifacts\Kohana-0.9.5-beta-phase1.2-win-x64
+```
+
+**Smoke test sobre el portable publicado** (no sobre `bin\Release`; sin herramienta de
+automatización de UI de escritorio disponible en esta sesión):
+
+| Paso | Resultado |
+|---|---|
+| `Kohana.exe` existe | ✅ 285.696 bytes (idéntico al checkpoint anterior) |
+| La aplicación abre | ✅ proceso alcanza `Responding=True` en <4 s, sin `WerFault.exe` |
+| Cierre correcto | ✅ cerrado por PID exacto iniciado por este agente; ningún otro proceso tocado |
+| Navegación por clics, voz, wake word, rutinas | ⚠️ no probado — ver riesgo #13 |
+
+---
+
 ## TAREAS PENDIENTES
 
 ### Fase 0 — cierre (en Windows) ✅ 2026-07-23
