@@ -196,24 +196,14 @@ public sealed class LocalActionPermissionCharacterizationTests
     }
 
     [Fact]
-    public void OpenApplication_ForwardsArgumentsAndIsOnlyReversible_KnownGap()
+    public void OpenApplication_ForwardingShellArguments_NowRequiresConfirmation()
     {
-        // HALLAZGO DE LA FASE 1.1 — hueco real, congelado aquí, corregido en la Fase 5.
+        // El defecto D2 de la fase 1.1 está corregido en 1.1.1.
         //
-        // `OpenApplication` sí reenvía `action.Arguments` al proceso
-        // (`NexoAutomationActionExecutor.OpenApplication`) y está clasificada como
-        // `Reversible`, es decir, **sin confirmación**. Un paso de rutina con
-        // Target="powershell.exe" y Arguments="-Command ..." es, en la práctica, ejecución
-        // arbitraria sin el paso de aprobación que exige `SECURITY_MODEL` (escenario 22).
-        //
-        // Mitigación existente hoy: las rutinas las crea el propio usuario en la interfaz, y
-        // esa creación es la aprobación (`PRODUCT_VISION` §F, "rutinas previamente aprobadas").
-        // No es una vía de explotación remota, pero el invariante **no está aplicado
-        // técnicamente**, que es justo lo que `SECURITY_MODEL` §4 exige.
-        //
-        // Esta prueba documenta el estado actual. Cuando la Fase 5 introduzca
-        // `ExecuteShellCommand` y clasifique la ejecución arbitraria como `Preguntar`,
-        // esta prueba debe actualizarse **junto con** el cambio de conducta.
+        // `OpenApplication` sigue reenviando `action.Arguments` al proceso, pero los
+        // argumentos forman ahora parte de la evaluación tipada de riesgo: si el objetivo es
+        // un intérprete y hay argumentos, la acción es `Sensitive` y exige confirmación.
+        // Ver `ShellExecutionPolicyTests` para la batería completa.
         var action = new AutomationAction
         {
             Type = AutomationActionType.OpenApplication,
@@ -222,7 +212,7 @@ public sealed class LocalActionPermissionCharacterizationTests
         };
 
         Assert.True(AutomationPermissionPolicy.IsAllowed(action, out _));
-        Assert.Equal(AutomationRiskLevel.Reversible, AutomationPermissionPolicy.GetRisk(action));
+        Assert.Equal(AutomationRiskLevel.Sensitive, AutomationPermissionPolicy.GetRisk(action));
 
         var routine = new RoutineDefinition
         {
@@ -232,8 +222,7 @@ public sealed class LocalActionPermissionCharacterizationTests
             Steps = [action]
         };
 
-        // Estado actual: no se pide confirmación.
-        Assert.False(AutomationPermissionPolicy.RequiresConfirmation(routine));
+        Assert.True(AutomationPermissionPolicy.RequiresConfirmation(routine));
     }
 
     [Fact]

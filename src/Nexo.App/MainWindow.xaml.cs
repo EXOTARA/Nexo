@@ -2612,6 +2612,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        // La aprobación es por ejecución y se pasa explícitamente al runner. Crear la rutina
+        // no concede permiso permanente para ejecutar comandos arbitrarios (defecto D2).
+        var approval = RoutineExecutionApproval.NotConfirmed;
+
         if (AutomationPermissionPolicy.RequiresConfirmation(routine))
         {
             var preview = string.Join(
@@ -2629,6 +2633,8 @@ public partial class MainWindow : Window
                 _assistantView.AddKohanaMessage($"Cancelé la rutina {routine.Name}.");
                 return;
             }
+
+            approval = RoutineExecutionApproval.ConfirmedByUser;
         }
 
         _capsuleWindow.ShowMessage(
@@ -2641,6 +2647,7 @@ public partial class MainWindow : Window
         {
             var report = await _routineRunner.RunAsync(
                 routine,
+                approval,
                 _lifetimeCancellation.Token);
             _assistantView.AddKohanaMessage(report.BuildSummary());
             _tasksView.Refresh();
