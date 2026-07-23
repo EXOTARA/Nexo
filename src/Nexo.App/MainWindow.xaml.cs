@@ -70,12 +70,12 @@ public partial class MainWindow : Window
     private readonly SpanishTaskCommandParser _taskCommandParser = new();
     private readonly SpanishFocusCommandParser _focusCommandParser = new();
     private readonly SpanishRoutineCommandParser _routineCommandParser = new();
-    private readonly IAiChatService _aiChatService = new AiChatRouterService();
-    private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
-    private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
-    private readonly IVoiceOutputService _voiceOutputService = new WindowsTextToSpeechService();
-    private readonly IWakeWordService _wakeWordService = new VoskWakeWordService();
-    private readonly IScreenCaptureService _screenCaptureService = new WindowsScreenCaptureService();
+    private readonly IAiChatService _aiChatService;
+    private readonly IAudioMixerService _audioMixerService;
+    private readonly IVoiceInputService _voiceInputService;
+    private readonly IVoiceOutputService _voiceOutputService;
+    private readonly IWakeWordService _wakeWordService;
+    private readonly IScreenCaptureService _screenCaptureService;
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
     private readonly SemaphoreSlim _aiGate = new(1, 1);
@@ -137,10 +137,27 @@ public partial class MainWindow : Window
 
     public MainWindow(
         bool startHidden = false,
-        ManagedOllamaSupervisor? managedOllamaSupervisor = null)
+        ManagedOllamaSupervisor? managedOllamaSupervisor = null,
+        IAiChatService? aiChatService = null,
+        IAudioMixerService? audioMixerService = null,
+        IVoiceInputService? voiceInputService = null,
+        IVoiceOutputService? voiceOutputService = null,
+        IWakeWordService? wakeWordService = null,
+        IScreenCaptureService? screenCaptureService = null)
     {
         InitializeComponent();
         _commandPaletteWindow = new CommandPaletteWindow();
+
+        // Mismo orden relativo que los inicializadores de campo que sustituyen: se resuelven
+        // aquí, antes de cualquier otro campo dependiente y antes de cablear eventos, igual que
+        // ocurría cuando eran `= new ...()`. Los valores por defecto solo cubren la construcción
+        // directa en pruebas; App.OnStartup siempre los provee desde KohanaCompositionRoot.
+        _aiChatService = aiChatService ?? new AiChatRouterService();
+        _audioMixerService = audioMixerService ?? new WindowsAudioMixerService();
+        _voiceInputService = voiceInputService ?? new WhisperVoiceInputService();
+        _voiceOutputService = voiceOutputService ?? new WindowsTextToSpeechService();
+        _wakeWordService = wakeWordService ?? new VoskWakeWordService();
+        _screenCaptureService = screenCaptureService ?? new WindowsScreenCaptureService();
 
         _startHidden = startHidden;
         _managedOllamaSupervisor = managedOllamaSupervisor;
