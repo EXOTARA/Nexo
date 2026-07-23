@@ -15,7 +15,7 @@ TFM objetivo: `net10.0-windows10.0.26100.0` en `Nexo.Windows` y `Nexo.App`.
 
 **`Nexo.Core` permanece en `net10.0` puro**, sin dependencias y sin TFM de Windows. Esta es la
 garantía estructural de que la lógica de dominio sigue siendo testeable sin Windows y de que las
-196 pruebas actuales siguen corriendo en cualquier entorno.
+353 pruebas actuales de `Nexo.Core` siguen corriendo en cualquier entorno.
 
 Windows 10 terminó su ciclo general de soporte y no debe limitar la arquitectura. Puede documentarse
 compatibilidad experimental si resulta viable, pero **nunca bloqueando** APIs modernas de voz, OCR,

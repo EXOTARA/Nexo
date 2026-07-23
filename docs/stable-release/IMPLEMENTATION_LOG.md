@@ -10,40 +10,67 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | Fase 0 — **completada parcialmente** |
+| **Fase actual** | Fase 0 — **completada** (baseline medido) |
 | **Siguiente fase** | Fase 1, paso 1.1 (pruebas de caracterización) |
-| **Rama** | `release/kohana-1.0-rc` — **pendiente de crear en Windows** |
-| **Versión base** | 0.9.5-beta |
-| **Última actualización** | 2026-07-22 |
-| **Bloqueador activo** | Baseline no medido (ver ⚠️ abajo) |
+| **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
+| **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
+| **Última actualización** | 2026-07-23 |
+| **Bloqueador activo** | Ninguno para iniciar 1.1 |
 
-### ⚠️ Bloqueador: baseline sin medir
+### ✅ Baseline medido — 2026-07-23
 
-La Fase 0 se ejecutó en un entorno **Linux sin SDK de .NET, sin micrófono y sin GPU**. Conforme a la
-decisión A (*"no inventar benchmarks en entornos sin Windows, micrófono o GPU accesibles"*), los
-siguientes campos quedan **vacíos a propósito** y deben completarse desde Windows antes de iniciar
-la Fase 1:
+Medido en Windows sobre el repositorio real. Ningún valor es estimado; los campos que **todavía no
+pueden medirse** en esta fase se marcan `NO MEDIDO` en lugar de rellenarse.
 
 ```
-[ ] Sistema operativo:        ____________________
-[ ] Ruta del repositorio:     ____________________
-[ ] Rama:                     ____________________
-[ ] dotnet --info (SDK):      ____________________
-[ ] git status (limpio?):     ____________________
-[ ] Commit inicial (hash):    ____________________
-[ ] Total de pruebas:         ____________________
-[ ] Pruebas fallidas:         ____________________
-[ ] Warnings de compilación:  ____________________
-[ ] Tiempo de restore:        ____________________
-[ ] Tiempo de build Release:  ____________________
-[ ] Tiempo de test:           ____________________
-[ ] Tamaño del portable:      ____________________
-[ ] Tamaño del instalador:    ____________________
-[ ] SHA-256 del portable:     ____________________
+[x] Sistema operativo:        Microsoft Windows NT 10.0.26200.0 (Windows 11 Pro, build 26200)
+                              → cumple el mínimo de la decisión B (26100+)
+[x] Ruta del repositorio:     C:\Dev\Nexo
+[x] Rama:                     release/kohana-1.0-rc
+[x] dotnet --info (SDK):      10.0.302  (MSBuild 18.6.11, host 10.0.10, RID win-x64)
+                              global.json fija 10.0.302 con rollForward=latestFeature
+[x] git status (limpio?):     limpio (sin cambios pendientes)
+[x] Commit inicial (hash):    144bb13e794dcf085fb31df0fba171896583f169
+[x] Versión real del código:  0.9.5-beta
+[x] Total de pruebas:         356   (Nexo.Core.Tests 353 + Nexo.Windows.Tests 3)
+[x] Pruebas fallidas:         0
+[x] Pruebas omitidas:         0
+[x] Warnings de compilación:  0
+[x] Errores de compilación:   0
+[x] Tiempo de restore:        1.70 s   (en frío, tras borrar bin/obj)
+[x] Tiempo de build Release:  2.52 s   (MSBuild, en frío; 2.80 s de reloj)
+[x] Tiempo de test:           Core 210 ms · Windows 308 ms  (2.81 s de reloj, `--no-build`)
+[ ] Tamaño del portable:      NO MEDIDO — requiere `dotnet publish` (Fase 10)
+[ ] Tamaño del instalador:    NO MEDIDO — requiere compilar `installer/Kohana.iss` (Fase 10)
+[ ] SHA-256 del portable:     NO MEDIDO — depende del portable (Fase 10)
 ```
 
-Referencia esperada (de la auditoría estática, **a confirmar**): 196 atributos `[Fact]`/`[Theory]`
-en 48 archivos de `tests/Nexo.Core.Tests`.
+Comandos exactos ejecutados:
+
+```powershell
+dotnet restore .\Nexo.slnx
+dotnet build   .\Nexo.slnx -c Release --no-restore
+dotnet test    .\Nexo.slnx -c Release --no-build
+```
+
+**Incidencia registrada durante la medición:** el primer `dotnet build` falló con `MSB3021`/`MSB3027`
+porque una instancia de `Kohana.exe` (PID 31064) lanzada desde `src\Nexo.App\bin\Release` mantenía
+bloqueados `Nexo.Core.dll` y `Nexo.Windows.dll`. Se cerró el proceso con autorización del
+propietario y se repitió la medición en frío. **No es un defecto del código**, pero conviene
+documentarlo: compilar con la app corriendo desde el directorio de salida siempre fallará.
+
+### Verificación de versión (0.9.5 vs 0.9.6)
+
+La versión real del código es **0.9.5-beta**. La cadena `0.9.6-beta` aparece **una sola vez** en el
+repositorio, en `docs/ROADMAP.md:54`, como encabezado de un sprint **planificado y no implementado**.
+No hay código, entrada de `CHANGELOG` publicada ni etiqueta de 0.9.6. Por tanto **no se rebaja código
+ni se sustituye base**: documentación y código ya coinciden en 0.9.5-beta.
+
+Se corrigieron en cambio las **cifras estáticas** de `CURRENT_STATE_AUDIT.md`, que se habían tomado
+del ZIP `Kohana-0_9_5-foundation-base.zip` y no del repositorio con los commits 0.9.3–0.9.5
+consolidados. Ver `CURRENT_STATE_AUDIT.md` §0. Resumen: `MainWindow.xaml.cs` mide **3,532** líneas
+(no 4,007) y hay **356** pruebas (no 196). La conclusión cualitativa —God Object y bloqueador raíz—
+no cambia.
 
 ---
 
@@ -98,12 +125,13 @@ Decisiones estructurales adicionales:
 
 ## TAREAS PENDIENTES
 
-### Fase 0 — cierre (en Windows)
-- [ ] `git checkout -b release/kohana-1.0-rc`
-- [ ] Confirmar SO, ruta, rama, `dotnet --info`, `git status`
-- [ ] `dotnet restore`, `dotnet build -c Release`, `dotnet test -c Release`
-- [ ] Rellenar el bloque de baseline de arriba
-- [ ] Commit: `docs(stable-release): baseline y documentos de la versión estable`
+### Fase 0 — cierre (en Windows) ✅ 2026-07-23
+- [x] `git checkout -b release/kohana-1.0-rc`
+- [x] Confirmar SO, ruta, rama, `dotnet --info`, `git status`
+- [x] `dotnet restore`, `dotnet build -c Release`, `dotnet test -c Release`
+- [x] Rellenar el bloque de baseline de arriba
+- [x] Corregir cifras estáticas de `CURRENT_STATE_AUDIT.md` contra el código real
+- [x] Commit: `docs: record measured Kohana 1.0 baseline`
 
 ### Fase 1 — extracción (7 pasos, en orden)
 - [ ] 1.1 Pruebas de caracterización de `MainWindow`
@@ -123,7 +151,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 
 | Fase | Total | Fallidas | Warnings | Nota |
 |---|---|---|---|---|
-| Baseline | *pendiente* | — | — | Medir en Windows |
+| Baseline (2026-07-23) | **356** | **0** | **0** | Core 353 + Windows 3. Commit `144bb13`. Build Release en frío 2.52 s |
 
 ---
 
@@ -142,20 +170,13 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 
 ## SIGUIENTE PASO EXACTO
 
-En el repositorio local de Windows:
+Fase 0 cerrada con baseline medido. El siguiente paso es **1.1 — pruebas de caracterización**:
+congelar en pruebas la conducta actual observable antes de mover una sola línea de
+`MainWindow.xaml.cs`.
 
-```powershell
-cd <ruta-del-repo>
-git status                       # debe estar limpio
-git checkout -b release/kohana-1.0-rc
-dotnet --info
-dotnet restore .\Nexo.slnx
-dotnet build   .\Nexo.slnx -c Release
-dotnet test    .\Nexo.slnx -c Release
-```
-
-Luego: rellenar el bloque de baseline de este archivo, commitear los documentos de Fase 0, y
-**empezar por el paso 1.1** — pruebas de caracterización de `MainWindow.xaml.cs`.
+Regla de la fase: extraer **seams** (lógica pura ya comprobable o extraíble sin cambiar conducta) y
+probarlos. **Prohibido** probar WPF con aserciones frágiles sobre píxeles, layout o temporización de
+animación.
 
 **No iniciar 1.2 (DI) sin que 1.1 esté verde.** La caracterización es la única red de seguridad
 para el resto de la extracción.

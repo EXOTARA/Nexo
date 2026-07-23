@@ -5,14 +5,17 @@
 
 ## Bloqueantes de RC (deben resolverse)
 
-### L1 — Baseline sin medir
-**Qué:** No existen métricas de build, pruebas, tiempos ni tamaños.
-**Por qué:** La Fase 0 corrió en Linux sin SDK de .NET (decisión A prohíbe inventarlas).
-**Aislamiento:** Presupuestos de latencia marcados `PENDIENTE DE CALIBRAR`.
-**Para estable:** ejecutar restore/build/test en Windows y rellenar `IMPLEMENTATION_LOG.md`.
+### L1 — Baseline parcialmente medido ⚠️ (reducido el 2026-07-23)
+**Qué:** Build, pruebas y tiempos **ya están medidos** (356 pruebas, 0 fallidas, 0 warnings, build
+Release en frío 2.52 s — ver `IMPLEMENTATION_LOG.md`). **Siguen sin medir** el tamaño del portable,
+el tamaño del instalador y el SHA-256, porque requieren `dotnet publish` y compilar el instalador.
+**Aislamiento:** Presupuestos de latencia siguen marcados `PENDIENTE DE CALIBRAR`: el baseline de
+build/test **no** mide latencia de voz, wake word ni TTS, que exigen micrófono y escenarios reales.
+**Para estable:** medir artefactos en Fase 10 y calibrar latencias en Fase 3 (Voice Lab).
 
 ### L2 — `MainWindow.xaml.cs` como God Object
-**Qué:** 4,007 líneas, 224 métodos, ~28 servicios instanciados directamente. Sin DI.
+**Qué:** 3,532 líneas, 119 métodos, 49 campos `readonly` (31 instanciados con `new` en la
+declaración). Sin DI. *(Cifras medidas el 2026-07-23; la auditoría estática original decía 4,007/224.)*
 **Por qué:** Crecimiento incremental sin composition root.
 **Aislamiento:** Ninguno hoy — es el bloqueador raíz.
 **Para estable:** completar los 7 pasos de la Fase 1 (ADR 0001).

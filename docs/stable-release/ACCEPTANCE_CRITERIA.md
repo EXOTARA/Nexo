@@ -2,9 +2,11 @@
 
 ## Cómo leer este documento
 
-Los presupuestos de latencia de §2 son **objetivos propuestos, no medidos**. Se calibran contra el
-baseline real registrado en `IMPLEMENTATION_LOG.md` durante la Fase 0 en Windows. Hasta entonces
-están marcados `PENDIENTE DE CALIBRAR`. **Está prohibido reportarlos como logrados sin medición.**
+Los presupuestos de latencia de §2 son **objetivos propuestos, no medidos**, y **siguen marcados
+`PENDIENTE DE CALIBRAR` tras el baseline del 2026-07-23**. El baseline de Fase 0 midió build, tests,
+warnings y tiempos de compilación; **no** midió latencia de voz, wake word, TTS ni arranque, que
+exigen micrófono y escenarios reales (Fase 3, Voice Lab).
+**Está prohibido reportarlos como logrados sin medición.**
 
 ## 1. Criterios de salida para RC (todos obligatorios)
 

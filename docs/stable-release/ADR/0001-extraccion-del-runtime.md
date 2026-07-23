@@ -4,9 +4,14 @@
 
 ## Contexto
 
-`src/Nexo.App/MainWindow.xaml.cs` tiene 4,007 líneas y 224 métodos, e instancia ~28 servicios
-concretos como inicializadores de campo (`new WhisperVoiceInputService()`, `new VoskWakeWordService()`,
-etc.). No existe contenedor de inyección de dependencias.
+`src/Nexo.App/MainWindow.xaml.cs` tiene **3,532 líneas y 119 métodos**, con **49 campos `readonly`**
+de los cuales **31** se instancian con `new` en la propia declaración —incluidos los seis servicios
+de interfaz (`new WhisperVoiceInputService()`, `new VoskWakeWordService()`,
+`new WindowsTextToSpeechService()`, `new AiChatRouterService()`, `new WindowsAudioMixerService()`,
+`new WindowsScreenCaptureService()`)— y ~11 más que se construyen en el constructor.
+No existe contenedor de inyección de dependencias.
+*(Cifras medidas el 2026-07-23 sobre el repositorio real; la auditoría estática original indicaba
+4,007 líneas y 224 métodos sobre el ZIP de base. La conclusión no cambia.)*
 
 Kohana Runtime, tal como lo describe la especificación de producto, **ya existe** — pero está
 fusionado dentro de un `Window` de WPF.
