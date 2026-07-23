@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  a { color: #C64B72; text-decoration: none; }
+  a:hover { color: #A63A5E; }
+  ::selection { background: #F7DCE6; }
+</style>
+</helmet>
+<div style="min-height:100vh;background:#F5EEEF;font-family:'Public Sans',system-ui,sans-serif;color:#2C2228;padding:40px 24px;">
+  <div style="max-width:1160px;margin:0 auto;display:grid;grid-template-columns:236px 1fr;gap:40px;align-items:start;">
+
+    <!-- ============ SIDEBAR / TOC ============ -->
+    <aside style="position:sticky;top:40px;align-self:start;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:22px;">
+        <svg width="30" height="30" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <g transform="translate(20 20)">
+            <ellipse cx="0" cy="-11" rx="5.4" ry="9" fill="#E489AE" transform="rotate(0)"></ellipse>
+            <ellipse cx="0" cy="-11" rx="5.4" ry="9" fill="#EC9CBB" transform="rotate(72)"></ellipse>
+            <ellipse cx="0" cy="-11" rx="5.4" ry="9" fill="#E489AE" transform="rotate(144)"></ellipse>
+            <ellipse cx="0" cy="-11" rx="5.4" ry="9" fill="#EC9CBB" transform="rotate(216)"></ellipse>
+            <ellipse cx="0" cy="-11" rx="5.4" ry="9" fill="#E489AE" transform="rotate(288)"></ellipse>
+            <circle cx="0" cy="0" r="3.4" fill="#C64B72"></circle>
+          </g>
+        </svg>
+        <div style="font-family:'Spectral',serif;font-weight:600;font-size:16px;letter-spacing:.2px;">Kohana</div>
+      </div>
+      <div style="font-size:10px;letter-spacing:2.4px;text-transform:uppercase;color:#A08890;margin-bottom:14px;font-weight:600;">Design Contract</div>
+      <nav style="display:flex;flex-direction:column;gap:1px;font-size:13px;">
+        <a href="#identidad" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">01 · Identidad Sakura Premium</a>
+        <a href="#paleta" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">02 · Paleta aprobada</a>
+        <a href="#tipografia" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">03 · Tipografía</a>
+        <a href="#espaciado" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">04 · Espaciado</a>
+        <a href="#iconografia" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">05 · Iconografía</a>
+        <a href="#accesibilidad" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">06 · Accesibilidad</a>
+        <a href="#animacion" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">07 · Animación</a>
+        <a href="#superficies" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">08 · Hub · Peek · Capsule</a>
+        <a href="#sidebar" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">09 · Barra lateral</a>
+        <a href="#wpf" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">10 · WPF y Windows</a>
+        <a href="#flujos" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">11 · Flujos críticos</a>
+        <a href="#prohibido" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">12 · Nunca usar</a>
+        <a href="#pendiente" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">13 · Pendiente</a>
+        <a href="#decisiones" style="padding:6px 10px;border-radius:7px;color:#6B5E65;">14 · Registro de decisiones</a>
+      </nav>
+    </aside>
+
+    <!-- ============ DOCUMENT ============ -->
+    <main style="background:#FFFFFF;border:1px solid #EBE0E4;border-radius:16px;padding:56px 64px 72px;box-shadow:0 1px 2px rgba(44,34,40,.04),0 14px 40px -24px rgba(166,58,94,.18);">
+
+      <!-- Masthead -->
+      <header style="border-bottom:1px solid #EBE0E4;padding-bottom:32px;margin-bottom:44px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:12px;">Contrato de diseño · v1</div>
+            <h1 style="font-family:'Spectral',serif;font-weight:600;font-size:44px;line-height:1.05;margin:0 0 14px;letter-spacing:-.5px;">Kohana Design Contract</h1>
+            <p style="font-size:15px;line-height:1.55;color:#6B5E65;max-width:560px;margin:0;text-wrap:pretty;">La fuente única de verdad visual mientras Claude Code reestructura Runtime, motores, acciones, memoria y permisos. Congela lo que ya está decidido; todo lo demás espera arquitectura estable.</p>
+          </div>
+          <div style="border:1.5px solid; color:{{ statusColor }}; background:{{ statusBg }}; border-color:{{ statusColor }}; padding:8px 14px;border-radius:8px;text-align:center;min-width:120px;">
+            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;opacity:.75;font-weight:700;margin-bottom:2px;">Estado</div>
+            <div style="font-family:'Spectral',serif;font-weight:600;font-size:16px;">{{ statusLabel }}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:24px;">
+          <span style="font-size:12px;background:#FCEEF3;color:#A63A5E;padding:5px 11px;border-radius:20px;font-weight:600;">Sakura Premium</span>
+          <span style="font-size:12px;background:#F3EFF6;color:#5B4B7A;padding:5px 11px;border-radius:20px;font-weight:600;">.NET 10 · WPF</span>
+          <span style="font-size:12px;background:#F5EEEF;color:#6B5E65;padding:5px 11px;border-radius:20px;font-weight:600;">Prioridad: velocidad › voz › privacidad › integraciones</span>
+        </div>
+      </header>
+
+      <!-- Frozen banner -->
+      <div style="display:flex;gap:14px;background:#FCEEF3;border:1px solid #F7DCE6;border-radius:12px;padding:18px 20px;margin-bottom:52px;">
+        <div style="font-size:18px;line-height:1;padding-top:1px;">❄️</div>
+        <div style="font-size:13.5px;line-height:1.55;color:#6B5E65;">
+          <strong style="color:#2C2228;">Diseño visual completo en pausa.</strong> No se generan todas las pantallas ni se modifica el código todavía. Cuando <code style="background:#fff;border:1px solid #EFC2D3;border-radius:5px;padding:1px 6px;font-size:12px;color:#A63A5E;">release/kohana-1.0-rc</code> llegue a congelación funcional, se re-audita esa rama y se diseña sobre el producto real. Ver <a href="#pendiente">§13</a>.
+        </div>
+      </div>
+
+      <!-- ===== 01 IDENTIDAD ===== -->
+      <section id="identidad" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">01 · Identidad</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Sakura Premium</h2>
+        <p style="font-size:15px;line-height:1.65;color:#3D3239;max-width:660px;margin:0 0 18px;text-wrap:pretty;">Kohana mantiene su lenguaje visual propio —Sakura Fluent con motivo de pétalos— para nunca parecer un clon. La identidad se percibe como serena, precisa y viva; premium en el detalle, nunca recargada. El principio rector documentado en <code style="background:#FCEEF3;border-radius:5px;padding:1px 6px;font-size:12.5px;color:#A63A5E;">VISUAL_FOUNDATION_V3.md</code> se eleva a contrato.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:6px;">Un movimiento dominante</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">Cada interacción tiene una sola animación protagonista. Nada compite por la atención.</div>
+          </div>
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:6px;">Opacidad + traslación</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">La materia del movimiento. Nunca se escala texto para animarlo.</div>
+          </div>
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:6px;">Pétalo como firma</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">El motivo sakura aparece con mesura: marca, estados de escucha y acentos. No decoración de relleno.</div>
+          </div>
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:6px;">Confianza visible</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">Local vs. nube, escucha activa y acciones aprobables siempre se ven. La transparencia es parte de la marca.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 02 PALETA ===== -->
+      <section id="paleta" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">02 · Color</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 6px;letter-spacing:-.3px;">Paleta aprobada</h2>
+        <p style="font-size:15px;line-height:1.65;color:#3D3239;max-width:660px;margin:0 0 22px;">Máximo dos fondos por superficie. Los colores semánticos son intocables: comunican privacidad y riesgo, no estética.</p>
+
+        <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#A08890;font-weight:700;margin-bottom:12px;">Marca</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px;">
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:64px;background:#E489AE;"></div>
+            <div style="padding:10px 12px;"><div style="font-weight:700;font-size:13px;">Sakura</div><div style="font-size:11.5px;color:#8A7E84;font-family:'Public Sans';">#E489AE · primario</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:64px;background:#C64B72;"></div>
+            <div style="padding:10px 12px;"><div style="font-weight:700;font-size:13px;">Kurenai</div><div style="font-size:11.5px;color:#8A7E84;">#C64B72 · interacción</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:64px;background:#A63A5E;"></div>
+            <div style="padding:10px 12px;"><div style="font-weight:700;font-size:13px;">Kurenai deep</div><div style="font-size:11.5px;color:#8A7E84;">#A63A5E · hover/press</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:64px;background:#2C2228;"></div>
+            <div style="padding:10px 12px;"><div style="font-weight:700;font-size:13px;">Sumi</div><div style="font-size:11.5px;color:#8A7E84;">#2C2228 · texto</div></div>
+          </div>
+        </div>
+
+        <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#A08890;font-weight:700;margin-bottom:12px;">Neutros cálidos y pétalo</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px;">
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:52px;background:#FFFFFF;border-bottom:1px solid #EBE0E4;"></div>
+            <div style="padding:9px 12px;"><div style="font-weight:700;font-size:12.5px;">Paper</div><div style="font-size:11px;color:#8A7E84;">#FFFFFF</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:52px;background:#F5EEEF;"></div>
+            <div style="padding:9px 12px;"><div style="font-weight:700;font-size:12.5px;">Desk</div><div style="font-size:11px;color:#8A7E84;">#F5EEEF</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:52px;background:#FCEEF3;"></div>
+            <div style="padding:9px 12px;"><div style="font-weight:700;font-size:12.5px;">Petal 50</div><div style="font-size:11px;color:#8A7E84;">#FCEEF3</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:52px;background:#EFC2D3;"></div>
+            <div style="padding:9px 12px;"><div style="font-weight:700;font-size:12.5px;">Petal 200</div><div style="font-size:11px;color:#8A7E84;">#EFC2D3</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:52px;background:#6B5E65;"></div>
+            <div style="padding:9px 12px;"><div style="font-weight:700;font-size:12.5px;color:#2C2228;">Ink soft</div><div style="font-size:11px;color:#8A7E84;">#6B5E65</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:52px;background:#A08890;"></div>
+            <div style="padding:9px 12px;"><div style="font-weight:700;font-size:12.5px;color:#2C2228;">Muted</div><div style="font-size:11px;color:#8A7E84;">#A08890</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:52px;background:#EBE0E4;"></div>
+            <div style="padding:9px 12px;"><div style="font-weight:700;font-size:12.5px;color:#2C2228;">Line</div><div style="font-size:11px;color:#8A7E84;">#EBE0E4</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:52px;background:#FDF7F9;"></div>
+            <div style="padding:9px 12px;"><div style="font-weight:700;font-size:12.5px;color:#2C2228;">Surface tint</div><div style="font-size:11px;color:#8A7E84;">#FDF7F9</div></div>
+          </div>
+        </div>
+
+        <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#A08890;font-weight:700;margin-bottom:12px;">Semánticos · no negociables</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:56px;background:#4C9A7A;"></div>
+            <div style="padding:10px 12px;"><div style="font-weight:700;font-size:13px;">Local</div><div style="font-size:11.5px;color:#8A7E84;">#4C9A7A · 100% en equipo</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:56px;background:#5B7FC4;"></div>
+            <div style="padding:10px 12px;"><div style="font-weight:700;font-size:13px;">Nube</div><div style="font-size:11.5px;color:#8A7E84;">#5B7FC4 · sale a internet</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:56px;background:#C98A2E;"></div>
+            <div style="padding:10px 12px;"><div style="font-weight:700;font-size:13px;">Preguntar</div><div style="font-size:11.5px;color:#8A7E84;">#C98A2E · requiere aprobación</div></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;overflow:hidden;">
+            <div style="height:56px;background:#C0485E;"></div>
+            <div style="padding:10px 12px;"><div style="font-weight:700;font-size:13px;">Bloqueado</div><div style="font-size:11.5px;color:#8A7E84;">#C0485E · denegado</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 03 TIPOGRAFIA ===== -->
+      <section id="tipografia" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">03 · Tipografía</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Tipografía</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+          <div style="border:1px solid #EBE0E4;border-radius:12px;padding:22px 24px;">
+            <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#A08890;font-weight:700;margin-bottom:10px;">Producto · WPF</div>
+            <div style="font-family:'Public Sans';font-size:34px;font-weight:600;line-height:1;margin-bottom:8px;">Segoe UI Variable</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">Fuente de sistema nativa de Windows 11. Cero descargas, respeta el escalado y las preferencias del usuario. Es la tipografía de toda la interfaz de la app.</div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:12px;padding:22px 24px;">
+            <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#A08890;font-weight:700;margin-bottom:10px;">Documentos de marca</div>
+            <div style="font-family:'Spectral',serif;font-size:34px;font-weight:600;line-height:1;margin-bottom:8px;">Spectral</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">Serif de display para material editorial, encabezados de marca y este contrato. No se usa dentro de la app WPF.</div>
+          </div>
+        </div>
+        <div style="border:1px solid #EBE0E4;border-radius:12px;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:120px 1fr 130px;gap:0;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#A08890;font-weight:700;background:#FDF7F9;border-bottom:1px solid #EBE0E4;padding:11px 20px;"><div>Rol</div><div>Tamaño / peso</div><div>Uso</div></div>
+          <div style="display:grid;grid-template-columns:120px 1fr 130px;gap:0;padding:12px 20px;border-bottom:1px solid #F2E9EC;font-size:13.5px;"><div style="font-weight:700;">Display</div><div>28–34 / 600</div><div style="color:#8A7E84;">Títulos de Hub</div></div>
+          <div style="display:grid;grid-template-columns:120px 1fr 130px;gap:0;padding:12px 20px;border-bottom:1px solid #F2E9EC;font-size:13.5px;"><div style="font-weight:700;">Título</div><div>20 / 600</div><div style="color:#8A7E84;">Secciones</div></div>
+          <div style="display:grid;grid-template-columns:120px 1fr 130px;gap:0;padding:12px 20px;border-bottom:1px solid #F2E9EC;font-size:13.5px;"><div style="font-weight:700;">Cuerpo</div><div>14 / 400</div><div style="color:#8A7E84;">Texto e input</div></div>
+          <div style="display:grid;grid-template-columns:120px 1fr 130px;gap:0;padding:12px 20px;border-bottom:1px solid #F2E9EC;font-size:13.5px;"><div style="font-weight:700;">Etiqueta</div><div>12 / 600</div><div style="color:#8A7E84;">Chips, meta</div></div>
+          <div style="display:grid;grid-template-columns:120px 1fr 130px;gap:0;padding:12px 20px;font-size:13.5px;"><div style="font-weight:700;">Micro</div><div>11 / 600 · +2px tracking</div><div style="color:#8A7E84;">Eyebrows</div></div>
+        </div>
+      </section>
+
+      <!-- ===== 04 ESPACIADO ===== -->
+      <section id="espaciado" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">04 · Layout</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Sistema de espaciado</h2>
+        <p style="font-size:15px;line-height:1.65;color:#3D3239;max-width:660px;margin:0 0 20px;">Rejilla base de <strong>4px</strong>. Todo padding, gap y margen es múltiplo de la escala. Radios y elevación también están tokenizados.</p>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:24px;flex-wrap:wrap;">
+          <div style="text-align:center;"><div style="width:4px;height:4px;background:#E489AE;margin:0 auto 6px;border-radius:2px;"></div><div style="font-size:11px;color:#8A7E84;">4</div></div>
+          <div style="text-align:center;"><div style="width:8px;height:8px;background:#E489AE;margin:0 auto 6px;border-radius:2px;"></div><div style="font-size:11px;color:#8A7E84;">8</div></div>
+          <div style="text-align:center;"><div style="width:12px;height:12px;background:#E489AE;margin:0 auto 6px;border-radius:2px;"></div><div style="font-size:11px;color:#8A7E84;">12</div></div>
+          <div style="text-align:center;"><div style="width:16px;height:16px;background:#E489AE;margin:0 auto 6px;border-radius:3px;"></div><div style="font-size:11px;color:#8A7E84;">16</div></div>
+          <div style="text-align:center;"><div style="width:24px;height:24px;background:#E489AE;margin:0 auto 6px;border-radius:4px;"></div><div style="font-size:11px;color:#8A7E84;">24</div></div>
+          <div style="text-align:center;"><div style="width:32px;height:32px;background:#E489AE;margin:0 auto 6px;border-radius:5px;"></div><div style="font-size:11px;color:#8A7E84;">32</div></div>
+          <div style="text-align:center;"><div style="width:48px;height:48px;background:#E489AE;margin:0 auto 6px;border-radius:6px;"></div><div style="font-size:11px;color:#8A7E84;">48</div></div>
+          <div style="text-align:center;"><div style="width:64px;height:64px;background:#E489AE;margin:0 auto 6px;border-radius:8px;"></div><div style="font-size:11px;color:#8A7E84;">64</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:8px;">Radios</div>
+            <div style="font-size:13px;line-height:1.7;color:#6B5E65;">Control 8 · Tarjeta 12 · Superficie 16 · Píldora/Capsule 999. Nunca radios inconsistentes en un mismo grupo.</div>
+          </div>
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:8px;">Elevación</div>
+            <div style="font-size:13px;line-height:1.7;color:#6B5E65;">Dos niveles: borde sutil (reposo) y sombra difusa teñida de kurenai (flotante: Peek, menús). Sin sombras duras ni multicapa.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 05 ICONOGRAFIA ===== -->
+      <section id="iconografia" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">05 · Iconos</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Iconografía de Figma</h2>
+        <p style="font-size:15px;line-height:1.65;color:#3D3239;max-width:660px;margin:0 0 20px;">Fuente única: <code style="background:#FCEEF3;border-radius:5px;padding:1px 6px;font-size:12.5px;color:#A63A5E;">Vector Icon Set for Kohana</code> (Figma). No se mezclan otras familias ni emoji como iconos de UI.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;"><div style="font-weight:700;font-size:14px;margin-bottom:6px;">Trazo, no relleno</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Grosor 1.5px a 24px, tapas y uniones redondeadas. Relleno solo para estado activo.</div></div>
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;"><div style="font-weight:700;font-size:14px;margin-bottom:6px;">Rejilla 24px</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Caja óptica de 24 con padding de 2. Tamaños en uso: 16 · 20 · 24.</div></div>
+          <div style="background:#FDF7F9;border:1px solid #F2E2E9;border-radius:11px;padding:18px 20px;"><div style="font-weight:700;font-size:14px;margin-bottom:6px;">Color heredado</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;"><code style="font-size:12px;">currentColor</code> por defecto. Los semánticos solo para su significado.</div></div>
+        </div>
+        <div style="margin-top:14px;background:#FCEEF3;border:1px solid #F7DCE6;border-radius:11px;padding:14px 18px;font-size:13px;color:#6B5E65;line-height:1.55;">Al exportar de Figma, conservar el nombre <code style="background:#fff;border:1px solid #EFC2D3;border-radius:5px;padding:1px 6px;font-size:12px;color:#A63A5E;">data-component</code> de cada icono verbatim para trazabilidad. Pendiente: exportar el set a SVG optimizado cuando la arquitectura se estabilice.</div>
+      </section>
+
+      <!-- ===== 06 ACCESIBILIDAD ===== -->
+      <section id="accesibilidad" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">06 · A11y</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Reglas de accesibilidad</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Contraste AA</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Texto ≥ 4.5:1, UI/iconos ≥ 3:1. Sumi sobre paper cumple con holgura; kurenai solo sobre fondos claros.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Foco siempre visible</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Anillo de 2px kurenai con offset. Nunca <code style="font-size:12px;">outline:none</code> sin reemplazo.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Objetivos ≥ 32px</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Mínimo de clic en escritorio 32px; 40px en controles primarios y de voz.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Teclado total</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Todo alcanzable sin ratón; orden de tabulación lógico; atajos anunciados vía UI Automation.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Nunca solo color</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Local/nube/bloqueado llevan icono + texto además del color semántico.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Respeta el sistema</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Honra escalado de fuente de Windows, alto contraste y <em>reduce motion</em>.</div></div>
+        </div>
+      </section>
+
+      <!-- ===== 07 ANIMACION ===== -->
+      <section id="animacion" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">07 · Movimiento</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Reglas de animación</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Curva de resorte</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Overshoot sutil, no solo ease-in-out. Es la diferencia entre "vivo" y "PowerPoint". WPF: <code style="font-size:12px;">EasingFunction</code> personalizada; en WinUI 3, animaciones de resorte nativas.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Un movimiento dominante</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Una animación protagonista por interacción. Opacidad + traslación. Nunca escalar texto.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Duración</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Micro 120–160ms · transición 200–280ms · entrada de superficie 300–360ms. Nada por encima de 400ms.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Cede ante el Governor</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">En modo <strong>Busy/Game</strong> o batería baja, las animaciones se reducen o desactivan. El rendimiento gana siempre (prioridad #1).</div></div>
+        </div>
+        <div style="background:#FCEEF3;border:1px solid #F7DCE6;border-radius:11px;padding:14px 18px;font-size:13px;color:#6B5E65;line-height:1.55;">El pétalo de escucha es la única animación en bucle permitida, y solo mientras Kohana escucha activamente.</div>
+      </section>
+
+      <!-- ===== 08 SUPERFICIES ===== -->
+      <section id="superficies" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">08 · Superficies</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 6px;letter-spacing:-.3px;">Principios del Hub, Peek y Capsule</h2>
+        <p style="font-size:15px;line-height:1.65;color:#3D3239;max-width:660px;margin:0 0 22px;">Tres superficies, una jerarquía de compromiso. Cada una tiene un rol único; no se solapan funciones.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+          <div style="border:1px solid #EBE0E4;border-radius:14px;padding:20px;background:#FDF7F9;">
+            <div style="height:88px;border:1.5px solid #EFC2D3;border-radius:10px;background:#fff;display:flex;overflow:hidden;margin-bottom:16px;">
+              <div style="width:26px;background:#FCEEF3;border-right:1px solid #F2E2E9;"></div>
+              <div style="flex:1;padding:8px;"><div style="height:6px;width:60%;background:#EFC2D3;border-radius:3px;margin-bottom:6px;"></div><div style="height:5px;width:85%;background:#F0E4E8;border-radius:3px;margin-bottom:4px;"></div><div style="height:5px;width:70%;background:#F0E4E8;border-radius:3px;"></div></div>
+            </div>
+            <div style="font-family:'Spectral',serif;font-weight:600;font-size:19px;margin-bottom:6px;">Hub</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">La ventana completa. Conversación, memoria, skills, ajustes. Máxima densidad y control. Vive con barra lateral (§09).</div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:14px;padding:20px;background:#FDF7F9;">
+            <div style="height:88px;position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+              <div style="width:64%;border:1.5px solid #EFC2D3;border-radius:10px;background:#fff;box-shadow:0 8px 22px -12px rgba(166,58,94,.4);padding:10px;"><div style="height:6px;width:70%;background:#EFC2D3;border-radius:3px;margin-bottom:6px;"></div><div style="height:5px;width:90%;background:#F0E4E8;border-radius:3px;margin-bottom:4px;"></div><div style="height:5px;width:55%;background:#F0E4E8;border-radius:3px;"></div></div>
+            </div>
+            <div style="font-family:'Spectral',serif;font-weight:600;font-size:19px;margin-bottom:6px;">Peek</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">Panel flotante, efímero, invocado por voz o atajo. Una respuesta o acción rápida y se va. No es una ventana persistente.</div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:14px;padding:20px;background:#FDF7F9;">
+            <div style="height:88px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:8px;background:#2C2228;border-radius:999px;padding:8px 16px;box-shadow:0 8px 22px -12px rgba(166,58,94,.5);">
+                <div style="width:12px;height:12px;border-radius:50%;background:#E489AE;"></div>
+                <div style="height:5px;width:40px;background:#6B5E65;border-radius:3px;"></div>
+              </div>
+            </div>
+            <div style="font-family:'Spectral',serif;font-weight:600;font-size:19px;margin-bottom:6px;">Capsule</div>
+            <div style="font-size:13px;line-height:1.55;color:#6B5E65;">Píldora siempre presente, mínima, sobre el escritorio. Estado de escucha y punto de entrada. Cero fricción, casi cero píxeles.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 09 SIDEBAR ===== -->
+      <section id="sidebar" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">09 · Navegación</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Comportamiento de la barra lateral</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Dos estados</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Expandida (icono + etiqueta, ~240px) y colapsada (solo icono, ~56px). Nunca oculta del todo en el Hub.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Colapso recordado</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">La preferencia persiste entre sesiones. Auto-colapsa bajo cierto ancho de ventana.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Un ítem activo</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Indicador de pétalo/barra kurenai a la izquierda del ítem activo. Solo uno a la vez.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Colapsada = tooltip</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">En estado icono, cada ítem muestra su etiqueta como tooltip accesible al enfocar/hover.</div></div>
+        </div>
+      </section>
+
+      <!-- ===== 10 WPF ===== -->
+      <section id="wpf" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">10 · Plataforma</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Restricciones de WPF y Windows</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">.NET 10 · WPF</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Con interop WinForms solo para el icono de bandeja. El diseño se construye con controles WPF reales, no HTML embebido.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Fuentes de sistema</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Segoe UI Variable. Sin fuentes web ni descargas para la app.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">DPI y escalado</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Layout independiente de resolución (per-monitor DPI aware). Nada de posiciones por píxel absoluto.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Pantalla completa</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Detecta fullscreen (juegos/video) y no interrumpe. Capsule y notificaciones ceden.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Resource Governor</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Umbrales GPU 88% · CPU 92% · RAM 92%. La UI degrada animación y efectos sin matar comandos locales.</div></div>
+          <div style="border:1px solid #EBE0E4;border-radius:11px;padding:16px 18px;"><div style="font-weight:700;font-size:14px;margin-bottom:5px;">Tema del SO</div><div style="font-size:13px;line-height:1.55;color:#6B5E65;">Respeta claro/oscuro y color de acento de Windows donde tenga sentido, sin romper la identidad Sakura.</div></div>
+        </div>
+      </section>
+
+      <!-- ===== 11 FLUJOS ===== -->
+      <section id="flujos" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">11 · Flujos</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 6px;letter-spacing:-.3px;">Los tres flujos críticos del lanzamiento</h2>
+        <p style="font-size:15px;line-height:1.65;color:#3D3239;max-width:660px;margin:0 0 22px;">Estos definen el v1. Todo diseño de pantalla se justifica contra ellos.</p>
+
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div style="border:1px solid #EBE0E4;border-radius:13px;padding:22px 24px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><div style="width:30px;height:30px;border-radius:8px;background:#FCEEF3;color:#C64B72;font-family:'Spectral',serif;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:16px;">1</div><div style="font-family:'Spectral',serif;font-weight:600;font-size:19px;">Conversación de voz natural</div></div>
+            <div style="font-size:13.5px;line-height:1.6;color:#6B5E65;margin-bottom:12px;">Wake word → escucha (VAD) → respuesta hablada, con <strong>barge-in</strong>: el usuario interrumpe y Kohana calla al instante. Debe sentirse instantáneo (streaming de audio por oración), no "graba todo, luego reproduce".</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;"><span style="font-size:11.5px;background:#F5EEEF;color:#6B5E65;padding:4px 10px;border-radius:20px;">Capsule escuchando</span><span style="font-size:11.5px;background:#F5EEEF;color:#6B5E65;padding:4px 10px;border-radius:20px;">Pétalo en bucle</span><span style="font-size:11.5px;background:#F5EEEF;color:#6B5E65;padding:4px 10px;border-radius:20px;">Corte inmediato</span></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:13px;padding:22px 24px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><div style="width:30px;height:30px;border-radius:8px;background:#FCEEF3;color:#C64B72;font-family:'Spectral',serif;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:16px;">2</div><div style="font-family:'Spectral',serif;font-weight:600;font-size:19px;">Vision bajo demanda, con transparencia</div></div>
+            <div style="font-size:13.5px;line-height:1.6;color:#6B5E65;margin-bottom:12px;">"¿Qué dice este error?" → OCR/UI Automation local primero → responde mostrando <strong>qué detectó</strong> antes de dar la respuesta. Nunca guarda en disco; bloquea gestores de contraseñas por proceso y título de ventana.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;"><span style="font-size:11.5px;background:#E1F0EA;color:#3B7B60;padding:4px 10px;border-radius:20px;">● Local</span><span style="font-size:11.5px;background:#F5EEEF;color:#6B5E65;padding:4px 10px;border-radius:20px;">Vista previa de lo detectado</span><span style="font-size:11.5px;background:#F5EEEF;color:#6B5E65;padding:4px 10px;border-radius:20px;">En memoria, nunca disco</span></div>
+          </div>
+          <div style="border:1px solid #EBE0E4;border-radius:13px;padding:22px 24px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;"><div style="width:30px;height:30px;border-radius:8px;background:#FCEEF3;color:#C64B72;font-family:'Spectral',serif;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:16px;">3</div><div style="font-family:'Spectral',serif;font-weight:600;font-size:19px;">Acción aprobable + transparencia de red</div></div>
+            <div style="font-size:13.5px;line-height:1.6;color:#6B5E65;margin-bottom:12px;">Antes de ejecutar, muestra el plan con nivel <span style="color:#C0485E;font-weight:600;">Bloqueado</span> / <span style="color:#C98A2E;font-weight:600;">Preguntar</span> / <span style="color:#4C9A7A;font-weight:600;">Permitido</span>, registra cada acción, y distingue con claridad cuándo algo sale a la nube vs. cuándo todo quedó local.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;"><span style="font-size:11.5px;background:#FBF0DC;color:#9A6A1E;padding:4px 10px;border-radius:20px;">Aprobar / rechazar</span><span style="font-size:11.5px;background:#E7EDF8;color:#42588C;padding:4px 10px;border-radius:20px;">● Sale a la nube</span><span style="font-size:11.5px;background:#F5EEEF;color:#6B5E65;padding:4px 10px;border-radius:20px;">Registro de acciones</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 12 PROHIBIDO ===== -->
+      <section id="prohibido" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C0485E;font-weight:700;margin-bottom:8px;">12 · Nunca usar</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Elementos visuales prohibidos</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Gradientes agresivos como fondo</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Emoji como iconos de interfaz</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Tarjeta redondeada con borde-acento a la izquierda</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Escalar texto para animarlo</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Curvas ease-in-out planas tipo PowerPoint</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Más de un movimiento simultáneo por interacción</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Más de dos fondos por superficie</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Estética de clon (parecerse a OpenClaw u otros)</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">UI de puentes de mensajería (WhatsApp/Telegram/Discord)</span></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #F2D4DA;border-radius:10px;padding:13px 16px;background:#FDF2F4;"><span style="color:#C0485E;font-weight:700;">✕</span><span style="font-size:13.5px;line-height:1.5;color:#6B5E65;">Semánticos (local/nube/bloqueado) usados como color decorativo</span></div>
+        </div>
+      </section>
+
+      <!-- ===== 13 PENDIENTE ===== -->
+      <section id="pendiente" style="margin-bottom:60px;scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">13 · Estado</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 16px;letter-spacing:-.3px;">Pantallas · pendiente de arquitectura estable</h2>
+        <div style="border:1px dashed #D9C7CE;border-radius:13px;padding:6px 6px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+            <div style="background:#F8F2F4;border-radius:9px;padding:16px 18px;"><div style="font-weight:600;font-size:14px;color:#3D3239;">Hub completo</div><div style="font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:#B08A97;font-weight:700;margin-top:6px;">Pendiente</div></div>
+            <div style="background:#F8F2F4;border-radius:9px;padding:16px 18px;"><div style="font-weight:600;font-size:14px;color:#3D3239;">Memoria / diario editable</div><div style="font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:#B08A97;font-weight:700;margin-top:6px;">Pendiente</div></div>
+            <div style="background:#F8F2F4;border-radius:9px;padding:16px 18px;"><div style="font-weight:600;font-size:14px;color:#3D3239;">Skills / manifiestos</div><div style="font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:#B08A97;font-weight:700;margin-top:6px;">Pendiente</div></div>
+            <div style="background:#F8F2F4;border-radius:9px;padding:16px 18px;"><div style="font-weight:600;font-size:14px;color:#3D3239;">Permisos por skill</div><div style="font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:#B08A97;font-weight:700;margin-top:6px;">Pendiente</div></div>
+            <div style="background:#F8F2F4;border-radius:9px;padding:16px 18px;"><div style="font-weight:600;font-size:14px;color:#3D3239;">Subagentes</div><div style="font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:#B08A97;font-weight:700;margin-top:6px;">Pendiente</div></div>
+            <div style="background:#F8F2F4;border-radius:9px;padding:16px 18px;"><div style="font-weight:600;font-size:14px;color:#3D3239;">Ajustes / proveedores</div><div style="font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:#B08A97;font-weight:700;margin-top:6px;">Pendiente</div></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:14px;background:#EEF3FB;border:1px solid #D6E1F3;border-radius:12px;padding:18px 20px;">
+          <div style="font-size:18px;line-height:1;">🔓</div>
+          <div style="font-size:13.5px;line-height:1.6;color:#42588C;">
+            <strong style="color:#2C3E66;">Disparador de re-auditoría.</strong> Cuando <code style="background:#fff;border:1px solid #C9D6EE;border-radius:5px;padding:1px 6px;font-size:12px;color:#42588C;">release/kohana-1.0-rc</code> llegue a <strong>congelación funcional</strong>, se audita esa rama y se diseña el producto completo sobre el código real —no antes. Este contrato es el insumo de partida de ese diseño.
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 14 DECISIONES ===== -->
+      <sc-if value="{{ showLog }}" hint-placeholder-val="{{ true }}">
+      <section id="decisiones" style="scroll-margin-top:24px;">
+        <div style="font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#C64B72;font-weight:700;margin-bottom:8px;">14 · Bitácora</div>
+        <h2 style="font-family:'Spectral',serif;font-weight:600;font-size:28px;margin:0 0 6px;letter-spacing:-.3px;">Registro de decisiones</h2>
+        <p style="font-size:15px;line-height:1.65;color:#3D3239;max-width:660px;margin:0 0 22px;">Se mantiene aquí para no perder decisiones entre iteraciones. Cada fila es una decisión cerrada; añadir al final, nunca reescribir el pasado.</p>
+        <div style="border:1px solid #EBE0E4;border-radius:12px;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:78px 1fr 96px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#A08890;font-weight:700;background:#FDF7F9;border-bottom:1px solid #EBE0E4;padding:11px 20px;"><div>Fecha</div><div>Decisión</div><div>Estado</div></div>
+          <div style="display:grid;grid-template-columns:78px 1fr 96px;padding:14px 20px;border-bottom:1px solid #F2E9EC;font-size:13px;line-height:1.5;"><div style="color:#8A7E84;">22 jul</div><div>Diseño visual completo en pausa hasta congelación de <code style="font-size:12px;">release/kohana-1.0-rc</code>.</div><div><span style="font-size:11px;background:#E1F0EA;color:#3B7B60;padding:3px 9px;border-radius:20px;font-weight:600;">Firme</span></div></div>
+          <div style="display:grid;grid-template-columns:78px 1fr 96px;padding:14px 20px;border-bottom:1px solid #F2E9EC;font-size:13px;line-height:1.5;"><div style="color:#8A7E84;">22 jul</div><div>Identidad Sakura Premium confirmada; se conserva lenguaje de pétalos para no parecer clon.</div><div><span style="font-size:11px;background:#E1F0EA;color:#3B7B60;padding:3px 9px;border-radius:20px;font-weight:600;">Firme</span></div></div>
+          <div style="display:grid;grid-template-columns:78px 1fr 96px;padding:14px 20px;border-bottom:1px solid #F2E9EC;font-size:13px;line-height:1.5;"><div style="color:#8A7E84;">22 jul</div><div>Prioridad de producto: velocidad › voz › privacidad › integraciones. Gobierna cualquier desempate visual.</div><div><span style="font-size:11px;background:#E1F0EA;color:#3B7B60;padding:3px 9px;border-radius:20px;font-weight:600;">Firme</span></div></div>
+          <div style="display:grid;grid-template-columns:78px 1fr 96px;padding:14px 20px;border-bottom:1px solid #F2E9EC;font-size:13px;line-height:1.5;"><div style="color:#8A7E84;">22 jul</div><div>Colores semánticos local/nube/preguntar/bloqueado son intocables y siempre acompañados de icono + texto.</div><div><span style="font-size:11px;background:#E1F0EA;color:#3B7B60;padding:3px 9px;border-radius:20px;font-weight:600;">Firme</span></div></div>
+          <div style="display:grid;grid-template-columns:78px 1fr 96px;padding:14px 20px;border-bottom:1px solid #F2E9EC;font-size:13px;line-height:1.5;"><div style="color:#8A7E84;">22 jul</div><div>Segoe UI Variable como fuente del producto WPF; Spectral solo para documentos de marca.</div><div><span style="font-size:11px;background:#FBF0DC;color:#9A6A1E;padding:3px 9px;border-radius:20px;font-weight:600;">Tentativo</span></div></div>
+          <div style="display:grid;grid-template-columns:78px 1fr 96px;padding:14px 20px;font-size:13px;line-height:1.5;"><div style="color:#8A7E84;">22 jul</div><div>Tres superficies definidas: Hub (ventana), Peek (flotante efímero), Capsule (píldora siempre presente).</div><div><span style="font-size:11px;background:#E1F0EA;color:#3B7B60;padding:3px 9px;border-radius:20px;font-weight:600;">Firme</span></div></div>
+        </div>
+        <div style="margin-top:36px;padding-top:24px;border-top:1px solid #EBE0E4;font-size:12px;color:#A08890;line-height:1.6;">Kohana Design Contract · v1 · Fuente única de verdad visual. Cambios solo por decisión registrada arriba.</div>
+      </section>
+      </sc-if>
+
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;contractStatus&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Borrador&quot;,&quot;En revisión&quot;,&quot;Aprobado&quot;],&quot;default&quot;:&quot;En revisión&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Contrato&quot;},&quot;showDecisionLog&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Contrato&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const status = this.props.contractStatus ?? 'En revisión';
+    const map = {
+      'Borrador':    { c: '#C98A2E', b: '#FBF0DC' },
+      'En revisión': { c: '#5B7FC4', b: '#E7EDF8' },
+      'Aprobado':    { c: '#4C9A7A', b: '#E1F0EA' },
+    };
+    const m = map[status] || map['En revisión'];
+    return {
+      statusLabel: status,
+      statusColor: m.c,
+      statusBg: m.b,
+      showLog: this.props.showDecisionLog ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>
