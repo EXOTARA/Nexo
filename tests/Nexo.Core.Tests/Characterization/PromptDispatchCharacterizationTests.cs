@@ -31,33 +31,27 @@ public sealed class PromptDispatchCharacterizationTests
     private readonly NaturalCommandParser _commandParser = new();
 
     /// <summary>
-    /// Réplica exacta de la cadena de decisión de <c>MainWindow.HandlePromptAsync</c>.
+    /// Réplica de la cadena de decisión de <c>MainWindow.ProcessPromptAsync</c>, que desde la
+    /// fase 1.1.1 delega la precedencia en <see cref="PromptDispatchPolicy"/>.
+    /// Aquí se evalúa sin ninguna rutina definida, que es el estado de una instalación limpia.
     /// </summary>
     private string ResolveDispatch(string prompt)
     {
-        if (_routineParser.Parse(prompt).Type != RoutineCommandType.None)
-        {
-            return "Routine";
-        }
+        var decision = PromptDispatchPolicy.Resolve(
+            _routineParser.Parse(prompt),
+            _focusParser.Parse(prompt),
+            _taskParser.Parse(prompt, ReferenceNow),
+            _commandParser.Parse(prompt),
+            _ => false);
 
-        if (_focusParser.Parse(prompt).Type != FocusCommandType.None)
+        return decision.Target switch
         {
-            return "Focus";
-        }
-
-        if (_taskParser.Parse(prompt, ReferenceNow).Type != TaskCommandType.None)
-        {
-            return "Task";
-        }
-
-        var interpretation = _commandParser.Parse(prompt);
-        if (interpretation.Route == CommandRoute.ArtificialIntelligence ||
-            interpretation.Intent is null)
-        {
-            return "Ai";
-        }
-
-        return "Local";
+            PromptDispatchTarget.Routine => "Routine",
+            PromptDispatchTarget.Focus => "Focus",
+            PromptDispatchTarget.Task => "Task",
+            PromptDispatchTarget.LocalCommand => "Local",
+            _ => "Ai"
+        };
     }
 
     [Theory]
@@ -82,31 +76,24 @@ public sealed class PromptDispatchCharacterizationTests
     [InlineData("Inicia un temporizador de 20 minutos")]
     [InlineData("Inicia un descanso")]
     [InlineData("Inicia un pomodoro")]
-    public void VerbsSharedWithRoutines_AreSwallowedByTheRoutineParser_KnownDefect(string prompt)
+    public void VerbsSharedWithRoutines_StillLookLikeRoutinesToTheParserAlone(string prompt)
     {
-        // HALLAZGO DE LA FASE 1.1 — defecto real, congelado aquí, no corregido en 1.1.
+        // El parser de rutinas, **aislado**, sigue reclamando estas frases: comparte el verbo.
+        // Eso no es un defecto por sí mismo; el defecto D1 era que `MainWindow` se quedaba con
+        // ese primer reclamo y no reintentaba.
         //
-        // `SpanishRoutineCommandParser` usa el patrón
-        //   ^(?:ejecuta|inicia|activa|corre)\s+(?:la\s+)?(?:rutina\s+)?(?<name>.+)$
-        // que captura *cualquier* frase que empiece por "inicia". Como el parser de rutinas
-        // corre **primero** en MainWindow.HandlePromptAsync, estas órdenes de enfoque nunca
-        // llegan a SpanishFocusCommandParser.
-        //
-        // Peor: `MainWindow` no reintenta. Si `FindBestMatch` no encuentra una rutina con ese
-        // nombre, responde "No encontré una rutina que coincida con ..." y **retorna**.
-        // Resultado observable: decir "Inicia un temporizador de 20 minutos" no arranca ningún
-        // temporizador.
-        //
-        // Las pruebas de `SpanishFocusCommandParserTests` pasan porque prueban el parser de
-        // enfoque **aislado**, sin la precedencia real del shell. Por eso hacía falta esta
-        // caracterización de la composición.
-        Assert.Equal("Routine", ResolveDispatch(prompt));
+        // Corregido en la fase 1.1.1: el parser ahora marca este reclamo como
+        // `RoutineMatchConfidence.Inferred` y `PromptDispatchPolicy` lo descarta en favor de
+        // enfoque. El despacho real está probado en `PromptDispatchPolicyTests`, que es el
+        // flujo completo.
+        Assert.NotEqual(RoutineCommandType.None, _routineParser.Parse(prompt).Type);
+        Assert.True(_routineParser.Parse(prompt).IsInferred);
     }
 
     [Fact]
-    public void TheFocusParserItselfWouldHaveHandledThoseOrders()
+    public void TheFocusParserItselfHandlesThoseOrders()
     {
-        // Evidencia de que el defecto está en la precedencia, no en el parser de enfoque.
+        // Evidencia de que el problema estaba en la precedencia, no en el parser de enfoque.
         Assert.NotEqual(
             FocusCommandType.None,
             _focusParser.Parse("Inicia un temporizador de 20 minutos").Type);

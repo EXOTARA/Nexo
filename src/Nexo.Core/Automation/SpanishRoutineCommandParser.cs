@@ -25,13 +25,27 @@ public sealed partial class SpanishRoutineCommandParser
             return new RoutineCommand(RoutineCommandType.ListRoutines, original);
         }
 
+        // "ejecuta la rutina estudio" nombra el dominio: la intención es inequívoca.
+        var explicitRunMatch = ExplicitRunRegex().Match(normalized);
+        if (explicitRunMatch.Success)
+        {
+            return new RoutineCommand(
+                RoutineCommandType.RunRoutine,
+                original,
+                explicitRunMatch.Groups["name"].Value.Trim(),
+                RoutineMatchConfidence.Explicit);
+        }
+
+        // "inicia X" solo comparte el verbo con enfoque y tareas. Se devuelve como hipótesis;
+        // `PromptDispatchPolicy` decide si gana. Ver defecto D1 de la fase 1.1.
         var runMatch = RunRegex().Match(normalized);
         if (runMatch.Success)
         {
             return new RoutineCommand(
                 RoutineCommandType.RunRoutine,
                 original,
-                runMatch.Groups["name"].Value.Trim());
+                runMatch.Groups["name"].Value.Trim(),
+                RoutineMatchConfidence.Inferred);
         }
 
         var modeMatch = ModeRegex().Match(normalized);
@@ -55,7 +69,10 @@ public sealed partial class SpanishRoutineCommandParser
     [GeneratedRegex(@"^(?:lista|enumera|cuales\s+son|que)\s+(?:mis\s+|las\s+)?rutinas(?:\s+disponibles)?$")]
     private static partial Regex ListRegex();
 
-    [GeneratedRegex(@"^(?:ejecuta|inicia|activa|corre)\s+(?:la\s+)?(?:rutina\s+)?(?<name>.+)$")]
+    [GeneratedRegex(@"^(?:ejecuta|inicia|activa|corre)\s+(?:la\s+|mi\s+)?rutina\s+(?:llamada\s+|que\s+se\s+llama\s+)?(?<name>.+)$")]
+    private static partial Regex ExplicitRunRegex();
+
+    [GeneratedRegex(@"^(?:ejecuta|inicia|activa|corre)\s+(?:la\s+)?(?<name>.+)$")]
     private static partial Regex RunRegex();
 
     [GeneratedRegex(@"^modo\s+(?<name>.+)$")]

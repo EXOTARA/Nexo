@@ -1208,36 +1208,43 @@ public partial class MainWindow : Window
             // cápsula genérica que parpadee antes de acciones instantáneas.
             await Task.Yield();
 
+            // La precedencia entre subsistemas vive en `PromptDispatchPolicy`, no aquí.
+            // Se evalúan los cuatro parsers y la política decide, de modo que "inicia" deje
+            // de significar automáticamente "rutina". Ver defecto D1 de la fase 1.1.
             var routineCommand = _routineCommandParser.Parse(prompt);
-            if (routineCommand.Type != RoutineCommandType.None)
-            {
-                await ExecuteRoutineCommandAsync(routineCommand);
-                return;
-            }
-
             var focusCommand = _focusCommandParser.Parse(prompt);
-            if (focusCommand.Type != FocusCommandType.None)
-            {
-                await ExecuteFocusCommandAsync(focusCommand);
-                return;
-            }
-
             var taskCommand = _taskCommandParser.Parse(prompt, DateTimeOffset.Now);
-            if (taskCommand.Type != TaskCommandType.None)
-            {
-                await ExecuteTaskCommandAsync(taskCommand);
-                return;
-            }
-
             var interpretation = _commandParser.Parse(prompt);
-            if (interpretation.Route == CommandRoute.ArtificialIntelligence ||
-                interpretation.Intent is null)
-            {
-                await SendPromptToAiAsync(prompt, fromVoice);
-                return;
-            }
 
-            await ExecuteLocalCommandAsync(interpretation.Intent);
+            var dispatch = PromptDispatchPolicy.Resolve(
+                routineCommand,
+                focusCommand,
+                taskCommand,
+                interpretation,
+                name => _routineManager.FindBestMatch(name) is not null);
+
+            switch (dispatch.Target)
+            {
+                case PromptDispatchTarget.Routine:
+                    await ExecuteRoutineCommandAsync(routineCommand);
+                    return;
+
+                case PromptDispatchTarget.Focus:
+                    await ExecuteFocusCommandAsync(focusCommand);
+                    return;
+
+                case PromptDispatchTarget.Task:
+                    await ExecuteTaskCommandAsync(taskCommand);
+                    return;
+
+                case PromptDispatchTarget.LocalCommand:
+                    await ExecuteLocalCommandAsync(interpretation.Intent!);
+                    return;
+
+                default:
+                    await SendPromptToAiAsync(prompt, fromVoice);
+                    return;
+            }
         }
         finally
         {
