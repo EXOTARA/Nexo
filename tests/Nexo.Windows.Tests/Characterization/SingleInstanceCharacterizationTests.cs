@@ -176,17 +176,87 @@ public sealed class SingleInstanceCharacterizationTests
     }
 
     [Fact]
-    public void Dispose_IsNotIdempotent_KnownGap()
+    public void Dispose_IsIdempotent()
     {
-        // HALLAZGO DE LA FASE 1.1: un segundo `Dispose` lanza `ObjectDisposedException`
-        // porque `_cancellation.Cancel()` se invoca sobre un `CancellationTokenSource` ya
-        // liberado. Hoy no se manifiesta porque `App.OnExit` pone el campo a null tras
-        // liberar, pero la extracción de la fase 1.2 (contenedor de DI, que sí llama a
-        // Dispose de forma genérica) puede sacarlo a la luz.
+        // Defecto D4 de la fase 1.1, corregido en 1.1.1: antes, el segundo `Dispose` lanzaba
+        // `ObjectDisposedException` al cancelar un CTS ya liberado. Un contenedor de DI libera
+        // de forma genérica, así que esto debía arreglarse antes de la fase 1.2.
         var coordinator = new SingleInstanceCoordinator(NewKey());
         coordinator.Dispose();
 
-        Assert.Throws<ObjectDisposedException>(coordinator.Dispose);
+        Assert.Null(Record.Exception(coordinator.Dispose));
+    }
+
+    [Fact]
+    public void Dispose_ManyTimes_IsStillSafe()
+    {
+        var coordinator = new SingleInstanceCoordinator(NewKey());
+
+        Assert.Null(Record.Exception(() =>
+        {
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                coordinator.Dispose();
+            }
+        }));
+    }
+
+    [Fact]
+    public void Dispose_ReleasesTheMutexExactlyOnce()
+    {
+        // Si el mutex se liberara dos veces, la segunda liberación fallaría o cedería la
+        // propiedad de forma incorrecta. Tras varios Dispose, otra instancia debe poder
+        // tomar el relevo con normalidad.
+        var key = NewKey();
+        var first = new SingleInstanceCoordinator(key);
+        Assert.True(first.IsPrimaryInstance);
+
+        first.Dispose();
+        first.Dispose();
+
+        var secondIsPrimary = OnDedicatedThread(() =>
+        {
+            using var second = new SingleInstanceCoordinator(key);
+            return second.IsPrimaryInstance;
+        });
+
+        Assert.True(secondIsPrimary);
+    }
+
+    [Fact]
+    public void Dispose_DetachesSubscribersSoTheyNeverSeeAStaleActivation()
+    {
+        var key = NewKey();
+        var coordinator = new SingleInstanceCoordinator(key);
+        var raised = 0;
+
+        coordinator.ActivationRequested += (_, _) => Interlocked.Increment(ref raised);
+        coordinator.StartListening();
+        coordinator.Dispose();
+
+        // Tras liberar, una segunda instancia toma el relevo y señala: el suscriptor de la
+        // instancia liberada no debe recibir nada.
+        OnDedicatedThread(() =>
+        {
+            using var second = new SingleInstanceCoordinator(key);
+            second.SignalPrimaryInstance();
+            return true;
+        });
+
+        Thread.Sleep(250);
+
+        Assert.Equal(0, Volatile.Read(ref raised));
+    }
+
+    [Fact]
+    public void DisposeDoesNotSwallowUnrelatedFailures()
+    {
+        // La corrección usa una guarda que **previene** la excepción, no un try/catch que la
+        // esconda. Un primer Dispose sobre una instancia sana debe completarse sin excepción,
+        // y no debe existir ningún catch general que enmascare otros fallos.
+        var coordinator = new SingleInstanceCoordinator(NewKey());
+
+        Assert.Null(Record.Exception(coordinator.Dispose));
     }
 
     [Fact]
