@@ -11,7 +11,7 @@ Cuando una prueba falle: (1) determinar si el error está en el código o en la 
 | Tipo | Alcance | Estado |
 |---|---|---|
 | Unit | `Nexo.Core` puro | ✅ 353 existentes (+3 en `Nexo.Windows` = 356) |
-| Caracterización | Conducta actual de `MainWindow` antes de extraer | ⬜ Fase 1.1 |
+| Caracterización | Conducta actual de `MainWindow` antes de extraer | ✅ 164 pruebas (Fase 1.1, 2026-07-23) |
 | Integration | Runtime + servicios | ⬜ Fase 1 |
 | Migration | Esquemas de settings, Nexo→Kohana, memoria | ⬜ Fase 1 |
 | Privacy | Vision, logs, salida a red | ⬜ Fase 7 |

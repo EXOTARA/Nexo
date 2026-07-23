@@ -3,6 +3,7 @@ using Nexo.App.WindowsIntegration;
 using Nexo.Core.WindowsIntegration;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Storage;
+using Nexo.Windows.WindowsIntegration;
 
 namespace Nexo.App;
 

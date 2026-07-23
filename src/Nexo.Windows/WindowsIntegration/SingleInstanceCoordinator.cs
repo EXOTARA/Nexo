@@ -1,6 +1,6 @@
 using System.Threading;
 
-namespace Nexo.App.WindowsIntegration;
+namespace Nexo.Windows.WindowsIntegration;
 
 public sealed class SingleInstanceCoordinator : IDisposable
 {
@@ -13,13 +13,22 @@ public sealed class SingleInstanceCoordinator : IDisposable
     private bool _ownsMutex;
     private Task? _listenerTask;
 
-    public SingleInstanceCoordinator()
+    /// <param name="instanceKey">
+    /// Sufijo para aislar los objetos de sincronización. La aplicación siempre usa el valor por
+    /// defecto (<c>null</c>), que conserva exactamente los nombres históricos; las pruebas de
+    /// caracterización pasan una clave única para no colisionar con una instancia real de
+    /// Kohana en ejecución. Introducido en la fase 1.1 como seam de prueba, sin cambiar la
+    /// conducta de producción.
+    /// </param>
+    public SingleInstanceCoordinator(string? instanceKey = null)
     {
-        _mutex = new Mutex(initiallyOwned: false, MutexName);
+        var suffix = string.IsNullOrWhiteSpace(instanceKey) ? string.Empty : "." + instanceKey;
+
+        _mutex = new Mutex(initiallyOwned: false, MutexName + suffix);
         _activationEvent = new EventWaitHandle(
             initialState: false,
             EventResetMode.AutoReset,
-            ActivationEventName);
+            ActivationEventName + suffix);
 
         try
         {

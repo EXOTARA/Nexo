@@ -22,6 +22,7 @@ using Nexo.Core.Focus;
 using Nexo.Core.Metrics;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
+using Nexo.Core.Shell;
 using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
 using Nexo.Core.Vision;
@@ -161,15 +162,15 @@ public partial class MainWindow : Window
         _audioView = new AudioView(_audioMixerService);
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Home"] = _homeView,
-            ["Assistant"] = _assistantView,
-            ["Tasks"] = _tasksView,
-            ["Focus"] = _focusView,
-            ["Routines"] = _routinesView,
-            ["Audio"] = _audioView,
-            ["Capture"] = _captureView,
-            ["System"] = _systemView,
-            ["Settings"] = _settingsView
+            [ShellNavigationPolicy.Home] = _homeView,
+            [ShellNavigationPolicy.Assistant] = _assistantView,
+            [ShellNavigationPolicy.Tasks] = _tasksView,
+            [ShellNavigationPolicy.Focus] = _focusView,
+            [ShellNavigationPolicy.Routines] = _routinesView,
+            [ShellNavigationPolicy.Audio] = _audioView,
+            [ShellNavigationPolicy.Capture] = _captureView,
+            [ShellNavigationPolicy.System] = _systemView,
+            [ShellNavigationPolicy.Settings] = _settingsView
         };
 
         _trayIcon = new TrayIconController(
@@ -216,7 +217,7 @@ public partial class MainWindow : Window
         _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
-        NavigateTo("Home", animate: false);
+        NavigateTo(ShellNavigationPolicy.DefaultDestination, animate: false);
         SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
         UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
         RefreshRuntimeDashboard();
@@ -2958,23 +2959,23 @@ public partial class MainWindow : Window
                 break;
 
             case LocalCommandType.NavigateAssistant:
-                ShowShellModule("Assistant", "Asistente abierto");
+                ShowShellModule(ShellNavigationPolicy.Assistant, "Asistente abierto");
                 break;
 
             case LocalCommandType.NavigateAudio:
-                ShowShellModule("Audio", "Audio abierto");
+                ShowShellModule(ShellNavigationPolicy.Audio, "Audio abierto");
                 break;
 
             case LocalCommandType.NavigateCapture:
-                ShowShellModule("Capture", "Captura abierta");
+                ShowShellModule(ShellNavigationPolicy.Capture, "Captura abierta");
                 break;
 
             case LocalCommandType.NavigateSystem:
-                ShowShellModule("System", "Sistema abierto");
+                ShowShellModule(ShellNavigationPolicy.System, "Sistema abierto");
                 break;
 
             case LocalCommandType.NavigateSettings:
-                ShowShellModule("Settings", "Ajustes abiertos");
+                ShowShellModule(ShellNavigationPolicy.Settings, "Ajustes abiertos");
                 break;
 
             case LocalCommandType.OpenPowerShell:
@@ -3354,14 +3355,15 @@ public partial class MainWindow : Window
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_currentDestination.Equals("Settings", StringComparison.OrdinalIgnoreCase))
-        {
-            NavigateTo(_previousDestination, animate: true);
-            return;
-        }
+        var destination = ShellNavigationPolicy.ResolveSettingsToggle(
+            _currentDestination,
+            _previousDestination);
 
-        _previousDestination = _currentDestination;
-        NavigateTo("Settings", animate: true);
+        _previousDestination = ShellNavigationPolicy.ResolvePreviousDestination(
+            _currentDestination,
+            _previousDestination);
+
+        NavigateTo(destination, animate: true);
     }
 
     private async void PeekButton_Click(object sender, RoutedEventArgs e)
@@ -3639,9 +3641,13 @@ public partial class MainWindow : Window
 
         ApplyModuleVisibility();
 
-        if (!visible && _currentDestination.Equals(module, StringComparison.OrdinalIgnoreCase))
+        if (ShellNavigationPolicy.TryResolveHiddenModuleFallback(
+                module,
+                visible,
+                _currentDestination,
+                out var fallbackDestination))
         {
-            NavigateTo("Assistant", animate: true);
+            NavigateTo(fallbackDestination, animate: true);
         }
     }
 
