@@ -253,6 +253,48 @@ original** al terminar (4 rutinas: Programación, Estudio, Descanso, test).
 
 ---
 
+### Checkpoint portable — 2026-07-23
+
+> ⚠️ **Esto es un checkpoint de desarrollo, NO una Release Candidate ni una versión estable.**
+> Se publica únicamente para poder probar el estado actual fuera del entorno de compilación.
+> No cumple los criterios de salida de `ACCEPTANCE_CRITERIA.md` §1 y **no debe distribuirse como
+> 1.0 ni como RC**. Siguen abiertos, entre otros, el perfil de hardware, la memoria transparente,
+> las skills, OCR/UI Automation y la accesibilidad (`AutomationProperties` = 0).
+
+| Campo | Valor |
+|---|---|
+| **Commit** | `3edba24` (`docs: record phase 1.1.1 corrective work`) |
+| **Rama** | `release/kohana-1.0-rc` |
+| **Fecha** | 2026-07-23 |
+| **SDK** | .NET 10.0.302 (host 10.0.10, RID win-x64) |
+| **Versión del producto** | `0.9.5-beta` — **sin cambios**, no se versionó el checkpoint |
+| **Pruebas** | **606** (576 `Nexo.Core.Tests` + 30 `Nexo.Windows.Tests`), **0 fallidas**, 0 omitidas |
+| **Warnings de compilación** | **0** |
+| **Portable** | `artifacts\Kohana-0.9.5-beta-checkpoint-win-x64\` — self-contained win-x64, 489 archivos, 224,17 MB |
+| **ZIP** | `artifacts\Kohana-0.9.5-beta-checkpoint-win-x64.zip` — 91.963.645 bytes (87,7 MB) |
+| **SHA-256** | `6f4da7bf97a6a17f3d4b0fae550470f71b9bf6832d010165cd08e1d6693c61fb` |
+
+Comando de publicación:
+
+```powershell
+dotnet publish .\src\Nexo.App\Nexo.App.csproj -c Release -r win-x64 --self-contained true -o artifacts\Kohana-0.9.5-beta-checkpoint-win-x64
+```
+
+**Smoke test sobre el portable publicado** (no sobre `bin\Release`):
+
+| Paso | Resultado |
+|---|---|
+| `Kohana.exe` existe | ✅ 285.696 bytes |
+| La aplicación abre | ✅ ventana «Kohana», vista inicial «Inicio» |
+| Navegación | ✅ Hoy · Enfoque · Asistente |
+| Comando local | ✅ *"cómo está mi PC"* → «CPU 31% · RAM 50% · GPU 3%. Mayor uso de memoria: zen · 1380 MB.» — resuelto localmente, sin LLM |
+| Cierre correcto | ✅ cerrado por PID exacto; no se tocó ningún otro proceso |
+
+`artifacts/`, `bin/` y `obj/` ya estaban cubiertos por `.gitignore` (líneas 2–4): **no se añadió
+ninguna regla** y **ningún artefacto se versiona**.
+
+---
+
 ## TAREAS PENDIENTES
 
 ### Fase 0 — cierre (en Windows) ✅ 2026-07-23
