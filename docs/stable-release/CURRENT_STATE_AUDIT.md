@@ -42,6 +42,24 @@ bloqueador raíz.
 
 Ver el bloque completo con tiempos, SDK y resultados en `IMPLEMENTATION_LOG.md` §Baseline.
 
+## 0.3 Cambios de la fase 1.2 (2026-07-23)
+
+**Composition root + DI, sin cambiar comportamiento.** `MainWindow.xaml.cs` ya no fija con `new`
+en la declaración de campos los seis servicios de interfaz (`IAiChatService`, `IAudioMixerService`,
+`IVoiceInputService`, `IVoiceOutputService`, `IWakeWordService`, `IScreenCaptureService`): los
+recibe por constructor desde `Nexo.Windows/Composition/KohanaCompositionRoot.cs`, instanciado una
+única vez en `Nexo.App/App.OnStartup` con `Microsoft.Extensions.DependencyInjection` 10.0.10 (MIT).
+Detalle completo, incluida la desviación documentada sobre en qué proyecto vive el paquete, en
+`IMPLEMENTATION_LOG.md` §"Fase 1.2".
+
+**Corrección de cifra:** al medir `MainWindow.xaml.cs` para esta fase, el checkpoint `82a36fb`
+(antes de tocar nada) daba **4.027 líneas**, no las 3.532 documentadas en la revisión de 1.1.1.
+No se investigó la causa de la discrepancia por estar fuera de alcance de 1.2; queda registrada
+como riesgo #14 en `IMPLEMENTATION_LOG.md`. Tras la fase 1.2 (seis campos sin inicializador `new`,
+constructor con seis parámetros nuevos), el archivo mide **4.044 líneas**. El God Object **sigue
+sin resolverse** — 1.2 solo desacopla los seis motores, no reduce el archivo; eso es trabajo de
+1.3–1.7.
+
 ## 0.2 Cambios de la fase 1.1.1 (2026-07-23)
 
 Tres correcciones que **cambian el estado de esta auditoría**:

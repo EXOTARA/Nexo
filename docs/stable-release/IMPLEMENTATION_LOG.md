@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | Fase **1.1.1 completada** (correctiva: D1, D2, D4) |
-| **Siguiente fase** | Fase 1, paso 1.2 (composition root + DI) — **no iniciada** |
+| **Fase actual** | Fase **1.2 completada** (composition root + DI, sin cambio de comportamiento) |
+| **Siguiente fase** | Fase 1, paso 1.3 (extraer coordinador de voz) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-23 |
-| **Bloqueador activo** | Ninguno para iniciar 1.1 |
+| **Bloqueador activo** | Ninguno para iniciar 1.3 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -307,7 +307,7 @@ ninguna regla** y **ningún artefacto se versiona**.
 
 ### Fase 1 — extracción (7 pasos, en orden)
 - [x] 1.1 Pruebas de caracterización de `MainWindow` ✅ 2026-07-23
-- [ ] 1.2 Composition root + DI **sin cambiar comportamiento**
+- [x] 1.2 Composition root + DI **sin cambiar comportamiento** ✅ 2026-07-23
 - [ ] 1.3 Extraer coordinador de voz
 - [ ] 1.4 Extraer coordinador de navegación
 - [ ] 1.5 Extraer tareas, enfoque y rutinas
@@ -326,6 +326,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Baseline (2026-07-23) | **356** | **0** | **0** | Core 353 + Windows 3. Commit `144bb13`. Build Release en frío 2.52 s |
 | Fase 1.1 (2026-07-23) | **520** | **0** | **0** | Core 494 + Windows 26. +164 pruebas de caracterización. Cero regresiones |
 | Fase 1.1.1 (2026-07-23) | **606** | **0** | **0** | Core 576 + Windows 30. +86 pruebas. Correcciones D1, D2 y D4 |
+| Fase 1.2 (2026-07-23) | **615** | **0** | **0** | Core 576 (sin cambios) + Windows 39. +9 pruebas de composition root e invariantes |
 
 ---
 
@@ -344,7 +345,9 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | 9 | `JsonSettingsStore.Load` no normaliza en las rutas de recuperación (D3) | Media | **Abierto.** Congelado en prueba. No bloquea 1.2. Corregir junto al `.bak` de L7 |
 | 10 | ~~`SingleInstanceCoordinator.Dispose` no es idempotente (D4)~~ | — | ✅ **Resuelto** en 1.1.1 (`787db71`) |
 | 11 | Propiedad del mutex por hilo, no por proceso (D5) | Informativo | **Abierto.** No es un defecto; es una trampa para quien comparta el componente en 1.2. Congelado en prueba |
-| 12 | Sin `.gitattributes` con `core.autocrlf=true` | Baja | Hoy inocuo (árbol en LF, Git almacena LF). Un `checkout` limpio en otra máquina podría generar un diff espurio |
+| 12 | ~~Sin `.gitattributes` con `core.autocrlf=true`~~ | — | ✅ **Resuelto** en 1.2 (`af13d7f`): `.gitattributes` mínimo, sin renormalización masiva (2 archivos de cambio real, `.gitattributes` nuevo) |
+| 13 | Smoke test manual interactivo (clics, voz, wake word) no repetido en 1.2 | Media | Esta sesión no tuvo herramienta de automatización de UI de escritorio. Ver detalle en "Fase 1.2" arriba. **Recomendado antes de considerar el checkpoint apto para uso diario** |
+| 14 | Discrepancia de líneas en `MainWindow.xaml.cs`: la auditoría de 1.1.1 documentaba 3.532, medido ahora en el checkpoint `82a36fb` (antes de tocar nada en 1.2) da **4.027** | Baja | Descubierto incidentalmente al medir para 1.2, no causado por esta fase. `CURRENT_STATE_AUDIT.md` se corrige con la cifra medida hoy; no se investigó la causa de la discrepancia anterior por estar fuera de alcance de 1.2 |
 
 ### Defectos descubiertos por la caracterización (1.1)
 
@@ -395,7 +398,12 @@ saberlo. Queda congelado en `MutexOwnershipIsPerThread_NotPerProcess`.
 
 ---
 
-## SIGUIENTE PASO EXACTO
+## PLAN DE 1.2 EJECUTADO (histórico — ver "Fase 1.2" arriba para el resultado real)
+
+> Esta sección documenta el plan **tal como se escribió antes de ejecutarlo**. El resultado real,
+> con una desviación documentada (dónde vive el paquete DI y la clase de composición), está en la
+> sección "Fase 1.2 — composition root + DI (2026-07-23)" más arriba. Se conserva sin editar por
+> trazabilidad.
 
 Fases 1.1 y 1.1.1 cerradas y **verdes**: 606 pruebas, 0 fallidas, 0 warnings, smoke test manual
 completo sobre la aplicación real. La red de seguridad existe y los defectos que la propia red
@@ -429,4 +437,161 @@ declaración y luego el constructor cablea eventos. Un contenedor cambia *cuánd
 cada servicio. Mitigación: registrar todo como singleton y resolver de forma **ansiosa** en el
 mismo orden que hoy, antes de cablear eventos.
 
-**No iniciar 1.3 sin que 1.2 esté verde.**
+---
+
+## SIGUIENTE PASO EXACTO
+
+Fase 1.2 cerrada y **verde**: 615 pruebas, 0 fallidas, 0 warnings, build limpio, arranque real
+verificado (proceso vivo, instancia única, cierre y reapertura limpios). El smoke test manual
+**interactivo** completo (navegación, voz, wake word) queda pendiente de repetir — ver riesgo #13.
+
+El siguiente paso es **1.3 — extraer el coordinador de voz**, según ADR 0001. No se ha iniciado
+ningún trabajo de 1.3. Antes de empezar, quien retome debe:
+
+1. Releer esta sección de Fase 1.2 completa para conocer el estado exacto del composition root.
+2. Repetir el smoke test manual interactivo (riesgo #13) si aún no se ha hecho, para no arrastrar
+   una regresión no detectada hacia 1.3.
+3. Identificar qué parte de la coordinación de voz en `MainWindow.xaml.cs` (aprox. 40+ usos de
+   `_voiceInputService`/`_wakeWordService`/`_voiceOutputService` según el inventario de esta fase)
+   puede moverse a un coordinador dedicado sin cambiar comportamiento, siguiendo la misma
+   disciplina de la fase 1.2: inventario antes de tocar, caracterización si falta cobertura,
+   commits pequeños y revertibles.
+
+**No iniciar 1.4 sin que 1.3 esté verde.**
+
+---
+
+### Fase 1.2 — inventario previo de los seis servicios (2026-07-23)
+
+Registro exigido por el plan **antes** de tocar `MainWindow.xaml.cs`. Estado tal como existía en
+el checkpoint `82a36fb`.
+
+| # | Interfaz | Implementación actual | Lifetime | Orden de construcción (campo) | Eventos asociados | `IDisposable` |
+|---|---|---|---|---|---|---|
+| 1 | `IAiChatService` | `AiChatRouterService` | Singleton por ventana (una instancia durante toda la vida de `MainWindow`) | 8º inicializador de campo (tras `_settingsStore`, `_startupService`, `_conversationStore`, `_commandParser`, `_taskCommandParser`, `_focusCommandParser`, `_routineCommandParser`) | Ninguno suscrito por `MainWindow` | La interfaz **no** extiende `IDisposable`; la implementación concreta sí (`AiChatRouterService : IAiChatService, IDisposable`). `Window_Closed` comprueba `is IDisposable` antes de liberar |
+| 2 | `IAudioMixerService` | `WindowsAudioMixerService` | Singleton por ventana | 9º inicializador de campo | Ninguno | Ni la interfaz ni la implementación son `IDisposable`. No se libera en `Window_Closed` |
+| 3 | `IVoiceInputService` | `WhisperVoiceInputService` | Singleton por ventana | 10º inicializador de campo | Ninguno suscrito directamente (se consulta por métodos: `GetInputDevices`, `IsReady`, `StartListeningAsync`, etc.) | Interfaz extiende `IDisposable`. Se libera explícitamente en `Window_Closed` (línea ~808) |
+| 4 | `IVoiceOutputService` | `WindowsTextToSpeechService` | Singleton por ventana | 11º inicializador de campo | Ninguno | Interfaz extiende `IDisposable`. Se libera explícitamente en `Window_Closed` (línea ~807) |
+| 5 | `IWakeWordService` | `VoskWakeWordService` | Singleton por ventana | 12º inicializador de campo | `WakeWordDetected` y `RecognitionObserved`, suscritos en el constructor (líneas 191-192) y **desuscritos antes** de `Dispose()` en `Window_Closed` (líneas 800-802) | Interfaz extiende `IDisposable`. Se libera explícitamente en `Window_Closed` |
+| 6 | `IScreenCaptureService` | `WindowsScreenCaptureService` | Singleton por ventana | 13º inicializador de campo (último de los seis) | Ninguno | Ni la interfaz ni la implementación son `IDisposable`. No se libera en `Window_Closed` |
+
+**Consecuencia para el diseño de la fase:** de los seis, solo tres (`IVoiceInputService`,
+`IVoiceOutputService`, `IWakeWordService`) tienen liberación explícita hoy en `Window_Closed`, y
+`MainWindow` **ya** conoce y aplica ese contrato exacto (incluida la comprobación condicional de
+`IAiChatService`). Cualquier contenedor de DI que también intente liberar estas instancias al
+cerrarse causaría una doble liberación no probada. Decisión tomada para evitarlo: el contenedor
+registra las **seis instancias ya construidas** (`services.AddSingleton<TInterface>(instancia)`),
+no sus *tipos*. Un `ServiceProvider` de `Microsoft.Extensions.DependencyInjection` **no** libera
+instancias que no creó él mismo — solo libera lo que construye a partir de un tipo o fábrica — así
+que `Window_Closed` sigue siendo la única ruta que llama a `Dispose()` sobre estos seis servicios,
+exactamente como hoy. El contenedor solo libera su propio `ServiceProvider`, no los servicios.
+
+### Fase 1.2 — composition root + DI (2026-07-23) ✅
+
+Objetivo cumplido **sin cambiar comportamiento observable**: `MainWindow` ya no fija ningún motor
+con `new` en la declaración de campos para los seis servicios de interfaz.
+
+**Paquete añadido:** `Microsoft.Extensions.DependencyInjection` **10.0.10**, licencia **MIT**
+(`https://licenses.nuget.org/MIT`), autor Microsoft, verificada contra el `.nuspec` del paquete
+restaurado. Misma familia de versión que el resto de paquetes `Microsoft.*` ya presentes en
+`Nexo.Windows` (`System.Diagnostics.PerformanceCounter`, `System.Drawing.Common`, `System.Speech`,
+todos en `10.0.10`).
+
+**Dónde vive el paquete — desviación documentada del plan original:** el plan de
+`SIGUIENTE PASO EXACTO` (arriba) proponía `Nexo.App/Composition/KohanaServiceCollection.cs`. Se
+implementó en cambio como `Nexo.Windows/Composition/KohanaCompositionRoot.cs`, y el paquete se
+referenció **solo en `Nexo.Windows`, no en `Nexo.App`**. Motivo: la fase 1.1 ya estableció (ver
+más arriba, "Seams extraídos") que referenciar `Nexo.App` desde un proyecto de pruebas arrastra
+`UseWPF` y provoca `MSB3277`, subiendo los warnings de 0 a 1 — inaceptable contra el baseline de 0
+warnings. Igual que se hizo con `SingleInstanceCoordinator` en 1.1, la clase que hace el trabajo
+real de composición vive en `Nexo.Windows` (testeable, sin `UseWPF`), y `Nexo.App/App.xaml.cs`
+sigue siendo el **único punto de la aplicación** que instancia `KohanaCompositionRoot` — sigue
+existiendo un único composition root y un único `ServiceProvider` para toda la vida del proceso;
+solo cambió en qué proyecto vive la *clase* que lo implementa. `Nexo.App` no necesitó ninguna
+referencia directa al paquete DI: solo consume las propiedades tipadas de
+`KohanaCompositionRoot`, nunca `IServiceProvider`.
+
+**Diseño de liberación (evita doble `Dispose`):** el contenedor registra las seis instancias ya
+construidas (`AddSingleton<TInterface>(instancia)`), no los tipos. `Window_Closed` en
+`MainWindow.xaml.cs` sigue siendo, sin ningún cambio, la única ruta que llama a `Dispose()` sobre
+`IWakeWordService`, `IVoiceInputService`, `IVoiceOutputService` y condicionalmente `IAiChatService`.
+`KohanaCompositionRoot.Dispose()` (llamado desde `App.OnExit`) solo libera el `ServiceProvider` en
+sí — que, al no haber creado esas instancias, no vuelve a llamar `Dispose()` sobre ellas. Verificado
+con la prueba `Dispose_DoesNotDisposeTheUnderlyingServiceInstances`.
+
+**Archivos creados:**
+- `src/Nexo.Windows/Composition/KohanaCompositionRoot.cs` — construye los seis servicios en el
+  mismo orden relativo que los antiguos inicializadores de campo, los registra como instancia
+  singleton y los resuelve de forma ansiosa desde el `ServiceProvider`.
+- `tests/Nexo.Windows.Tests/Composition/KohanaCompositionRootTests.cs` — 6 pruebas.
+- `tests/Nexo.Windows.Tests/Composition/CompositionInvariantTests.cs` — 3 pruebas.
+
+**Archivos modificados:**
+- `src/Nexo.Windows/Nexo.Windows.csproj` — añade el `PackageReference`.
+- `src/Nexo.App/App.xaml.cs` — crea `_compositionRoot` en `OnStartup` (antes de `MainWindow`),
+  pasa sus seis propiedades al constructor de `MainWindow`, y lo libera en `OnExit`.
+- `src/Nexo.App/MainWindow.xaml.cs` — los seis campos de servicio pierden su inicializador `new`
+  y se reciben por constructor (con valor por defecto `?? new Concreto()` solo para permitir la
+  construcción sin argumentos que WPF usa en el diseñador; `App.OnStartup` siempre provee los seis
+  explícitamente). Ningún otro campo, orden de suscripción de eventos ni firma pública cambió.
+
+**Orden de construcción — verificado, no solo asumido:** los seis servicios ahora se construyen
+en el cuerpo del constructor de `MainWindow` (antes de `_startHidden = startHidden` y de cualquier
+uso, incluido `_routineRunner`/`_audioView` que dependen de `_audioMixerService`), lo que sigue
+cumpliendo el invariante crítico: **construidos antes de cablear eventos**. Su posición relativa
+frente a los demás inicializadores de campo (`_settingsStore`, `_homeView`, semáforos, etc.) sí
+cambió — pasaron de intercalarse entre inicializadores de campo a construirse justo al principio
+del cuerpo del constructor — pero se verificó que ninguno de los seis constructores concretos
+(`AiChatRouterService`, `WindowsAudioMixerService`, `WhisperVoiceInputService`,
+`WindowsTextToSpeechService`, `VoskWakeWordService`, `WindowsScreenCaptureService`) toca estado
+compartido, estático o cualquiera de los demás campos: todos son `new()` independientes que solo
+leen rutas de modelos o el dispositivo de audio por defecto. No hay acoplamiento observable que ese
+cambio de orden pueda romper.
+
+**Pruebas añadidas (9 nuevas en `Nexo.Windows.Tests`):**
+- Resolución de los seis servicios con el tipo concreto esperado (motores actuales preservados).
+- Las propiedades del composition root coinciden exactamente con lo que resuelve el `Provider`.
+- Identidad singleton: resolver dos veces devuelve la misma instancia.
+- Las seis instancias son mutuamente distintas (sin aliasing accidental).
+- `Dispose()` no lanza y es idempotente.
+- `Dispose()` del contenedor no libera las instancias subyacentes (evita doble `Dispose`).
+- Invariante: `Nexo.Core.csproj` sigue sin ningún `PackageReference`.
+- Invariante: `MainWindow.xaml.cs` no contiene la cadena `IServiceProvider`.
+- Invariante: `MainWindow.xaml.cs` ya no construye los seis servicios con `= new ...()`.
+
+Las pruebas de caracterización de 1.1/1.1.1 (`PromptDispatchCharacterizationTests`,
+`LocalActionPermissionCharacterizationTests`, etc.) no se tocaron y siguen verdes sin
+modificación: cubren que los comandos locales siguen resolviéndose sin LLM y que la precedencia de
+parsers no cambió, algo ajeno a esta fase pero que confirma que el cambio de composición no la
+afectó.
+
+**Resultado de build y pruebas (Release, en frío tras cerrar una instancia de `Kohana.exe` que
+bloqueaba `Nexo.Core.dll`/`Nexo.Windows.dll` — mismo tipo de incidencia ya documentada en el
+baseline, PID distinto, cerrado con autorización explícita del propietario):**
+
+```
+dotnet build Nexo.slnx -c Release    → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll →  39 superadas, 0 con error, 0 omitidas   (30 + 9 nuevas)
+Total: 615 pruebas, 0 fallidas, 0 warnings.
+```
+
+**Smoke test (portable `bin\Release`, sin herramienta de automatización de UI de escritorio
+disponible en esta sesión — limitado a lo verificable por proceso y logs):**
+
+| Paso | Resultado |
+|---|---|
+| Arranque | ✅ `Kohana.exe` alcanza estado `Responding=True` en <4 s, sin `WerFault.exe` |
+| Segunda instancia | ✅ el segundo proceso termina solo con código 0; el original sigue vivo — `SingleInstanceCoordinator` intacto |
+| Cierre por PID exacto | ✅ `Stop-Process` sobre el PID iniciado por este agente; sin procesos huérfanos |
+| Reapertura | ✅ nuevo proceso alcanza `Responding=True` normalmente |
+| Runtime de IA administrado | ✅ `Logs\ollama-runtime.log` registra `ManagedRunning` en ambos arranques, sin errores — confirma que `ManagedOllamaSupervisor` y el `IAiChatService` resuelto por el contenedor siguen intercambiando datos correctamente |
+| Navegación, comando local, temporizador, wake word, rutinas | ⚠️ **NO probado en esta sesión** — requiere control de UI de escritorio (clics, teclado, micrófono) que esta sesión no tiene disponible. La fase 1.1 ya caracterizó y congeló este comportamiento en pruebas automatizadas (`PromptDispatchCharacterizationTests`, `VoiceRuntimeCharacterizationTests`), que siguen verdes sin modificación, pero eso **no sustituye** una verificación manual interactiva |
+
+**Riesgo residual explícito:** el smoke test manual interactivo completo (navegación por clics,
+orden de voz, wake word en vivo) que sí se hizo en la fase 1.1.1 **no se repitió** en 1.2 por falta
+de herramienta de automatización de UI en esta sesión. Mitigación: las 615 pruebas automatizadas
+cubren la lógica pura y la composición; el arranque real confirma que el grafo de objetos se
+construye sin excepciones. Recomendado repetir el smoke test manual completo de 1.1.1 antes de
+considerar este checkpoint apto para uso diario, no solo para verificación técnica.

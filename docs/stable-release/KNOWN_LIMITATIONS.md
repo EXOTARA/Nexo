@@ -14,11 +14,21 @@ build/test **no** mide latencia de voz, wake word ni TTS, que exigen micrófono 
 **Para estable:** medir artefactos en Fase 10 y calibrar latencias en Fase 3 (Voice Lab).
 
 ### L2 — `MainWindow.xaml.cs` como God Object
-**Qué:** 3,532 líneas, 119 métodos, 49 campos `readonly` (31 instanciados con `new` en la
-declaración). Sin DI. *(Cifras medidas el 2026-07-23; la auditoría estática original decía 4,007/224.)*
-**Por qué:** Crecimiento incremental sin composition root.
-**Aislamiento:** Ninguno hoy — es el bloqueador raíz.
-**Para estable:** completar los 7 pasos de la Fase 1 (ADR 0001).
+**Qué:** 4.044 líneas, 49 campos `readonly` (25 siguen instanciados con `new` en la declaración
+tras la fase 1.2; los seis servicios de interfaz ya no). *(Cifra de líneas medida el 2026-07-23
+sobre el checkpoint `82a36fb`, antes de tocar nada en 1.2: 4.027 — no coincide con las 3.532 que
+documentaba la revisión de 1.1.1; discrepancia no investigada, ver `IMPLEMENTATION_LOG.md` riesgo
+#14. La cifra de 119 métodos tampoco se remidió en esta fase.)*
+**Por qué:** Crecimiento incremental. La fase 1.2 (2026-07-23) añadió un composition root
+(`Nexo.Windows/Composition/KohanaCompositionRoot.cs` + `Microsoft.Extensions.DependencyInjection`)
+y desacopló los **seis** servicios de interfaz que bloqueaban el Adaptive Engine Registry
+(`IAiChatService`, `IAudioMixerService`, `IVoiceInputService`, `IVoiceOutputService`,
+`IWakeWordService`, `IScreenCaptureService`). El archivo **no se redujo** — ese es el trabajo de
+1.3–1.7 — pero ya no es imposible seleccionar motor por hardware para esos seis.
+**Aislamiento:** Los seis servicios de interfaz ya se resuelven desde un contenedor DI real,
+verificado por prueba. El resto del God Object (25 campos restantes con `new`, navegación,
+tareas/enfoque/rutinas, IA y Vision fusionados con la vista) sigue intacto.
+**Para estable:** completar los pasos 1.3–1.7 de la Fase 1 (ADR 0001).
 
 ### L3 — Accesibilidad ausente
 **Qué:** 0 `AutomationProperties` en los 22 archivos XAML. Sin soporte de lector de pantalla.
