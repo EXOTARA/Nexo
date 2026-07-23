@@ -42,6 +42,23 @@ bloqueador raíz.
 
 Ver el bloque completo con tiempos, SDK y resultados en `IMPLEMENTATION_LOG.md` §Baseline.
 
+## 0.2 Cambios de la fase 1.1.1 (2026-07-23)
+
+Tres correcciones que **cambian el estado de esta auditoría**:
+
+| Subsistema | Antes (0.9.5) | Ahora |
+|---|---|---|
+| Precedencia de órdenes | Cascada en `MainWindow`: el primer parser que reclamaba ganaba. Las rutinas eclipsaban enfoque y tareas | `PromptDispatchPolicy` (en `Nexo.Core`) concentra el orden normativo y es lógica pura probada |
+| Permisos de ejecución | `OpenApplication` reenviaba `Arguments` y era `Reversible`: ejecución arbitraria **sin** confirmación | `ShellExecutionPolicy` incorpora los argumentos a la evaluación tipada; los intérpretes con argumentos son `Sensitive` |
+| Aplicación del permiso | Solo la interfaz preguntaba; `RoutineRunner` no comprobaba nada | `RoutineRunner` exige `RoutineExecutionApproval` por ejecución y rechaza los pasos sensibles sin ella |
+
+Con esto, la fila «Permisos» de §3 deja de ser *"solo aplica a rutinas — no hay sistema general
+de planes"* en su parte más grave: **el permiso ya se aplica en el ejecutor**, no solo se
+declara. Sigue sin existir el sistema general de planes, que es Fase 5.
+
+La fila «Memoria transparente», «Skills», «Perfil de hardware», «OCR» y «UI Automation`
+permanecen **AUSENTES** sin cambios.
+
 ## 1. Delta 0.9.4 → 0.9.5
 
 Cambio quirúrgico y bien acotado: **6 archivos nuevos, 31 modificados, 0 eliminados**.
@@ -104,7 +121,7 @@ Este es el bloqueador raíz. Todo lo demás depende de resolverlo primero.
 | Vision | **Bueno** | Captura en memoria, `VisionPrivacyPolicy` filtra por proceso y por título. |
 | OCR local | **AUSENTE** | Bloqueado por TFM (ver §4). |
 | UI Automation | **AUSENTE** | 0 referencias a `AutomationElement`. Acciones sobre controles reales hoy imposibles. |
-| Permisos | **Parcial** | `AutomationPermissionPolicy` con `Safe/Reversible/Sensitive/Blocked`. Buena base, pero solo aplica a rutinas — no hay sistema general de planes. |
+| Permisos | **Parcial (mejorado en 1.1.1)** | `AutomationPermissionPolicy` con `Safe/Reversible/Sensitive/Blocked`, ahora **incluyendo los argumentos** vía `ShellExecutionPolicy`. El permiso se aplica en `RoutineRunner`, no solo en la interfaz. Sigue sin haber sistema general de planes (Fase 5). |
 | Memoria transparente | **AUSENTE** | Las 22 coincidencias de "Memory" son métricas de RAM. |
 | Skills / Subagentes | **AUSENTES** | 0 coincidencias. |
 | Actualizador | **Básico** | `IUpdateService` + `ReleaseVersion`. Sin delta, sin rollback. |

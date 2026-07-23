@@ -25,6 +25,29 @@ declaración). Sin DI. *(Cifras medidas el 2026-07-23; la auditoría estática o
 **Aislamiento:** Ninguno.
 **Para estable:** Fase 9 — es criterio de salida explícito.
 
+## Resueltas en la fase 1.1.1 (2026-07-23)
+
+Se dejan registradas para no perder la trazabilidad de por qué existían.
+
+### ~~L9 — Órdenes de enfoque eclipsadas por el parser de rutinas~~ ✅
+**Qué era:** cualquier frase que empezara por "ejecuta/inicia/activa/corre" la reclamaba el
+parser de rutinas, que corría primero. *"Inicia un temporizador de 20 minutos"* no arrancaba
+ningún temporizador.
+**Resuelto:** `RoutineMatchConfidence` + `PromptDispatchPolicy` (commit `667a873`).
+Verificado en la aplicación real.
+
+### ~~L10 — Ejecución arbitraria sin confirmación vía `OpenApplication`~~ ✅
+**Qué era:** `OpenApplication` reenviaba `Arguments` al proceso y estaba clasificada como
+`Reversible`. Una rutina con `powershell.exe -Command ...` se ejecutaba sin preguntar,
+incumpliendo el escenario 22 de `TEST_MATRIX`.
+**Resuelto:** `ShellExecutionPolicy` + `RoutineExecutionApproval` aplicado en `RoutineRunner`
+(commit `4e3524d`). Verificado en la aplicación real: el diálogo aparece y cancelar no ejecuta nada.
+
+### ~~L11 — `Dispose` no idempotente~~ ✅
+**Qué era:** el segundo `Dispose` de `SingleInstanceCoordinator` lanzaba
+`ObjectDisposedException`. Habría aflorado con el contenedor de DI de la fase 1.2.
+**Resuelto:** guarda `_disposed` (commit `787db71`).
+
 ## No bloqueantes (documentadas, aisladas)
 
 ### L4 — Wake word sobre ASR de propósito general
@@ -47,9 +70,21 @@ aunque no bloquee el build.
 
 ### L7 — Sin recuperación de settings semánticamente corruptos
 **Qué:** La escritura es atómica, pero no hay `.bak`. Un JSON válido con contenido inválido no se
-puede revertir.
-**Aislamiento:** Escenario 4 de `TEST_MATRIX` lo cubrirá.
-**Para estable:** añadir copia previa (Fase 1).
+puede revertir. Se le suma el defecto **D3** medido en 1.1: `JsonSettingsStore.Load` **no llama a
+`Normalize()`** en las rutas de archivo ausente o corrupto, así que devuelve `SchemaVersion = 0` y
+el siguiente `Save` reejecuta todas las migraciones desde cero. Tras una corrupción, el shell no
+puede marcar el onboarding como completado en ese mismo arranque. La degradación dura un ciclo y
+no pierde datos del usuario, porque ya eran ilegibles.
+**Aislamiento:** cubierto por `SettingsStoreCharacterizationTests` (escenario 4 de `TEST_MATRIX`).
+**No bloquea la fase 1.2.**
+**Para estable:** añadir copia previa `.bak` y normalizar también en las rutas de recuperación.
+
+### L12 — La propiedad del mutex de instancia única es por hilo (D5)
+**Qué:** Dos `SingleInstanceCoordinator` en el **mismo hilo** se consideran ambos primarios: el
+segundo `WaitOne` es una adquisición recursiva del mismo dueño.
+**Impacto real:** ninguno en producción, donde cada instancia es un proceso distinto.
+**Aislamiento:** congelado en `MutexOwnershipIsPerThread_NotPerProcess`.
+**Para estable:** tenerlo presente si la fase 1.2 comparte o reutiliza el componente.
 
 ### L8 — Sin firma Authenticode
 **Qué:** No hay certificado.

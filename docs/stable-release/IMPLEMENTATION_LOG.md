@@ -10,8 +10,8 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | Fase 1, paso **1.1 completado** (pruebas de caracterización, verde) |
-| **Siguiente fase** | Fase 1, paso 1.2 (composition root + DI) |
+| **Fase actual** | Fase **1.1.1 completada** (correctiva: D1, D2, D4) |
+| **Siguiente fase** | Fase 1, paso 1.2 (composition root + DI) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-23 |
@@ -164,6 +164,95 @@ instrucción de la fase.
 
 ---
 
+### Fase 1.1.1 — correctiva (2026-07-23)
+
+Corrige los tres defectos que la caracterización destapó y que bloqueaban o ensuciaban la
+fase 1.2. **606 pruebas, 0 fallidas, 0 warnings.** +86 pruebas sobre 1.1.
+
+#### Auditoría del diff previa a los cambios
+
+El contador de la interfaz mostraba **+10.512 / −31.997**, cifra que no correspondía al trabajo
+realizado. Comprobado:
+
+| Comparación | Resultado |
+|---|---|
+| `144bb13..HEAD` (trabajo de fases 0 y 1.1) | **+2.268 / −106**, 19 archivos |
+| `main..HEAD` | +14.473 / −1.137 |
+| **`origin/main..HEAD`** | **+10.512 / −31.997** ← coincide exactamente con la interfaz |
+
+Conclusión: **el contador compara contra `origin/main`, no contra `144bb13`.** Las 31.997
+eliminaciones son **reales pero ajenas a este trabajo**: provienen de `264c525`
+*"chore: remove tracked patch backups"*, que borró `.nexo-patch-backup/` y es **ancestro de
+`144bb13`**, es decir, anterior a la fase 0. La rama local `main` está además por detrás de
+`origin/main`.
+
+Verificaciones adicionales, todas negativas (sin problema):
+- **Cero** archivos de `.nexo-patch-backup/` tocados en `144bb13..HEAD`.
+- **Cero** binarios, artefactos de build o archivos generados añadidos.
+- **Sin conversión masiva de finales de línea**: `git diff --shortstat` y
+  `--ignore-all-space` dan cifras idénticas (+2.268 / −106).
+- Un único renombrado, **intencional y documentado**: `SingleInstanceCoordinator` de
+  `Nexo.App` a `Nexo.Windows` (fase 1.1).
+- Working tree **limpio** antes y después.
+- No hay pérdida accidental ni archivos ajenos a las fases 0 y 1.1.
+
+> Nota operativa: `core.autocrlf=true` sin `.gitattributes`. Los archivos están en LF en el
+> árbol de trabajo y Git los almacena en LF, así que hoy no hay diferencia. Conviene añadir un
+> `.gitattributes` antes de que alguien haga un `checkout` limpio en otra máquina.
+
+#### D1 — Rutinas eclipsaban las órdenes de enfoque ✅ `667a873`
+
+`RoutineMatchConfidence` distingue el reclamo **explícito** ("la rutina X", "modo X") del
+**inferido** ("inicia X"), y `PromptDispatchPolicy` concentra el orden normativo: rutina
+explícita → enfoque → tareas → rutina inferida **solo si existe** → comando local → IA.
+`MainWindow` evalúa los cuatro parsers y delega la decisión, en vez de quedarse con el primer
+reclamo de la cascada. Sin listas de excepciones.
+
+#### D2 — Ejecución arbitraria sin confirmación ✅ `4e3524d`
+
+`ShellExecutionPolicy` incorpora los argumentos a la evaluación tipada de riesgo. Abrir un
+intérprete sin argumentos sigue sin pedir confirmación; con cualquier argumento pasa a
+`Sensitive`. La detección normaliza rutas, comillas, variables de entorno, separadores,
+mayúsculas, extensión omitida y los espacios y puntos finales que Windows descarta, e inspecciona
+también los argumentos para detectar el rodeo de invocar un intérprete desde otro programa.
+
+`RoutineExecutionApproval` viaja como argumento de cada ejecución y **nunca** se guarda en la
+rutina ni en la acción: aprobar una rutina al crearla no concede permiso permanente. `RoutineRunner`
+rechaza los pasos sensibles sin aprobación explícita, de modo que el permiso se aplica **en el
+ejecutor** y no se confía a que la interfaz haya preguntado.
+
+#### D4 — `Dispose` no idempotente ✅ `787db71`
+
+Guarda `_disposed` en `SingleInstanceCoordinator`, que **previene** la excepción en lugar de
+capturarla. Mismo patrón que ya usaban `ManagedOllamaSupervisor` y `TrayIconController`, que no
+necesitaban cambios.
+
+#### Smoke test manual (aplicación real, 2026-07-23)
+
+Conducido sobre la app compilada en Release, dirigiendo la interfaz con UI Automation.
+
+| Paso | Resultado |
+|---|---|
+| Abrir Kohana | ✅ arranca y la ventana responde |
+| Navegación | ✅ los 8 destinos del riel: Inicio · Asistente · Hoy · Enfoque · Rutinas · Audio · Captura · Sistema, y vuelta a Inicio |
+| Crear/iniciar temporizador | ✅ *"Inicia un temporizador de 20 minutos"* → **"Inicié temporizador por 20 minutos."**; la vista Enfoque muestra `EN CURSO · 19:40`. **D1 verificado en vivo** |
+| Rutina explícita | ✅ *"inicia la rutina estudio"* llega al subsistema de rutinas y la ejecuta |
+| Abrir PowerShell sin ejecutar | ✅ procesos 1 → 2, **sin confirmación**, "PowerShell abierto en C:\Users\Usuario" |
+| Rutina con shell exige confirmación | ✅ diálogo *"Ejecutar Smoke Shell — Kohana ejecutará estas acciones: 1. Abrir powershell.exe"*; al pulsar **No** → "Cancelé la rutina Smoke Shell." y **cero** procesos PowerShell. **D2 verificado en vivo** |
+| Cerrar y reabrir | ✅ reabre correctamente y conserva el estado |
+| Segunda instancia | ✅ la segunda termina sola; sobrevive el PID original |
+
+Observación honesta: al ejecutar *"inicia la rutina estudio"* el informe fue "0 de 3 acciones".
+Las tres causas son **del entorno, no del cambio**: Spotify y Discord no estaban en ejecución
+(0 procesos) y ya había un temporizador activo creado por el paso anterior. Los mensajes de la
+propia app lo dicen literalmente.
+
+Para probar la confirmación se añadió temporalmente una rutina "Smoke Shell" a
+`%LOCALAPPDATA%\Kohana\routines.json`, con copia de seguridad previa, y **se restauró el archivo
+original** al terminar (4 rutinas: Programación, Estudio, Descanso, test).
+
+---
+
 ## TAREAS PENDIENTES
 
 ### Fase 0 — cierre (en Windows) ✅ 2026-07-23
@@ -194,6 +283,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 |---|---|---|---|---|
 | Baseline (2026-07-23) | **356** | **0** | **0** | Core 353 + Windows 3. Commit `144bb13`. Build Release en frío 2.52 s |
 | Fase 1.1 (2026-07-23) | **520** | **0** | **0** | Core 494 + Windows 26. +164 pruebas de caracterización. Cero regresiones |
+| Fase 1.1.1 (2026-07-23) | **606** | **0** | **0** | Core 576 + Windows 30. +86 pruebas. Correcciones D1, D2 y D4 |
 
 ---
 
@@ -207,17 +297,19 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | 4 | Alcance de 1.0 no cabe responsablemente | Media | Entregar RC honesta + bloqueadores, nunca 1.0 falsa |
 | 5 | Accesibilidad ausente descubierta tarde | Media | Es criterio de salida; Fase 9 dedicada |
 | 6 | Presupuestos de latencia irreales sin baseline | Media | Marcados `PENDIENTE DE CALIBRAR`; no reportar como logrados |
-| 7 | **Rutinas eclipsan órdenes de enfoque** (ver D1 abajo) | **Alta** | Congelado en prueba. Corregir en 1.4/1.5 con el coordinador de navegación y dominio |
-| 8 | **`OpenApplication` permite ejecución arbitraria sin confirmación** (D2) | **Alta** | Congelado en prueba. Corregir en Fase 5 (agencia tipada) |
-| 9 | `JsonSettingsStore.Load` no normaliza en las rutas de recuperación (D3) | Media | Congelado en prueba. Corregir junto al `.bak` de L7 |
-| 10 | `SingleInstanceCoordinator.Dispose` no es idempotente (D4) | Baja | Congelado en prueba. Corregir al introducir el contenedor en 1.2 |
+| 7 | ~~Rutinas eclipsan órdenes de enfoque (D1)~~ | — | ✅ **Resuelto** en 1.1.1 (`667a873`), verificado en vivo |
+| 8 | ~~`OpenApplication` permite ejecución arbitraria sin confirmación (D2)~~ | — | ✅ **Resuelto** en 1.1.1 (`4e3524d`), verificado en vivo |
+| 9 | `JsonSettingsStore.Load` no normaliza en las rutas de recuperación (D3) | Media | **Abierto.** Congelado en prueba. No bloquea 1.2. Corregir junto al `.bak` de L7 |
+| 10 | ~~`SingleInstanceCoordinator.Dispose` no es idempotente (D4)~~ | — | ✅ **Resuelto** en 1.1.1 (`787db71`) |
+| 11 | Propiedad del mutex por hilo, no por proceso (D5) | Informativo | **Abierto.** No es un defecto; es una trampa para quien comparta el componente en 1.2. Congelado en prueba |
+| 12 | Sin `.gitattributes` con `core.autocrlf=true` | Baja | Hoy inocuo (árbol en LF, Git almacena LF). Un `checkout` limpio en otra máquina podría generar un diff espurio |
 
 ### Defectos descubiertos por la caracterización (1.1)
 
-Se **congelaron tal cual**, no se corrigieron: la fase 1.1 documenta la conducta actual. Cada
-uno tiene ya una prueba que fallará cuando se arregle, obligando a un cambio consciente.
+Se congelaron tal cual en 1.1, y **D1, D2 y D4 quedaron corregidos en la fase 1.1.1**.
+D3 y D5 siguen abiertos y **no bloquean la fase 1.2**.
 
-**D1 — Las rutinas se comen las órdenes de enfoque. (Alta, visible para el usuario)**
+**D1 — Las rutinas se comen las órdenes de enfoque. (Alta, visible) — ✅ RESUELTO en 1.1.1**
 `SpanishRoutineCommandParser` usa `^(?:ejecuta|inicia|activa|corre)\s+(?:la\s+)?(?:rutina\s+)?(?<name>.+)$`,
 que captura *cualquier* frase que empiece por "inicia". Como el parser de rutinas corre
 **primero** en `MainWindow.HandlePromptAsync`, y `MainWindow` **no reintenta** cuando
@@ -228,7 +320,7 @@ Afecta también a *"Inicia un descanso"* e *"Inicia un pomodoro"*.
 precedencia real del shell. Es justamente el tipo de fallo que solo aparece al caracterizar la
 composición.
 
-**D2 — `OpenApplication` es ejecución arbitraria sin confirmación. (Alta, seguridad)**
+**D2 — `OpenApplication` es ejecución arbitraria sin confirmación. (Alta, seguridad) — ✅ RESUELTO en 1.1.1**
 `NexoAutomationActionExecutor.OpenApplication` reenvía `action.Arguments` al proceso, y
 `AutomationPermissionPolicy` clasifica esa acción como `Reversible`, es decir **sin
 confirmación**. Un paso de rutina con `Target="powershell.exe"` y `Arguments="-Command ..."`
@@ -239,7 +331,7 @@ la aprobación (`PRODUCT_VISION` §F). No es una vía de explotación remota. Pe
 En contraste, `OpenTerminal` **sí** es seguro: ignora `Arguments` y construye siempre su propia
 línea de comandos. Esa asimetría queda congelada como invariante.
 
-**D3 — `Load` no normaliza en las rutas de recuperación. (Media)**
+**D3 — `Load` no normaliza en las rutas de recuperación. (Media) — ABIERTO, no bloquea 1.2**
 `JsonSettingsStore.Load` solo llama a `Normalize()` en la ruta de éxito. Con archivo ausente o
 corrupto devuelve `new ShellPreferences()` con `SchemaVersion = 0`. Consecuencia: el siguiente
 `Save` reejecuta **todas** las migraciones desde 0, incluida la de v10
@@ -248,12 +340,12 @@ en ese ciclo. Tras un archivo corrupto los valores por defecto son aceptables �
 eran ilegibles— pero el shell no puede marcar el onboarding como completado en ese arranque.
 La degradación dura un solo ciclo.
 
-**D4 — `SingleInstanceCoordinator.Dispose` no es idempotente. (Baja)**
+**D4 — `SingleInstanceCoordinator.Dispose` no es idempotente. (Baja) — ✅ RESUELTO en 1.1.1**
 Un segundo `Dispose` lanza `ObjectDisposedException` (`_cancellation.Cancel()` sobre un CTS ya
 liberado). Hoy no se manifiesta porque `App.OnExit` pone el campo a `null`, pero un contenedor
 de DI que libere de forma genérica —justo lo que llega en 1.2— sí puede sacarlo a la luz.
 
-**D5 — La propiedad del mutex es por hilo, no por proceso. (Informativo, trampa de extracción)**
+**D5 — La propiedad del mutex es por hilo, no por proceso. (Informativo) — ABIERTO, no bloquea 1.2**
 Dos `SingleInstanceCoordinator` en el **mismo hilo** se consideran ambos primarios, porque el
 segundo `WaitOne` es una adquisición recursiva del mismo dueño. En producción no ocurre —cada
 instancia es un proceso distinto— pero quien extraiga o comparta este componente en 1.2 debe
@@ -263,8 +355,9 @@ saberlo. Queda congelado en `MutexOwnershipIsPerThread_NotPerProcess`.
 
 ## SIGUIENTE PASO EXACTO
 
-Fase 1.1 cerrada y **verde**: 520 pruebas, 0 fallidas, 0 warnings, aplicación arrancada y
-verificada. La red de seguridad existe.
+Fases 1.1 y 1.1.1 cerradas y **verdes**: 606 pruebas, 0 fallidas, 0 warnings, smoke test manual
+completo sobre la aplicación real. La red de seguridad existe y los defectos que la propia red
+destapó (D1, D2, D4) están corregidos.
 
 El siguiente paso es **1.2 — composition root + inyección de dependencias, sin cambiar
 comportamiento**. Plan exacto:
@@ -284,9 +377,8 @@ comportamiento**. Plan exacto:
 5. **No** introducir interfaces nuevas, **no** renombrar tipos, **no** cambiar el orden de
    suscripción de eventos del constructor: ese orden es conducta observable y no está cubierto
    por pruebas.
-6. Resolver antes D4 (`Dispose` no idempotente): el contenedor libera de forma genérica y lo
-   destapará. Es un arreglo de tres líneas con prueba ya escrita.
-7. Criterio de salida: build en Release con **0 warnings**, **520 pruebas verdes**, arranque
+6. ~~Resolver antes D4~~ ✅ ya resuelto en la fase 1.1.1.
+7. Criterio de salida: build en Release con **0 warnings**, **606 pruebas verdes**, arranque
    real de la aplicación verificado, y `MainWindow` sin ningún `= new` de servicio en la
    declaración de campos.
 
