@@ -1,6 +1,7 @@
 using System.Windows;
 using Nexo.App.WindowsIntegration;
 using Nexo.Core.WindowsIntegration;
+using Nexo.Windows.Composition;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Storage;
 using Nexo.Windows.WindowsIntegration;
@@ -11,6 +12,7 @@ public partial class App : System.Windows.Application
 {
     private SingleInstanceCoordinator? _singleInstance;
     private ManagedOllamaSupervisor? _managedOllamaSupervisor;
+    private KohanaCompositionRoot? _compositionRoot;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -48,10 +50,17 @@ public partial class App : System.Windows.Application
         }
 
         _managedOllamaSupervisor = new ManagedOllamaSupervisor();
+        _compositionRoot = new KohanaCompositionRoot();
 
         var mainWindow = new MainWindow(
             requestedHiddenStart,
-            _managedOllamaSupervisor);
+            _managedOllamaSupervisor,
+            _compositionRoot.AiChatService,
+            _compositionRoot.AudioMixerService,
+            _compositionRoot.VoiceInputService,
+            _compositionRoot.VoiceOutputService,
+            _compositionRoot.WakeWordService,
+            _compositionRoot.ScreenCaptureService);
         MainWindow = mainWindow;
 
         _singleInstance.ActivationRequested += (_, _) =>
@@ -65,6 +74,13 @@ public partial class App : System.Windows.Application
     {
         _managedOllamaSupervisor?.Dispose();
         _managedOllamaSupervisor = null;
+
+        // Los seis servicios que resuelve el contenedor ya se liberan de forma explícita en
+        // MainWindow.Window_Closed, exactamente como antes de esta fase. Esto solo libera el
+        // ServiceProvider en sí; no vuelve a llamar a Dispose() sobre esos servicios porque el
+        // contenedor no es dueño de instancias que no creó él mismo (ver KohanaCompositionRoot).
+        _compositionRoot?.Dispose();
+        _compositionRoot = null;
 
         _singleInstance?.Dispose();
         _singleInstance = null;
