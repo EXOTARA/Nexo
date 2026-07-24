@@ -77,7 +77,6 @@ public partial class MainWindow : Window
     private readonly IWakeWordService _wakeWordService;
     private readonly IScreenCaptureService _screenCaptureService;
     private readonly VoiceCoordinator _voiceCoordinator;
-    private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _aiGate = new(1, 1);
     private readonly SemaphoreSlim _resourceGovernorVoiceGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -1923,17 +1922,14 @@ public partial class MainWindow : Window
 
     private async Task ChangeVoiceInputDeviceAsync(int deviceNumber)
     {
-        await _voiceGate.WaitAsync();
+        await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
         try
         {
             await PauseWakeWordAsync();
 
-            // Fase 1.3B2 runtime: CancelVoiceInputUnderExternalCoordinationAsync delega
-            // en CancelAsync() sin adquirir ningún candado interno del coordinador —
-            // equivalencia exacta a la llamada directa que sustituye, a diferencia de
-            // CancelPushToTalkAsync (que sí adquiere _voiceGate del coordinador y por
-            // eso seguía descartado; ver informe de la subfase 1.3B1).
-            await _voiceCoordinator.CancelVoiceInputUnderExternalCoordinationAsync();
+            // Fase 1.3B3: la cancelación de la entrada de voz corre sobre el ámbito de
+            // voz del coordinador, el único dominio de exclusión para Whisper.
+            await voiceScope.CancelAsync();
 
             _preferences.VoiceInputDeviceNumber = deviceNumber;
             _voiceCoordinator.InputDeviceNumber = deviceNumber;
@@ -1955,15 +1951,11 @@ public partial class MainWindow : Window
         }
         finally
         {
-            try
-            {
-                await ResumeWakeWordIfEnabledAsync();
-            }
-            finally
-            {
-                _voiceGate.Release();
-            }
+            await ResumeWakeWordIfEnabledAsync();
         }
+
+        // El ámbito de voz se libera aquí, al salir del método (después de la reanudación
+        // del finally), preservando el orden reanudar → liberar del código anterior.
     }
 
     private async Task<bool> TryHandlePendingVoiceDecisionAsync(
@@ -2078,7 +2070,7 @@ public partial class MainWindow : Window
 
     private async void AssistantView_VoiceInputStarted(object? sender, EventArgs e)
     {
-        await _voiceGate.WaitAsync();
+        await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
         var listeningStarted = false;
 
         try
@@ -2095,7 +2087,7 @@ public partial class MainWindow : Window
                 }
             }
 
-            var result = await _voiceCoordinator.StartVoiceInputUnderExternalCoordinationAsync();
+            var result = await voiceScope.StartListeningAsync();
 
             if (!result.IsAvailable)
             {
@@ -2124,14 +2116,12 @@ public partial class MainWindow : Window
             {
                 await ResumeWakeWordIfEnabledAsync();
             }
-
-            _voiceGate.Release();
         }
     }
 
     private async void AssistantView_VoiceInputStopped(object? sender, EventArgs e)
     {
-        await _voiceGate.WaitAsync();
+        await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
         try
         {
             if (!_voiceCoordinator.IsVoiceInputListening)
@@ -2143,7 +2133,7 @@ public partial class MainWindow : Window
                 AssistantVoiceState.Processing,
                 "Transcribiendo localmente con Whisper…");
 
-            var result = await _voiceCoordinator.StopVoiceInputUnderExternalCoordinationAsync();
+            var result = await voiceScope.StopListeningAsync();
             await HandleVoiceRecognitionResultAsync(result);
         }
         catch (OperationCanceledException)
@@ -2155,7 +2145,6 @@ public partial class MainWindow : Window
         finally
         {
             await ResumeWakeWordIfEnabledAsync();
-            _voiceGate.Release();
         }
     }
 
@@ -2328,7 +2317,7 @@ public partial class MainWindow : Window
         }
 
         RememberForegroundWindow();
-        await _voiceGate.WaitAsync();
+        await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
         try
         {
             await PauseWakeWordAsync();
@@ -2352,7 +2341,7 @@ public partial class MainWindow : Window
                 "Habla con naturalidad. Terminaré después de 1.5 segundos de silencio.",
                 _preferences.Position);
 
-            var result = await _voiceCoordinator.ListenForUtteranceUnderExternalCoordinationAsync(
+            var result = await voiceScope.ListenForUtteranceAsync(
                 maximumDuration: TimeSpan.FromSeconds(20),
                 trailingSilence: TimeSpan.FromMilliseconds(1_500),
                 initialPcmAudio: e.PreRollAudio,
@@ -2376,7 +2365,6 @@ public partial class MainWindow : Window
         finally
         {
             await ResumeWakeWordIfEnabledAsync();
-            _voiceGate.Release();
         }
     }
 
