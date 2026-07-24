@@ -757,3 +757,56 @@ prueba de identidad de aliases compara contenido (`Assert.Equal`) en vez de refe
 en particular, la decisión aún no tomada sobre quién libera los tres servicios de voz tras 1.3B
 (punto 3 de "Siguiente paso exacto"), y el smoke test manual interactivo, todavía sin repetir
 desde la fase 1.1.1.
+
+---
+
+### Fase 1.3A.1 evaluada y revertida antes de integración (2026-07-23)
+
+La revisión externa del informe de 1.3A.1 confirmó, con evidencia sobre el código real de
+`MainWindow.xaml.cs`, que **la premisa de "sesión persistente" no coincidía con el comportamiento
+de `MainWindow`**: `AssistantView_VoiceInputStarted` adquiere `_voiceGate`, pausa wake word, inicia
+la escucha y **libera `_voiceGate` al terminar ese método**; `AssistantView_VoiceInputStopped`
+vuelve a adquirirlo por separado, detiene la escucha, procesa el resultado, reanuda wake word y lo
+libera. No hay ningún mecanismo que retenga el candado entre esos dos eventos. La regla de la Fase
+1.3 es extraer la coordinación **sin cambiar comportamiento observable ni semántica existente**, y
+la sesión persistente introducida en 1.3A.1 era una modificación deliberada de concurrencia, no
+una preservación de lo existente — la misma evidencia ya se había presentado y la desviación se
+había aprobado explícitamente al implementarla. Tras una segunda revisión externa, se decidió
+revertir en vez de mantenerla.
+
+**El cambio revertido nunca llegó a ser consumido por `MainWindow`**: durante toda su vida (desde
+`147871e` hasta el revert), `MainWindow.xaml.cs` y `App.xaml.cs` no cambiaron ni una vez —
+`VoiceCoordinator` seguía existiendo de forma aislada, sin que ninguna vista lo invocara. Por esa
+misma razón, **el cambio no produjo ninguna regresión visible ni funcional**: no había ningún
+consumidor real en producción cuya conducta pudiera haberse alterado; el único efecto era interno
+a `VoiceCoordinator` y a sus propias pruebas aisladas.
+
+**Commits revertidos:**
+| Hash | Mensaje |
+|---|---|
+| `147871e` | fix: preserve push-to-talk session serialization |
+| `c11feed` | docs: record push-to-talk session correction |
+
+**Commits de revert** (mediante `git revert --no-edit`, sin reset/rebase/force-push, historial
+preservado):
+| Hash | Mensaje |
+|---|---|
+| `d44523c` | Revert "docs: record push-to-talk session correction" |
+| `cdcd65e` | Revert "fix: preserve push-to-talk session serialization" |
+
+Tras ambos reverts, `git diff 2b42695..HEAD` (donde `2b42695` es el último commit de la Fase 1.3A
+original) **no muestra ninguna diferencia**: el árbol de trabajo es idéntico, byte a byte, al
+estado exacto en que quedó 1.3A. `VoiceCoordinator` no tiene `PushToTalkSession` ni
+`_activeSession`; `StartPushToTalkAsync`, `StopPushToTalkAsync` y `CancelPushToTalkAsync` vuelven a
+adquirir y liberar `_voiceGate` dentro de cada llamada individual, sin retenerlo entre eventos.
+
+**La Fase 1.3A original permanece aceptada tal como se cerró**: composition root con
+`VoiceCoordinator` construido a partir de los mismos tres servicios, sin liberarlos, con exclusión
+por operación dentro de cada método del coordinador. Nada de eso se tocó por este revert.
+
+**Para 1.3B:** debe preservar la exclusión **por operación** que existe hoy —tanto en
+`VoiceCoordinator` (candado adquirido y liberado dentro de cada llamada) como en `MainWindow`
+(`_voiceGate` adquirido y liberado por separado en `AssistantView_VoiceInputStarted` y en
+`AssistantView_VoiceInputStopped`)— y no introducir semántica de sesión persistente entre eventos
+independientes salvo que se apruebe explícitamente como cambio de comportamiento deliberado, con
+el mismo nivel de evidencia y aprobación que exigió esta corrección.
