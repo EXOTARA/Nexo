@@ -2333,12 +2333,12 @@ public partial class MainWindow : Window
         try
         {
             await PauseWakeWordAsync();
-            _voiceOutputService.Stop();
+            _voiceCoordinator.StopSpeaking();
 
-            if (!_voiceInputService.IsReady)
+            if (!_voiceCoordinator.IsVoiceInputReady)
             {
                 await PrepareVoiceAsync();
-                if (!_voiceInputService.IsReady)
+                if (!_voiceCoordinator.IsVoiceInputReady)
                 {
                     return;
                 }
@@ -2353,7 +2353,7 @@ public partial class MainWindow : Window
                 "Habla con naturalidad. Terminaré después de 1.5 segundos de silencio.",
                 _preferences.Position);
 
-            var result = await _voiceInputService.ListenForUtteranceAsync(
+            var result = await _voiceCoordinator.ListenForUtteranceUnderExternalCoordinationAsync(
                 maximumDuration: TimeSpan.FromSeconds(20),
                 trailingSilence: TimeSpan.FromMilliseconds(1_500),
                 initialPcmAudio: e.PreRollAudio,
@@ -2439,11 +2439,11 @@ public partial class MainWindow : Window
         await _wakeWordGate.WaitAsync();
         try
         {
-            await _wakeWordService.StopListeningAsync();
+            await _voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync();
             SetWakeWordIndicator(active: false);
             RefreshRuntimeDashboard();
 
-            if (!_preferences.WakeWordEnabled || _isClosed || _voiceInputService.IsListening)
+            if (!_preferences.WakeWordEnabled || _isClosed || _voiceCoordinator.IsVoiceInputListening)
             {
                 return;
             }
@@ -2452,22 +2452,22 @@ public partial class MainWindow : Window
             {
                 SetWakeWordIndicator(active: false);
                 _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
+                    _voiceCoordinator.IsVoiceInputReady,
                     "Activación por voz pausada por Modo Juego.");
                 return;
             }
 
-            var requiresDownload = !_wakeWordService.IsReady;
+            var requiresDownload = !_voiceCoordinator.IsWakeWordReady;
             var progress = new Progress<VoicePreparationProgress>(update =>
             {
                 WakeWordIndicatorText.Text = "Preparando voz";
                 WakeWordIndicator.Visibility = Visibility.Visible;
                 _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
+                    _voiceCoordinator.IsVoiceInputReady,
                     update.Detail);
             });
 
-            var preparation = await _wakeWordService.PrepareAsync(
+            var preparation = await _voiceCoordinator.PrepareWakeWordAsync(
                 progress,
                 _lifetimeCancellation.Token);
 
@@ -2475,7 +2475,7 @@ public partial class MainWindow : Window
             {
                 SetWakeWordIndicator(active: false);
                 _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
+                    _voiceCoordinator.IsVoiceInputReady,
                     preparation.Detail);
                 if (showCapsule && !_isClosed)
                 {
@@ -2494,9 +2494,9 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
-            _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
-            var start = await _wakeWordService.StartListeningAsync(
+            _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
+            _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
+            var start = await _voiceCoordinator.StartWakeWordUnderExternalCoordinationAsync(
                 _preferences.WakeWordPhrase,
                 _lifetimeCancellation.Token);
 
@@ -2504,7 +2504,7 @@ public partial class MainWindow : Window
             {
                 SetWakeWordIndicator(active: false);
                 _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
+                    _voiceCoordinator.IsVoiceInputReady,
                     start.Detail);
                 if (showCapsule && !_isClosed)
                 {
@@ -2520,7 +2520,7 @@ public partial class MainWindow : Window
             SetWakeWordIndicator(active: true);
             RefreshRuntimeDashboard();
             _assistantView.SetVoiceAvailability(
-                _voiceInputService.IsReady,
+                _voiceCoordinator.IsVoiceInputReady,
                 $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” y la orden de corrido, o espera “Te escucho”.");
 
             if (showCapsule && !_isClosed)
@@ -2555,7 +2555,7 @@ public partial class MainWindow : Window
         await _wakeWordGate.WaitAsync();
         try
         {
-            await _wakeWordService.StopListeningAsync();
+            await _voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync();
             SetWakeWordIndicator(active: false);
         }
         finally
