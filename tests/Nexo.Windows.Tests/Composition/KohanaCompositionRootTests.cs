@@ -73,8 +73,14 @@ public sealed class KohanaCompositionRootTests
     }
 
     [Fact]
-    public void Dispose_DoesNotThrowAndIsIdempotent()
+    public void Dispose_ReleasesTheWholeVoiceSubsystemIdempotently()
     {
+        // El composition root es el dueño y única ruta de Dispose del subsistema de voz
+        // (coordinador + Whisper/TTS/Vosk). Cada Dispose subyacente es idempotente, así que
+        // liberar el root dos veces —o después de que el contenedor tampoco libere las
+        // instancias registradas— nunca lanza. El orden exacto de liberación se verifica de
+        // forma estructural en CompositionInvariantTests
+        // (CompositionRoot_OwnsAndDisposesTheThreeVoiceServicesInOrder).
         var root = new KohanaCompositionRoot();
 
         var exception = Record.Exception(() =>
@@ -86,22 +92,7 @@ public sealed class KohanaCompositionRootTests
         Assert.Null(exception);
     }
 
-    [Fact]
-    public void Dispose_DoesNotDisposeTheUnderlyingServiceInstances()
-    {
-        // El contenedor registra instancias ya construidas, no tipos: no debe liberar
-        // IWakeWordService/IVoiceInputService/IVoiceOutputService al liberarse a sí mismo,
-        // porque Window_Closed en MainWindow sigue siendo la única ruta responsable de eso.
-        var root = new KohanaCompositionRoot();
-        var wakeWordService = root.WakeWordService;
-
-        root.Dispose();
-
-        var exception = Record.Exception(() => wakeWordService.Sensitivity = wakeWordService.Sensitivity);
-        Assert.Null(exception);
-    }
-
-    // ---------- Fase 1.3A: VoiceCoordinator ----------
+    // ---------- VoiceCoordinator ----------
 
     [Fact]
     public void VoiceCoordinator_IsASingleInstance()
@@ -148,24 +139,4 @@ public sealed class KohanaCompositionRootTests
         Assert.Single(root.Provider.GetServices<VoiceCoordinator>());
     }
 
-    [Fact]
-    public void Dispose_DisposesTheCoordinatorsOwnResourcesButNotTheThreeVoiceServices()
-    {
-        var root = new KohanaCompositionRoot();
-        var voiceInputService = root.VoiceInputService;
-        var voiceOutputService = root.VoiceOutputService;
-        var wakeWordService = root.WakeWordService;
-
-        root.Dispose();
-
-        // El coordinador ya liberó sus propios candados; los tres servicios de voz
-        // siguen intactos porque MainWindow (aún) es su único dueño de ciclo de vida.
-        var exception = Record.Exception(() =>
-        {
-            _ = voiceInputService.IsReady;
-            voiceOutputService.Stop();
-            wakeWordService.Sensitivity = wakeWordService.Sensitivity;
-        });
-        Assert.Null(exception);
-    }
 }

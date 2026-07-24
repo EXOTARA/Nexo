@@ -144,20 +144,34 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
-    public void MainWindow_RequiresTheVoiceCoordinator_WithoutBuildingAFallbackEngineSet()
+    public void MainWindow_RequiresEveryInjectedService_WithoutBuildingAnyFallback()
     {
         var content = ReadMainWindowSource();
 
-        // Fase 1.3B3: el coordinador es obligatorio. Si no se provee, MainWindow lanza en
-        // vez de construir un cuarto conjunto de motores sin liberar. Ya no existe el
-        // fallback `?? new VoiceCoordinator(...)` que envolvía los tres servicios.
+        // Diseño final: todos los servicios son dependencias obligatorias de la raíz de
+        // composición. Si falta alguno, MainWindow lanza en vez de construir un motor de
+        // repuesto. No queda ningún fallback `?? new ...()` ni construcción directa de motores.
         Assert.Contains(
             "?? throw new ArgumentNullException(nameof(voiceCoordinator))",
             content, StringComparison.Ordinal);
+        Assert.Contains(
+            "?? throw new ArgumentNullException(nameof(aiChatService))",
+            content, StringComparison.Ordinal);
+        Assert.Contains(
+            "?? throw new ArgumentNullException(nameof(audioMixerService))",
+            content, StringComparison.Ordinal);
+        Assert.Contains(
+            "?? throw new ArgumentNullException(nameof(screenCaptureService))",
+            content, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("?? new ", content, StringComparison.Ordinal);
         Assert.DoesNotContain("new VoiceCoordinator(", content, StringComparison.Ordinal);
         Assert.DoesNotContain("new WhisperVoiceInputService()", content, StringComparison.Ordinal);
         Assert.DoesNotContain("new WindowsTextToSpeechService()", content, StringComparison.Ordinal);
         Assert.DoesNotContain("new VoskWakeWordService()", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("new AiChatRouterService()", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("new WindowsAudioMixerService()", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("new WindowsScreenCaptureService()", content, StringComparison.Ordinal);
     }
 
     [Fact]
