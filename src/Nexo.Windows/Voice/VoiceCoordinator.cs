@@ -235,6 +235,119 @@ public sealed class VoiceCoordinator : IDisposable
     public void StopSpeaking() => _voiceOutputService.Stop();
 
     // ---------------------------------------------------------------------------------
+    // Ámbitos de exclusión (diseño final de la fase 1.3B3).
+    //
+    // El único mecanismo de sincronización real del subsistema de voz vive aquí: los dos
+    // SemaphoreSlim privados de arriba. Un orquestador externo (la vista principal) ya no
+    // tiene semáforos propios: adquiere un ámbito, hace su sección crítica dentro de él —
+    // incluida toda su orquestación visual— y lo libera al terminar. Las operaciones
+    // mutantes de cada servicio solo son alcanzables a través del ámbito correspondiente,
+    // así que es imposible mutar un servicio sin sostener su exclusión.
+    //
+    // El orden de adquisición es siempre entrada de voz primero y wake word después
+    // (nunca al revés): cuando un ámbito de voz envuelve a uno de wake word —lo habitual
+    // en push-to-talk y en la escucha tras la palabra de activación— la anidación respeta
+    // ese orden porque son dos semáforos distintos.
+    // ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Adquiere el semáforo de entrada de voz y devuelve un ámbito que lo libera al
+    /// desecharse. Si el token se cancela antes de adquirirlo, no se toma el candado y no
+    /// hay nada que liberar.
+    /// </summary>
+    public async Task<IVoiceInputScope> AcquireVoiceInputScopeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _voiceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new VoiceInputScope(this);
+    }
+
+    /// <summary>
+    /// Adquiere el semáforo de wake word y devuelve un ámbito que lo libera al desecharse.
+    /// Mismo contrato que <see cref="AcquireVoiceInputScopeAsync"/>.
+    /// </summary>
+    public async Task<IWakeWordScope> AcquireWakeWordScopeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _wakeWordGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new WakeWordScope(this);
+    }
+
+    /// <summary>
+    /// Ámbito de entrada de voz: delega cada operación en el servicio subyacente y libera
+    /// <see cref="_voiceGate"/> una sola vez, aunque se deseche más de una vez.
+    /// </summary>
+    private sealed class VoiceInputScope : IVoiceInputScope
+    {
+        private readonly VoiceCoordinator _owner;
+        private bool _released;
+
+        public VoiceInputScope(VoiceCoordinator owner) => _owner = owner;
+
+        public Task<VoiceStartResult> StartListeningAsync(CancellationToken cancellationToken = default) =>
+            _owner._voiceInputService.StartListeningAsync(cancellationToken);
+
+        public Task<VoiceRecognitionResult> StopListeningAsync(CancellationToken cancellationToken = default) =>
+            _owner._voiceInputService.StopListeningAsync(cancellationToken);
+
+        public Task CancelAsync() => _owner._voiceInputService.CancelAsync();
+
+        public Task<VoiceRecognitionResult> ListenForUtteranceAsync(
+            TimeSpan maximumDuration,
+            TimeSpan trailingSilence,
+            ReadOnlyMemory<byte> initialPcmAudio = default,
+            ReadOnlyMemory<byte> initialSpeechPcmAudio = default,
+            CancellationToken cancellationToken = default) =>
+            _owner._voiceInputService.ListenForUtteranceAsync(
+                maximumDuration,
+                trailingSilence,
+                initialPcmAudio,
+                initialSpeechPcmAudio,
+                cancellationToken);
+
+        public ValueTask DisposeAsync()
+        {
+            if (!_released)
+            {
+                _released = true;
+                _owner._voiceGate.Release();
+            }
+
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// Ámbito de wake word: delega cada operación en el servicio subyacente y libera
+    /// <see cref="_wakeWordGate"/> una sola vez, aunque se deseche más de una vez.
+    /// </summary>
+    private sealed class WakeWordScope : IWakeWordScope
+    {
+        private readonly VoiceCoordinator _owner;
+        private bool _released;
+
+        public WakeWordScope(VoiceCoordinator owner) => _owner = owner;
+
+        public Task<VoiceStartResult> StartListeningAsync(
+            WakeWordPhrase phrase,
+            CancellationToken cancellationToken = default) =>
+            _owner._wakeWordService.StartListeningAsync(phrase, cancellationToken);
+
+        public Task StopListeningAsync() => _owner._wakeWordService.StopListeningAsync();
+
+        public ValueTask DisposeAsync()
+        {
+            if (!_released)
+            {
+                _released = true;
+                _owner._wakeWordGate.Release();
+            }
+
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    // ---------------------------------------------------------------------------------
     // Operaciones bajo coordinación externa (fase 1.3B2A) — API de transición.
     //
     // Delegaciones transparentes a los servicios subyacentes que **no adquieren ninguno
