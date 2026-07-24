@@ -19,6 +19,7 @@ using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Focus;
+using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
@@ -74,6 +75,7 @@ public partial class MainWindow : Window
     private readonly IAudioMixerService _audioMixerService;
     private readonly IScreenCaptureService _screenCaptureService;
     private readonly VoiceCoordinator _voiceCoordinator;
+    private readonly IHardwareCapabilityService _hardwareCapabilityService;
     private readonly SemaphoreSlim _aiGate = new(1, 1);
 
     // Serializa las DECISIONES del Resource Governor (pausar/reanudar wake word según el
@@ -144,7 +146,8 @@ public partial class MainWindow : Window
         IAiChatService? aiChatService = null,
         IAudioMixerService? audioMixerService = null,
         IScreenCaptureService? screenCaptureService = null,
-        VoiceCoordinator? voiceCoordinator = null)
+        VoiceCoordinator? voiceCoordinator = null,
+        IHardwareCapabilityService? hardwareCapabilityService = null)
     {
         InitializeComponent();
         _commandPaletteWindow = new CommandPaletteWindow();
@@ -158,6 +161,7 @@ public partial class MainWindow : Window
         _audioMixerService = audioMixerService ?? throw new ArgumentNullException(nameof(audioMixerService));
         _screenCaptureService = screenCaptureService ?? throw new ArgumentNullException(nameof(screenCaptureService));
         _voiceCoordinator = voiceCoordinator ?? throw new ArgumentNullException(nameof(voiceCoordinator));
+        _hardwareCapabilityService = hardwareCapabilityService ?? throw new ArgumentNullException(nameof(hardwareCapabilityService));
 
         _startHidden = startHidden;
         _managedOllamaSupervisor = managedOllamaSupervisor;
@@ -220,6 +224,7 @@ public partial class MainWindow : Window
         _homeView.ContextRequested += HomeView_ContextRequested;
         _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
         _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
+        _systemView.HardwareCapabilityRefreshRequested += async (_, _) => await RefreshHardwareCapabilityAsync();
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -240,6 +245,7 @@ public partial class MainWindow : Window
         SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
         UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
         RefreshRuntimeDashboard();
+        _ = RefreshHardwareCapabilityAsync();
 
         _clockTimer = new DispatcherTimer
         {
@@ -557,7 +563,8 @@ public partial class MainWindow : Window
             _voiceCoordinator.IsWakeWordReady,
             _voiceCoordinator.IsWakeWordListening,
             trayActive: true,
-            _startupService.IsEnabled())
+            _startupService.IsEnabled(),
+            _hardwareCapabilityService)
         {
             Owner = this
         };
@@ -3754,6 +3761,33 @@ public partial class MainWindow : Window
         finally
         {
             Interlocked.Exchange(ref _metricsRefreshInProgress, 0);
+        }
+    }
+
+    private async Task RefreshHardwareCapabilityAsync()
+    {
+        _systemView.ShowHardwareCapabilityUpdating();
+        try
+        {
+            var profile = await _hardwareCapabilityService.RefreshAsync(_lifetimeCancellation.Token);
+            if (_isClosed)
+            {
+                return;
+            }
+
+            _systemView.UpdateHardwareCapability(profile);
+        }
+        catch (OperationCanceledException)
+        {
+            // La ventana se cerró antes de que terminara la detección.
+        }
+        catch (Exception)
+        {
+            // La detección de hardware es informativa: un fallo nunca debe afectar el resto de Kohana.
+            if (!_isClosed)
+            {
+                _systemView.UpdateHardwareCapability(_hardwareCapabilityService.GetCachedProfile());
+            }
         }
     }
 

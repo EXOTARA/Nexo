@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
 using Nexo.Core.Resources;
 
@@ -16,6 +18,8 @@ public partial class SystemView : UserControl
     public event EventHandler? RestartVoiceRequested;
 
     public event EventHandler? DiagnosticsRequested;
+
+    public event EventHandler? HardwareCapabilityRefreshRequested;
 
     public void UpdateSnapshot(SystemSnapshot snapshot)
     {
@@ -87,11 +91,99 @@ public partial class SystemView : UserControl
             : resourceReason;
     }
 
+    public void ShowHardwareCapabilityUpdating()
+    {
+        HardwareCapabilityRefreshButton.IsEnabled = false;
+        HardwareCapabilitySummaryText.Text = "Actualizando la detección de hardware…";
+    }
+
+    public void UpdateHardwareCapability(HardwareCapabilityProfile profile)
+    {
+        HardwareCapabilityRefreshButton.IsEnabled = true;
+
+        HardwareCapabilityTierText.Text = DescribeTier(profile.Tier);
+        HardwareCapabilitySummaryText.Text = profile.Summary;
+
+        var processor = profile.Snapshot.Processor;
+        HardwareCapabilityCpuText.Text = string.IsNullOrWhiteSpace(processor.Name)
+            ? "No disponible"
+            : processor.Name;
+
+        HardwareCapabilityCoresText.Text = processor.PhysicalCores.HasValue || processor.LogicalProcessors.HasValue
+            ? $"{FormatCount(processor.PhysicalCores)} físicos · {FormatCount(processor.LogicalProcessors)} lógicos"
+            : "No disponible";
+
+        HardwareCapabilityRamText.Text = profile.Snapshot.Memory.TotalPhysicalBytes.HasValue
+            ? FormatBytes((long)profile.Snapshot.Memory.TotalPhysicalBytes.Value)
+            : "No disponible";
+
+        HardwareCapabilityArchitectureText.Text = FormatArchitecture(processor);
+
+        var graphics = profile.Snapshot.PreferredGraphicsAdapter;
+        HardwareCapabilityGpuText.Text = string.IsNullOrWhiteSpace(graphics.Name)
+            ? "No disponible"
+            : graphics.Name;
+
+        HardwareCapabilityGraphicsMemoryText.Text = graphics.DedicatedMemoryBytes.HasValue
+            ? FormatBytes(graphics.DedicatedMemoryBytes.Value)
+            : "No disponible";
+
+        HardwareCapabilityBatteryText.Text = profile.Snapshot.HasBattery switch
+        {
+            true => "Presente",
+            false => "No detectada",
+            null => "No disponible"
+        };
+
+        HardwareCapabilityCompletenessText.Text = profile.HasCompleteData
+            ? "La información de capacidad es completa."
+            : "La información de capacidad es parcial.";
+
+        HardwareCapabilityReasonsText.Text = profile.PositiveReasons.Count > 0
+            ? "Razones: " + string.Join(" · ", profile.PositiveReasons.Select(reason => reason.Message))
+            : string.Empty;
+
+        HardwareCapabilityMissingDataText.Text = profile.MissingData.Count > 0
+            ? "Datos desconocidos: " + string.Join(" · ", profile.MissingData.Select(reason => reason.Message))
+            : string.Empty;
+    }
+
     private void RestartVoiceButton_Click(object sender, RoutedEventArgs e) =>
         RestartVoiceRequested?.Invoke(this, EventArgs.Empty);
 
     private void DiagnosticsButton_Click(object sender, RoutedEventArgs e) =>
         DiagnosticsRequested?.Invoke(this, EventArgs.Empty);
+
+    private void HardwareCapabilityRefreshButton_Click(object sender, RoutedEventArgs e) =>
+        HardwareCapabilityRefreshRequested?.Invoke(this, EventArgs.Empty);
+
+    private static string DescribeTier(HardwareCapabilityTier tier) => tier switch
+    {
+        HardwareCapabilityTier.Basic => "Básico",
+        HardwareCapabilityTier.Standard => "Estándar",
+        HardwareCapabilityTier.Accelerated => "Acelerado",
+        HardwareCapabilityTier.HighPerformance => "Alto rendimiento",
+        _ => "Desconocido"
+    };
+
+    private static string FormatArchitecture(ProcessorCapability processor)
+    {
+        if (string.IsNullOrWhiteSpace(processor.OperatingSystemArchitecture))
+        {
+            return "No disponible";
+        }
+
+        if (!string.IsNullOrWhiteSpace(processor.ProcessArchitecture) &&
+            processor.ProcessArchitecture != processor.OperatingSystemArchitecture)
+        {
+            return $"{processor.OperatingSystemArchitecture} (proceso: {processor.ProcessArchitecture})";
+        }
+
+        return processor.OperatingSystemArchitecture;
+    }
+
+    private static string FormatCount(int? value) =>
+        value.HasValue ? value.Value.ToString(CultureInfo.InvariantCulture) : "?";
 
     private static string FormatPercentage(double? value) =>
         value.HasValue ? $"{value.Value:0}%" : "—";

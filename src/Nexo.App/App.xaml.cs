@@ -58,7 +58,8 @@ public partial class App : System.Windows.Application
             _compositionRoot.AiChatService,
             _compositionRoot.AudioMixerService,
             _compositionRoot.ScreenCaptureService,
-            _compositionRoot.VoiceCoordinator);
+            _compositionRoot.VoiceCoordinator,
+            _compositionRoot.HardwareCapabilityService);
         MainWindow = mainWindow;
 
         _singleInstance.ActivationRequested += (_, _) =>

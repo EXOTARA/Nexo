@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
 using Nexo.Core.Diagnostics;
+using Nexo.Core.Hardware;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
 using Nexo.Windows.Diagnostics;
@@ -21,6 +22,7 @@ public partial class DiagnosticsWindow : Window
     private readonly bool _wakeWordListening;
     private readonly bool _trayActive;
     private readonly bool _startupEnabled;
+    private readonly IHardwareCapabilityService _hardwareCapabilityService;
     private readonly NexoDiagnosticService _diagnosticService = new();
     private readonly ObservableCollection<DiagnosticItemRow> _items = [];
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -33,7 +35,8 @@ public partial class DiagnosticsWindow : Window
         bool wakeWordReady,
         bool wakeWordListening,
         bool trayActive,
-        bool startupEnabled)
+        bool startupEnabled,
+        IHardwareCapabilityService hardwareCapabilityService)
     {
         InitializeComponent();
         _preferences = preferences;
@@ -43,6 +46,8 @@ public partial class DiagnosticsWindow : Window
         _wakeWordListening = wakeWordListening;
         _trayActive = trayActive;
         _startupEnabled = startupEnabled;
+        _hardwareCapabilityService = hardwareCapabilityService
+            ?? throw new ArgumentNullException(nameof(hardwareCapabilityService));
         ItemsControl.ItemsSource = _items;
     }
 
@@ -75,6 +80,8 @@ public partial class DiagnosticsWindow : Window
                     ResolveStatusBrush(item.Status)));
             }
 
+            AddHardwareCapabilityRows();
+
             var warnings = _snapshot.Items.Count(item =>
                 item.Status is DiagnosticStatus.Warning or DiagnosticStatus.Unavailable);
             SummaryText.Text = warnings == 0
@@ -86,6 +93,71 @@ public partial class DiagnosticsWindow : Window
             SummaryText.Text = $"No pude completar el diagnóstico: {exception.Message}";
         }
     }
+
+    private void AddHardwareCapabilityRows()
+    {
+        var profile = _hardwareCapabilityService.GetCachedProfile();
+        var snapshot = profile.Snapshot;
+
+        _items.Add(new DiagnosticItemRow(
+            "Capacidad de hardware",
+            $"Nivel: {profile.Tier} · Confianza: {profile.OverallConfidence} · " +
+            $"Detectado: {(snapshot.CapturedAt == DateTimeOffset.MinValue ? "aún no" : snapshot.CapturedAt.ToString("g"))} · " +
+            $"Origen: {(snapshot.WasCached ? "caché" : "detección reciente")}",
+            ResolveStatusBrush(profile.HasCompleteData ? DiagnosticStatus.Ready : DiagnosticStatus.Information)));
+
+        _items.Add(new DiagnosticItemRow(
+            "CPU detectado",
+            $"Nombre: {snapshot.Processor.Name ?? "desconocido"} · Fabricante: {snapshot.Processor.Vendor ?? "desconocido"} · " +
+            $"Núcleos físicos: {FormatNumber(snapshot.Processor.PhysicalCores)} · " +
+            $"Procesadores lógicos: {FormatNumber(snapshot.Processor.LogicalProcessors)}",
+            ResolveStatusBrush(DiagnosticStatus.Information)));
+
+        _items.Add(new DiagnosticItemRow(
+            "RAM detectada",
+            snapshot.Memory.TotalPhysicalBytes.HasValue
+                ? $"{snapshot.Memory.TotalPhysicalBytes.Value / (1024d * 1024 * 1024):0.0} GB"
+                : "Desconocida",
+            ResolveStatusBrush(DiagnosticStatus.Information)));
+
+        if (snapshot.GraphicsAdapters.Count == 0)
+        {
+            _items.Add(new DiagnosticItemRow(
+                "GPU",
+                "No se detectó ninguna GPU.",
+                ResolveStatusBrush(DiagnosticStatus.Warning)));
+        }
+        else
+        {
+            foreach (var adapter in snapshot.GraphicsAdapters)
+            {
+                var dedicated = adapter.IsDedicated switch
+                {
+                    true => "sí",
+                    false => "no",
+                    null => "desconocido"
+                };
+                var vram = adapter.DedicatedMemoryBytes.HasValue
+                    ? $"{adapter.DedicatedMemoryBytes.Value / (1024d * 1024 * 1024):0.0} GB"
+                    : "desconocida";
+
+                _items.Add(new DiagnosticItemRow(
+                    $"GPU: {adapter.Name ?? "desconocida"}",
+                    $"Dedicada: {dedicated} · Memoria dedicada: {vram}",
+                    ResolveStatusBrush(DiagnosticStatus.Information)));
+            }
+        }
+
+        if (profile.MissingData.Count > 0)
+        {
+            _items.Add(new DiagnosticItemRow(
+                "Datos de hardware incompletos",
+                string.Join(" · ", profile.MissingData.Select(reason => reason.Message)),
+                ResolveStatusBrush(DiagnosticStatus.Warning)));
+        }
+    }
+
+    private static string FormatNumber(int? value) => value?.ToString() ?? "desconocido";
 
     private void CopyButton_Click(object sender, RoutedEventArgs e)
     {

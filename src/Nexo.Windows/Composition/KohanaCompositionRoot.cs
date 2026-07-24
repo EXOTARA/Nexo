@@ -1,10 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Nexo.Core.Ai;
 using Nexo.Core.Audio;
+using Nexo.Core.Hardware;
 using Nexo.Core.Vision;
 using Nexo.Core.Voice;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Audio;
+using Nexo.Windows.Hardware;
 using Nexo.Windows.Vision;
 using Nexo.Windows.Voice;
 
@@ -36,6 +38,7 @@ public sealed class KohanaCompositionRoot : IDisposable
     public IVoiceOutputService VoiceOutputService { get; }
     public IWakeWordService WakeWordService { get; }
     public IScreenCaptureService ScreenCaptureService { get; }
+    public IHardwareCapabilityService HardwareCapabilityService { get; }
 
     /// <summary>
     /// Único punto de acceso al subsistema de voz para la capa de aplicación: <c>MainWindow</c>
@@ -58,6 +61,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         var voiceOutputService = new WindowsTextToSpeechService();
         var wakeWordService = new VoskWakeWordService();
         var screenCaptureService = new WindowsScreenCaptureService();
+        var hardwareCapabilityService = new WindowsHardwareCapabilityService();
         var voiceCoordinator = new VoiceCoordinator(voiceInputService, voiceOutputService, wakeWordService);
 
         var services = new ServiceCollection();
@@ -72,6 +76,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         services.AddSingleton<IVoiceOutputService>(voiceOutputService);
         services.AddSingleton<IWakeWordService>(wakeWordService);
         services.AddSingleton<IScreenCaptureService>(screenCaptureService);
+        services.AddSingleton<IHardwareCapabilityService>(hardwareCapabilityService);
         services.AddSingleton(voiceCoordinator);
 
         Provider = services.BuildServiceProvider();
@@ -84,6 +89,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         VoiceOutputService = Provider.GetRequiredService<IVoiceOutputService>();
         WakeWordService = Provider.GetRequiredService<IWakeWordService>();
         ScreenCaptureService = Provider.GetRequiredService<IScreenCaptureService>();
+        HardwareCapabilityService = Provider.GetRequiredService<IHardwareCapabilityService>();
         VoiceCoordinator = Provider.GetRequiredService<VoiceCoordinator>();
     }
 
