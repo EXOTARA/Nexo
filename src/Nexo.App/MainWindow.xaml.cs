@@ -217,7 +217,7 @@ public partial class MainWindow : Window
         _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
         _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
         _wakeWordService.RecognitionObserved += WakeWordService_RecognitionObserved;
-        _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
+        _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _captureView.CaptureRequested += CaptureView_CaptureRequested;
         _commandPaletteWindow.PromptSubmitted += CommandPaletteWindow_PromptSubmitted;
@@ -241,7 +241,7 @@ public partial class MainWindow : Window
         _settingsView.ApplyPreferences(_preferences);
         UpdateAiProviderStatus();
         ApplyPreferences();
-        _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
+        _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
         NavigateTo(ShellNavigationPolicy.DefaultDestination, animate: false);
@@ -356,7 +356,7 @@ public partial class MainWindow : Window
             _preferences.SpeakVoiceResponses = enabled;
             if (!enabled)
             {
-                _voiceOutputService.Stop();
+                _voiceCoordinator.StopSpeaking();
             }
 
             SavePreferences();
@@ -387,7 +387,7 @@ public partial class MainWindow : Window
         _settingsView.WakeWordSensitivityChanged += sensitivity =>
         {
             _preferences.WakeWordSensitivity = sensitivity;
-            _wakeWordService.Sensitivity = sensitivity;
+            _voiceCoordinator.WakeWordSensitivity = sensitivity;
             SavePreferences();
             if (_preferences.WakeWordEnabled)
             {
@@ -560,10 +560,10 @@ public partial class MainWindow : Window
     {
         var window = new DiagnosticsWindow(
             _preferences,
-            _voiceInputService.GetInputDevices(),
-            _voiceInputService.IsReady,
-            _wakeWordService.IsReady,
-            _wakeWordService.IsListening,
+            _voiceCoordinator.GetInputDevices(),
+            _voiceCoordinator.IsVoiceInputReady,
+            _voiceCoordinator.IsWakeWordReady,
+            _voiceCoordinator.IsWakeWordListening,
             trayActive: true,
             _startupService.IsEnabled())
         {
@@ -575,7 +575,7 @@ public partial class MainWindow : Window
     private async Task ShowOnboardingAsync()
     {
         await PauseWakeWordAsync();
-        _voiceOutputService.Stop();
+        _voiceCoordinator.StopSpeaking();
 
         var window = new OnboardingWindow(_preferences, _settingsStore)
         {
@@ -2207,7 +2207,7 @@ public partial class MainWindow : Window
             $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” con voz natural.",
             _preferences.Position);
 
-        if (!_wakeWordService.IsListening)
+        if (!_voiceCoordinator.IsWakeWordListening)
         {
             await ApplyWakeWordPreferenceAsync(showCapsule: false);
         }
@@ -2256,7 +2256,7 @@ public partial class MainWindow : Window
 
         _preferences.WakeWordAliases.Add(alias);
         _preferences.WakeWordAliases = WakeWordAliasPolicy.NormalizeMany(_preferences.WakeWordAliases);
-        _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
+        _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
         SavePreferences();
         _settingsView.SetWakeWordAliases(_preferences.WakeWordAliases);
         _settingsView.SetWakeWordTestStatus($"Alias “{alias}” guardado.", isSuccess: true);
@@ -2266,7 +2266,7 @@ public partial class MainWindow : Window
     private async Task ClearWakeWordAliasesAsync()
     {
         _preferences.WakeWordAliases.Clear();
-        _wakeWordService.CustomAliases = [];
+        _voiceCoordinator.WakeWordCustomAliases = [];
         SavePreferences();
         _settingsView.SetWakeWordAliases(_preferences.WakeWordAliases);
         _settingsView.SetWakeWordTestStatus("Aliases personales eliminados.", isSuccess: true);
@@ -2288,9 +2288,9 @@ public partial class MainWindow : Window
         await PauseWakeWordAsync();
         await ApplyWakeWordPreferenceAsync(showCapsule: false);
         _capsuleWindow.ShowMessage(
-            _wakeWordService.IsListening ? CapsuleKind.Success : CapsuleKind.Warning,
-            _wakeWordService.IsListening ? "Voz reiniciada" : "Voz no disponible",
-            _wakeWordService.IsListening
+            _voiceCoordinator.IsWakeWordListening ? CapsuleKind.Success : CapsuleKind.Warning,
+            _voiceCoordinator.IsWakeWordListening ? "Voz reiniciada" : "Voz no disponible",
+            _voiceCoordinator.IsWakeWordListening
                 ? $"Esperando “{_preferences.WakeWordPhrase.ToSpokenText()}”."
                 : "Revisa el micrófono y el diagnóstico.",
             _preferences.Position);
@@ -3377,7 +3377,7 @@ public partial class MainWindow : Window
     {
         if (_voicePromptActive && _preferences.SpeakVoiceResponses)
         {
-            _voiceOutputService.SpeakShort(text);
+            _voiceCoordinator.Speak(text);
         }
     }
 
@@ -3623,7 +3623,7 @@ public partial class MainWindow : Window
         Width = _preferences.Width;
         ApplyShellOpacity();
         ApplyAccent(_preferences.AccentColor);
-        _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
+        _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
         ApplyModuleVisibility();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
     }
@@ -3840,7 +3840,7 @@ public partial class MainWindow : Window
 
             if (shouldPauseWakeWord)
             {
-                if (_wakeWordService.IsListening)
+                if (_voiceCoordinator.IsWakeWordListening)
                 {
                     await PauseWakeWordAsync();
                 }
@@ -3882,9 +3882,9 @@ public partial class MainWindow : Window
     private void RefreshRuntimeDashboard()
     {
         _systemView.UpdateRuntimeStatus(
-            _voiceInputService.IsReady,
+            _voiceCoordinator.IsVoiceInputReady,
             _preferences.WakeWordEnabled,
-            _wakeWordService.IsListening,
+            _voiceCoordinator.IsWakeWordListening,
             _preferences.VisionEnabled,
             _runtimeAiStatus,
             _runtimeAiHealthy,
@@ -3912,7 +3912,7 @@ public partial class MainWindow : Window
 
         if (fromVoice)
         {
-            _voiceOutputService.SpeakShort(detail);
+            _voiceCoordinator.Speak(detail);
         }
     }
 
