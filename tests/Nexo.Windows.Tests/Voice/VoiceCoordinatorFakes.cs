@@ -108,6 +108,11 @@ internal sealed class FakeVoiceInputService : IVoiceInputService
                 await BeforeStartListeningReturns().ConfigureAwait(false);
             }
 
+            // Segunda comprobación tras el gancho controlable: permite simular
+            // cancelación real mientras la llamada está en vuelo dentro del servicio,
+            // no solo cancelación previa a la llamada.
+            cancellationToken.ThrowIfCancellationRequested();
+
             IsListening = true;
             return StartResult;
         }
