@@ -78,7 +78,13 @@ public partial class MainWindow : Window
     private readonly IScreenCaptureService _screenCaptureService;
     private readonly VoiceCoordinator _voiceCoordinator;
     private readonly SemaphoreSlim _aiGate = new(1, 1);
-    private readonly SemaphoreSlim _resourceGovernorVoiceGate = new(1, 1);
+
+    // Serializa las DECISIONES del Resource Governor (pausar/reanudar wake word según el
+    // modo de recursos y la bandera _resourceGovernorWakeWordPaused), no el acceso físico
+    // a Vosk: las operaciones reales del motor pasan después por el ámbito de wake word
+    // del coordinador (vía PauseWakeWordAsync/ApplyWakeWordPreferenceAsync). No es un
+    // candado del subsistema de voz; por eso permanece en MainWindow tras la fase 1.3B3.
+    private readonly SemaphoreSlim _resourceGovernorDecisionGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly WindowsResourceGovernorService _resourceGovernorService = new();
@@ -3811,7 +3817,7 @@ public partial class MainWindow : Window
             }
         }
 
-        await _resourceGovernorVoiceGate.WaitAsync();
+        await _resourceGovernorDecisionGate.WaitAsync();
         try
         {
             var shouldPauseWakeWord =
@@ -3836,7 +3842,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            _resourceGovernorVoiceGate.Release();
+            _resourceGovernorDecisionGate.Release();
         }
     }
 

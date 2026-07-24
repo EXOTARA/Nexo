@@ -454,6 +454,32 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
+    public void ResourceGovernorSemaphore_IsNamedAsADecisionGate_NotAVoiceEngineGate()
+    {
+        // Fase 1.3B3: el semáforo del Resource Governor serializa decisiones (pausar /
+        // reanudar wake word), no el motor. Se renombró para que su nombre no sugiera
+        // falsamente que es un candado de voz; el acceso real a Vosk sigue pasando por el
+        // ámbito de wake word del coordinador.
+        var content = ReadMainWindowSource();
+
+        Assert.Contains(
+            "private readonly SemaphoreSlim _resourceGovernorDecisionGate = new(1, 1);",
+            content,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("_resourceGovernorVoiceGate", content, StringComparison.Ordinal);
+
+        // La rama del governor que pausa Vosk lo hace a través del método de MainWindow
+        // que adquiere el ámbito de wake word, no tocando el servicio directamente.
+        var body = ExtractMethodBody(
+            content,
+            "await _resourceGovernorDecisionGate.WaitAsync();",
+            "private void UpdateResourceModeIndicator(");
+        Assert.Contains("await PauseWakeWordAsync();", body, StringComparison.Ordinal);
+        Assert.Contains("await ResumeWakeWordIfEnabledAsync();", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_wakeWordService", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VoiceCoordinator_ExternallyCoordinatedOperationsDoNotTouchTheInternalGates()
     {
         // Cada operación …UnderExternalCoordinationAsync es un miembro con cuerpo de
