@@ -493,61 +493,41 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
-    public void VoiceCoordinator_ExternallyCoordinatedOperationsDoNotTouchTheInternalGates()
+    public void VoiceCoordinator_GatesAreTouchedOnlyByTheScopeAcquireAndDispose()
     {
-        // Cada operación …UnderExternalCoordinationAsync es un miembro con cuerpo de
-        // expresión. Se extrae exactamente desde su firma hasta el `;` que la cierra —
-        // no hasta el miembro siguiente — para no incluir el XML-doc del método
-        // posterior, que sí menciona los candados al documentar que no los usa.
+        // Diseño final: los dos semáforos solo se adquieren en los métodos Acquire…ScopeAsync
+        // y solo se liberan en el DisposeAsync de los ámbitos. Ninguna otra ruta toca
+        // WaitAsync/Release, de modo que las operaciones delegadas del ámbito no crean un
+        // segundo punto de sincronización.
         var content = ReadVoiceCoordinatorSource();
 
-        string[] signatures =
-        [
-            "public Task<VoiceStartResult> StartVoiceInputUnderExternalCoordinationAsync",
-            "public Task<VoiceRecognitionResult> StopVoiceInputUnderExternalCoordinationAsync",
-            "public Task CancelVoiceInputUnderExternalCoordinationAsync",
-            "public Task<VoiceRecognitionResult> ListenForUtteranceUnderExternalCoordinationAsync",
-            "public Task<VoiceStartResult> StartWakeWordUnderExternalCoordinationAsync",
-            "public Task StopWakeWordUnderExternalCoordinationAsync"
-        ];
+        Assert.Equal(2, CountOccurrences(content, ".WaitAsync("));
+        Assert.Equal(2, CountOccurrences(content, ".Release();"));
 
-        foreach (var signature in signatures)
-        {
-            var body = ExtractExpressionBodiedMember(content, signature);
-            Assert.DoesNotContain("_voiceGate", body, StringComparison.Ordinal);
-            Assert.DoesNotContain("_wakeWordGate", body, StringComparison.Ordinal);
-            Assert.DoesNotContain("WaitAsync", body, StringComparison.Ordinal);
-            Assert.DoesNotContain("Release()", body, StringComparison.Ordinal);
-        }
+        // Cada WaitAsync pertenece a un Acquire…ScopeAsync (voz y wake word).
+        Assert.Contains("await _voiceGate.WaitAsync(cancellationToken)", content, StringComparison.Ordinal);
+        Assert.Contains("await _wakeWordGate.WaitAsync(cancellationToken)", content, StringComparison.Ordinal);
+        Assert.Contains("_owner._voiceGate.Release();", content, StringComparison.Ordinal);
+        Assert.Contains("_owner._wakeWordGate.Release();", content, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void VoiceCoordinator_PrivateGateHelperUsesTheDisambiguatedName()
+    public void VoiceCoordinator_NoLongerExposesTheTransitionalOrCompoundApi()
     {
-        // El sufijo "Core" quedó prohibido por ambigüedad: el helper privado SÍ adquiere
-        // el candado, mientras que las operaciones nuevas NO lo hacen.
+        // Fase 1.3B3: retirada la API de transición (…UnderExternalCoordinationAsync) y los
+        // métodos compuestos con candado interno (push-to-talk, wake word) junto con su
+        // helper privado. El único mecanismo público de exclusión son los ámbitos.
         var content = ReadVoiceCoordinatorSource();
 
-        Assert.Contains(
-            "private async Task StopWakeWordWithinCoordinatorGateAsync()",
-            content,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain("StopWakeWordCoreAsync", content, StringComparison.Ordinal);
-    }
+        Assert.DoesNotContain("UnderExternalCoordinationAsync", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("StopWakeWordWithinCoordinatorGateAsync", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartPushToTalkAsync", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("StopPushToTalkAsync", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("CancelPushToTalkAsync", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("ListenAfterWakeWordAsync", content, StringComparison.Ordinal);
 
-    /// <summary>
-    /// Devuelve la declaración de un miembro con cuerpo de expresión, desde su firma
-    /// hasta el `;` que lo termina. Estos miembros no contienen `;` en su lista de
-    /// parámetros, así que el primer `;` posterior a la firma cierra siempre el cuerpo.
-    /// </summary>
-    private static string ExtractExpressionBodiedMember(string content, string signature)
-    {
-        var start = content.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"No se encontró '{signature}' en el archivo.");
-
-        var end = content.IndexOf(';', start);
-        Assert.True(end > start, $"No se encontró el final del cuerpo de '{signature}'.");
-        return content[start..(end + 1)];
+        Assert.Contains("public async Task<IVoiceInputScope> AcquireVoiceInputScopeAsync(", content, StringComparison.Ordinal);
+        Assert.Contains("public async Task<IWakeWordScope> AcquireWakeWordScopeAsync(", content, StringComparison.Ordinal);
     }
 
     /// <summary>

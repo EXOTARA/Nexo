@@ -105,113 +105,93 @@ public sealed class VoiceCoordinatorTests
         Assert.Equal(0, callCount);
     }
 
-    // ---------- Orden de operaciones y de candados ----------
+    // ---------- Ámbito de entrada de voz: delegación exacta ----------
 
     [Fact]
-    public async Task StartPushToTalkAsync_StopsWakeWordAndTtsBeforeStartingListening()
-    {
-        var (coordinator, log, _, _, _) = CreateCoordinator();
-
-        await coordinator.StartPushToTalkAsync();
-
-        Assert.Equal(
-            ["wakeWord.stopListening", "voiceOutput.stop", "voiceInput.startListening"],
-            log.Entries);
-    }
-
-    [Fact]
-    public async Task ListenAfterWakeWordAsync_StopsWakeWordAndTtsBeforeListening()
-    {
-        var (coordinator, log, _, _, _) = CreateCoordinator();
-
-        await coordinator.ListenAfterWakeWordAsync(
-            TimeSpan.FromSeconds(20),
-            TimeSpan.FromMilliseconds(1_500));
-
-        Assert.Equal(
-            ["wakeWord.stopListening", "voiceOutput.stop", "voiceInput.listenForUtterance"],
-            log.Entries);
-    }
-
-    [Fact]
-    public async Task PrepareThenStartPushToTalk_RunsInTheOrderTheCallerChose()
+    public async Task VoiceInputScope_DelegatesEveryOperationExactlyOnceWithItsArguments()
     {
         var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
+        using var startCts = new CancellationTokenSource();
+        using var stopCts = new CancellationTokenSource();
+        using var listenCts = new CancellationTokenSource();
+        var maximumDuration = TimeSpan.FromSeconds(17);
+        var trailingSilence = TimeSpan.FromMilliseconds(1_234);
+        var preRoll = new byte[] { 1, 2, 3 };
+        var postWake = new byte[] { 4, 5 };
 
-        await coordinator.PrepareVoiceInputAsync();
-        await coordinator.StartPushToTalkAsync();
+        await using (var scope = await coordinator.AcquireVoiceInputScopeAsync())
+        {
+            var startResult = await scope.StartListeningAsync(startCts.Token);
+            var listenResult = await scope.ListenForUtteranceAsync(
+                maximumDuration, trailingSilence, preRoll, postWake, listenCts.Token);
+            var stopResult = await scope.StopListeningAsync(stopCts.Token);
+            await scope.CancelAsync();
 
-        Assert.Equal(1, voiceInput.PrepareCallCount);
+            Assert.Same(voiceInput.StartResult, startResult);
+            Assert.Same(voiceInput.ListenResult, listenResult);
+            Assert.Same(voiceInput.StopResult, stopResult);
+        }
+
         Assert.Equal(1, voiceInput.StartListeningCallCount);
+        Assert.Equal(1, voiceInput.ListenForUtteranceCallCount);
+        Assert.Equal(1, voiceInput.StopListeningCallCount);
+        Assert.Equal(1, voiceInput.CancelCallCount);
+        Assert.Equal(startCts.Token, voiceInput.LastStartListeningToken);
+        Assert.Equal(stopCts.Token, voiceInput.LastStopListeningToken);
+        Assert.Equal(listenCts.Token, voiceInput.LastListenForUtteranceToken);
+        Assert.Equal(maximumDuration, voiceInput.LastMaximumDuration);
+        Assert.Equal(trailingSilence, voiceInput.LastTrailingSilence);
+        Assert.Equal(preRoll, voiceInput.LastInitialPcmAudio.ToArray());
+        Assert.Equal(postWake, voiceInput.LastInitialSpeechPcmAudio.ToArray());
+
+        // El coordinador no añade pasos: ni pausa wake word, ni detiene TTS.
         Assert.Equal(
-            ["voiceInput.prepare", "wakeWord.stopListening", "voiceOutput.stop", "voiceInput.startListening"],
+            ["voiceInput.startListening", "voiceInput.listenForUtterance", "voiceInput.stopListening", "voiceInput.cancel"],
             log.Entries);
     }
 
     [Fact]
-    public async Task StopWakeWordAsync_ThenStartWakeWordAsync_ResumesSuccessfully()
+    public async Task WakeWordScope_DelegatesEveryOperationExactlyOnceWithItsArguments()
     {
-        var (coordinator, _, _, _, wakeWord) = CreateCoordinator();
+        var (coordinator, log, _, _, wakeWord) = CreateCoordinator();
+        using var startCts = new CancellationTokenSource();
 
-        await coordinator.StartWakeWordAsync(WakeWordPhrase.OyeKohana);
-        Assert.True(coordinator.IsWakeWordListening);
+        await using (var scope = await coordinator.AcquireWakeWordScopeAsync())
+        {
+            var startResult = await scope.StartListeningAsync(WakeWordPhrase.HeyKohana, startCts.Token);
+            await scope.StopListeningAsync();
 
-        await coordinator.StopWakeWordAsync();
-        Assert.False(coordinator.IsWakeWordListening);
+            Assert.Same(wakeWord.StartResult, startResult);
+        }
 
-        var result = await coordinator.StartWakeWordAsync(WakeWordPhrase.OyeKohana);
-
-        Assert.True(result.IsAvailable);
-        Assert.True(coordinator.IsWakeWordListening);
-        Assert.Equal(2, wakeWord.StartListeningCallCount);
+        Assert.Equal(1, wakeWord.StartListeningCallCount);
         Assert.Equal(1, wakeWord.StopListeningCallCount);
+        Assert.Equal(WakeWordPhrase.HeyKohana, wakeWord.LastStartPhrase);
+        Assert.Equal(startCts.Token, wakeWord.LastStartListeningToken);
+        Assert.Equal(["wakeWord.startListening", "wakeWord.stopListening"], log.Entries);
     }
+
+    // ---------- Exclusión real: un solo dominio por servicio ----------
 
     [Fact]
-    public async Task PauseWakeWordAsync_IsTheSameMechanismAsStop()
+    public async Task TwoVoiceInputScopes_NeverOverlapInTheUnderlyingService()
     {
-        var (coordinator, _, _, _, wakeWord) = CreateCoordinator();
-        await coordinator.StartWakeWordAsync(WakeWordPhrase.Kohana);
-
-        await coordinator.PauseWakeWordAsync();
-
-        Assert.False(coordinator.IsWakeWordListening);
-        Assert.Equal(1, wakeWord.StopListeningCallCount);
-    }
-
-    [Fact(Timeout = 5000)]
-    public async Task ConcurrentStartWakeWordAndPushToTalk_DoNotDeadlock()
-    {
-        // El candado de voz envuelve al de wake word (nunca al revés); una llamada a
-        // StartWakeWordAsync concurrente con StartPushToTalkAsync solo debe serializarse
-        // en el candado de wake word, sin interbloqueo. Sin Task.Delay: si hay
-        // interbloqueo, el límite de tiempo del propio [Fact] falla la prueba.
-        var (coordinator, _, _, _, _) = CreateCoordinator();
-
-        var pushToTalk = coordinator.StartPushToTalkAsync();
-        var wakeWordStart = coordinator.StartWakeWordAsync(WakeWordPhrase.OyeKohana);
-
-        await Task.WhenAll(pushToTalk, wakeWordStart);
-
-        Assert.True(pushToTalk.IsCompletedSuccessfully && wakeWordStart.IsCompletedSuccessfully);
-    }
-
-    // ---------- Evitar escuchas simultáneas ----------
-
-    [Fact]
-    public async Task TwoSimultaneousPushToTalkCalls_NeverOverlapInTheUnderlyingService()
-    {
+        // El único candado de entrada de voz serializa dos ámbitos concurrentes: mientras
+        // el primero retiene el servicio (bloqueado en `release`), el segundo no puede
+        // siquiera adquirir el ámbito. Determinista, sin sleeps.
         var (coordinator, _, voiceInput, _, _) = CreateCoordinator();
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         voiceInput.BeforeStartListeningReturns = () => release.Task;
 
-        var first = coordinator.StartPushToTalkAsync();
-        var second = coordinator.StartPushToTalkAsync();
+        async Task RunUnderScope()
+        {
+            await using var scope = await coordinator.AcquireVoiceInputScopeAsync();
+            await scope.StartListeningAsync();
+        }
 
-        // Sin ningún sleep: en el momento en que ambas llamadas devuelven el control
-        // (justo después de suspenderse en sus respectivos `await`), ninguna puede
-        // haber terminado — la primera está retenida por `release` dentro del propio
-        // servicio, y la segunda sigue esperando el candado de voz que la primera tiene.
+        var first = RunUnderScope();
+        var second = RunUnderScope();
+
         Assert.False(first.IsCompleted);
         Assert.False(second.IsCompleted);
 
@@ -222,45 +202,107 @@ public sealed class VoiceCoordinatorTests
         Assert.Equal(2, voiceInput.StartListeningCallCount);
     }
 
+    [Fact]
+    public async Task AcquireVoiceInputScope_BlocksASecondAcquisitionUntilTheFirstIsDisposed()
+    {
+        var (coordinator, _, _, _, _) = CreateCoordinator();
+
+        var first = await coordinator.AcquireVoiceInputScopeAsync();
+        var second = coordinator.AcquireVoiceInputScopeAsync();
+        Assert.False(second.IsCompleted);
+
+        await first.DisposeAsync();
+        var secondScope = await second;
+        Assert.NotNull(secondScope);
+        await secondScope.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task VoiceAndWakeWordScopes_AreIndependentDomains()
+    {
+        // Adquirir el ámbito de voz no impide adquirir el de wake word: son dos dominios
+        // distintos, y el orden voz→wake word se puede anidar sin interbloqueo.
+        var (coordinator, _, _, _, _) = CreateCoordinator();
+
+        await using var voiceScope = await coordinator.AcquireVoiceInputScopeAsync();
+        var wakeWordAcquisition = coordinator.AcquireWakeWordScopeAsync();
+
+        Assert.True(wakeWordAcquisition.IsCompleted);
+        await using var wakeWordScope = await wakeWordAcquisition;
+        Assert.NotNull(wakeWordScope);
+    }
+
+    [Fact(Timeout = 5000)]
+    public async Task NestedVoiceThenWakeWordScopes_DoNotDeadlock()
+    {
+        var (coordinator, _, _, _, _) = CreateCoordinator();
+
+        await using var voiceScope = await coordinator.AcquireVoiceInputScopeAsync();
+        await voiceScope.StartListeningAsync();
+        await using (var wakeWordScope = await coordinator.AcquireWakeWordScopeAsync())
+        {
+            await wakeWordScope.StopListeningAsync();
+        }
+
+        Assert.True(coordinator.IsVoiceInputListening);
+    }
+
+    // ---------- Liberación exacta del ámbito ----------
+
+    [Fact]
+    public async Task DisposingAScopeTwice_ReleasesTheGateOnlyOnce()
+    {
+        // Si el DisposeAsync liberara dos veces, un tercer intento de adquirir dispararía
+        // SemaphoreFullException (o dejaría pasar dos titulares). Ninguna de las dos cosas
+        // debe ocurrir: doble Dispose es inocuo y la exclusión sigue intacta.
+        var (coordinator, _, _, _, _) = CreateCoordinator();
+
+        var scope = await coordinator.AcquireVoiceInputScopeAsync();
+        await scope.DisposeAsync();
+        var exception = await Record.ExceptionAsync(async () => await scope.DisposeAsync());
+        Assert.Null(exception);
+
+        // El candado quedó libre exactamente una vez: se puede readquirir, y una segunda
+        // adquisición concurrente sigue bloqueada (no hay dos permisos).
+        var reacquired = await coordinator.AcquireVoiceInputScopeAsync();
+        var blocked = coordinator.AcquireVoiceInputScopeAsync();
+        Assert.False(blocked.IsCompleted);
+
+        await reacquired.DisposeAsync();
+        await (await blocked).DisposeAsync();
+    }
+
     // ---------- Cancelación ----------
 
     [Fact]
-    public async Task StartPushToTalkAsync_PreCancelledToken_NeverCallsTheUnderlyingServices()
+    public async Task AcquireVoiceInputScope_PreCancelledToken_ThrowsAndDoesNotHoldTheGate()
     {
-        var (coordinator, _, voiceInput, voiceOutput, wakeWord) = CreateCoordinator();
+        var (coordinator, _, _, _, _) = CreateCoordinator();
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => coordinator.StartPushToTalkAsync(cts.Token));
+            () => coordinator.AcquireVoiceInputScopeAsync(cts.Token));
 
-        Assert.Equal(0, voiceInput.StartListeningCallCount);
-        Assert.Equal(0, voiceOutput.StopCallCount);
-        Assert.Equal(0, wakeWord.StopListeningCallCount);
+        // El candado no quedó tomado: una adquisición posterior completa de inmediato.
+        var scope = coordinator.AcquireVoiceInputScopeAsync();
+        Assert.True(scope.IsCompleted);
+        await (await scope).DisposeAsync();
     }
 
     [Fact]
-    public async Task ListenAfterWakeWordAsync_CancelledMidway_DoesNotStartListening()
+    public async Task AcquireWakeWordScope_PreCancelledToken_ThrowsAndDoesNotHoldTheGate()
     {
-        var (coordinator, _, voiceInput, _, wakeWord) = CreateCoordinator();
+        var (coordinator, _, _, _, _) = CreateCoordinator();
         using var cts = new CancellationTokenSource();
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        wakeWord.BeforeStopListeningReturns = () => release.Task;
-
-        // En el momento en que esta llamada devuelve el control, ya está suspendida
-        // dentro de StopListeningAsync (retenida por `release`): es un punto de
-        // cancelación real a mitad de operación, sin ningún Task.Delay.
-        var task = coordinator.ListenAfterWakeWordAsync(
-            TimeSpan.FromSeconds(20),
-            TimeSpan.FromMilliseconds(1_500),
-            cancellationToken: cts.Token);
-        Assert.False(task.IsCompleted);
-
         await cts.CancelAsync();
-        release.SetResult();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
-        Assert.Equal(0, voiceInput.ListenForUtteranceCallCount);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => coordinator.AcquireWakeWordScopeAsync(cts.Token));
+
+        var scope = coordinator.AcquireWakeWordScopeAsync();
+        Assert.True(scope.IsCompleted);
+        await (await scope).DisposeAsync();
     }
 
     // ---------- Propiedad y liberación ----------
@@ -269,7 +311,10 @@ public sealed class VoiceCoordinatorTests
     public async Task Dispose_DoesNotDisposeTheUnderlyingServices()
     {
         var (coordinator, _, voiceInput, voiceOutput, wakeWord) = CreateCoordinator();
-        await coordinator.StartWakeWordAsync(WakeWordPhrase.OyeKohana);
+        await using (var scope = await coordinator.AcquireWakeWordScopeAsync())
+        {
+            await scope.StartListeningAsync(WakeWordPhrase.OyeKohana);
+        }
 
         coordinator.Dispose();
 
@@ -290,155 +335,5 @@ public sealed class VoiceCoordinatorTests
         });
 
         Assert.Null(exception);
-    }
-
-    // ---------- Fase 1.3B2A: operaciones bajo coordinación externa ----------
-    //
-    // Estas operaciones son delegaciones transparentes sin candado. Las pruebas
-    // verifican tres cosas: que delegan exactamente una vez, que preservan los
-    // argumentos tal cual, y que NO añaden ningún paso (ni pausa de wake word, ni Stop
-    // de TTS, ni preparación) que los métodos compuestos sí realizan.
-
-    [Fact]
-    public async Task StartVoiceInputUnderExternalCoordination_DelegatesExactlyOnce()
-    {
-        var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
-        using var cts = new CancellationTokenSource();
-
-        var result = await coordinator.StartVoiceInputUnderExternalCoordinationAsync(cts.Token);
-
-        Assert.Equal(1, voiceInput.StartListeningCallCount);
-        Assert.Same(voiceInput.StartResult, result);
-        Assert.Equal(cts.Token, voiceInput.LastStartListeningToken);
-        Assert.Equal(["voiceInput.startListening"], log.Entries);
-    }
-
-    [Fact]
-    public async Task StopVoiceInputUnderExternalCoordination_DelegatesExactlyOnce()
-    {
-        var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
-        using var cts = new CancellationTokenSource();
-
-        var result = await coordinator.StopVoiceInputUnderExternalCoordinationAsync(cts.Token);
-
-        Assert.Equal(1, voiceInput.StopListeningCallCount);
-        Assert.Same(voiceInput.StopResult, result);
-        Assert.Equal(cts.Token, voiceInput.LastStopListeningToken);
-        Assert.Equal(["voiceInput.stopListening"], log.Entries);
-    }
-
-    [Fact]
-    public async Task CancelVoiceInputUnderExternalCoordination_DelegatesExactlyOnce()
-    {
-        var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
-
-        await coordinator.CancelVoiceInputUnderExternalCoordinationAsync();
-
-        Assert.Equal(1, voiceInput.CancelCallCount);
-        Assert.Equal(["voiceInput.cancel"], log.Entries);
-    }
-
-    [Fact]
-    public async Task ListenForUtteranceUnderExternalCoordination_PreservesEveryArgument()
-    {
-        var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
-        using var cts = new CancellationTokenSource();
-        var maximumDuration = TimeSpan.FromSeconds(17);
-        var trailingSilence = TimeSpan.FromMilliseconds(1_234);
-        var preRoll = new byte[] { 1, 2, 3 };
-        var postWake = new byte[] { 4, 5 };
-
-        var result = await coordinator.ListenForUtteranceUnderExternalCoordinationAsync(
-            maximumDuration,
-            trailingSilence,
-            preRoll,
-            postWake,
-            cts.Token);
-
-        Assert.Equal(1, voiceInput.ListenForUtteranceCallCount);
-        Assert.Same(voiceInput.ListenResult, result);
-        Assert.Equal(maximumDuration, voiceInput.LastMaximumDuration);
-        Assert.Equal(trailingSilence, voiceInput.LastTrailingSilence);
-        Assert.Equal(preRoll, voiceInput.LastInitialPcmAudio.ToArray());
-        Assert.Equal(postWake, voiceInput.LastInitialSpeechPcmAudio.ToArray());
-        Assert.Equal(cts.Token, voiceInput.LastListenForUtteranceToken);
-        Assert.Equal(["voiceInput.listenForUtterance"], log.Entries);
-    }
-
-    [Fact]
-    public async Task StartWakeWordUnderExternalCoordination_PreservesPhraseAndToken()
-    {
-        var (coordinator, log, _, _, wakeWord) = CreateCoordinator();
-        using var cts = new CancellationTokenSource();
-
-        var result = await coordinator.StartWakeWordUnderExternalCoordinationAsync(
-            WakeWordPhrase.HeyKohana,
-            cts.Token);
-
-        Assert.Equal(1, wakeWord.StartListeningCallCount);
-        Assert.Same(wakeWord.StartResult, result);
-        Assert.Equal(WakeWordPhrase.HeyKohana, wakeWord.LastStartPhrase);
-        Assert.Equal(cts.Token, wakeWord.LastStartListeningToken);
-        Assert.Equal(["wakeWord.startListening"], log.Entries);
-    }
-
-    [Fact]
-    public async Task StopWakeWordUnderExternalCoordination_DelegatesExactlyOnce()
-    {
-        var (coordinator, log, _, _, wakeWord) = CreateCoordinator();
-
-        await coordinator.StopWakeWordUnderExternalCoordinationAsync();
-
-        Assert.Equal(1, wakeWord.StopListeningCallCount);
-        Assert.Equal(["wakeWord.stopListening"], log.Entries);
-    }
-
-    [Fact]
-    public async Task ExternallyCoordinatedOperations_AddNoTtsStopNoWakeWordPauseNoPreparation()
-    {
-        // Contraste explícito con StartPushToTalkAsync/ListenAfterWakeWordAsync, que sí
-        // pausan wake word y detienen el TTS. Aquí esos pasos son responsabilidad del
-        // orquestador, así que el coordinador no debe ejecutarlos.
-        var (coordinator, log, voiceInput, voiceOutput, wakeWord) = CreateCoordinator();
-
-        await coordinator.StartVoiceInputUnderExternalCoordinationAsync();
-        await coordinator.StopVoiceInputUnderExternalCoordinationAsync();
-        await coordinator.ListenForUtteranceUnderExternalCoordinationAsync(
-            TimeSpan.FromSeconds(20),
-            TimeSpan.FromMilliseconds(1_500));
-
-        Assert.Equal(0, voiceOutput.StopCallCount);
-        Assert.Equal(0, wakeWord.StopListeningCallCount);
-        Assert.Equal(0, voiceInput.PrepareCallCount);
-        Assert.Equal(0, wakeWord.PrepareCallCount);
-        Assert.Equal(
-            ["voiceInput.startListening", "voiceInput.stopListening", "voiceInput.listenForUtterance"],
-            log.Entries);
-    }
-
-    [Fact]
-    public async Task ExternallyCoordinatedStart_IsNotSerializedByTheCoordinatorsInternalGates()
-    {
-        // Determinista sin sleeps: `StartListeningAsync` del fake incrementa su contador
-        // de concurrencia antes de suspenderse en el gancho. Al invocar dos veces de
-        // forma consecutiva, ambas llamadas llegan al fake antes de que ninguna termine
-        // — algo imposible con el compuesto StartPushToTalkAsync, cuya prueba
-        // TwoSimultaneousPushToTalkCalls_NeverOverlapInTheUnderlyingService exige que el
-        // máximo observado sea 1.
-        var (coordinator, _, voiceInput, _, _) = CreateCoordinator();
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        voiceInput.BeforeStartListeningReturns = () => release.Task;
-
-        var first = coordinator.StartVoiceInputUnderExternalCoordinationAsync();
-        var second = coordinator.StartVoiceInputUnderExternalCoordinationAsync();
-
-        Assert.False(first.IsCompleted);
-        Assert.False(second.IsCompleted);
-        Assert.Equal(2, voiceInput.MaxObservedConcurrentStartListeningCalls);
-
-        release.SetResult();
-        await Task.WhenAll(first, second);
-
-        Assert.Equal(2, voiceInput.StartListeningCallCount);
     }
 }
