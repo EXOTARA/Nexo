@@ -22,6 +22,7 @@ using Nexo.Core.Focus;
 using Nexo.Core.Metrics;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
+using Nexo.Core.Shell;
 using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
 using Nexo.Core.Vision;
@@ -69,16 +70,18 @@ public partial class MainWindow : Window
     private readonly SpanishTaskCommandParser _taskCommandParser = new();
     private readonly SpanishFocusCommandParser _focusCommandParser = new();
     private readonly SpanishRoutineCommandParser _routineCommandParser = new();
-    private readonly IAiChatService _aiChatService = new AiChatRouterService();
-    private readonly IAudioMixerService _audioMixerService = new WindowsAudioMixerService();
-    private readonly IVoiceInputService _voiceInputService = new WhisperVoiceInputService();
-    private readonly IVoiceOutputService _voiceOutputService = new WindowsTextToSpeechService();
-    private readonly IWakeWordService _wakeWordService = new VoskWakeWordService();
-    private readonly IScreenCaptureService _screenCaptureService = new WindowsScreenCaptureService();
-    private readonly SemaphoreSlim _voiceGate = new(1, 1);
-    private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
+    private readonly IAiChatService _aiChatService;
+    private readonly IAudioMixerService _audioMixerService;
+    private readonly IScreenCaptureService _screenCaptureService;
+    private readonly VoiceCoordinator _voiceCoordinator;
     private readonly SemaphoreSlim _aiGate = new(1, 1);
-    private readonly SemaphoreSlim _resourceGovernorVoiceGate = new(1, 1);
+
+    // Serializa las DECISIONES del Resource Governor (pausar/reanudar wake word según el
+    // modo de recursos y la bandera _resourceGovernorWakeWordPaused), no el acceso físico
+    // a Vosk: las operaciones reales del motor pasan después por el ámbito de wake word
+    // del coordinador (vía PauseWakeWordAsync/ApplyWakeWordPreferenceAsync). No es un
+    // candado del subsistema de voz; por eso permanece en MainWindow tras la fase 1.3B3.
+    private readonly SemaphoreSlim _resourceGovernorDecisionGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
     private readonly WindowsResourceGovernorService _resourceGovernorService = new();
@@ -136,10 +139,30 @@ public partial class MainWindow : Window
 
     public MainWindow(
         bool startHidden = false,
-        ManagedOllamaSupervisor? managedOllamaSupervisor = null)
+        ManagedOllamaSupervisor? managedOllamaSupervisor = null,
+        IAiChatService? aiChatService = null,
+        IAudioMixerService? audioMixerService = null,
+        IScreenCaptureService? screenCaptureService = null,
+        VoiceCoordinator? voiceCoordinator = null)
     {
         InitializeComponent();
         _commandPaletteWindow = new CommandPaletteWindow();
+
+        // Mismo orden relativo que los inicializadores de campo que sustituyen: se resuelven
+        // aquí, antes de cualquier otro campo dependiente y antes de cablear eventos, igual que
+        // ocurría cuando eran `= new ...()`. Los valores por defecto solo cubren la construcción
+        // directa en pruebas; App.OnStartup siempre los provee desde KohanaCompositionRoot.
+        _aiChatService = aiChatService ?? new AiChatRouterService();
+        _audioMixerService = audioMixerService ?? new WindowsAudioMixerService();
+        _screenCaptureService = screenCaptureService ?? new WindowsScreenCaptureService();
+
+        // Fase 1.3B3: el coordinador de voz es una dependencia obligatoria y el único
+        // punto de acceso al subsistema de voz. MainWindow ya no recibe ni construye los
+        // tres servicios (Whisper, TTS, Vosk): su propiedad y liberación viven en
+        // KohanaCompositionRoot. Construir MainWindow sin coordinador es un error de
+        // programación, no un caso a cubrir con un motor de repuesto sin liberar.
+        _voiceCoordinator = voiceCoordinator
+            ?? throw new ArgumentNullException(nameof(voiceCoordinator));
 
         _startHidden = startHidden;
         _managedOllamaSupervisor = managedOllamaSupervisor;
@@ -161,15 +184,15 @@ public partial class MainWindow : Window
         _audioView = new AudioView(_audioMixerService);
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Home"] = _homeView,
-            ["Assistant"] = _assistantView,
-            ["Tasks"] = _tasksView,
-            ["Focus"] = _focusView,
-            ["Routines"] = _routinesView,
-            ["Audio"] = _audioView,
-            ["Capture"] = _captureView,
-            ["System"] = _systemView,
-            ["Settings"] = _settingsView
+            [ShellNavigationPolicy.Home] = _homeView,
+            [ShellNavigationPolicy.Assistant] = _assistantView,
+            [ShellNavigationPolicy.Tasks] = _tasksView,
+            [ShellNavigationPolicy.Focus] = _focusView,
+            [ShellNavigationPolicy.Routines] = _routinesView,
+            [ShellNavigationPolicy.Audio] = _audioView,
+            [ShellNavigationPolicy.Capture] = _captureView,
+            [ShellNavigationPolicy.System] = _systemView,
+            [ShellNavigationPolicy.Settings] = _settingsView
         };
 
         _trayIcon = new TrayIconController(
@@ -187,9 +210,11 @@ public partial class MainWindow : Window
         _tasksView.TasksChanged += TasksView_TasksChanged;
         _focusView.FocusChanged += FocusView_FocusChanged;
         _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
-        _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
-        _wakeWordService.RecognitionObserved += WakeWordService_RecognitionObserved;
-        _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
+        // Los eventos de wake word se suscriben a través del coordinador (paso directo al
+        // servicio subyacente): MainWindow ya no necesita una referencia al servicio.
+        _voiceCoordinator.WakeWordDetected += WakeWordService_WakeWordDetected;
+        _voiceCoordinator.RecognitionObserved += WakeWordService_RecognitionObserved;
+        _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _captureView.CaptureRequested += CaptureView_CaptureRequested;
         _commandPaletteWindow.PromptSubmitted += CommandPaletteWindow_PromptSubmitted;
@@ -213,10 +238,10 @@ public partial class MainWindow : Window
         _settingsView.ApplyPreferences(_preferences);
         UpdateAiProviderStatus();
         ApplyPreferences();
-        _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
+        _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
-        NavigateTo("Home", animate: false);
+        NavigateTo(ShellNavigationPolicy.DefaultDestination, animate: false);
         SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
         UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
         RefreshRuntimeDashboard();
@@ -328,7 +353,7 @@ public partial class MainWindow : Window
             _preferences.SpeakVoiceResponses = enabled;
             if (!enabled)
             {
-                _voiceOutputService.Stop();
+                _voiceCoordinator.StopSpeaking();
             }
 
             SavePreferences();
@@ -359,7 +384,7 @@ public partial class MainWindow : Window
         _settingsView.WakeWordSensitivityChanged += sensitivity =>
         {
             _preferences.WakeWordSensitivity = sensitivity;
-            _wakeWordService.Sensitivity = sensitivity;
+            _voiceCoordinator.WakeWordSensitivity = sensitivity;
             SavePreferences();
             if (_preferences.WakeWordEnabled)
             {
@@ -532,10 +557,10 @@ public partial class MainWindow : Window
     {
         var window = new DiagnosticsWindow(
             _preferences,
-            _voiceInputService.GetInputDevices(),
-            _voiceInputService.IsReady,
-            _wakeWordService.IsReady,
-            _wakeWordService.IsListening,
+            _voiceCoordinator.GetInputDevices(),
+            _voiceCoordinator.IsVoiceInputReady,
+            _voiceCoordinator.IsWakeWordReady,
+            _voiceCoordinator.IsWakeWordListening,
             trayActive: true,
             _startupService.IsEnabled())
         {
@@ -547,7 +572,7 @@ public partial class MainWindow : Window
     private async Task ShowOnboardingAsync()
     {
         await PauseWakeWordAsync();
-        _voiceOutputService.Stop();
+        _voiceCoordinator.StopSpeaking();
 
         var window = new OnboardingWindow(_preferences, _settingsStore)
         {
@@ -796,15 +821,18 @@ public partial class MainWindow : Window
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
         _commandPaletteWindow.Close();
-        _wakeWordService.WakeWordDetected -= WakeWordService_WakeWordDetected;
-        _wakeWordService.RecognitionObserved -= WakeWordService_RecognitionObserved;
-        _wakeWordService.Dispose();
+        // Fase 1.3B3: MainWindow desuscribe los eventos de wake word (a través del
+        // coordinador) y cancela el token de vida, pero YA NO libera los tres servicios de
+        // voz: su propiedad y Dispose viven en KohanaCompositionRoot y se ejecutan en
+        // App.OnExit, justo después de que esta ventana se cierre. La guardia _isClosed y
+        // el token cancelado impiden que cualquier operación en vuelo o evento encolado
+        // opere durante el cierre; el Dispose de cada servicio detiene su grabador.
+        _voiceCoordinator.WakeWordDetected -= WakeWordService_WakeWordDetected;
+        _voiceCoordinator.RecognitionObserved -= WakeWordService_RecognitionObserved;
         if (_aiChatService is IDisposable disposableAiService)
         {
             disposableAiService.Dispose();
         }
-        _voiceOutputService.Dispose();
-        _voiceInputService.Dispose();
         _trayIcon.Dispose();
         _lifetimeCancellation.Dispose();
 
@@ -1207,36 +1235,43 @@ public partial class MainWindow : Window
             // cápsula genérica que parpadee antes de acciones instantáneas.
             await Task.Yield();
 
+            // La precedencia entre subsistemas vive en `PromptDispatchPolicy`, no aquí.
+            // Se evalúan los cuatro parsers y la política decide, de modo que "inicia" deje
+            // de significar automáticamente "rutina". Ver defecto D1 de la fase 1.1.
             var routineCommand = _routineCommandParser.Parse(prompt);
-            if (routineCommand.Type != RoutineCommandType.None)
-            {
-                await ExecuteRoutineCommandAsync(routineCommand);
-                return;
-            }
-
             var focusCommand = _focusCommandParser.Parse(prompt);
-            if (focusCommand.Type != FocusCommandType.None)
-            {
-                await ExecuteFocusCommandAsync(focusCommand);
-                return;
-            }
-
             var taskCommand = _taskCommandParser.Parse(prompt, DateTimeOffset.Now);
-            if (taskCommand.Type != TaskCommandType.None)
-            {
-                await ExecuteTaskCommandAsync(taskCommand);
-                return;
-            }
-
             var interpretation = _commandParser.Parse(prompt);
-            if (interpretation.Route == CommandRoute.ArtificialIntelligence ||
-                interpretation.Intent is null)
-            {
-                await SendPromptToAiAsync(prompt, fromVoice);
-                return;
-            }
 
-            await ExecuteLocalCommandAsync(interpretation.Intent);
+            var dispatch = PromptDispatchPolicy.Resolve(
+                routineCommand,
+                focusCommand,
+                taskCommand,
+                interpretation,
+                name => _routineManager.FindBestMatch(name) is not null);
+
+            switch (dispatch.Target)
+            {
+                case PromptDispatchTarget.Routine:
+                    await ExecuteRoutineCommandAsync(routineCommand);
+                    return;
+
+                case PromptDispatchTarget.Focus:
+                    await ExecuteFocusCommandAsync(focusCommand);
+                    return;
+
+                case PromptDispatchTarget.Task:
+                    await ExecuteTaskCommandAsync(taskCommand);
+                    return;
+
+                case PromptDispatchTarget.LocalCommand:
+                    await ExecuteLocalCommandAsync(interpretation.Intent!);
+                    return;
+
+                default:
+                    await SendPromptToAiAsync(prompt, fromVoice);
+                    return;
+            }
         }
         finally
         {
@@ -1870,39 +1905,45 @@ public partial class MainWindow : Window
 
     private void ConfigureVoiceInputDevices()
     {
-        var devices = _voiceInputService.GetInputDevices();
+        var devices = _voiceCoordinator.GetInputDevices();
         var selectedDeviceNumber = devices.Any(device =>
             device.DeviceNumber == _preferences.VoiceInputDeviceNumber)
             ? _preferences.VoiceInputDeviceNumber
             : devices.FirstOrDefault()?.DeviceNumber ?? -1;
 
         _preferences.VoiceInputDeviceNumber = selectedDeviceNumber;
-        _voiceInputService.InputDeviceNumber = selectedDeviceNumber;
-        _wakeWordService.InputDeviceNumber = selectedDeviceNumber;
+
+        // VoiceCoordinator.InputDeviceNumber aplica el valor a la entrada de voz y al wake
+        // word en un único setter: efecto idéntico a las dos asignaciones directas que
+        // sustituyó (confirmado leyendo VoiceCoordinator.cs antes de este
+        // cambio), en el mismo orden (entrada de voz primero, wake word después).
+        _voiceCoordinator.InputDeviceNumber = selectedDeviceNumber;
         _settingsView.SetVoiceInputDevices(devices, selectedDeviceNumber);
         SavePreferences();
     }
 
     private async Task ChangeVoiceInputDeviceAsync(int deviceNumber)
     {
-        await _voiceGate.WaitAsync();
+        await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
         try
         {
             await PauseWakeWordAsync();
-            await _voiceInputService.CancelAsync();
+
+            // Fase 1.3B3: la cancelación de la entrada de voz corre sobre el ámbito de
+            // voz del coordinador, el único dominio de exclusión para Whisper.
+            await voiceScope.CancelAsync();
 
             _preferences.VoiceInputDeviceNumber = deviceNumber;
-            _voiceInputService.InputDeviceNumber = deviceNumber;
-            _wakeWordService.InputDeviceNumber = deviceNumber;
+            _voiceCoordinator.InputDeviceNumber = deviceNumber;
             SavePreferences();
 
-            var selectedName = _voiceInputService
+            var selectedName = _voiceCoordinator
                 .GetInputDevices()
                 .FirstOrDefault(device => device.DeviceNumber == deviceNumber)
                 ?.Name ?? "micrófono seleccionado";
 
             _assistantView.SetVoiceAvailability(
-                _voiceInputService.IsReady,
+                _voiceCoordinator.IsVoiceInputReady,
                 $"Micrófono activo: {selectedName}");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Success,
@@ -1912,15 +1953,11 @@ public partial class MainWindow : Window
         }
         finally
         {
-            try
-            {
-                await ResumeWakeWordIfEnabledAsync();
-            }
-            finally
-            {
-                _voiceGate.Release();
-            }
+            await ResumeWakeWordIfEnabledAsync();
         }
+
+        // El ámbito de voz se libera aquí, al salir del método (después de la reanudación
+        // del finally), preservando el orden reanudar → liberar del código anterior.
     }
 
     private async Task<bool> TryHandlePendingVoiceDecisionAsync(
@@ -1973,7 +2010,7 @@ public partial class MainWindow : Window
 
     private async Task PrepareVoiceAsync()
     {
-        var requiresDownload = !_voiceInputService.IsReady;
+        var requiresDownload = !_voiceCoordinator.IsVoiceInputReady;
         _assistantView.SetVoiceAvailability(
             available: false,
             "Preparando Whisper local…");
@@ -1996,7 +2033,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var result = await _voiceInputService.PrepareAsync(
+            var result = await _voiceCoordinator.PrepareVoiceInputAsync(
                 progress,
                 _lifetimeCancellation.Token);
 
@@ -2035,24 +2072,24 @@ public partial class MainWindow : Window
 
     private async void AssistantView_VoiceInputStarted(object? sender, EventArgs e)
     {
-        await _voiceGate.WaitAsync();
+        await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
         var listeningStarted = false;
 
         try
         {
             await PauseWakeWordAsync();
-            _voiceOutputService.Stop();
+            _voiceCoordinator.StopSpeaking();
 
-            if (!_voiceInputService.IsReady)
+            if (!_voiceCoordinator.IsVoiceInputReady)
             {
                 await PrepareVoiceAsync();
-                if (!_voiceInputService.IsReady)
+                if (!_voiceCoordinator.IsVoiceInputReady)
                 {
                     return;
                 }
             }
 
-            var result = await _voiceInputService.StartListeningAsync();
+            var result = await voiceScope.StartListeningAsync();
 
             if (!result.IsAvailable)
             {
@@ -2081,17 +2118,15 @@ public partial class MainWindow : Window
             {
                 await ResumeWakeWordIfEnabledAsync();
             }
-
-            _voiceGate.Release();
         }
     }
 
     private async void AssistantView_VoiceInputStopped(object? sender, EventArgs e)
     {
-        await _voiceGate.WaitAsync();
+        await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
         try
         {
-            if (!_voiceInputService.IsListening)
+            if (!_voiceCoordinator.IsVoiceInputListening)
             {
                 return;
             }
@@ -2100,7 +2135,7 @@ public partial class MainWindow : Window
                 AssistantVoiceState.Processing,
                 "Transcribiendo localmente con Whisper…");
 
-            var result = await _voiceInputService.StopListeningAsync();
+            var result = await voiceScope.StopListeningAsync();
             await HandleVoiceRecognitionResultAsync(result);
         }
         catch (OperationCanceledException)
@@ -2112,7 +2147,6 @@ public partial class MainWindow : Window
         finally
         {
             await ResumeWakeWordIfEnabledAsync();
-            _voiceGate.Release();
         }
     }
 
@@ -2163,7 +2197,7 @@ public partial class MainWindow : Window
             $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” con voz natural.",
             _preferences.Position);
 
-        if (!_wakeWordService.IsListening)
+        if (!_voiceCoordinator.IsWakeWordListening)
         {
             await ApplyWakeWordPreferenceAsync(showCapsule: false);
         }
@@ -2212,7 +2246,7 @@ public partial class MainWindow : Window
 
         _preferences.WakeWordAliases.Add(alias);
         _preferences.WakeWordAliases = WakeWordAliasPolicy.NormalizeMany(_preferences.WakeWordAliases);
-        _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
+        _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
         SavePreferences();
         _settingsView.SetWakeWordAliases(_preferences.WakeWordAliases);
         _settingsView.SetWakeWordTestStatus($"Alias “{alias}” guardado.", isSuccess: true);
@@ -2222,7 +2256,7 @@ public partial class MainWindow : Window
     private async Task ClearWakeWordAliasesAsync()
     {
         _preferences.WakeWordAliases.Clear();
-        _wakeWordService.CustomAliases = [];
+        _voiceCoordinator.WakeWordCustomAliases = [];
         SavePreferences();
         _settingsView.SetWakeWordAliases(_preferences.WakeWordAliases);
         _settingsView.SetWakeWordTestStatus("Aliases personales eliminados.", isSuccess: true);
@@ -2244,9 +2278,9 @@ public partial class MainWindow : Window
         await PauseWakeWordAsync();
         await ApplyWakeWordPreferenceAsync(showCapsule: false);
         _capsuleWindow.ShowMessage(
-            _wakeWordService.IsListening ? CapsuleKind.Success : CapsuleKind.Warning,
-            _wakeWordService.IsListening ? "Voz reiniciada" : "Voz no disponible",
-            _wakeWordService.IsListening
+            _voiceCoordinator.IsWakeWordListening ? CapsuleKind.Success : CapsuleKind.Warning,
+            _voiceCoordinator.IsWakeWordListening ? "Voz reiniciada" : "Voz no disponible",
+            _voiceCoordinator.IsWakeWordListening
                 ? $"Esperando “{_preferences.WakeWordPhrase.ToSpokenText()}”."
                 : "Revisa el micrófono y el diagnóstico.",
             _preferences.Position);
@@ -2285,16 +2319,16 @@ public partial class MainWindow : Window
         }
 
         RememberForegroundWindow();
-        await _voiceGate.WaitAsync();
+        await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
         try
         {
             await PauseWakeWordAsync();
-            _voiceOutputService.Stop();
+            _voiceCoordinator.StopSpeaking();
 
-            if (!_voiceInputService.IsReady)
+            if (!_voiceCoordinator.IsVoiceInputReady)
             {
                 await PrepareVoiceAsync();
-                if (!_voiceInputService.IsReady)
+                if (!_voiceCoordinator.IsVoiceInputReady)
                 {
                     return;
                 }
@@ -2309,7 +2343,7 @@ public partial class MainWindow : Window
                 "Habla con naturalidad. Terminaré después de 1.5 segundos de silencio.",
                 _preferences.Position);
 
-            var result = await _voiceInputService.ListenForUtteranceAsync(
+            var result = await voiceScope.ListenForUtteranceAsync(
                 maximumDuration: TimeSpan.FromSeconds(20),
                 trailingSilence: TimeSpan.FromMilliseconds(1_500),
                 initialPcmAudio: e.PreRollAudio,
@@ -2333,7 +2367,6 @@ public partial class MainWindow : Window
         finally
         {
             await ResumeWakeWordIfEnabledAsync();
-            _voiceGate.Release();
         }
     }
 
@@ -2392,14 +2425,14 @@ public partial class MainWindow : Window
 
     private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)
     {
-        await _wakeWordGate.WaitAsync();
+        await using var wakeWordScope = await _voiceCoordinator.AcquireWakeWordScopeAsync();
         try
         {
-            await _wakeWordService.StopListeningAsync();
+            await wakeWordScope.StopListeningAsync();
             SetWakeWordIndicator(active: false);
             RefreshRuntimeDashboard();
 
-            if (!_preferences.WakeWordEnabled || _isClosed || _voiceInputService.IsListening)
+            if (!_preferences.WakeWordEnabled || _isClosed || _voiceCoordinator.IsVoiceInputListening)
             {
                 return;
             }
@@ -2408,22 +2441,22 @@ public partial class MainWindow : Window
             {
                 SetWakeWordIndicator(active: false);
                 _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
+                    _voiceCoordinator.IsVoiceInputReady,
                     "Activación por voz pausada por Modo Juego.");
                 return;
             }
 
-            var requiresDownload = !_wakeWordService.IsReady;
+            var requiresDownload = !_voiceCoordinator.IsWakeWordReady;
             var progress = new Progress<VoicePreparationProgress>(update =>
             {
                 WakeWordIndicatorText.Text = "Preparando voz";
                 WakeWordIndicator.Visibility = Visibility.Visible;
                 _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
+                    _voiceCoordinator.IsVoiceInputReady,
                     update.Detail);
             });
 
-            var preparation = await _wakeWordService.PrepareAsync(
+            var preparation = await _voiceCoordinator.PrepareWakeWordAsync(
                 progress,
                 _lifetimeCancellation.Token);
 
@@ -2431,7 +2464,7 @@ public partial class MainWindow : Window
             {
                 SetWakeWordIndicator(active: false);
                 _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
+                    _voiceCoordinator.IsVoiceInputReady,
                     preparation.Detail);
                 if (showCapsule && !_isClosed)
                 {
@@ -2450,9 +2483,9 @@ public partial class MainWindow : Window
                 return;
             }
 
-            _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
-            _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
-            var start = await _wakeWordService.StartListeningAsync(
+            _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
+            _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
+            var start = await wakeWordScope.StartListeningAsync(
                 _preferences.WakeWordPhrase,
                 _lifetimeCancellation.Token);
 
@@ -2460,7 +2493,7 @@ public partial class MainWindow : Window
             {
                 SetWakeWordIndicator(active: false);
                 _assistantView.SetVoiceAvailability(
-                    _voiceInputService.IsReady,
+                    _voiceCoordinator.IsVoiceInputReady,
                     start.Detail);
                 if (showCapsule && !_isClosed)
                 {
@@ -2476,7 +2509,7 @@ public partial class MainWindow : Window
             SetWakeWordIndicator(active: true);
             RefreshRuntimeDashboard();
             _assistantView.SetVoiceAvailability(
-                _voiceInputService.IsReady,
+                _voiceCoordinator.IsVoiceInputReady,
                 $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” y la orden de corrido, o espera “Te escucho”.");
 
             if (showCapsule && !_isClosed)
@@ -2500,24 +2533,16 @@ public partial class MainWindow : Window
         {
             // Nexo se está cerrando o la preparación fue cancelada.
         }
-        finally
-        {
-            _wakeWordGate.Release();
-        }
+
+        // El ámbito de wake word se libera aquí, al salir del método (igual que el
+        // antiguo finally): la sección crítica conserva exactamente la misma duración.
     }
 
     private async Task PauseWakeWordAsync()
     {
-        await _wakeWordGate.WaitAsync();
-        try
-        {
-            await _wakeWordService.StopListeningAsync();
-            SetWakeWordIndicator(active: false);
-        }
-        finally
-        {
-            _wakeWordGate.Release();
-        }
+        await using var wakeWordScope = await _voiceCoordinator.AcquireWakeWordScopeAsync();
+        await wakeWordScope.StopListeningAsync();
+        SetWakeWordIndicator(active: false);
     }
 
     private Task ResumeWakeWordIfEnabledAsync()
@@ -2604,6 +2629,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        // La aprobación es por ejecución y se pasa explícitamente al runner. Crear la rutina
+        // no concede permiso permanente para ejecutar comandos arbitrarios (defecto D2).
+        var approval = RoutineExecutionApproval.NotConfirmed;
+
         if (AutomationPermissionPolicy.RequiresConfirmation(routine))
         {
             var preview = string.Join(
@@ -2621,6 +2650,8 @@ public partial class MainWindow : Window
                 _assistantView.AddKohanaMessage($"Cancelé la rutina {routine.Name}.");
                 return;
             }
+
+            approval = RoutineExecutionApproval.ConfirmedByUser;
         }
 
         _capsuleWindow.ShowMessage(
@@ -2633,6 +2664,7 @@ public partial class MainWindow : Window
         {
             var report = await _routineRunner.RunAsync(
                 routine,
+                approval,
                 _lifetimeCancellation.Token);
             _assistantView.AddKohanaMessage(report.BuildSummary());
             _tasksView.Refresh();
@@ -2958,23 +2990,23 @@ public partial class MainWindow : Window
                 break;
 
             case LocalCommandType.NavigateAssistant:
-                ShowShellModule("Assistant", "Asistente abierto");
+                ShowShellModule(ShellNavigationPolicy.Assistant, "Asistente abierto");
                 break;
 
             case LocalCommandType.NavigateAudio:
-                ShowShellModule("Audio", "Audio abierto");
+                ShowShellModule(ShellNavigationPolicy.Audio, "Audio abierto");
                 break;
 
             case LocalCommandType.NavigateCapture:
-                ShowShellModule("Capture", "Captura abierta");
+                ShowShellModule(ShellNavigationPolicy.Capture, "Captura abierta");
                 break;
 
             case LocalCommandType.NavigateSystem:
-                ShowShellModule("System", "Sistema abierto");
+                ShowShellModule(ShellNavigationPolicy.System, "Sistema abierto");
                 break;
 
             case LocalCommandType.NavigateSettings:
-                ShowShellModule("Settings", "Ajustes abiertos");
+                ShowShellModule(ShellNavigationPolicy.Settings, "Ajustes abiertos");
                 break;
 
             case LocalCommandType.OpenPowerShell:
@@ -3326,7 +3358,7 @@ public partial class MainWindow : Window
     {
         if (_voicePromptActive && _preferences.SpeakVoiceResponses)
         {
-            _voiceOutputService.SpeakShort(text);
+            _voiceCoordinator.Speak(text);
         }
     }
 
@@ -3354,14 +3386,15 @@ public partial class MainWindow : Window
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_currentDestination.Equals("Settings", StringComparison.OrdinalIgnoreCase))
-        {
-            NavigateTo(_previousDestination, animate: true);
-            return;
-        }
+        var destination = ShellNavigationPolicy.ResolveSettingsToggle(
+            _currentDestination,
+            _previousDestination);
 
-        _previousDestination = _currentDestination;
-        NavigateTo("Settings", animate: true);
+        _previousDestination = ShellNavigationPolicy.ResolvePreviousDestination(
+            _currentDestination,
+            _previousDestination);
+
+        NavigateTo(destination, animate: true);
     }
 
     private async void PeekButton_Click(object sender, RoutedEventArgs e)
@@ -3571,7 +3604,7 @@ public partial class MainWindow : Window
         Width = _preferences.Width;
         ApplyShellOpacity();
         ApplyAccent(_preferences.AccentColor);
-        _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
+        _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
         ApplyModuleVisibility();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
     }
@@ -3639,9 +3672,13 @@ public partial class MainWindow : Window
 
         ApplyModuleVisibility();
 
-        if (!visible && _currentDestination.Equals(module, StringComparison.OrdinalIgnoreCase))
+        if (ShellNavigationPolicy.TryResolveHiddenModuleFallback(
+                module,
+                visible,
+                _currentDestination,
+                out var fallbackDestination))
         {
-            NavigateTo("Assistant", animate: true);
+            NavigateTo(fallbackDestination, animate: true);
         }
     }
 
@@ -3776,7 +3813,7 @@ public partial class MainWindow : Window
             }
         }
 
-        await _resourceGovernorVoiceGate.WaitAsync();
+        await _resourceGovernorDecisionGate.WaitAsync();
         try
         {
             var shouldPauseWakeWord =
@@ -3784,7 +3821,7 @@ public partial class MainWindow : Window
 
             if (shouldPauseWakeWord)
             {
-                if (_wakeWordService.IsListening)
+                if (_voiceCoordinator.IsWakeWordListening)
                 {
                     await PauseWakeWordAsync();
                 }
@@ -3801,7 +3838,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            _resourceGovernorVoiceGate.Release();
+            _resourceGovernorDecisionGate.Release();
         }
     }
 
@@ -3826,9 +3863,9 @@ public partial class MainWindow : Window
     private void RefreshRuntimeDashboard()
     {
         _systemView.UpdateRuntimeStatus(
-            _voiceInputService.IsReady,
+            _voiceCoordinator.IsVoiceInputReady,
             _preferences.WakeWordEnabled,
-            _wakeWordService.IsListening,
+            _voiceCoordinator.IsWakeWordListening,
             _preferences.VisionEnabled,
             _runtimeAiStatus,
             _runtimeAiHealthy,
@@ -3856,7 +3893,7 @@ public partial class MainWindow : Window
 
         if (fromVoice)
         {
-            _voiceOutputService.SpeakShort(detail);
+            _voiceCoordinator.Speak(detail);
         }
     }
 

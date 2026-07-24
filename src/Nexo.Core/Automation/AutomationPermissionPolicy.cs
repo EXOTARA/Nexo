@@ -2,19 +2,33 @@ namespace Nexo.Core.Automation;
 
 public static class AutomationPermissionPolicy
 {
-    public static AutomationRiskLevel GetRisk(AutomationAction action) => action.Type switch
+    public static AutomationRiskLevel GetRisk(AutomationAction action)
     {
-        AutomationActionType.OpenTerminal => AutomationRiskLevel.Sensitive,
-        AutomationActionType.OpenApplication or
-        AutomationActionType.OpenFolder or
-        AutomationActionType.SetApplicationVolume or
-        AutomationActionType.MuteApplication or
-        AutomationActionType.UnmuteApplication or
-        AutomationActionType.StartFocus or
-        AutomationActionType.StartBreak => AutomationRiskLevel.Reversible,
-        AutomationActionType.CreateTask => AutomationRiskLevel.Safe,
-        _ => AutomationRiskLevel.Blocked
-    };
+        ArgumentNullException.ThrowIfNull(action);
+
+        // Los argumentos forman parte de la evaluación tipada de riesgo: abrir una aplicación
+        // y ejecutar un comando arbitrario a través de ella no son la misma acción, aunque
+        // compartan el tipo. Ver `ShellExecutionPolicy` y el defecto D2 de la fase 1.1.
+        if (action.Type == AutomationActionType.OpenApplication &&
+            ShellExecutionPolicy.RequiresConfirmation(action.Target, action.Arguments))
+        {
+            return AutomationRiskLevel.Sensitive;
+        }
+
+        return action.Type switch
+        {
+            AutomationActionType.OpenTerminal => AutomationRiskLevel.Sensitive,
+            AutomationActionType.OpenApplication or
+            AutomationActionType.OpenFolder or
+            AutomationActionType.SetApplicationVolume or
+            AutomationActionType.MuteApplication or
+            AutomationActionType.UnmuteApplication or
+            AutomationActionType.StartFocus or
+            AutomationActionType.StartBreak => AutomationRiskLevel.Reversible,
+            AutomationActionType.CreateTask => AutomationRiskLevel.Safe,
+            _ => AutomationRiskLevel.Blocked
+        };
+    }
 
     public static bool RequiresConfirmation(RoutineDefinition routine) =>
         routine.RequiresConfirmation ||

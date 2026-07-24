@@ -1,0 +1,22 @@
+# Política de finales de línea para Kohana (Windows/.NET).
+# No renormaliza el repositorio existente: solo fija el comportamiento futuro.
+* text=auto eol=lf
+
+*.cs text eol=lf
+*.xaml text eol=lf
+*.csproj text eol=lf
+*.slnx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.props text eol=lf
+*.targets text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.dll binary
+*.exe binary
+*.zip binary

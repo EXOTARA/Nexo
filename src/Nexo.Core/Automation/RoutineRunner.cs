@@ -9,10 +9,18 @@ public sealed class RoutineRunner
         _executor = executor;
     }
 
+    /// <param name="approval">
+    /// Evidencia de aprobación para **esta** ejecución. Sin ella, los pasos sensibles se
+    /// rechazan. El permiso se aplica aquí, en el ejecutor, y no se confía a que la capa de
+    /// interfaz haya preguntado (`SECURITY_MODEL` §Defensa por capas, punto 4).
+    /// </param>
     public async Task<RoutineExecutionReport> RunAsync(
         RoutineDefinition routine,
+        RoutineExecutionApproval approval = RoutineExecutionApproval.NotConfirmed,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(routine);
+
         var startedAt = DateTimeOffset.Now;
         var results = new List<AutomationActionResult>();
 
@@ -26,6 +34,16 @@ public sealed class RoutineRunner
                     action,
                     "Acción bloqueada",
                     validationError));
+                continue;
+            }
+
+            if (AutomationPermissionPolicy.GetRisk(action) == AutomationRiskLevel.Sensitive &&
+                approval != RoutineExecutionApproval.ConfirmedByUser)
+            {
+                results.Add(AutomationActionResult.Failed(
+                    action,
+                    "Confirmación requerida",
+                    "Kohana no ejecuta una acción sensible sin que la apruebes primero."));
                 continue;
             }
 
