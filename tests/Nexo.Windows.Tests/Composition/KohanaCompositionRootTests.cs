@@ -1,11 +1,13 @@
 using Microsoft.Extensions.DependencyInjection;
 using Nexo.Core.Ai;
 using Nexo.Core.Audio;
+using Nexo.Core.Hardware;
 using Nexo.Core.Vision;
 using Nexo.Core.Voice;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Composition;
+using Nexo.Windows.Hardware;
 using Nexo.Windows.Vision;
 using Nexo.Windows.Voice;
 
@@ -24,6 +26,7 @@ public sealed class KohanaCompositionRootTests
         Assert.IsType<WindowsTextToSpeechService>(root.VoiceOutputService);
         Assert.IsType<VoskWakeWordService>(root.WakeWordService);
         Assert.IsType<WindowsScreenCaptureService>(root.ScreenCaptureService);
+        Assert.IsType<WindowsHardwareCapabilityService>(root.HardwareCapabilityService);
     }
 
     [Fact]
@@ -39,6 +42,7 @@ public sealed class KohanaCompositionRootTests
         Assert.Same(root.VoiceOutputService, root.Provider.GetRequiredService<IVoiceOutputService>());
         Assert.Same(root.WakeWordService, root.Provider.GetRequiredService<IWakeWordService>());
         Assert.Same(root.ScreenCaptureService, root.Provider.GetRequiredService<IScreenCaptureService>());
+        Assert.Same(root.HardwareCapabilityService, root.Provider.GetRequiredService<IHardwareCapabilityService>());
     }
 
     [Fact]
@@ -55,7 +59,7 @@ public sealed class KohanaCompositionRootTests
     }
 
     [Fact]
-    public void Constructor_ProducesSixDistinctServiceInstances()
+    public void Constructor_ProducesDistinctServiceInstances()
     {
         using var root = new KohanaCompositionRoot();
 
@@ -66,10 +70,22 @@ public sealed class KohanaCompositionRootTests
             root.VoiceInputService,
             root.VoiceOutputService,
             root.WakeWordService,
-            root.ScreenCaptureService
+            root.ScreenCaptureService,
+            root.HardwareCapabilityService
         };
 
         Assert.Equal(instances.Length, instances.Distinct().Count());
+    }
+
+    [Fact]
+    public void HardwareCapabilityService_IsASingleInstance()
+    {
+        using var root = new KohanaCompositionRoot();
+
+        Assert.Same(
+            root.Provider.GetRequiredService<IHardwareCapabilityService>(),
+            root.Provider.GetRequiredService<IHardwareCapabilityService>());
+        Assert.Single(root.Provider.GetServices<IHardwareCapabilityService>());
     }
 
     [Fact]
