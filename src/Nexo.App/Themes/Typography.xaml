@@ -1,0 +1,23 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!--
+        Kohana Design System — Tipografía (Fundación 0.1).
+
+        Escala de tamaños que refleja EXACTAMENTE los literales de FontSize ya usados en las
+        vistas actuales, para que migrar a estos tokens no cambie la apariencia. La familia
+        primaria es la nativa de Windows (Segoe UI), el default efectivo del shell hoy.
+    -->
+    <FontFamily x:Key="FontFamilyPrimary">Segoe UI</FontFamily>
+
+    <sys:Double x:Key="FontSizeMicro">10.5</sys:Double>
+    <sys:Double x:Key="FontSizeXSmall">11.5</sys:Double>
+    <sys:Double x:Key="FontSizeSmall">12</sys:Double>
+    <sys:Double x:Key="FontSizeCaption">12.5</sys:Double>
+    <sys:Double x:Key="FontSizeBody">14</sys:Double>
+    <sys:Double x:Key="FontSizeBodyLarge">15</sys:Double>
+    <sys:Double x:Key="FontSizeSubtitle">16</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">18</sys:Double>
+    <sys:Double x:Key="FontSizeTitleLarge">19</sys:Double>
+    <sys:Double x:Key="FontSizeDisplay">22</sys:Double>
+</ResourceDictionary>

@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Kohana Design System — Brushes semánticos (Fundación 0.1).
+
+        Alias semánticos requeridos por la fundación que aún no existían con ese nombre. NO
+        introducen colores nuevos salvo el anillo de foco: reutilizan los Color* ya definidos en
+        Colors.xaml (que se fusiona antes que este diccionario). Así el vocabulario semántico
+        queda completo sin cambiar la paleta actual.
+
+        BrushFocusRing se define para el trabajo de accesibilidad futuro; hoy los controles siguen
+        con FocusVisualStyle nulo, así que definir el token no cambia la apariencia todavía.
+    -->
+    <SolidColorBrush x:Key="BrushTextMuted" Color="{StaticResource ColorTextTertiary}" />
+    <SolidColorBrush x:Key="BrushError" Color="{StaticResource ColorDanger}" />
+    <SolidColorBrush x:Key="BrushFocusRing" Color="{StaticResource ColorAccentBorder}" />
+</ResourceDictionary>

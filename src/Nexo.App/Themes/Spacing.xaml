@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!--
+        Kohana Design System — Espaciado y radios (Fundación 0.1).
+
+        Escala de espaciado (múltiplos coherentes) como Double, para paddings/márgenes que
+        quieran adoptarla, y tokens de CornerRadius que reflejan los radios más repetidos hoy
+        (9, 12, 13, 20). Migrar un literal a su token de igual valor no cambia la apariencia.
+    -->
+    <sys:Double x:Key="Space2">2</sys:Double>
+    <sys:Double x:Key="Space4">4</sys:Double>
+    <sys:Double x:Key="Space6">6</sys:Double>
+    <sys:Double x:Key="Space8">8</sys:Double>
+    <sys:Double x:Key="Space10">10</sys:Double>
+    <sys:Double x:Key="Space12">12</sys:Double>
+    <sys:Double x:Key="Space16">16</sys:Double>
+    <sys:Double x:Key="Space20">20</sys:Double>
+    <sys:Double x:Key="Space24">24</sys:Double>
+
+    <CornerRadius x:Key="RadiusSmall">9</CornerRadius>
+    <CornerRadius x:Key="RadiusMedium">12</CornerRadius>
+    <CornerRadius x:Key="RadiusLarge">13</CornerRadius>
+    <CornerRadius x:Key="RadiusPill">20</CornerRadius>
+</ResourceDictionary>
