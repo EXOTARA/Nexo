@@ -114,7 +114,7 @@ public sealed class VoiceCoordinator : IDisposable
         await _voiceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await StopWakeWordCoreAsync().ConfigureAwait(false);
+            await StopWakeWordWithinCoordinatorGateAsync().ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             _voiceOutputService.Stop();
             cancellationToken.ThrowIfCancellationRequested();
@@ -172,7 +172,7 @@ public sealed class VoiceCoordinator : IDisposable
         await _voiceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await StopWakeWordCoreAsync().ConfigureAwait(false);
+            await StopWakeWordWithinCoordinatorGateAsync().ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             _voiceOutputService.Stop();
             cancellationToken.ThrowIfCancellationRequested();
@@ -234,7 +234,125 @@ public sealed class VoiceCoordinator : IDisposable
 
     public void StopSpeaking() => _voiceOutputService.Stop();
 
-    private async Task StopWakeWordCoreAsync()
+    // ---------------------------------------------------------------------------------
+    // Operaciones bajo coordinación externa (fase 1.3B2A) — API de transición.
+    //
+    // Delegaciones transparentes a los servicios subyacentes que **no adquieren ninguno
+    // de los dos candados internos de este coordinador**. Existen para que un
+    // orquestador que ya posee la exclusión pueda dejar de llamar a los servicios de
+    // forma directa sin que cambie todavía el propietario de la sincronización.
+    //
+    // Durante la fase 1.3B2 ese orquestador es la vista principal de la aplicación, que
+    // conserva sus propios semáforos. Esta API **no es definitiva**: cuando la propiedad
+    // de los candados se transfiera a este coordinador, estas operaciones dejarán de
+    // tener razón de ser y se retirarán junto con esa transferencia.
+    // ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Inicia la escucha de entrada de voz delegando directamente en el servicio.
+    /// </summary>
+    /// <remarks>
+    /// No adquiere <c>_voiceGate</c> ni <c>_wakeWordGate</c>. Solo debe llamarlo un
+    /// orquestador que ya garantice la exclusión necesaria sobre el micrófono; en la
+    /// transición actual, la vista principal de la aplicación. **No combinar dentro de
+    /// la misma sección crítica con los métodos compuestos** (<see cref="StartPushToTalkAsync"/>
+    /// y equivalentes), que sí adquieren los candados internos: hacerlo crearía dos
+    /// dominios de exclusión sobre el mismo servicio. API de transición, no definitiva.
+    /// </remarks>
+    public Task<VoiceStartResult> StartVoiceInputUnderExternalCoordinationAsync(
+        CancellationToken cancellationToken = default) =>
+        _voiceInputService.StartListeningAsync(cancellationToken);
+
+    /// <summary>
+    /// Detiene la escucha de entrada de voz delegando directamente en el servicio.
+    /// </summary>
+    /// <remarks>
+    /// No adquiere <c>_voiceGate</c> ni <c>_wakeWordGate</c>. Solo debe llamarlo un
+    /// orquestador que ya garantice la exclusión necesaria; en la transición actual, la
+    /// vista principal de la aplicación. **No combinar dentro de la misma sección
+    /// crítica con los métodos compuestos** que adquieren los candados internos. API de
+    /// transición, no definitiva.
+    /// </remarks>
+    public Task<VoiceRecognitionResult> StopVoiceInputUnderExternalCoordinationAsync(
+        CancellationToken cancellationToken = default) =>
+        _voiceInputService.StopListeningAsync(cancellationToken);
+
+    /// <summary>
+    /// Cancela la escucha de entrada de voz delegando directamente en el servicio.
+    /// </summary>
+    /// <remarks>
+    /// No adquiere <c>_voiceGate</c> ni <c>_wakeWordGate</c>, a diferencia de
+    /// <see cref="CancelPushToTalkAsync"/>. Solo debe llamarlo un orquestador que ya
+    /// garantice la exclusión necesaria; en la transición actual, la vista principal de
+    /// la aplicación. **No combinar dentro de la misma sección crítica con los métodos
+    /// compuestos** que adquieren los candados internos. API de transición, no definitiva.
+    /// </remarks>
+    public Task CancelVoiceInputUnderExternalCoordinationAsync() =>
+        _voiceInputService.CancelAsync();
+
+    /// <summary>
+    /// Escucha una orden completa delegando directamente en el servicio, preservando el
+    /// orden exacto de argumentos de <see cref="IVoiceInputService.ListenForUtteranceAsync"/>.
+    /// </summary>
+    /// <remarks>
+    /// No adquiere <c>_voiceGate</c> ni <c>_wakeWordGate</c>, y **no pausa wake word ni
+    /// detiene el TTS**, a diferencia de <see cref="ListenAfterWakeWordAsync"/>: esos
+    /// pasos siguen siendo responsabilidad del orquestador. Solo debe llamarlo un
+    /// orquestador que ya garantice la exclusión necesaria; en la transición actual, la
+    /// vista principal de la aplicación. **No combinar dentro de la misma sección
+    /// crítica con los métodos compuestos** que adquieren los candados internos. API de
+    /// transición, no definitiva.
+    /// </remarks>
+    public Task<VoiceRecognitionResult> ListenForUtteranceUnderExternalCoordinationAsync(
+        TimeSpan maximumDuration,
+        TimeSpan trailingSilence,
+        ReadOnlyMemory<byte> initialPcmAudio = default,
+        ReadOnlyMemory<byte> initialSpeechPcmAudio = default,
+        CancellationToken cancellationToken = default) =>
+        _voiceInputService.ListenForUtteranceAsync(
+            maximumDuration,
+            trailingSilence,
+            initialPcmAudio,
+            initialSpeechPcmAudio,
+            cancellationToken);
+
+    /// <summary>
+    /// Inicia la escucha de wake word delegando directamente en el servicio.
+    /// </summary>
+    /// <remarks>
+    /// No adquiere <c>_wakeWordGate</c> ni <c>_voiceGate</c>, a diferencia de
+    /// <see cref="StartWakeWordAsync"/>. Solo debe llamarlo un orquestador que ya
+    /// garantice la exclusión necesaria; en la transición actual, la vista principal de
+    /// la aplicación. **No combinar dentro de la misma sección crítica con los métodos
+    /// compuestos** que adquieren los candados internos. API de transición, no definitiva.
+    /// </remarks>
+    public Task<VoiceStartResult> StartWakeWordUnderExternalCoordinationAsync(
+        WakeWordPhrase phrase,
+        CancellationToken cancellationToken = default) =>
+        _wakeWordService.StartListeningAsync(phrase, cancellationToken);
+
+    /// <summary>
+    /// Detiene la escucha de wake word delegando directamente en el servicio.
+    /// </summary>
+    /// <remarks>
+    /// No adquiere <c>_wakeWordGate</c> ni <c>_voiceGate</c>, a diferencia de
+    /// <see cref="StopWakeWordAsync"/> y del helper privado
+    /// <c>StopWakeWordWithinCoordinatorGateAsync</c>. Solo debe llamarlo un orquestador
+    /// que ya garantice la exclusión necesaria; en la transición actual, la vista
+    /// principal de la aplicación. **No combinar dentro de la misma sección crítica con
+    /// los métodos compuestos** que adquieren los candados internos. API de transición,
+    /// no definitiva.
+    /// </remarks>
+    public Task StopWakeWordUnderExternalCoordinationAsync() =>
+        _wakeWordService.StopListeningAsync();
+
+    /// <summary>
+    /// Detención de wake word ejecutada **dentro** del dominio de candados de este
+    /// coordinador: adquiere y libera <c>_wakeWordGate</c>. El nombre lo distingue
+    /// explícitamente de las operaciones <c>…UnderExternalCoordinationAsync</c>, que no
+    /// adquieren ningún candado porque el llamador ya aporta la exclusión.
+    /// </summary>
+    private async Task StopWakeWordWithinCoordinatorGateAsync()
     {
         await _wakeWordGate.WaitAsync().ConfigureAwait(false);
         try
