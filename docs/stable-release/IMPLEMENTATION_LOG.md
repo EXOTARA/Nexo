@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | Fase **1.2 completada** (composition root + DI, sin cambio de comportamiento) |
-| **Siguiente fase** | Fase 1, paso 1.3 (extraer coordinador de voz) — **no iniciada** |
+| **Fase actual** | **Fase 1.3A parcial: coordinador aislado, MainWindow aún no migrado** |
+| **Siguiente fase** | Fase 1, paso 1.3B (migrar `MainWindow` a `VoiceCoordinator`) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-23 |
-| **Bloqueador activo** | Ninguno para iniciar 1.3 |
+| **Bloqueador activo** | Ninguno para iniciar 1.3B |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -346,7 +346,8 @@ automatización de UI de escritorio disponible en esta sesión):
 ### Fase 1 — extracción (7 pasos, en orden)
 - [x] 1.1 Pruebas de caracterización de `MainWindow` ✅ 2026-07-23
 - [x] 1.2 Composition root + DI **sin cambiar comportamiento** ✅ 2026-07-23
-- [ ] 1.3 Extraer coordinador de voz
+- [ ] 1.3 Extraer coordinador de voz — **1.3A parcial** ✅ 2026-07-23 (coordinador aislado
+      + wiring en el composition root); **1.3B pendiente** (migrar `MainWindow`)
 - [ ] 1.4 Extraer coordinador de navegación
 - [ ] 1.5 Extraer tareas, enfoque y rutinas
 - [ ] 1.6 Extraer IA y Vision
@@ -365,6 +366,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.1 (2026-07-23) | **520** | **0** | **0** | Core 494 + Windows 26. +164 pruebas de caracterización. Cero regresiones |
 | Fase 1.1.1 (2026-07-23) | **606** | **0** | **0** | Core 576 + Windows 30. +86 pruebas. Correcciones D1, D2 y D4 |
 | Fase 1.2 (2026-07-23) | **615** | **0** | **0** | Core 576 (sin cambios) + Windows 39. +9 pruebas de composition root e invariantes |
+| Fase 1.3A (2026-07-23) | **638** | **0** | **0** | Core 576 (sin cambios) + Windows 62. +23 pruebas: `VoiceCoordinator` aislado (17) e invariantes de composition root/estructurales (6) |
 
 ---
 
@@ -479,23 +481,28 @@ mismo orden que hoy, antes de cablear eventos.
 
 ## SIGUIENTE PASO EXACTO
 
-Fase 1.2 cerrada y **verde**: 615 pruebas, 0 fallidas, 0 warnings, build limpio, arranque real
-verificado (proceso vivo, instancia única, cierre y reapertura limpios). El smoke test manual
-**interactivo** completo (navegación, voz, wake word) queda pendiente de repetir — ver riesgo #13.
+**Fase 1.3A parcial: coordinador aislado, MainWindow aún no migrado.** Ver la sección completa
+"Fase 1.3A — VoiceCoordinator aislado" más abajo para el resultado exacto. 638 pruebas, 0
+fallidas, 0 warnings. `MainWindow.xaml.cs` y `App.xaml.cs` **no se tocaron** en esta subfase.
 
-El siguiente paso es **1.3 — extraer el coordinador de voz**, según ADR 0001. No se ha iniciado
-ningún trabajo de 1.3. Antes de empezar, quien retome debe:
+El siguiente paso es **1.3B — migrar `MainWindow` a `VoiceCoordinator`**. No se ha iniciado ningún
+trabajo de 1.3B. Antes de empezar, quien retome debe:
 
-1. Releer esta sección de Fase 1.2 completa para conocer el estado exacto del composition root.
-2. Repetir el smoke test manual interactivo (riesgo #13) si aún no se ha hecho, para no arrastrar
-   una regresión no detectada hacia 1.3.
-3. Identificar qué parte de la coordinación de voz en `MainWindow.xaml.cs` (aprox. 40+ usos de
-   `_voiceInputService`/`_wakeWordService`/`_voiceOutputService` según el inventario de esta fase)
-   puede moverse a un coordinador dedicado sin cambiar comportamiento, siguiendo la misma
-   disciplina de la fase 1.2: inventario antes de tocar, caracterización si falta cobertura,
-   commits pequeños y revertibles.
+1. Releer la sección "Fase 1.3A" completa para conocer la API real de `VoiceCoordinator` y la
+   corrección de propiedad (el coordinador **no libera** los tres servicios de voz).
+2. Repetir el smoke test manual interactivo (riesgo #13, heredado de 1.2, aún abierto) antes de
+   dar 1.3B por cerrada — es el paso de mayor riesgo funcional de toda la Fase 1, y esta subfase
+   no tuvo forma de verificarlo interactivamente.
+3. Decidir explícitamente, y documentarlo antes de tocar código, si `MainWindow.Window_Closed`
+   pasa a delegar la liberación de los tres servicios de voz en `VoiceCoordinator.Dispose()` (lo
+   que exigiría que el coordinador SÍ los libere, revirtiendo la corrección de propiedad de 1.3A)
+   o si `MainWindow` sigue liberándolos directamente y `VoiceCoordinator` sigue sin ser su dueño
+   de forma permanente. **No cambiar esto por inercia**: es una decisión de diseño, no un detalle.
+4. Migrar método por método (dispositivo de entrada → push-to-talk → wake word runtime → modo
+   prueba/aliases → puente con Resource Governor → disposición), en commits pequeños y
+   compilables, siguiendo el plan detallado en `artifacts\Kohana-Fase-1.3-Auditoria.md`.
 
-**No iniciar 1.4 sin que 1.3 esté verde.**
+**No iniciar 1.4 sin que 1.3 (A y B) esté verde.**
 
 ---
 
@@ -633,3 +640,120 @@ de herramienta de automatización de UI en esta sesión. Mitigación: las 615 pr
 cubren la lógica pura y la composición; el arranque real confirma que el grafo de objetos se
 construye sin excepciones. Recomendado repetir el smoke test manual completo de 1.1.1 antes de
 considerar este checkpoint apto para uso diario, no solo para verificación técnica.
+
+---
+
+### Fase 1.3A — `VoiceCoordinator` aislado (2026-07-23)
+
+Subfase aprobada tras revisar `artifacts\Kohana-Fase-1.3-Auditoria.md`, con una corrección
+obligatoria sobre propiedad de recursos respecto a lo que proponía esa auditoría: en 1.3A,
+`VoiceCoordinator` **no es dueño** del ciclo de vida de los tres servicios de voz. Objetivo
+cumplido: el coordinador existe, está probado de forma aislada y está conectado al composition
+root, pero **`MainWindow.xaml.cs` y `App.xaml.cs` no se tocaron**.
+
+**Corrección de propiedad aplicada:** `VoiceCoordinator.Dispose()` libera únicamente los dos
+`SemaphoreSlim` que el propio coordinador crea (`_voiceGate`, `_wakeWordGate`). No llama
+`Dispose()` sobre `IVoiceInputService`, `IVoiceOutputService` ni `IWakeWordService` en ningún
+punto de su código — verificado tanto por prueba de comportamiento
+(`Dispose_DoesNotDisposeTheUnderlyingServiceInstances` en `KohanaCompositionRootTests` y
+`Dispose_DoesNotDisposeTheUnderlyingServices` en `VoiceCoordinatorTests`) como por prueba
+estructural sobre el código fuente (`VoiceCoordinator_DoesNotDisposeTheThreeInjectedServices`).
+`MainWindow.Window_Closed` sigue siendo, sin ningún cambio, la única ruta que libera esos tres
+servicios, en el mismo orden que fijó la fase 1.2 — verificado por
+`MainWindow_StillOwnsTheThreeVoiceServicesAndTheirDisposalOrder`, que localiza el bloque de
+liberación en el código fuente y confirma el orden: desuscribir `WakeWordDetected` → desuscribir
+`RecognitionObserved` → `_wakeWordService.Dispose()` → `_aiChatService` condicional →
+`_voiceOutputService.Dispose()` → `_voiceInputService.Dispose()`.
+
+**API real de `VoiceCoordinator`** (`src/Nexo.Windows/Voice/VoiceCoordinator.cs`):
+- Constructor: `(IVoiceInputService, IVoiceOutputService, IWakeWordService)` — sin valores por
+  defecto; `null` lanza `ArgumentNullException` en vez de construir un motor de reemplazo.
+- Eventos `WakeWordDetected` y `RecognitionObserved`: **accessors de paso directo**
+  (`add => _wakeWordService.WakeWordDetected += value;`), no una suscripción interna propia. No
+  hay nada que desuscribir en `Dispose()` para estos dos eventos.
+- Solo lectura: `IsVoiceInputReady`, `IsVoiceInputListening`, `IsWakeWordReady`, `IsWakeWordListening`.
+- Paso a través de configuración (sin conocer preferencias): `InputDeviceNumber` (aplica a los dos
+  servicios), `WakeWordSensitivity`, `WakeWordCustomAliases`.
+- `GetInputDevices()`, `PrepareVoiceInputAsync`, `PrepareWakeWordAsync`.
+- `StartPushToTalkAsync`, `StopPushToTalkAsync`, `CancelPushToTalkAsync`.
+- `StartWakeWordAsync(phrase, ct)`, `StopWakeWordAsync()`, `PauseWakeWordAsync()` (alias semántico
+  de `StopWakeWordAsync`: no existe una operación distinta de "pausar" en los servicios
+  subyacentes).
+- `ListenAfterWakeWordAsync(maximumDuration, trailingSilence, preRoll, postWake, ct)`.
+- `Speak(text)`, `StopSpeaking()`.
+
+**Decisión deliberada — no auto-preparación:** `StartPushToTalkAsync` y
+`ListenAfterWakeWordAsync` **no** llaman `PrepareVoiceInputAsync` internamente antes de escuchar,
+a diferencia de las ramas equivalentes en `MainWindow` hoy. Se verificó en
+`WindowsVoiceInputService.StartListeningAsync` (línea 226) que el propio servicio **ya** se
+autoprepara si `!IsReady`; la comprobación manual en `MainWindow` solo existe para mostrar texto de
+progreso en la UI antes de la llamada. El coordinador expone `PrepareVoiceInputAsync` como
+operación independiente para que quien lo use (1.3B) decida si quiere ese texto de progreso, sin
+duplicar lógica que el servicio ya garantiza.
+
+**Estrategia de candados:** `_voiceGate` se adquiere **siempre antes** que `_wakeWordGate` cuando
+una operación necesita ambos (`StartPushToTalkAsync` y `ListenAfterWakeWordAsync` adquieren
+`_voiceGate` y, dentro de su bloque, `StopWakeWordCoreAsync` adquiere `_wakeWordGate`). Las
+operaciones que solo tocan wake word (`StartWakeWordAsync`, `StopWakeWordAsync`,
+`PauseWakeWordAsync`) **nunca** tocan `_voiceGate`, así que no existe ninguna ruta que adquiera
+`_wakeWordGate` primero y `_voiceGate` después — se eliminó estructuralmente la posibilidad de
+interbloqueo por orden invertido. Cada `WaitAsync()` está seguido de un `try/finally` que libera
+exactamente el candado que adquirió esa misma llamada; ningún camino libera un semáforo que no
+adquirió. Verificado con `ConcurrentStartWakeWordAndPushToTalk_DoNotDeadlock` (con límite de
+tiempo del propio `[Fact(Timeout = 5000)]`, sin `Task.Delay`) y
+`TwoSimultaneousPushToTalkCalls_NeverOverlapInTheUnderlyingService` (contador de concurrencia
+máxima observada, sin sleeps).
+
+**Archivos creados:**
+- `src/Nexo.Windows/Voice/VoiceCoordinator.cs`.
+- `tests/Nexo.Windows.Tests/Voice/VoiceCoordinatorFakes.cs` — dobles de prueba controlables
+  (`FakeVoiceInputService`, `FakeVoiceOutputService`, `FakeWakeWordService`) con ganchos
+  (`BeforeStartListeningReturns`, `BeforeStopListeningReturns`) para forzar suspensión real en
+  pruebas de concurrencia/cancelación sin `Task.Delay`, y un `VoiceCallLog` compartido para
+  afirmar orden relativo de llamadas entre los tres dobles.
+- `tests/Nexo.Windows.Tests/Voice/VoiceCoordinatorTests.cs` — 17 pruebas.
+
+**Archivos modificados:**
+- `src/Nexo.Windows/Composition/KohanaCompositionRoot.cs` — construye **una sola** instancia de
+  `VoiceCoordinator` envolviendo exactamente las mismas tres instancias de voz que ya construía
+  (no un cuarto motor), la registra como instancia singleton en el mismo `ServiceProvider`, y la
+  expone como propiedad `VoiceCoordinator`. `Dispose()` del composition root ahora también libera
+  `VoiceCoordinator` (sus dos semáforos propios) antes de liberar el `Provider` — no libera los
+  seis servicios de voz/IA/etc., que siguen sin ser de su propiedad, exactamente como en 1.2.
+- `tests/Nexo.Windows.Tests/Composition/KohanaCompositionRootTests.cs` — +4 pruebas: instancia
+  única del coordinador, identidad de sus tres servicios verificada por comportamiento (no hay
+  forma de exponer los campos internos sin romper la superficie mínima a propósito), ausencia de
+  un cuarto conjunto de motores registrados, y que `Dispose()` del root libera los recursos
+  propios del coordinador sin tocar los tres servicios de voz.
+- `tests/Nexo.Windows.Tests/Composition/CompositionInvariantTests.cs` — +4 pruebas: el código
+  fuente de `VoiceCoordinator` no menciona WPF/`Dispatcher`/la vista principal/preferencias/
+  decisión del gobernador de recursos/`IServiceProvider`; no llama `Dispose()` sobre los tres
+  servicios; y `MainWindow` conserva tanto los tres parámetros de constructor de voz como el
+  orden exacto de liberación en `Window_Closed`.
+
+**`MainWindow.xaml.cs` y `App.xaml.cs`: sin cambios en esta subfase.** Confirmado por
+`git diff --stat`, que solo lista los cinco archivos de arriba.
+
+**Resultado de build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release    → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas   (sin cambios)
+  Nexo.Windows.Tests.dll →  62 superadas, 0 con error, 0 omitidas   (39 + 23 nuevas)
+Total: 638 pruebas, 0 fallidas, 0 warnings.
+```
+
+Dos correcciones de prueba durante la implementación (documentadas por disciplina, no ocultadas):
+`Assert.ThrowsAsync<OperationCanceledException>` no acepta la subclase `TaskCanceledException`
+que realmente lanza `SemaphoreSlim.WaitAsync` cancelado — se cambió a `ThrowsAnyAsync`; y
+`VoskWakeWordService.CustomAliases` devuelve una copia defensiva en cada lectura, así que la
+prueba de identidad de aliases compara contenido (`Assert.Equal`) en vez de referencia
+(`Assert.Same`).
+
+**No se generó portable en esta subfase**, según instrucción explícita.
+
+**Riesgos pendientes para la migración 1.3B:** ver la sección "Fase 1.3A" de este mismo bloque —
+en particular, la decisión aún no tomada sobre quién libera los tres servicios de voz tras 1.3B
+(punto 3 de "Siguiente paso exacto"), y el smoke test manual interactivo, todavía sin repetir
+desde la fase 1.1.1.
