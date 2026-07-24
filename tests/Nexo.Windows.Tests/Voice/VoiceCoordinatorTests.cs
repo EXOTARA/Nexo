@@ -218,6 +218,23 @@ public sealed class VoiceCoordinatorTests
     }
 
     [Fact]
+    public async Task AcquireWakeWordScope_BlocksASecondAcquisitionUntilTheFirstIsDisposed()
+    {
+        // Simétrico al de entrada de voz: el único candado de wake word serializa dos
+        // ámbitos, de modo que las operaciones mutantes de Vosk nunca se solapan.
+        var (coordinator, _, _, _, _) = CreateCoordinator();
+
+        var first = await coordinator.AcquireWakeWordScopeAsync();
+        var second = coordinator.AcquireWakeWordScopeAsync();
+        Assert.False(second.IsCompleted);
+
+        await first.DisposeAsync();
+        var secondScope = await second;
+        Assert.NotNull(secondScope);
+        await secondScope.DisposeAsync();
+    }
+
+    [Fact]
     public async Task VoiceAndWakeWordScopes_AreIndependentDomains()
     {
         // Adquirir el ámbito de voz no impide adquirir el de wake word: son dos dominios

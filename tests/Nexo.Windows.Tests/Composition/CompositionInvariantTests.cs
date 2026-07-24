@@ -467,6 +467,56 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
+    public void WindowClosed_MarksClosed_CancelsLifetime_AndUnsubscribesWithoutDisposingVoiceServices()
+    {
+        // Cierre seguro (1.3B3): Window_Closed marca el cierre, cancela el token de vida y
+        // desuscribe los eventos de wake word por el coordinador, en ese orden — pero YA NO
+        // libera los tres servicios (eso es de KohanaCompositionRoot). La guardia _isClosed
+        // y el token cancelado protegen las operaciones en vuelo y los eventos encolados.
+        var content = ReadMainWindowSource();
+        var body = ExtractMethodBody(
+            content,
+            "private void Window_Closed(object? sender, EventArgs e)",
+            "private IntPtr WindowMessageHook(");
+
+        var closedIndex = body.IndexOf("_isClosed = true;", StringComparison.Ordinal);
+        var cancelIndex = body.IndexOf("_lifetimeCancellation.Cancel();", StringComparison.Ordinal);
+        var wakeWordUnsubIndex = body.IndexOf(
+            "_voiceCoordinator.WakeWordDetected -= WakeWordService_WakeWordDetected;", StringComparison.Ordinal);
+        var recognitionUnsubIndex = body.IndexOf(
+            "_voiceCoordinator.RecognitionObserved -= WakeWordService_RecognitionObserved;", StringComparison.Ordinal);
+
+        Assert.True(closedIndex >= 0
+            && cancelIndex > closedIndex
+            && wakeWordUnsubIndex > cancelIndex
+            && recognitionUnsubIndex > wakeWordUnsubIndex,
+            "El orden de cierre (marcar cerrado -> cancelar -> desuscribir) cambió en Window_Closed.");
+
+        // Ninguna liberación de los tres servicios de voz ocurre en la ventana: su Dispose
+        // vive en KohanaCompositionRoot (verificado en
+        // CompositionRoot_OwnsAndDisposesTheThreeVoiceServicesInOrder).
+        Assert.DoesNotContain("_voiceInputService.Dispose();", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceOutputService.Dispose();", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_wakeWordService.Dispose();", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HandleWakeWordDetectedAsync_GuardsAgainstAClosedWindowBeforeOperating()
+    {
+        // Un evento de wake word encolado en el Dispatcher que llegue después del cierre
+        // encuentra la guardia _isClosed antes de tocar el subsistema de voz.
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
+            "private async Task HandleWakeWordDetectedAsync",
+            "private async Task HandleVoiceRecognitionResultAsync");
+
+        var guardIndex = body.IndexOf("if (_isClosed || !_preferences.WakeWordEnabled)", StringComparison.Ordinal);
+        var scopeIndex = body.IndexOf("AcquireVoiceInputScopeAsync", StringComparison.Ordinal);
+        Assert.True(guardIndex >= 0 && scopeIndex > guardIndex,
+            "HandleWakeWordDetectedAsync debe comprobar _isClosed antes de adquirir el ámbito de voz.");
+    }
+
+    [Fact]
     public void ResourceGovernorSemaphore_IsNamedAsADecisionGate_NotAVoiceEngineGate()
     {
         // Fase 1.3B3: el semáforo del Resource Governor serializa decisiones (pausar /
