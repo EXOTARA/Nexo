@@ -21,17 +21,6 @@ namespace Nexo.Windows.Voice;
 /// </summary>
 public sealed class VoiceCoordinator : IDisposable
 {
-    /// <summary>
-    /// Token opaco que representa una sesión de push-to-talk abierta (desde que
-    /// <see cref="StartPushToTalkAsync"/> tiene éxito hasta que
-    /// <see cref="StopPushToTalkAsync"/> o <see cref="CancelPushToTalkAsync"/> la
-    /// cierra). No lleva datos: solo distingue "hay sesión" (no nulo) de "no hay
-    /// sesión" (nulo) para <see cref="Interlocked.Exchange{T}(ref T, T)"/>.
-    /// </summary>
-    private sealed class PushToTalkSession
-    {
-    }
-
     private readonly IVoiceInputService _voiceInputService;
     private readonly IVoiceOutputService _voiceOutputService;
     private readonly IWakeWordService _wakeWordService;
@@ -40,17 +29,7 @@ public sealed class VoiceCoordinator : IDisposable
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
 
-    /// <summary>
-    /// Sesión de push-to-talk activa, o <c>null</c> si no hay ninguna. Se instala solo
-    /// tras un <see cref="StartPushToTalkAsync"/> exitoso; solo <see cref="StopPushToTalkAsync"/>
-    /// o <see cref="CancelPushToTalkAsync"/> (quien gane la carrera vía
-    /// <see cref="Interlocked.Exchange{T}(ref T, T)"/>) la retira y libera <see cref="_voiceGate"/>.
-    /// </summary>
-    private PushToTalkSession? _activeSession;
-
-    // 0 = no liberado, 1 = liberado. Interlocked en vez de bool: Dispose() debe ser
-    // seguro si dos llamadas concurrentes lo invocan a la vez.
-    private int _disposed;
+    private bool _disposed;
 
     public VoiceCoordinator(
         IVoiceInputService voiceInputService,
@@ -124,18 +103,10 @@ public sealed class VoiceCoordinator : IDisposable
         _wakeWordService.PrepareAsync(progress, cancellationToken);
 
     /// <summary>
-    /// Abre una sesión de push-to-talk: pausa wake word, detiene cualquier TTS en curso
-    /// e inicia la escucha. Adquiere el candado de voz antes que el de wake word, nunca
-    /// al revés. <see cref="IVoiceInputService.StartListeningAsync"/> ya se autoprepara
-    /// si el motor no está listo, así que este método no lo duplica.
-    ///
-    /// Corrección 1.3A.1: si el arranque tiene éxito, <c>_voiceGate</c> se queda
-    /// retenido representando la sesión abierta — este método **no** lo libera en su
-    /// <c>finally</c>. Solo <see cref="StopPushToTalkAsync"/> o
-    /// <see cref="CancelPushToTalkAsync"/> lo liberan, una vez exacta entre los dos. Si
-    /// el arranque falla, se cancela o lanza antes de establecer la sesión, este método
-    /// sí libera el candado él mismo, porque nunca llegó a existir una sesión que otro
-    /// método pudiera cerrar (criterio 5 de la corrección).
+    /// Pausa wake word, detiene cualquier TTS en curso e inicia la escucha de
+    /// push-to-talk. Adquiere el candado de voz antes que el de wake word, nunca al
+    /// revés. <see cref="IVoiceInputService.StartListeningAsync"/> ya se autoprepara si
+    /// el motor no está listo, así que este método no lo duplica.
     /// </summary>
     public async Task<VoiceStartResult> StartPushToTalkAsync(
         CancellationToken cancellationToken = default)
@@ -147,50 +118,20 @@ public sealed class VoiceCoordinator : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             _voiceOutputService.Stop();
             cancellationToken.ThrowIfCancellationRequested();
-
-            var result = await _voiceInputService
+            return await _voiceInputService
                 .StartListeningAsync(cancellationToken)
                 .ConfigureAwait(false);
-
-            if (result.IsAvailable)
-            {
-                // Sesión establecida: el candado queda retenido a propósito. No hay
-                // `finally` que lo libere en esta rama.
-                Interlocked.Exchange(ref _activeSession, new PushToTalkSession());
-                return result;
-            }
-
-            // El servicio rechazó el arranque (p. ej. micrófono no disponible): nunca
-            // hubo sesión, así que este método sí libera lo que adquirió.
-            _voiceGate.Release();
-            return result;
         }
-        catch
+        finally
         {
             _voiceGate.Release();
-            throw;
         }
     }
 
-    /// <summary>
-    /// Cierra la sesión de push-to-talk activa, si la hay. Si <see cref="StopPushToTalkAsync"/>
-    /// y <see cref="CancelPushToTalkAsync"/> se llaman de forma concurrente,
-    /// <see cref="Interlocked.Exchange{T}(ref T, T)"/> decide un único ganador: quien
-    /// obtiene la sesión (no nula) es el único que llama al servicio subyacente y
-    /// libera <c>_voiceGate</c>, exactamente una vez, incluso si el servicio lanza. El
-    /// perdedor (sesión ya nula) no hace nada — ni llama al servicio ni toca el
-    /// candado — porque ya no hay nada que cerrar.
-    /// </summary>
     public async Task<VoiceRecognitionResult> StopPushToTalkAsync(
         CancellationToken cancellationToken = default)
     {
-        var session = Interlocked.Exchange(ref _activeSession, null);
-        if (session is null)
-        {
-            return VoiceRecognitionResult.NoSpeech(
-                "No había una sesión de push-to-talk activa que detener.");
-        }
-
+        await _voiceGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             return await _voiceInputService
@@ -203,15 +144,9 @@ public sealed class VoiceCoordinator : IDisposable
         }
     }
 
-    /// <summary>Misma disciplina de "único ganador" que <see cref="StopPushToTalkAsync"/>.</summary>
     public async Task CancelPushToTalkAsync()
     {
-        var session = Interlocked.Exchange(ref _activeSession, null);
-        if (session is null)
-        {
-            return;
-        }
-
+        await _voiceGate.WaitAsync().ConfigureAwait(false);
         try
         {
             await _voiceInputService.CancelAsync().ConfigureAwait(false);
@@ -317,34 +252,15 @@ public sealed class VoiceCoordinator : IDisposable
     /// No llama <c>Dispose()</c> sobre <see cref="IVoiceInputService"/>,
     /// <see cref="IVoiceOutputService"/> ni <see cref="IWakeWordService"/>: en esta
     /// subfase, el coordinador no es su dueño.
-    ///
-    /// Idempotente y seguro frente a llamadas concurrentes a este mismo método
-    /// (<see cref="Interlocked.CompareExchange{T}(ref T, T, T)"/> decide un único
-    /// ejecutor real). Es seguro llamarlo con una sesión de push-to-talk abierta o una
-    /// operación de wake word en curso, porque ninguna de esas rutas mantiene un
-    /// candado retenido dentro de un <c>await</c> activo en ese instante — solo lo
-    /// mantiene retenido *entre* llamadas (mientras nadie está esperando dentro de
-    /// <c>WaitAsync()</c>).
-    ///
-    /// Límite conocido, documentado en vez de resuelto: si una llamada está
-    /// literalmente bloqueada dentro de <c>_voiceGate.WaitAsync()</c> o
-    /// <c>_wakeWordGate.WaitAsync()</c> en el instante exacto en que <see cref="Dispose"/>
-    /// libera esos semáforos, el comportamiento de esa espera pendiente queda indefinido
-    /// por el propio contrato de <see cref="SemaphoreSlim"/> — no es algo que este tipo
-    /// pueda garantizar sin un mecanismo de conteo de operaciones en vuelo (o
-    /// <c>IAsyncDisposable</c>, explícitamente fuera de alcance de esta corrección).
-    /// Contrato del llamador: no llamar <see cref="Dispose"/> mientras se sepa que hay
-    /// una llamada bloqueada esperando adquirir un candado. Hoy el único llamador real
-    /// (<c>KohanaCompositionRoot.Dispose</c>) lo invoca al cerrar la aplicación, cuando
-    /// nada más está usando el coordinador.
     /// </summary>
     public void Dispose()
     {
-        if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
+        if (_disposed)
         {
             return;
         }
 
+        _disposed = true;
         _voiceGate.Dispose();
         _wakeWordGate.Dispose();
     }
