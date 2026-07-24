@@ -997,3 +997,55 @@ Total: 663 pruebas, 0 fallidas, 0 warnings. Suite de Windows repetida 4 veces si
 ```
 
 **Riesgos pendientes:** la transferencia definitiva de candados al coordinador (1.3B3+) sigue pendiente, junto con todo lo que la auditoría correctiva de 1.3B2 dejó documentado y sin resolver: el `CancelAsync` de cambio de dispositivo ya tiene equivalencia exacta (`CancelVoiceInputUnderExternalCoordinationAsync`, resuelto en esta subfase), pero el tercer dominio de candados (`_resourceGovernorVoiceGate`), la revisión de `Window_Closed` frente a operaciones en vuelo, y el fallback no liberado del constructor de `MainWindow` siguen abiertos. El smoke test manual interactivo (riesgo #13, heredado desde 1.2) sigue sin repetirse.
+
+---
+
+### Checkpoint Fase 1.3B2 — smoke test manual aprobado (2026-07-23)
+
+El riesgo #13 (smoke test manual interactivo, abierto desde 1.2) queda **cerrado para el
+runtime migrado en 1.3B2**: el usuario ejecutó la prueba interactiva sobre el ZIP publicado y la
+aprobó sin regresiones visibles.
+
+| Campo | Valor |
+|---|---|
+| **Commit probado** | `cd31699` (`docs: record voice runtime coordinator migration`) |
+| **Rama** | `release/kohana-1.0-rc` |
+| **Fecha del smoke test** | 2026-07-23 |
+| **ZIP probado** | `Kohana-0.9.5-beta-phase1.3B2-runtime-smoke-win-x64.zip` |
+| **SHA-256** | `EAC06AB7BB329B807F4455B7A2BD648F294CA14C542392126A77B2243956C0E9` |
+| **Pruebas automatizadas** | **663**, 0 fallidas, 0 warnings (ver "Fase 1.3B2 runtime" arriba) |
+
+**Funciones aprobadas manualmente:**
+
+| Función | Resultado |
+|---|---|
+| Apertura de la aplicación | ✅ |
+| Navegación (Ajustes, Asistente) | ✅ |
+| Control Mic — clic para iniciar/detener | ✅ primer clic inicia escucha, segundo clic detiene y transcribe |
+| Whisper (transcripción y procesamiento) | ✅ |
+| Wake word "Kohana" | ✅ |
+| Wake word "Oye Kohana" | ✅ |
+| Orden de corrido | ✅ |
+| TTS | ✅ |
+| Cambio y persistencia del micrófono | ✅ |
+| Prueba de frase y sensibilidad | ✅ |
+| Cierre y reapertura | ✅ |
+| Instancia única | ✅ |
+
+**Aclaración sobre la interacción del control Mic:** el comportamiento actual y esperado del
+producto es **clic para iniciar, clic para detener** — no "mantener presionado". El control **no**
+responde a mantener presionado, y **esto no es una regresión**: es la interacción vigente del
+producto. Ningún documento de esta fase describe el control Mic como "mantener presionado"; no fue
+necesario corregir texto obsoleto.
+
+**Sin regresiones visibles.** No se observaron bloqueos ni cierres inesperados.
+
+**Riesgos pendientes** (sin cambios respecto a "Fase 1.3B2 runtime" arriba, y sin resolver por este
+checkpoint, que fue puramente documental): la transferencia definitiva de sincronización y
+propiedad de los tres servicios de voz al `VoiceCoordinator` (1.3B3+); el tercer dominio de
+candados `_resourceGovernorVoiceGate`; el fallback no liberado del constructor de `MainWindow`; la
+decisión, aún no tomada, de si `Window_Closed` pasará a delegar la liberación de los tres servicios
+en `VoiceCoordinator.Dispose()`.
+
+Ningún código de producción ni prueba se modificó para este checkpoint — es un cierre puramente
+documental sobre el commit ya probado y publicado en 1.3B2 runtime.
