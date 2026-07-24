@@ -1905,15 +1905,19 @@ public partial class MainWindow : Window
 
     private void ConfigureVoiceInputDevices()
     {
-        var devices = _voiceInputService.GetInputDevices();
+        var devices = _voiceCoordinator.GetInputDevices();
         var selectedDeviceNumber = devices.Any(device =>
             device.DeviceNumber == _preferences.VoiceInputDeviceNumber)
             ? _preferences.VoiceInputDeviceNumber
             : devices.FirstOrDefault()?.DeviceNumber ?? -1;
 
         _preferences.VoiceInputDeviceNumber = selectedDeviceNumber;
-        _voiceInputService.InputDeviceNumber = selectedDeviceNumber;
-        _wakeWordService.InputDeviceNumber = selectedDeviceNumber;
+
+        // VoiceCoordinator.InputDeviceNumber aplica el valor a _voiceInputService y a
+        // _wakeWordService en un único setter: efecto idéntico a las dos asignaciones
+        // directas que sustituye (confirmado leyendo VoiceCoordinator.cs antes de este
+        // cambio), en el mismo orden (entrada de voz primero, wake word después).
+        _voiceCoordinator.InputDeviceNumber = selectedDeviceNumber;
         _settingsView.SetVoiceInputDevices(devices, selectedDeviceNumber);
         SavePreferences();
     }
@@ -1924,20 +1928,24 @@ public partial class MainWindow : Window
         try
         {
             await PauseWakeWordAsync();
+
+            // CancelAsync() se deja sin migrar deliberadamente: VoiceCoordinator solo
+            // expone CancelPushToTalkAsync, que añade su propio candado de voz interno
+            // (no presente hoy en esta ruta) — no es una equivalencia exacta, así que se
+            // conserva la llamada directa al servicio (ver informe de la subfase 1.3B1).
             await _voiceInputService.CancelAsync();
 
             _preferences.VoiceInputDeviceNumber = deviceNumber;
-            _voiceInputService.InputDeviceNumber = deviceNumber;
-            _wakeWordService.InputDeviceNumber = deviceNumber;
+            _voiceCoordinator.InputDeviceNumber = deviceNumber;
             SavePreferences();
 
-            var selectedName = _voiceInputService
+            var selectedName = _voiceCoordinator
                 .GetInputDevices()
                 .FirstOrDefault(device => device.DeviceNumber == deviceNumber)
                 ?.Name ?? "micrófono seleccionado";
 
             _assistantView.SetVoiceAvailability(
-                _voiceInputService.IsReady,
+                _voiceCoordinator.IsVoiceInputReady,
                 $"Micrófono activo: {selectedName}");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Success,
@@ -2008,7 +2016,7 @@ public partial class MainWindow : Window
 
     private async Task PrepareVoiceAsync()
     {
-        var requiresDownload = !_voiceInputService.IsReady;
+        var requiresDownload = !_voiceCoordinator.IsVoiceInputReady;
         _assistantView.SetVoiceAvailability(
             available: false,
             "Preparando Whisper local…");
@@ -2031,7 +2039,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var result = await _voiceInputService.PrepareAsync(
+            var result = await _voiceCoordinator.PrepareVoiceInputAsync(
                 progress,
                 _lifetimeCancellation.Token);
 

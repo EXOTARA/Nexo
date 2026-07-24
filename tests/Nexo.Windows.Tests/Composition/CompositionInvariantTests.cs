@@ -114,6 +114,151 @@ public sealed class CompositionInvariantTests
             "El orden de Dispose() en Window_Closed cambió respecto a la fase 1.2.");
     }
 
+    // ---------- Fase 1.3B1: VoiceCoordinator inyectado en MainWindow ----------
+
+    [Fact]
+    public void App_PassesTheCompositionRootsVoiceCoordinatorToMainWindow()
+    {
+        var content = ReadAppSource();
+
+        Assert.Contains("_compositionRoot.VoiceCoordinator", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MainWindow_ReceivesVoiceCoordinatorAsATypedConstructorDependency()
+    {
+        var content = ReadMainWindowSource();
+
+        Assert.Contains("VoiceCoordinator? voiceCoordinator = null", content, StringComparison.Ordinal);
+        Assert.Contains("private readonly VoiceCoordinator _voiceCoordinator;", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MainWindow_FallbackWrapsExistingServices_NeverBuildsAFourthEngineSet()
+    {
+        var content = ReadMainWindowSource();
+
+        // El valor por defecto (solo para construcción directa fuera de App.OnStartup)
+        // envuelve los mismos tres campos ya resueltos arriba: nunca construye un motor
+        // adicional ni un segundo VoiceCoordinator "real" — App.OnStartup siempre provee
+        // el suyo, verificado en App_PassesTheCompositionRootsVoiceCoordinatorToMainWindow.
+        Assert.Contains(
+            "?? new VoiceCoordinator(_voiceInputService, _voiceOutputService, _wakeWordService)",
+            content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConfigureVoiceInputDevices_RoutesEnumerationAndSelectionThroughTheCoordinator()
+    {
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
+            "private void ConfigureVoiceInputDevices()",
+            "private async Task ChangeVoiceInputDeviceAsync");
+
+        Assert.Contains("_voiceCoordinator.GetInputDevices()", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.InputDeviceNumber = selectedDeviceNumber;", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceInputService.GetInputDevices()", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceInputService.InputDeviceNumber", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_wakeWordService.InputDeviceNumber", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChangeVoiceInputDeviceAsync_UsesCoordinatorForDeviceSelection_ButKeepsDirectCancelCall()
+    {
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
+            "private async Task ChangeVoiceInputDeviceAsync",
+            "private async Task<bool> TryHandlePendingVoiceDecisionAsync(");
+
+        Assert.Contains("_voiceCoordinator.InputDeviceNumber = deviceNumber;", body, StringComparison.Ordinal);
+        // `.GetInputDevices()` se llama encadenado en varias líneas (`_voiceCoordinator`
+        // seguido de `.GetInputDevices()` en la línea siguiente); se comprueban por
+        // separado para no depender del formato exacto del encadenamiento.
+        Assert.Contains("_voiceCoordinator", body, StringComparison.Ordinal);
+        Assert.Contains(".GetInputDevices()", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.IsVoiceInputReady", body, StringComparison.Ordinal);
+
+        // CancelAsync() se conserva sin migrar a propósito: VoiceCoordinator solo expone
+        // CancelPushToTalkAsync, que añade su propio candado de voz interno no presente
+        // hoy en esta ruta — no es una equivalencia exacta (ver informe de la subfase 1.3B1).
+        Assert.Contains("await _voiceInputService.CancelAsync();", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrepareVoiceAsync_RoutesReadinessAndPreparationThroughTheCoordinator()
+    {
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
+            "private async Task PrepareVoiceAsync()",
+            "private async Task InitializeVoiceFeaturesAsync()");
+
+        Assert.Contains("_voiceCoordinator.IsVoiceInputReady", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.PrepareVoiceInputAsync(", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceInputService.IsReady", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceInputService.PrepareAsync(", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PushToTalkWakeWordAndTtsMethods_RemainUnmigrated()
+    {
+        // Fuera de alcance de 1.3B1: deben seguir usando los tres campos directos, no el
+        // coordinador. Se verifica dentro del cuerpo de cada método para no depender de
+        // números de línea — solo de las firmas, que son símbolos estables.
+        var content = ReadMainWindowSource();
+
+        var voiceInputStarted = ExtractMethodBody(
+            content,
+            "private async void AssistantView_VoiceInputStarted",
+            "private async void AssistantView_VoiceInputStopped");
+        Assert.Contains("await _voiceInputService.StartListeningAsync();", voiceInputStarted, StringComparison.Ordinal);
+
+        var voiceInputStopped = ExtractMethodBody(
+            content,
+            "private async void AssistantView_VoiceInputStopped",
+            "private void WakeWordService_WakeWordDetected(");
+        Assert.Contains("await _voiceInputService.StopListeningAsync();", voiceInputStopped, StringComparison.Ordinal);
+
+        var handleWakeWordDetected = ExtractMethodBody(
+            content,
+            "private async Task HandleWakeWordDetectedAsync",
+            "private async Task HandleVoiceRecognitionResultAsync");
+        Assert.Contains(
+            "await _voiceInputService.ListenForUtteranceAsync(",
+            handleWakeWordDetected,
+            StringComparison.Ordinal);
+
+        var speakVoiceResult = ExtractMethodBody(content, "private void SpeakVoiceResult", endMarker: null);
+        Assert.Contains("_voiceOutputService.SpeakShort(text);", speakVoiceResult, StringComparison.Ordinal);
+
+        // Suscripción directa a los eventos del servicio, cableada en el constructor:
+        // todavía no pasa por los accessors de paso directo de VoiceCoordinator.
+        Assert.Contains(
+            "_wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;",
+            content,
+            StringComparison.Ordinal);
+    }
+
+    private static string ReadMainWindowSource() =>
+        File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Nexo.App", "MainWindow.xaml.cs"));
+
+    private static string ReadAppSource() =>
+        File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Nexo.App", "App.xaml.cs"));
+
+    private static string ExtractMethodBody(string content, string startMarker, string? endMarker)
+    {
+        var start = content.IndexOf(startMarker, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"No se encontró '{startMarker}' en el archivo.");
+
+        if (endMarker is null)
+        {
+            return content[start..];
+        }
+
+        var end = content.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(end > start, $"No se encontró '{endMarker}' después de '{startMarker}'.");
+        return content[start..end];
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
