@@ -163,25 +163,33 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
-    public void ChangeVoiceInputDeviceAsync_UsesCoordinatorForDeviceSelection_ButKeepsDirectCancelCall()
+    public void ChangeVoiceInputDeviceAsync_UsesTheCoordinatorForEveryVoiceOperation()
     {
+        // Fase 1.3B2 runtime: CancelAsync() ya no se llama directamente. El único
+        // método del coordinador usado para cancelar es
+        // CancelVoiceInputUnderExternalCoordinationAsync, que no adquiere ningún
+        // candado interno — a diferencia de CancelPushToTalkAsync, que sigue prohibido
+        // (ver MainWindow_DoesNotConsumeTheCoordinatorsGateAcquiringOperations).
         var body = ExtractMethodBody(
             ReadMainWindowSource(),
             "private async Task ChangeVoiceInputDeviceAsync",
             "private async Task<bool> TryHandlePendingVoiceDecisionAsync(");
 
+        Assert.Contains("_voiceGate.WaitAsync()", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceGate.Release()", body, StringComparison.Ordinal);
+        Assert.Contains("await PauseWakeWordAsync();", body, StringComparison.Ordinal);
+        Assert.Contains("await ResumeWakeWordIfEnabledAsync();", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "await _voiceCoordinator.CancelVoiceInputUnderExternalCoordinationAsync();",
+            body,
+            StringComparison.Ordinal);
         Assert.Contains("_voiceCoordinator.InputDeviceNumber = deviceNumber;", body, StringComparison.Ordinal);
-        // `.GetInputDevices()` se llama encadenado en varias líneas (`_voiceCoordinator`
-        // seguido de `.GetInputDevices()` en la línea siguiente); se comprueban por
+        // `.GetInputDevices()` se llama encadenado en varias líneas; se comprueba por
         // separado para no depender del formato exacto del encadenamiento.
-        Assert.Contains("_voiceCoordinator", body, StringComparison.Ordinal);
         Assert.Contains(".GetInputDevices()", body, StringComparison.Ordinal);
         Assert.Contains("_voiceCoordinator.IsVoiceInputReady", body, StringComparison.Ordinal);
-
-        // CancelAsync() se conserva sin migrar a propósito: VoiceCoordinator solo expone
-        // CancelPushToTalkAsync, que añade su propio candado de voz interno no presente
-        // hoy en esta ruta — no es una equivalencia exacta (ver informe de la subfase 1.3B1).
-        Assert.Contains("await _voiceInputService.CancelAsync();", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceInputService", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_wakeWordService", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -198,69 +206,261 @@ public sealed class CompositionInvariantTests
         Assert.DoesNotContain("_voiceInputService.PrepareAsync(", body, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void PushToTalkWakeWordAndTtsMethods_RemainUnmigrated()
-    {
-        // Fuera de alcance de 1.3B1: deben seguir usando los tres campos directos, no el
-        // coordinador. Se verifica dentro del cuerpo de cada método para no depender de
-        // números de línea — solo de las firmas, que son símbolos estables.
-        var content = ReadMainWindowSource();
+    // ---------- Fase 1.3B2 runtime: push-to-talk y wake-word-listen migrados ----------
 
-        var voiceInputStarted = ExtractMethodBody(
-            content,
+    [Fact]
+    public void AssistantViewVoiceInputStarted_PreservesOrchestrationAndUsesTheCoordinator()
+    {
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
             "private async void AssistantView_VoiceInputStarted",
             "private async void AssistantView_VoiceInputStopped");
-        Assert.Contains("await _voiceInputService.StartListeningAsync();", voiceInputStarted, StringComparison.Ordinal);
 
-        var voiceInputStopped = ExtractMethodBody(
-            content,
-            "private async void AssistantView_VoiceInputStopped",
-            "private void WakeWordService_WakeWordDetected(");
-        Assert.Contains("await _voiceInputService.StopListeningAsync();", voiceInputStopped, StringComparison.Ordinal);
+        // Conservado exactamente: candado, orquestación, bandera de estado.
+        Assert.Contains("_voiceGate.WaitAsync()", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceGate.Release()", body, StringComparison.Ordinal);
+        Assert.Contains("await PauseWakeWordAsync();", body, StringComparison.Ordinal);
+        Assert.Contains("await PrepareVoiceAsync();", body, StringComparison.Ordinal);
+        Assert.Contains("listeningStarted", body, StringComparison.Ordinal);
+        Assert.Contains("await ResumeWakeWordIfEnabledAsync();", body, StringComparison.Ordinal);
 
-        var handleWakeWordDetected = ExtractMethodBody(
-            content,
-            "private async Task HandleWakeWordDetectedAsync",
-            "private async Task HandleVoiceRecognitionResultAsync");
+        // Migrado: las tres sustituciones exactas del prompt.
+        Assert.Contains("_voiceCoordinator.StopSpeaking();", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.IsVoiceInputReady", body, StringComparison.Ordinal);
         Assert.Contains(
-            "await _voiceInputService.ListenForUtteranceAsync(",
-            handleWakeWordDetected,
+            "await _voiceCoordinator.StartVoiceInputUnderExternalCoordinationAsync();",
+            body,
             StringComparison.Ordinal);
 
-        var speakVoiceResult = ExtractMethodBody(content, "private void SpeakVoiceResult", endMarker: null);
-        Assert.Contains("_voiceOutputService.SpeakShort(text);", speakVoiceResult, StringComparison.Ordinal);
-
-        // Suscripción directa a los eventos del servicio, cableada en el constructor:
-        // todavía no pasa por los accessors de paso directo de VoiceCoordinator.
-        Assert.Contains(
-            "_wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;",
-            content,
-            StringComparison.Ordinal);
+        // Ningún uso directo restante de los servicios en este método.
+        Assert.DoesNotContain("_voiceInputService", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceOutputService", body, StringComparison.Ordinal);
     }
 
-    // ---------- Fase 1.3B2A: frontera de la API de transición ----------
+    [Fact]
+    public void AssistantViewVoiceInputStopped_PreservesOrchestrationAndUsesTheCoordinator()
+    {
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
+            "private async void AssistantView_VoiceInputStopped",
+            "private void WakeWordService_WakeWordDetected(");
+
+        Assert.Contains("_voiceGate.WaitAsync()", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceGate.Release()", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.IsVoiceInputListening", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "await _voiceCoordinator.StopVoiceInputUnderExternalCoordinationAsync();",
+            body,
+            StringComparison.Ordinal);
+        Assert.Contains("await HandleVoiceRecognitionResultAsync(result);", body, StringComparison.Ordinal);
+
+        // La reanudación en el finally de Stop es incondicional (a diferencia de Start,
+        // que la condiciona a `!listeningStarted`): no debe aparecer ningún `if` entre el
+        // bloque `finally` y la llamada a ResumeWakeWordIfEnabledAsync.
+        var finallyIndex = body.IndexOf("finally", StringComparison.Ordinal);
+        Assert.True(finallyIndex >= 0, "No se encontró el bloque finally.");
+        var finallyBlock = body[finallyIndex..];
+        var resumeIndex = finallyBlock.IndexOf("ResumeWakeWordIfEnabledAsync", StringComparison.Ordinal);
+        Assert.True(resumeIndex >= 0, "No se encontró la reanudación en el finally.");
+        Assert.DoesNotContain("if", finallyBlock[..resumeIndex], StringComparison.Ordinal);
+
+        Assert.DoesNotContain("_voiceInputService", body, StringComparison.Ordinal);
+    }
 
     [Fact]
-    public void MainWindow_DoesNotConsumeTheExternallyCoordinatedOperationsYet()
+    public void HandleWakeWordDetectedAsync_PreservesOrchestrationAndUsesTheCoordinator()
     {
-        // 1.3B2A solo prepara la API; 1.3B2B será quien la consuma. Se comprueba con el
-        // prefijo `_voiceCoordinator.` porque los nombres sueltos colisionarían con los
-        // métodos privados homónimos de MainWindow (p. ej. su propio PauseWakeWordAsync).
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
+            "private async Task HandleWakeWordDetectedAsync",
+            "private async Task HandleVoiceRecognitionResultAsync");
+
+        // Conservado exactamente.
+        Assert.Contains("RememberForegroundWindow();", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceGate.WaitAsync()", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceGate.Release()", body, StringComparison.Ordinal);
+        Assert.Contains("await PauseWakeWordAsync();", body, StringComparison.Ordinal);
+        Assert.Contains("await PrepareVoiceAsync();", body, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromSeconds(20)", body, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds(1_500)", body, StringComparison.Ordinal);
+        Assert.Contains("e.PreRollAudio", body, StringComparison.Ordinal);
+        Assert.Contains("e.PostWakeAudio", body, StringComparison.Ordinal);
+        Assert.Contains("_lifetimeCancellation.Token", body, StringComparison.Ordinal);
+        Assert.Contains("await ResumeWakeWordIfEnabledAsync();", body, StringComparison.Ordinal);
+
+        // Migrado.
+        Assert.Contains("_voiceCoordinator.StopSpeaking();", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.IsVoiceInputReady", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "_voiceCoordinator.ListenForUtteranceUnderExternalCoordinationAsync(",
+            body,
+            StringComparison.Ordinal);
+
+        Assert.DoesNotContain("_voiceInputService", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceOutputService", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApplyWakeWordPreferenceAsync_PreservesOrderAndUsesTheCoordinator()
+    {
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
+            "private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)",
+            "private async Task PauseWakeWordAsync()");
+
+        Assert.Contains("_wakeWordGate.WaitAsync()", body, StringComparison.Ordinal);
+        Assert.Contains("_wakeWordGate.Release()", body, StringComparison.Ordinal);
+        Assert.Contains("SetWakeWordIndicator(", body, StringComparison.Ordinal);
+        Assert.Contains("RefreshRuntimeDashboard();", body, StringComparison.Ordinal);
+        Assert.Contains("PauseWakeWordInGameMode", body, StringComparison.Ordinal);
+        Assert.Contains("requiresDownload", body, StringComparison.Ordinal);
+        Assert.Contains("Progress<VoicePreparationProgress>", body, StringComparison.Ordinal);
+        Assert.Contains("_lifetimeCancellation.Token", body, StringComparison.Ordinal);
+        Assert.Contains("catch (OperationCanceledException)", body, StringComparison.Ordinal);
+
+        Assert.Contains(
+            "await _voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync();",
+            body,
+            StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.PrepareWakeWordAsync(", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "await _voiceCoordinator.StartWakeWordUnderExternalCoordinationAsync(",
+            body,
+            StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.WakeWordSensitivity", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.WakeWordCustomAliases", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.IsVoiceInputReady", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.IsVoiceInputListening", body, StringComparison.Ordinal);
+        Assert.Contains("_voiceCoordinator.IsWakeWordReady", body, StringComparison.Ordinal);
+
+        // Orden Stop → Prepare → Start conservado.
+        var stopIndex = body.IndexOf("StopWakeWordUnderExternalCoordinationAsync", StringComparison.Ordinal);
+        var prepareIndex = body.IndexOf("PrepareWakeWordAsync", StringComparison.Ordinal);
+        var startIndex = body.IndexOf("StartWakeWordUnderExternalCoordinationAsync", StringComparison.Ordinal);
+        Assert.True(
+            stopIndex >= 0 && prepareIndex > stopIndex && startIndex > prepareIndex,
+            "El orden Stop -> Prepare -> Start cambió en ApplyWakeWordPreferenceAsync.");
+
+        Assert.DoesNotContain("_wakeWordService", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceInputService", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PauseWakeWordAsync_PreservesTheGateAndTheIndicator()
+    {
+        var body = ExtractMethodBody(
+            ReadMainWindowSource(),
+            "private async Task PauseWakeWordAsync()",
+            "private Task ResumeWakeWordIfEnabledAsync()");
+
+        Assert.Contains("_wakeWordGate.WaitAsync()", body, StringComparison.Ordinal);
+        Assert.Contains("_wakeWordGate.Release()", body, StringComparison.Ordinal);
+        Assert.Contains("SetWakeWordIndicator(active: false);", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "await _voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync();",
+            body,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("_wakeWordService", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MainWindow_HasNoRemainingDirectOperationalCallsOnTheThreeServices()
+    {
+        // Tras la migración runtime de 1.3B2, los únicos usos directos permitidos de los
+        // tres campos de servicio son: asignación/fallback del constructor, suscripción y
+        // desuscripción de los dos eventos de wake word, y Dispose() en Window_Closed
+        // (todos verificados por otras pruebas de esta clase). Ninguna llamada operativa
+        // debe seguir apareciendo pegada a los campos directos.
         var content = ReadMainWindowSource();
 
-        string[] externallyCoordinated =
+        string[] forbiddenDirectUses =
         [
-            "_voiceCoordinator.StartVoiceInputUnderExternalCoordinationAsync",
-            "_voiceCoordinator.StopVoiceInputUnderExternalCoordinationAsync",
-            "_voiceCoordinator.CancelVoiceInputUnderExternalCoordinationAsync",
-            "_voiceCoordinator.ListenForUtteranceUnderExternalCoordinationAsync",
-            "_voiceCoordinator.StartWakeWordUnderExternalCoordinationAsync",
-            "_voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync"
+            "_voiceInputService.StartListeningAsync",
+            "_voiceInputService.StopListeningAsync",
+            "_voiceInputService.ListenForUtteranceAsync",
+            "_voiceInputService.CancelAsync",
+            "_voiceInputService.PrepareAsync",
+            "_voiceInputService.IsReady",
+            "_voiceInputService.IsListening",
+            "_voiceInputService.GetInputDevices",
+            "_voiceInputService.InputDeviceNumber",
+            "_voiceOutputService.SpeakShort",
+            "_voiceOutputService.Stop(",
+            "_wakeWordService.StartListeningAsync",
+            "_wakeWordService.StopListeningAsync",
+            "_wakeWordService.PrepareAsync",
+            "_wakeWordService.IsReady",
+            "_wakeWordService.IsListening",
+            "_wakeWordService.Sensitivity",
+            "_wakeWordService.CustomAliases",
+            "_wakeWordService.InputDeviceNumber"
         ];
 
         Assert.All(
-            externallyCoordinated,
-            member => Assert.DoesNotContain(member, content, StringComparison.Ordinal));
+            forbiddenDirectUses,
+            use => Assert.DoesNotContain(use, content, StringComparison.Ordinal));
+    }
+
+    // ---------- Fase 1.3B2A/1.3B2: frontera de la API de transición ----------
+
+    [Fact]
+    public void MainWindow_UsesExternallyCoordinatedOperationsOnlyInTheirApprovedMethods()
+    {
+        // Sustituye al invariante de 1.3B2A "MainWindow no consume las operaciones
+        // externas" (obsoleto una vez migrado el runtime): ahora cada operación solo
+        // puede aparecer dentro del método que esta subfase aprobó para ella.
+        var content = ReadMainWindowSource();
+
+        AssertMemberAppearsOnlyWithin(
+            content,
+            "_voiceCoordinator.StartVoiceInputUnderExternalCoordinationAsync",
+            "private async void AssistantView_VoiceInputStarted",
+            "private async void AssistantView_VoiceInputStopped");
+
+        AssertMemberAppearsOnlyWithin(
+            content,
+            "_voiceCoordinator.StopVoiceInputUnderExternalCoordinationAsync",
+            "private async void AssistantView_VoiceInputStopped",
+            "private void WakeWordService_WakeWordDetected(");
+
+        AssertMemberAppearsOnlyWithin(
+            content,
+            "_voiceCoordinator.CancelVoiceInputUnderExternalCoordinationAsync",
+            "private async Task ChangeVoiceInputDeviceAsync",
+            "private async Task<bool> TryHandlePendingVoiceDecisionAsync(");
+
+        AssertMemberAppearsOnlyWithin(
+            content,
+            "_voiceCoordinator.ListenForUtteranceUnderExternalCoordinationAsync",
+            "private async Task HandleWakeWordDetectedAsync",
+            "private async Task HandleVoiceRecognitionResultAsync");
+
+        AssertMemberAppearsOnlyWithin(
+            content,
+            "_voiceCoordinator.StartWakeWordUnderExternalCoordinationAsync",
+            "private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)",
+            "private async Task PauseWakeWordAsync()");
+
+        // StopWakeWordUnderExternalCoordinationAsync aparece en dos métodos aprobados
+        // (ApplyWakeWordPreferenceAsync y PauseWakeWordAsync): se cuenta el total de
+        // apariciones en el archivo y se compara con la suma de las de cada método, en
+        // vez de exigir que quede dentro de un único rango.
+        var applyBody = ExtractMethodBody(
+            content,
+            "private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)",
+            "private async Task PauseWakeWordAsync()");
+        var pauseBody = ExtractMethodBody(
+            content,
+            "private async Task PauseWakeWordAsync()",
+            "private Task ResumeWakeWordIfEnabledAsync()");
+
+        const string stopWakeWordMember = "_voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync";
+        var totalOccurrences = CountOccurrences(content, stopWakeWordMember);
+        var approvedOccurrences =
+            CountOccurrences(applyBody, stopWakeWordMember) +
+            CountOccurrences(pauseBody, stopWakeWordMember);
+        Assert.Equal(approvedOccurrences, totalOccurrences);
+        Assert.True(approvedOccurrences > 0, "StopWakeWordUnderExternalCoordinationAsync no se usó en ningún método aprobado.");
     }
 
     [Fact]
@@ -289,8 +489,11 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
-    public void MainWindow_StillOwnsItsOwnVoiceAndWakeWordGates()
+    public void MainWindow_StillOwnsItsThreeVoiceSemaphores()
     {
+        // Fase 1.3B2 runtime: MainWindow conserva sus tres semáforos como única fuente
+        // de exclusión — el runtime de voz se canaliza por el coordinador, pero la
+        // sincronización sigue siendo enteramente de MainWindow.
         var content = ReadMainWindowSource();
 
         Assert.Contains(
@@ -299,6 +502,10 @@ public sealed class CompositionInvariantTests
             StringComparison.Ordinal);
         Assert.Contains(
             "private readonly SemaphoreSlim _wakeWordGate = new(1, 1);",
+            content,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "private readonly SemaphoreSlim _resourceGovernorVoiceGate = new(1, 1);",
             content,
             StringComparison.Ordinal);
     }
@@ -359,6 +566,39 @@ public sealed class CompositionInvariantTests
         var end = content.IndexOf(';', start);
         Assert.True(end > start, $"No se encontró el final del cuerpo de '{signature}'.");
         return content[start..(end + 1)];
+    }
+
+    /// <summary>
+    /// Verifica que un miembro solo aparezca dentro del rango [<paramref name="startMarker"/>,
+    /// <paramref name="endMarker"/>) del archivo, y en ningún otro punto. Cuenta ocurrencias
+    /// en vez de solo comprobar presencia, para detectar un segundo uso fuera de rango
+    /// aunque también exista uno dentro.
+    /// </summary>
+    private static void AssertMemberAppearsOnlyWithin(
+        string content,
+        string member,
+        string startMarker,
+        string endMarker)
+    {
+        var body = ExtractMethodBody(content, startMarker, endMarker);
+        var occurrencesInBody = CountOccurrences(body, member);
+        var occurrencesInFile = CountOccurrences(content, member);
+
+        Assert.True(occurrencesInBody > 0, $"'{member}' no se encontró dentro de '{startMarker}'.");
+        Assert.Equal(occurrencesInFile, occurrencesInBody);
+    }
+
+    private static int CountOccurrences(string content, string substring)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = content.IndexOf(substring, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += substring.Length;
+        }
+
+        return count;
     }
 
     private static string ReadVoiceCoordinatorSource() =>
