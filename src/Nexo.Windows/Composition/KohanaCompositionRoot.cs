@@ -32,6 +32,16 @@ public sealed class KohanaCompositionRoot : IDisposable
     public IWakeWordService WakeWordService { get; }
     public IScreenCaptureService ScreenCaptureService { get; }
 
+    /// <summary>
+    /// Mecánica reutilizable de voz (fase 1.3A), construida sobre las mismas tres
+    /// instancias expuestas arriba — no un cuarto motor. <c>MainWindow</c> todavía no la
+    /// consume: sigue recibiendo <see cref="VoiceInputService"/>, <see cref="VoiceOutputService"/>
+    /// y <see cref="WakeWordService"/> directamente, y sigue siendo su único dueño de
+    /// ciclo de vida. Este coordinador no libera esas tres instancias en su propio
+    /// <see cref="Voice.VoiceCoordinator.Dispose"/> — ver la nota en esa clase.
+    /// </summary>
+    public VoiceCoordinator VoiceCoordinator { get; }
+
     public KohanaCompositionRoot()
     {
         // Mismo tipo concreto y mismo orden relativo que los inicializadores de campo que
@@ -43,6 +53,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         var voiceOutputService = new WindowsTextToSpeechService();
         var wakeWordService = new VoskWakeWordService();
         var screenCaptureService = new WindowsScreenCaptureService();
+        var voiceCoordinator = new VoiceCoordinator(voiceInputService, voiceOutputService, wakeWordService);
 
         var services = new ServiceCollection();
 
@@ -55,6 +66,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         services.AddSingleton<IVoiceOutputService>(voiceOutputService);
         services.AddSingleton<IWakeWordService>(wakeWordService);
         services.AddSingleton<IScreenCaptureService>(screenCaptureService);
+        services.AddSingleton(voiceCoordinator);
 
         Provider = services.BuildServiceProvider();
 
@@ -66,6 +78,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         VoiceOutputService = Provider.GetRequiredService<IVoiceOutputService>();
         WakeWordService = Provider.GetRequiredService<IWakeWordService>();
         ScreenCaptureService = Provider.GetRequiredService<IScreenCaptureService>();
+        VoiceCoordinator = Provider.GetRequiredService<VoiceCoordinator>();
     }
 
     public void Dispose()
@@ -76,6 +89,10 @@ public sealed class KohanaCompositionRoot : IDisposable
         }
 
         _disposed = true;
+
+        // Libera solo los recursos propios del coordinador (dos SemaphoreSlim); no toca
+        // los tres servicios de voz, que Window_Closed sigue liberando en MainWindow.
+        VoiceCoordinator.Dispose();
         Provider.Dispose();
     }
 }
