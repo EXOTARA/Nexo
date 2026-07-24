@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3B2 runtime: operaciones principales de voz canalizadas por VoiceCoordinator** |
-| **Siguiente fase** | Fase 1, paso 1.3B3 (transferencia definitiva de candados al coordinador) — **no iniciada** |
+| **Fase actual** | **Fase 1.3B3: sincronización, propiedad y cierre del subsistema de voz centralizados en VoiceCoordinator / KohanaCompositionRoot** |
+| **Siguiente fase** | Fase 1, paso 1.4 (siguiente extracción según `STABLE_RELEASE_PLAN.md`) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
-| **Última actualización** | 2026-07-23 |
-| **Bloqueador activo** | Ninguno para iniciar 1.3B3 |
+| **Última actualización** | 2026-07-24 |
+| **Bloqueador activo** | Ninguno; pendiente el smoke test manual de 1.3B3 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -370,6 +370,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.3B1 (2026-07-23) | **645** | **0** | **0** | Core 576 (sin cambios) + Windows 69. +7 pruebas estructurales de inyección y migración parcial |
 | Fase 1.3B2A (2026-07-23) | **658** | **0** | **0** | Core 576 (sin cambios) + Windows 82. +8 pruebas de la API de transición + 5 invariantes de frontera |
 | Fase 1.3B2 runtime (2026-07-23) | **663** | **0** | **0** | Core 576 (sin cambios) + Windows 87. 3 invariantes obsoletas sustituidas por 8 nuevas que verifican el runtime real |
+| Fase 1.3B3 (2026-07-24) | **660** | **0** | **0** | Core 576 (sin cambios) + Windows 84. Ámbitos de exclusión, propiedad única y cierre. Windows repetida 5 veces sin intermitencia |
 
 ---
 
@@ -484,31 +485,27 @@ mismo orden que hoy, antes de cablear eventos.
 
 ## SIGUIENTE PASO EXACTO
 
-**Fase 1.3B2 runtime completada: operaciones principales de voz canalizadas por
-`VoiceCoordinator`.** Ver la sección "Fase 1.3B2 runtime" más abajo para el resultado exacto. 663
-pruebas, 0 fallidas, 0 warnings. Los candados siguen íntegramente en `MainWindow`.
+**Fase 1.3B3 completada: sincronización única, propiedad única y cierre del subsistema de voz.**
+Ver la sección "Fase 1.3B3" más abajo para el resultado exacto. 660 pruebas, 0 fallidas, 0
+warnings, suite de Windows repetida 5 veces sin intermitencia. Los dos únicos semáforos del
+subsistema viven en `VoiceCoordinator` y se sostienen por ámbitos; la propiedad y el `Dispose` de
+Whisper, TTS y Vosk viven en `KohanaCompositionRoot`; `MainWindow` no tiene semáforos de voz ni
+campos de servicio. **Con esto se cierra por completo el paso 1.3 (extracción del coordinador de
+voz) del ADR 0001**, a falta del smoke test manual.
 
-El siguiente paso es **1.3B3 — transferencia definitiva de candados al coordinador** (o la
-subfase que se decida como sucesora; no se ha iniciado ningún trabajo de diseño para ella).
-Antes de empezar, quien retome debe:
+El siguiente paso es **1.4 — la siguiente extracción según `STABLE_RELEASE_PLAN.md`** (coordinador
+de navegación). Antes de empezar, quien retome debe:
 
-1. Releer las secciones "Fase 1.3A", "Fase 1.3B1" y "Fase 1.3B2 runtime" completas para conocer
-   la API real de `VoiceCoordinator` y qué ya está migrado.
-2. Repetir el smoke test manual interactivo (riesgo #13, heredado de 1.2, aún abierto) antes de
-   dar 1.3B por cerrada del todo — es el paso de mayor riesgo funcional de toda la Fase 1, y
-   ninguna subfase hasta ahora tuvo forma de verificarlo interactivamente.
-3. Decidir explícitamente, y documentarlo antes de tocar código, si `MainWindow.Window_Closed`
-   pasa a delegar la liberación de los tres servicios de voz en `VoiceCoordinator.Dispose()` (lo
-   que exigiría que el coordinador SÍ los libere, revirtiendo la corrección de propiedad de 1.3A)
-   o si `MainWindow` sigue liberándolos directamente y `VoiceCoordinator` sigue sin ser su dueño
-   de forma permanente. **No cambiar esto por inercia**: es una decisión de diseño, no un detalle.
-4. Resolver el tercer dominio de candados (`_resourceGovernorVoiceGate`) y el fallback no
-   liberado del constructor de `MainWindow`, ambos documentados en la auditoría correctiva de
-   1.3B2 (`artifacts\Kohana-Fase-1.3B2-Auditoria-Correctiva.md`) y aún sin resolver.
-5. Transferir los candados en commits pequeños y compilables, siguiendo el plan detallado en
-   `artifacts\Kohana-Fase-1.3-Auditoria.md` y la auditoría correctiva.
+1. Repetir el smoke test manual interactivo (riesgo #13, heredado de 1.2) sobre el portable de
+   1.3B3 antes de dar la Fase 1.3 por cerrada del todo: clic para iniciar/detener el Mic, ambas
+   frases de wake word, orden de corrido, TTS, cambio y persistencia de micrófono, y cierre /
+   reapertura / instancia única. Es el único verificador del comportamiento visible.
+2. Releer las secciones "Fase 1.3A", "Fase 1.3B1", "Fase 1.3B2 runtime" y "Fase 1.3B3" para
+   conocer la API real de `VoiceCoordinator` (ámbitos) y el modelo de propiedad definitivo.
+3. No reabrir la sincronización de voz: el diseño de ámbitos es el final de la fase 1.
 
-**No iniciar 1.4 sin que 1.3 (A, A.1, B1, B2A y B2 runtime) esté verde.**
+**No iniciar 1.4 sin que 1.3 (A, A.1, B1, B2A, B2 runtime y B3) esté verde y con el smoke test
+manual de 1.3B3 aprobado.**
 
 ---
 
@@ -1049,3 +1046,96 @@ en `VoiceCoordinator.Dispose()`.
 
 Ningún código de producción ni prueba se modificó para este checkpoint — es un cierre puramente
 documental sobre el commit ya probado y publicado en 1.3B2 runtime.
+
+---
+
+### Fase 1.3B3 — sincronización, propiedad y cierre del subsistema de voz (2026-07-24)
+
+Cierre del paso 1.3 del ADR 0001: se transfiere la **sincronización** y el **ciclo de vida** del
+subsistema de voz a su sitio definitivo, sin cambiar ninguna capacidad ni comportamiento visible
+(clic para iniciar/detener el Mic, ambas frases de wake word, orden de corrido, TTS, cambio y
+persistencia de micrófono, cierre/reapertura e instancia única, todos idénticos a 1.3B2).
+
+**Alternativa arquitectónica elegida.** Se evaluaron cuatro (coordinador dueño de todo; coordinador
+dueño solo de la sincronización con la propiedad en el composition root; ámbitos opacos con la
+orquestación visual en MainWindow; métodos compuestos con callbacks neutrales a WPF). Se eligió la
+combinación **B + ámbitos opacos**: el `VoiceCoordinator` posee la sincronización y expone
+**leases** (`IVoiceInputScope` / `IWakeWordScope : IAsyncDisposable`); `KohanaCompositionRoot` posee
+y libera los tres servicios. Motivo: un objeto no debe liberar dependencias que no creó, la
+orquestación visual es intrínsecamente WPF y no puede vivir en el coordinador, y los ámbitos
+preservan la duración exacta de cada sección crítica sin exponer ningún `SemaphoreSlim`.
+
+**Verificación del ciclo de vida antes de decidir.** `App` usa `ShutdownMode.OnExplicitShutdown` y
+tiene icono de bandeja: cerrar la ventana puede solo ocultarla; la salida real es
+`RequestExit → Application.Shutdown() → Window_Closed → App.OnExit`, con `Window_Closed`
+ejecutándose **antes** que `App.OnExit`. Se comprobó empíricamente que el `ServiceProvider` **no**
+libera instancias registradas con `AddSingleton(instance)` (0 disposals), de modo que hacer del
+composition root el liberador explícito da una **ruta única** de `Dispose` sin doble liberación
+(y, además, los tres `Dispose` concretos son idempotentes).
+
+**Sincronización — un solo dominio por servicio.** Los dos únicos `SemaphoreSlim` del subsistema
+(`_voiceGate`, `_wakeWordGate`) viven, privados, en `VoiceCoordinator`. `MainWindow` ya **no** tiene
+`_voiceGate` ni `_wakeWordGate`: adquiere `AcquireVoiceInputScopeAsync` / `AcquireWakeWordScopeAsync`,
+hace su sección crítica (incluida toda la orquestación visual) dentro del `await using`, y el ámbito
+libera el candado al desecharse. Las operaciones mutantes de cada servicio (start/stop/cancel/listen
+de Whisper; start/stop de Vosk) solo son alcanzables a través de su ámbito. El orden de adquisición
+es siempre **entrada de voz → wake word**, nunca al revés (un ámbito de voz envuelve al de wake word
+en push-to-talk, en la escucha tras la palabra de activación y en el cambio de dispositivo). La
+sección crítica conserva la misma duración que en 1.3B2 y no se retiene ningún candado entre el
+primer y el segundo clic del Mic (el ámbito es local a cada handler).
+
+**Resource Governor.** `_resourceGovernorVoiceGate` se renombró a `_resourceGovernorDecisionGate` y
+**permanece en MainWindow**: serializa las *decisiones* del governor (pausar/reanudar wake word y la
+bandera `_resourceGovernorWakeWordPaused`), no el acceso físico a Vosk — las operaciones reales del
+motor pasan después por el ámbito de wake word del coordinador (vía
+`PauseWakeWordAsync`/`ApplyWakeWordPreferenceAsync`). No se tocaron umbrales, estados
+Normal/Busy/Game, mensajes ni el comportamiento visible de Modo Juego.
+
+**Propiedad y cierre.** `KohanaCompositionRoot.Dispose` es la **única** ruta de `Dispose` del
+subsistema: libera el coordinador (sus dos semáforos) y después los tres servicios en el mismo orden
+relativo que antes usaba `Window_Closed` (wake word → salida de voz → entrada de voz), y por último
+el `ServiceProvider`. `Window_Closed` ahora solo marca `_isClosed`, cancela `_lifetimeCancellation`
+y desuscribe los eventos de wake word **a través del coordinador** (paso directo); ya no libera los
+tres servicios. La guardia `_isClosed` (al inicio de `HandleWakeWordDetectedAsync`) y el token
+cancelado siguen protegiendo las operaciones en vuelo y los eventos ya encolados en el Dispatcher.
+
+**Fallback resuelto.** El coordinador pasa a ser **dependencia obligatoria** de `MainWindow`: si no
+se provee, se lanza `ArgumentNullException` en vez de construir un cuarto conjunto de motores sin
+liberar. `MainWindow` ya no recibe, declara ni libera los tres servicios; su constructor pierde esos
+tres parámetros y `App.OnStartup` deja de pasarlos. Los eventos de wake word se suscriben y
+desuscriben por el coordinador, así que `MainWindow` no necesita ninguna referencia directa a los
+servicios.
+
+**API temporal eliminada.** Se retiraron del coordinador las seis operaciones
+`…UnderExternalCoordinationAsync`, los siete métodos compuestos con candado interno
+(`StartPushToTalkAsync`, `StopPushToTalkAsync`, `CancelPushToTalkAsync`, `ListenAfterWakeWordAsync`,
+`StartWakeWordAsync`, `StopWakeWordAsync`, `PauseWakeWordAsync`) y el helper privado
+`StopWakeWordWithinCoordinatorGateAsync`: ninguno tenía consumidor. La superficie pública final es
+los ámbitos más los miembros de paso directo (disponibilidad, configuración, preparación, TTS).
+
+**Pruebas.** Las pruebas de los métodos compuestos y de la API de transición se sustituyeron por
+pruebas del diseño de ámbitos (delegación exacta con preservación de argumentos, exclusión real de
+dos ámbitos concurrentes por servicio, independencia de dominios y no-interbloqueo en la anidación
+voz→wake word, `DisposeAsync` que libera exactamente una vez aunque se deseche dos, y cancelación
+que no retiene el candado). Se añadieron invariantes estructurales: propiedad y orden de `Dispose`
+en el composition root, ausencia de semáforos de voz y de campos de servicio en `MainWindow`, cada
+método de voz sobre su ámbito, orden de cierre de `Window_Closed`, guardia `_isClosed`, gate del
+governor como *decision gate*, coordinador sin API de transición, y (conservadas) sin
+`IServiceProvider` en `MainWindow` ni `PackageReference` en `Nexo.Core`. Ninguna prueba se eliminó
+sin reemplazo.
+
+**Resultado de build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas   (sin cambios)
+  Nexo.Windows.Tests.dll →  84 superadas, 0 con error, 0 omitidas
+Total: 660 pruebas, 0 fallidas, 0 warnings. Suite de Windows repetida 5 veces adicionales sin intermitencia.
+```
+
+**Riesgos restantes.** El smoke test manual interactivo de 1.3B3 (riesgo #13) queda pendiente del
+usuario. Con la sincronización, la propiedad y el cierre ya centralizados, no quedan riesgos
+arquitectónicos abiertos de la auditoría correctiva de 1.3B2: el tercer dominio se aclaró como
+*decision gate*, el fallback se eliminó y el orden de cierre quedó documentado y verificado. Detalle
+completo en `artifacts\Kohana-Fase-1.3B3-Voice-Lifecycle-Sprint-Informe.md`.

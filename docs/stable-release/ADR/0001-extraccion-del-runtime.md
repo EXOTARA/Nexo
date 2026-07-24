@@ -55,3 +55,20 @@ es revertible de forma independiente.
 - *No hacer nada*: bloquea toda la arquitectura adaptativa. Descartada.
 - *Reescribir MainWindow de cero*: alto riesgo, sin red de seguridad, contradice "no reescrituras
   masivas". Descartada explícitamente por el propietario del producto.
+
+## Addendum — paso 3 completado (2026-07-24, fase 1.3B3)
+
+El paso 3 (*Extracción del coordinador de voz*) queda cerrado con un modelo de propiedad y
+sincronización definitivo, que completa —sin contradecir— la decisión original:
+
+- **Sincronización:** `VoiceCoordinator` posee los dos únicos `SemaphoreSlim` del subsistema
+  (entrada de voz y wake word), privados, y los expone mediante *leases* opacos
+  (`IVoiceInputScope` / `IWakeWordScope : IAsyncDisposable`). Un solo dominio de exclusión por
+  servicio; orden de adquisición voz → wake word.
+- **Propiedad y ciclo de vida:** `KohanaCompositionRoot` es el dueño y único liberador de Whisper,
+  TTS y Vosk (los construye y los libera en su `Dispose`, en App.OnExit). `VoiceCoordinator` no
+  libera esos servicios. `MainWindow` ya no los recibe ni los libera y accede al subsistema solo a
+  través del coordinador.
+
+Sigue vigente el principio del ADR: cada paso compilable, con pruebas y sin cambiar conducta
+observable (verificado con smoke test manual en 1.3B2 y pendiente de repetir en 1.3B3).
