@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3B2A: operaciones de coordinación externa preparadas, sin consumidor** |
-| **Siguiente fase** | Fase 1, paso 1.3B2B (migrar push-to-talk conservando los candados de MainWindow) — **no iniciada** |
+| **Fase actual** | **Fase 1.3B2 runtime: operaciones principales de voz canalizadas por VoiceCoordinator** |
+| **Siguiente fase** | Fase 1, paso 1.3B3 (transferencia definitiva de candados al coordinador) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-23 |
-| **Bloqueador activo** | Ninguno para iniciar 1.3B2B |
+| **Bloqueador activo** | Ninguno para iniciar 1.3B3 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -369,6 +369,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.3A (2026-07-23) | **638** | **0** | **0** | Core 576 (sin cambios) + Windows 62. +23 pruebas: `VoiceCoordinator` aislado (17) e invariantes de composition root/estructurales (6) |
 | Fase 1.3B1 (2026-07-23) | **645** | **0** | **0** | Core 576 (sin cambios) + Windows 69. +7 pruebas estructurales de inyección y migración parcial |
 | Fase 1.3B2A (2026-07-23) | **658** | **0** | **0** | Core 576 (sin cambios) + Windows 82. +8 pruebas de la API de transición + 5 invariantes de frontera |
+| Fase 1.3B2 runtime (2026-07-23) | **663** | **0** | **0** | Core 576 (sin cambios) + Windows 87. 3 invariantes obsoletas sustituidas por 8 nuevas que verifican el runtime real |
 
 ---
 
@@ -483,16 +484,16 @@ mismo orden que hoy, antes de cablear eventos.
 
 ## SIGUIENTE PASO EXACTO
 
-**Fase 1.3B1 completada: `VoiceCoordinator` inyectado en `MainWindow`; migradas únicamente
-configuración de dispositivo y preparación de entrada de voz.** Ver la sección "Fase 1.3B1" más
-abajo para el resultado exacto. 645 pruebas, 0 fallidas, 0 warnings.
+**Fase 1.3B2 runtime completada: operaciones principales de voz canalizadas por
+`VoiceCoordinator`.** Ver la sección "Fase 1.3B2 runtime" más abajo para el resultado exacto. 663
+pruebas, 0 fallidas, 0 warnings. Los candados siguen íntegramente en `MainWindow`.
 
-El siguiente paso es **1.3B2 — migrar push-to-talk** (`AssistantView_VoiceInputStarted`,
-`AssistantView_VoiceInputStopped`, y el `CancelAsync()` directo que quedó pendiente en
-`ChangeVoiceInputDeviceAsync`). Antes de empezar, quien retome debe:
+El siguiente paso es **1.3B3 — transferencia definitiva de candados al coordinador** (o la
+subfase que se decida como sucesora; no se ha iniciado ningún trabajo de diseño para ella).
+Antes de empezar, quien retome debe:
 
-1. Releer las secciones "Fase 1.3A" y "Fase 1.3B1" completas para conocer la API real de
-   `VoiceCoordinator`, qué ya está migrado y qué falta deliberadamente.
+1. Releer las secciones "Fase 1.3A", "Fase 1.3B1" y "Fase 1.3B2 runtime" completas para conocer
+   la API real de `VoiceCoordinator` y qué ya está migrado.
 2. Repetir el smoke test manual interactivo (riesgo #13, heredado de 1.2, aún abierto) antes de
    dar 1.3B por cerrada del todo — es el paso de mayor riesgo funcional de toda la Fase 1, y
    ninguna subfase hasta ahora tuvo forma de verificarlo interactivamente.
@@ -501,13 +502,13 @@ El siguiente paso es **1.3B2 — migrar push-to-talk** (`AssistantView_VoiceInpu
    que exigiría que el coordinador SÍ los libere, revirtiendo la corrección de propiedad de 1.3A)
    o si `MainWindow` sigue liberándolos directamente y `VoiceCoordinator` sigue sin ser su dueño
    de forma permanente. **No cambiar esto por inercia**: es una decisión de diseño, no un detalle.
-4. Decidir qué hacer con el `CancelAsync()` directo de `ChangeVoiceInputDeviceAsync` (sin
-   equivalencia exacta en el coordinador hoy) al migrar push-to-talk como unidad completa.
-5. Seguir migrando método por método (wake word runtime → modo prueba/aliases → puente con
-   Resource Governor → disposición), en commits pequeños y compilables, siguiendo el plan
-   detallado en `artifacts\Kohana-Fase-1.3-Auditoria.md`.
+4. Resolver el tercer dominio de candados (`_resourceGovernorVoiceGate`) y el fallback no
+   liberado del constructor de `MainWindow`, ambos documentados en la auditoría correctiva de
+   1.3B2 (`artifacts\Kohana-Fase-1.3B2-Auditoria-Correctiva.md`) y aún sin resolver.
+5. Transferir los candados en commits pequeños y compilables, siguiendo el plan detallado en
+   `artifacts\Kohana-Fase-1.3-Auditoria.md` y la auditoría correctiva.
 
-**No iniciar 1.4 sin que 1.3 (A, A.1, B1 y B2) esté verde.**
+**No iniciar 1.4 sin que 1.3 (A, A.1, B1, B2A y B2 runtime) esté verde.**
 
 ---
 
@@ -964,3 +965,35 @@ Total: 658 pruebas, 0 fallidas, 0 warnings.
 ```
 
 **1.3B2B migrará únicamente push-to-talk** (`AssistantView_VoiceInputStarted`/`Stopped`) para que sus llamadas directas a los servicios pasen por estas operaciones de coordinación externa, **manteniendo los candados actuales de `MainWindow`**. **La transferencia definitiva de candados al coordinador queda para una fase posterior** (1.3B2C y siguientes), momento en que también se resolverán el `CancelAsync` de cambio de dispositivo, las escrituras de `Sensitivity`/`CustomAliases` sin candado, el tercer dominio `_resourceGovernorVoiceGate`, la revisión de `Window_Closed` y el fallback no liberado del constructor — todos documentados en la auditoría correctiva, ninguno abordado aquí.
+
+---
+
+### Fase 1.3B2 runtime — operaciones principales de voz canalizadas por VoiceCoordinator (2026-07-23)
+
+Continuación directa de 1.3B2A (donde se creó la API preparatoria de seis operaciones `…UnderExternalCoordinationAsync` sin consumidor real). Esta subfase hace que **`MainWindow` sí consuma** esa API: se migran las llamadas a los servicios dentro de `AssistantView_VoiceInputStarted`, `AssistantView_VoiceInputStopped`, `HandleWakeWordDetectedAsync`, `ChangeVoiceInputDeviceAsync`, `ApplyWakeWordPreferenceAsync`, `PauseWakeWordAsync`, y las rutas auxiliares (test de wake word, aliases, reinicio, diagnóstico, dashboard, TTS general, onboarding, Resource Governor, constructor).
+
+**Rutas migradas** (todas verificadas equivalencia-exacta contra la lectura de `VoiceCoordinator.cs` antes de sustituir, siguiendo el mapeo literal del prompt): las trece sustituciones — `Stop()`→`StopSpeaking()`, `IsReady`(voz)→`IsVoiceInputReady`, `IsListening`(voz)→`IsVoiceInputListening`, `StartListeningAsync()`→`StartVoiceInputUnderExternalCoordinationAsync()`, `StopListeningAsync()`→`StopVoiceInputUnderExternalCoordinationAsync()`, `CancelAsync()`→`CancelVoiceInputUnderExternalCoordinationAsync()`, `ListenForUtteranceAsync(...)`→`ListenForUtteranceUnderExternalCoordinationAsync(...)`, `StopListeningAsync()`(wake word)→`StopWakeWordUnderExternalCoordinationAsync()`, `IsReady`(wake word)→`IsWakeWordReady`, `IsListening`(wake word)→`IsWakeWordListening`, `PrepareAsync(...)`(wake word)→`PrepareWakeWordAsync(...)`, `Sensitivity`→`WakeWordSensitivity`, `CustomAliases`→`WakeWordCustomAliases`, `StartListeningAsync(...)`(wake word)→`StartWakeWordUnderExternalCoordinationAsync(...)`, `SpeakShort`→`Speak`, `GetInputDevices()`→`GetInputDevices()` del coordinador.
+
+**Candados que permanecen en `MainWindow`, sin cambios:** `_voiceGate`, `_wakeWordGate` y `_resourceGovernorVoiceGate` — los tres siguen siendo la única fuente de exclusión real. Ningún método adquiere un candado del coordinador: se usaron exclusivamente las seis operaciones de coordinación externa (sin candado interno) y las propiedades de paso directo ya existentes desde 1.3A/1.3B1.
+
+**Métodos compuestos que continúan sin consumidor:** `StartPushToTalkAsync`, `StopPushToTalkAsync`, `CancelPushToTalkAsync`, `ListenAfterWakeWordAsync`, `StartWakeWordAsync`, `StopWakeWordAsync`, `PauseWakeWordAsync` (del coordinador) — probados en `VoiceCoordinatorTests.cs`, sin tocar, sin ningún consumidor real todavía. Verificado por invariante estructural que falla si `MainWindow` los llegara a usar.
+
+**Preservación de comportamiento y orden:** en cada método migrado se conservó textualmente el orden de operaciones, los textos, las cápsulas, los estados visuales (`SetVoiceState`, `SetVoiceAvailability`, `SetWakeWordIndicator`), la bandera `listeningStarted`, la comprobación de disponibilidad antes y después de preparar, la comprobación de `IsListening`/`IsVoiceInputListening` antes de detener (evita el mensaje "no estaba escuchando" que el hueco de equivalencia D de la auditoría correctiva había señalado), la reanudación condicional en Start frente a la incondicional en Stop, `RememberForegroundWindow()`, las duraciones (20 s / 1.5 s), `PreRollAudio`/`PostWakeAudio`, `_lifetimeCancellation.Token`, el orden Stop→Prepare→Start en `ApplyWakeWordPreferenceAsync`, y las condiciones y llamadas de Resource Governor (`_resourceGovernorVoiceGate`, `PauseWakeWordAsync`, `ResumeWakeWordIfEnabledAsync`) intactas.
+
+**Servicios directos conservados solo por propiedad/eventos/Dispose:** tras esta subfase, los únicos usos directos restantes de `_voiceInputService`, `_voiceOutputService` y `_wakeWordService` en `MainWindow.xaml.cs` son: la asignación/fallback del constructor (líneas 159-161, 169-170), la suscripción a `WakeWordDetected`/`RecognitionObserved` (líneas 218-219), la desuscripción de ambos eventos y `Dispose()`/orden de propiedad en `Window_Closed` (líneas 827-829, 834-835). Ninguna llamada operativa directa queda fuera de ese conjunto — verificado por invariante estructural que enumera explícitamente cada llamada prohibida.
+
+**Pruebas:** 3 invariantes de 1.3B2A que asumían el estado "sin consumidor" se sustituyeron (no se eliminaron sin reemplazo) por 8 invariantes que verifican el runtime real, incluyendo un invariante que cuenta ocurrencias de cada operación de coordinación externa en todo el archivo y las compara contra su presencia dentro del método aprobado, para detectar un segundo uso fuera de alcance. Ninguna prueba de `VoiceCoordinatorTests.cs` se tocó.
+
+**ZIP de smoke test:** `Kohana-0.9.5-beta-phase1.3B2-runtime-smoke-win-x64.zip` (ver detalle de tamaño y SHA-256 en el informe de esta subfase, `artifacts\Kohana-Fase-1.3B2-Runtime-Sprint-Informe.md`). No se afirma haber hecho el smoke test manual interactivo.
+
+**Resultado de build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas   (sin cambios)
+  Nexo.Windows.Tests.dll →  87 superadas, 0 con error, 0 omitidas   (82 + 8 nuevas − 3 sustituidas)
+Total: 663 pruebas, 0 fallidas, 0 warnings. Suite de Windows repetida 4 veces sin intermitencia.
+```
+
+**Riesgos pendientes:** la transferencia definitiva de candados al coordinador (1.3B3+) sigue pendiente, junto con todo lo que la auditoría correctiva de 1.3B2 dejó documentado y sin resolver: el `CancelAsync` de cambio de dispositivo ya tiene equivalencia exacta (`CancelVoiceInputUnderExternalCoordinationAsync`, resuelto en esta subfase), pero el tercer dominio de candados (`_resourceGovernorVoiceGate`), la revisión de `Window_Closed` frente a operaciones en vuelo, y el fallback no liberado del constructor de `MainWindow` siguen abiertos. El smoke test manual interactivo (riesgo #13, heredado desde 1.2) sigue sin repetirse.
