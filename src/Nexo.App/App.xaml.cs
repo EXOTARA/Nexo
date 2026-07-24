@@ -60,7 +60,8 @@ public partial class App : System.Windows.Application
             _compositionRoot.VoiceInputService,
             _compositionRoot.VoiceOutputService,
             _compositionRoot.WakeWordService,
-            _compositionRoot.ScreenCaptureService);
+            _compositionRoot.ScreenCaptureService,
+            _compositionRoot.VoiceCoordinator);
         MainWindow = mainWindow;
 
         _singleInstance.ActivationRequested += (_, _) =>

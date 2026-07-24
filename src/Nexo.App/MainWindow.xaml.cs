@@ -76,6 +76,7 @@ public partial class MainWindow : Window
     private readonly IVoiceOutputService _voiceOutputService;
     private readonly IWakeWordService _wakeWordService;
     private readonly IScreenCaptureService _screenCaptureService;
+    private readonly VoiceCoordinator _voiceCoordinator;
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
     private readonly SemaphoreSlim _aiGate = new(1, 1);
@@ -143,7 +144,8 @@ public partial class MainWindow : Window
         IVoiceInputService? voiceInputService = null,
         IVoiceOutputService? voiceOutputService = null,
         IWakeWordService? wakeWordService = null,
-        IScreenCaptureService? screenCaptureService = null)
+        IScreenCaptureService? screenCaptureService = null,
+        VoiceCoordinator? voiceCoordinator = null)
     {
         InitializeComponent();
         _commandPaletteWindow = new CommandPaletteWindow();
@@ -158,6 +160,14 @@ public partial class MainWindow : Window
         _voiceOutputService = voiceOutputService ?? new WindowsTextToSpeechService();
         _wakeWordService = wakeWordService ?? new VoskWakeWordService();
         _screenCaptureService = screenCaptureService ?? new WindowsScreenCaptureService();
+
+        // Fase 1.3B1: el coordinador se agrega al final de la firma para minimizar el
+        // cambio. Si no se provee (construcción directa fuera de App.OnStartup), envuelve
+        // los mismos tres campos ya resueltos arriba — nunca construye un cuarto motor.
+        // MainWindow sigue recibiendo y liberando _voiceInputService/_voiceOutputService/
+        // _wakeWordService directamente: solo se usa el coordinador donde 1.3B1 migra.
+        _voiceCoordinator = voiceCoordinator
+            ?? new VoiceCoordinator(_voiceInputService, _voiceOutputService, _wakeWordService);
 
         _startHidden = startHidden;
         _managedOllamaSupervisor = managedOllamaSupervisor;
