@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3B3: sincronización, propiedad y cierre del subsistema de voz centralizados en VoiceCoordinator / KohanaCompositionRoot** |
+| **Fase actual** | **Fase 1.3B3.1: hotfix de salida completa desde bandeja (proceso fantasma corregido)** |
 | **Siguiente fase** | Fase 1, paso 1.4 (siguiente extracción según `STABLE_RELEASE_PLAN.md`) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno; pendiente el smoke test manual de 1.3B3 |
+| **Bloqueador activo** | Ninguno; pendiente el smoke test manual de 1.3B3.1 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -371,6 +371,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.3B2A (2026-07-23) | **658** | **0** | **0** | Core 576 (sin cambios) + Windows 82. +8 pruebas de la API de transición + 5 invariantes de frontera |
 | Fase 1.3B2 runtime (2026-07-23) | **663** | **0** | **0** | Core 576 (sin cambios) + Windows 87. 3 invariantes obsoletas sustituidas por 8 nuevas que verifican el runtime real |
 | Fase 1.3B3 (2026-07-24) | **660** | **0** | **0** | Core 576 (sin cambios) + Windows 84. Ámbitos de exclusión, propiedad única y cierre. Windows repetida 5 veces sin intermitencia |
+| Fase 1.3B3.1 (2026-07-24) | **666** | **0** | **0** | Core 576 (sin cambios) + Windows 90. +6 invariantes de la ruta de salida. Windows repetida 5 veces sin intermitencia |
 
 ---
 
@@ -1139,3 +1140,97 @@ usuario. Con la sincronización, la propiedad y el cierre ya centralizados, no q
 arquitectónicos abiertos de la auditoría correctiva de 1.3B2: el tercer dominio se aclaró como
 *decision gate*, el fallback se eliminó y el orden de cierre quedó documentado y verificado. Detalle
 completo en `artifacts\Kohana-Fase-1.3B3-Voice-Lifecycle-Sprint-Informe.md`.
+
+---
+
+### Fase 1.3B3.1 — hotfix de salida completa desde bandeja (2026-07-24)
+
+**Síntoma manual.** Tras aprobar todas las funciones de voz de 1.3B3, el smoke test encontró una
+regresión bloqueante de cierre: al elegir **Salir** desde la bandeja, la interfaz y el icono
+desaparecían pero `Kohana.exe` **permanecía en segundo plano**; **Alt + A** ya no abría la
+aplicación; ejecutar `Kohana.exe` de nuevo no creaba ventana (la instancia fantasma conservaba la
+coordinación de instancia única); y el usuario tenía que matar el proceso desde el Administrador de
+tareas. El checkpoint de 1.3B3 quedó **no aprobado** hasta este hotfix.
+
+**Causa exacta (con evidencia).** Se instrumentó temporalmente la ruta de cierre (traza del último
+paso alcanzado + disparo automático de la ruta real de salida + clave de instancia aislada para no
+colisionar con una instancia real). La traza mostró que el último paso alcanzado era
+`ollama.Dispose before` y nada después: **el proceso se bloqueaba dentro de
+`ManagedOllamaSupervisor.Dispose`**, que hacía
+`_runtimeService.StopManagedAsync(CancellationToken.None).GetAwaiter().GetResult()` en el hilo de
+UI durante `App.OnExit`. En ese momento el `Dispatcher` de WPF ya **no bombea** (estamos dentro del
+callback síncrono de `Application.Shutdown`), y `StopManagedAsync` tiene `await`s sin
+`ConfigureAwait(false)` (espera del gate, `process.WaitForExitAsync`, verificación HTTP del
+endpoint) cuyas continuaciones se publican en el `SynchronizationContext` de la UI. Con el hilo de
+UI bloqueado en `GetResult()`, esas continuaciones no pueden ejecutarse: **interbloqueo clásico
+sync-sobre-async.**
+
+**Por qué Alt + A dejaba de funcionar y por qué el proceso permanecía.** El bloqueo ocurría
+**antes** de `_singleInstance.Dispose()`. Por tanto: el mutex de instancia única nunca se liberaba
+(un nuevo `Kohana.exe` cedía y se cerraba en vez de convertirse en primario), y el hilo de UI —
+bloqueado en `GetResult()`— no podía procesar la petición de activación de Alt + A (que se despacha
+vía `Dispatcher.BeginInvoke`). El proceso quedaba vivo pero inerte: un fantasma. No era un problema
+de la propiedad de voz de 1.3B3 (las tres liberaciones de Whisper/TTS/Vosk se alcanzan y completan
+sin bloqueo en cuanto se desatasca el paso de ollama, confirmado por la traza tras la corrección).
+
+**Solución aplicada (cambio mínimo seguro).** Se traslada la parada del runtime de IA administrado
+a una fase **asíncrona previa a `Application.Shutdown`**, mientras el `Dispatcher` aún bombea:
+
+- `ManagedOllamaSupervisor.StopAsync()` — parada asíncrona e idempotente (`_stopRequested`): cancela
+  el token de vida y `await _runtimeService.StopManagedAsync(...)` con continuaciones que sí se
+  procesan.
+- `ManagedOllamaSupervisor.Dispose()` — ya **no** hace sync-sobre-async: solo libera recursos
+  propios (idempotente, no bloquea).
+- `MainWindow.RequestExit` — inicia el apagado **una sola vez** (`_exitRequested`) y delega en
+  `RequestExitAsync`, que `await`ea `StopAsync()` y luego llama `Application.Current.Shutdown()` en
+  un `finally` (el cierre continúa aunque la parada falle). No se inician nuevas operaciones tras el
+  inicio del apagado.
+- `App.OnExit` — sin cambios de orden (ollama → composition root → instancia única); ahora
+  `ollama.Dispose` no bloquea, así que `OnExit` alcanza `_singleInstance.Dispose()` y libera la
+  instancia única.
+
+**Diferencia entre ocultar y salir (preservada).**
+- **X con "Minimizar a bandeja" activado** → oculta Kohana; el proceso sigue vivo; Alt + A la vuelve
+  a mostrar. (Verificado en el portable de producción: `WM_CLOSE` ocultó a bandeja, el proceso
+  siguió vivo.)
+- **Salir en el menú de bandeja** → cierra por completo; `Kohana.exe` desaparece; una nueva
+  instancia se convierte en primaria. (Verificado por el smoke instrumentado: la ruta real
+  `RequestExit → RequestExitAsync → Application.Shutdown → OnExit` completó, terminó el proceso con
+  código 0 y una segunda instancia con la misma clave se volvió primaria.)
+
+**Propiedad y sincronización preservadas.** No se revirtió nada de 1.3B3: `KohanaCompositionRoot`
+sigue siendo dueño y liberador de Whisper, TTS y Vosk; `VoiceCoordinator` sigue siendo dueño de sus
+dos semáforos; los ámbitos `IAsyncDisposable` no se tocaron; `MainWindow` sigue sin poseer ni
+liberar los servicios y sin `IServiceProvider`.
+
+**Pruebas.** +6 invariantes estructurales de la ruta de salida (Windows 84 → 90): `Dispose` sin
+sync-sobre-async; `StopAsync` asíncrono e idempotente; `RequestExit` de un solo inicio que no llama
+`Shutdown` directamente; `RequestExitAsync` que detiene el runtime antes de `Shutdown` (en el
+`finally`); `App.OnExit` en orden no bloqueante que alcanza la instancia única; y propiedad de voz
+de 1.3B3 conservada. La recuperación de instancia única y la distinción ocultar/salir ya están
+cubiertas por `SingleInstanceCharacterizationTests` (`ReleasingThePrimary_LetsTheNextInstanceTakeOver`,
+`Dispose_ReleasesTheMutexExactlyOnce`) y por los tests de `WindowsClosePolicy`
+(`ClosePolicy_HidesWhenTrayModeIsEnabled`, `ClosePolicy_AllowsExplicitExit`).
+
+**Instrumentación temporal.** El tracer `ShutdownTrace`, el disparo automático de salida, la clave
+de instancia por variable de entorno y el helper `TriggerExitForDiagnostics` se usaron solo para
+localizar el bloqueo y se **eliminaron antes del commit final**. El diff enviado contiene únicamente
+la corrección real (3 archivos) y las pruebas.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll →  90 superadas, 0 con error, 0 omitidas
+Total: 666 pruebas, 0 fallidas, 0 warnings. Suite de Windows repetida 5 veces adicionales sin intermitencia.
+```
+
+**ZIP:** `artifacts\Kohana-0.9.5-beta-phase1.3B3.1-exit-hotfix-smoke-win-x64.zip` (detalle de tamaño
+y SHA-256 en `artifacts\Kohana-Fase-1.3B3.1-Exit-Hotfix-Informe.md`).
+
+**Smoke test manual pendiente.** El usuario debe confirmar sobre el portable de este hotfix que, al
+elegir **Salir** desde la bandeja, `Kohana.exe` desaparece por completo, Alt + A deja de aplicar y un
+nuevo `Kohana.exe` abre con normalidad como instancia primaria; y que la X con "Minimizar a bandeja"
+sigue ocultando sin cerrar.
