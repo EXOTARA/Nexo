@@ -70,6 +70,9 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // El runtime de IA administrado ya se detuvo de forma asíncrona en la ruta de
+        // salida (MainWindow.RequestExitAsync), antes de Application.Shutdown, mientras el
+        // Dispatcher aún bombeaba. Aquí el Dispose solo libera recursos sin bloquear.
         _managedOllamaSupervisor?.Dispose();
         _managedOllamaSupervisor = null;
 

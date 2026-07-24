@@ -116,6 +116,7 @@ public partial class MainWindow : Window
     private bool _isHiding;
     private bool _isClosed;
     private bool _allowExit;
+    private bool _exitRequested;
     private bool _trayHintShown;
     private int _metricsRefreshInProgress;
     private string _currentDestination = "Home";
@@ -4013,13 +4014,37 @@ public partial class MainWindow : Window
 
     private void RequestExit()
     {
-        if (_isClosed)
+        if (_isClosed || _exitRequested)
         {
             return;
         }
 
-        _allowExit = true;
-        System.Windows.Application.Current.Shutdown();
+        // Un único inicio de apagado. La fase asíncrona (detener el runtime de IA
+        // administrado) se ejecuta MIENTRAS el Dispatcher aún bombea, antes de
+        // Application.Shutdown, para no bloquear el hilo de UI con sync-sobre-async durante
+        // App.OnExit. No se inician nuevas operaciones después de esto.
+        _exitRequested = true;
+        _ = RequestExitAsync();
+    }
+
+    private async Task RequestExitAsync()
+    {
+        try
+        {
+            if (_managedOllamaSupervisor is not null)
+            {
+                await _managedOllamaSupervisor.StopAsync();
+            }
+        }
+        catch (Exception)
+        {
+            // El apagado del runtime administrado es best-effort; el cierre continúa igual.
+        }
+        finally
+        {
+            _allowExit = true;
+            System.Windows.Application.Current.Shutdown();
+        }
     }
 
     private static string FormatPercentage(double? value)
