@@ -75,6 +75,21 @@ internal sealed class FakeVoiceInputService : IVoiceInputService
 
     public bool WasDisposed { get; private set; }
 
+    // Captura de argumentos, para verificar que las delegaciones los preservan tal cual.
+    public CancellationToken LastStartListeningToken { get; private set; }
+
+    public CancellationToken LastStopListeningToken { get; private set; }
+
+    public TimeSpan LastMaximumDuration { get; private set; }
+
+    public TimeSpan LastTrailingSilence { get; private set; }
+
+    public ReadOnlyMemory<byte> LastInitialPcmAudio { get; private set; }
+
+    public ReadOnlyMemory<byte> LastInitialSpeechPcmAudio { get; private set; }
+
+    public CancellationToken LastListenForUtteranceToken { get; private set; }
+
     public IReadOnlyList<VoiceInputDevice> GetInputDevices() => Devices;
 
     public Task<VoicePreparationResult> PrepareAsync(
@@ -91,6 +106,7 @@ internal sealed class FakeVoiceInputService : IVoiceInputService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        LastStartListeningToken = cancellationToken;
         lock (_concurrencySync)
         {
             _activeStartListeningCalls++;
@@ -124,6 +140,7 @@ internal sealed class FakeVoiceInputService : IVoiceInputService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        LastStopListeningToken = cancellationToken;
         StopListeningCallCount++;
         IsListening = false;
         _log.Add("voiceInput.stopListening");
@@ -138,6 +155,11 @@ internal sealed class FakeVoiceInputService : IVoiceInputService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        LastMaximumDuration = maximumDuration;
+        LastTrailingSilence = trailingSilence;
+        LastInitialPcmAudio = initialPcmAudio;
+        LastInitialSpeechPcmAudio = initialSpeechPcmAudio;
+        LastListenForUtteranceToken = cancellationToken;
         ListenForUtteranceCallCount++;
         _log.Add("voiceInput.listenForUtterance");
         return Task.FromResult(ListenResult);
@@ -218,6 +240,11 @@ internal sealed class FakeWakeWordService : IWakeWordService
 
     public bool WasDisposed { get; private set; }
 
+    // Captura de argumentos, para verificar que las delegaciones los preservan tal cual.
+    public WakeWordPhrase? LastStartPhrase { get; private set; }
+
+    public CancellationToken LastStartListeningToken { get; private set; }
+
     public Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
         CancellationToken cancellationToken = default)
@@ -233,6 +260,8 @@ internal sealed class FakeWakeWordService : IWakeWordService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        LastStartPhrase = phrase;
+        LastStartListeningToken = cancellationToken;
         StartListeningCallCount++;
         IsListening = true;
         _log.Add("wakeWord.startListening");

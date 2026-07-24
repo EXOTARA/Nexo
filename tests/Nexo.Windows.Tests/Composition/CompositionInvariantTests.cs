@@ -238,6 +238,133 @@ public sealed class CompositionInvariantTests
             StringComparison.Ordinal);
     }
 
+    // ---------- Fase 1.3B2A: frontera de la API de transición ----------
+
+    [Fact]
+    public void MainWindow_DoesNotConsumeTheExternallyCoordinatedOperationsYet()
+    {
+        // 1.3B2A solo prepara la API; 1.3B2B será quien la consuma. Se comprueba con el
+        // prefijo `_voiceCoordinator.` porque los nombres sueltos colisionarían con los
+        // métodos privados homónimos de MainWindow (p. ej. su propio PauseWakeWordAsync).
+        var content = ReadMainWindowSource();
+
+        string[] externallyCoordinated =
+        [
+            "_voiceCoordinator.StartVoiceInputUnderExternalCoordinationAsync",
+            "_voiceCoordinator.StopVoiceInputUnderExternalCoordinationAsync",
+            "_voiceCoordinator.CancelVoiceInputUnderExternalCoordinationAsync",
+            "_voiceCoordinator.ListenForUtteranceUnderExternalCoordinationAsync",
+            "_voiceCoordinator.StartWakeWordUnderExternalCoordinationAsync",
+            "_voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync"
+        ];
+
+        Assert.All(
+            externallyCoordinated,
+            member => Assert.DoesNotContain(member, content, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void MainWindow_DoesNotConsumeTheCoordinatorsGateAcquiringOperations()
+    {
+        // Invariante de seguridad de toda la fase 1.3B2: mientras MainWindow conserve sus
+        // propios semáforos, consumir un método compuesto del coordinador crearía un
+        // segundo dominio de exclusión sobre el mismo servicio. Esta prueba lo impide
+        // técnicamente, no solo por convención.
+        var content = ReadMainWindowSource();
+
+        string[] gateAcquiring =
+        [
+            "_voiceCoordinator.StartPushToTalkAsync",
+            "_voiceCoordinator.StopPushToTalkAsync",
+            "_voiceCoordinator.CancelPushToTalkAsync",
+            "_voiceCoordinator.ListenAfterWakeWordAsync",
+            "_voiceCoordinator.StartWakeWordAsync",
+            "_voiceCoordinator.StopWakeWordAsync",
+            "_voiceCoordinator.PauseWakeWordAsync"
+        ];
+
+        Assert.All(
+            gateAcquiring,
+            member => Assert.DoesNotContain(member, content, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void MainWindow_StillOwnsItsOwnVoiceAndWakeWordGates()
+    {
+        var content = ReadMainWindowSource();
+
+        Assert.Contains(
+            "private readonly SemaphoreSlim _voiceGate = new(1, 1);",
+            content,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "private readonly SemaphoreSlim _wakeWordGate = new(1, 1);",
+            content,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VoiceCoordinator_ExternallyCoordinatedOperationsDoNotTouchTheInternalGates()
+    {
+        // Cada operación …UnderExternalCoordinationAsync es un miembro con cuerpo de
+        // expresión. Se extrae exactamente desde su firma hasta el `;` que la cierra —
+        // no hasta el miembro siguiente — para no incluir el XML-doc del método
+        // posterior, que sí menciona los candados al documentar que no los usa.
+        var content = ReadVoiceCoordinatorSource();
+
+        string[] signatures =
+        [
+            "public Task<VoiceStartResult> StartVoiceInputUnderExternalCoordinationAsync",
+            "public Task<VoiceRecognitionResult> StopVoiceInputUnderExternalCoordinationAsync",
+            "public Task CancelVoiceInputUnderExternalCoordinationAsync",
+            "public Task<VoiceRecognitionResult> ListenForUtteranceUnderExternalCoordinationAsync",
+            "public Task<VoiceStartResult> StartWakeWordUnderExternalCoordinationAsync",
+            "public Task StopWakeWordUnderExternalCoordinationAsync"
+        ];
+
+        foreach (var signature in signatures)
+        {
+            var body = ExtractExpressionBodiedMember(content, signature);
+            Assert.DoesNotContain("_voiceGate", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("_wakeWordGate", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("WaitAsync", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("Release()", body, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void VoiceCoordinator_PrivateGateHelperUsesTheDisambiguatedName()
+    {
+        // El sufijo "Core" quedó prohibido por ambigüedad: el helper privado SÍ adquiere
+        // el candado, mientras que las operaciones nuevas NO lo hacen.
+        var content = ReadVoiceCoordinatorSource();
+
+        Assert.Contains(
+            "private async Task StopWakeWordWithinCoordinatorGateAsync()",
+            content,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("StopWakeWordCoreAsync", content, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Devuelve la declaración de un miembro con cuerpo de expresión, desde su firma
+    /// hasta el `;` que lo termina. Estos miembros no contienen `;` en su lista de
+    /// parámetros, así que el primer `;` posterior a la firma cierra siempre el cuerpo.
+    /// </summary>
+    private static string ExtractExpressionBodiedMember(string content, string signature)
+    {
+        var start = content.IndexOf(signature, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"No se encontró '{signature}' en el archivo.");
+
+        var end = content.IndexOf(';', start);
+        Assert.True(end > start, $"No se encontró el final del cuerpo de '{signature}'.");
+        return content[start..(end + 1)];
+    }
+
+    private static string ReadVoiceCoordinatorSource() =>
+        File.ReadAllText(Path.Combine(
+            RepositoryRoot, "src", "Nexo.Windows", "Voice", "VoiceCoordinator.cs"));
+
     private static string ReadMainWindowSource() =>
         File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Nexo.App", "MainWindow.xaml.cs"));
 

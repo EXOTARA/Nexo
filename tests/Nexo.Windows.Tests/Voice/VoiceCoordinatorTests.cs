@@ -291,4 +291,154 @@ public sealed class VoiceCoordinatorTests
 
         Assert.Null(exception);
     }
+
+    // ---------- Fase 1.3B2A: operaciones bajo coordinación externa ----------
+    //
+    // Estas operaciones son delegaciones transparentes sin candado. Las pruebas
+    // verifican tres cosas: que delegan exactamente una vez, que preservan los
+    // argumentos tal cual, y que NO añaden ningún paso (ni pausa de wake word, ni Stop
+    // de TTS, ni preparación) que los métodos compuestos sí realizan.
+
+    [Fact]
+    public async Task StartVoiceInputUnderExternalCoordination_DelegatesExactlyOnce()
+    {
+        var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
+        using var cts = new CancellationTokenSource();
+
+        var result = await coordinator.StartVoiceInputUnderExternalCoordinationAsync(cts.Token);
+
+        Assert.Equal(1, voiceInput.StartListeningCallCount);
+        Assert.Same(voiceInput.StartResult, result);
+        Assert.Equal(cts.Token, voiceInput.LastStartListeningToken);
+        Assert.Equal(["voiceInput.startListening"], log.Entries);
+    }
+
+    [Fact]
+    public async Task StopVoiceInputUnderExternalCoordination_DelegatesExactlyOnce()
+    {
+        var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
+        using var cts = new CancellationTokenSource();
+
+        var result = await coordinator.StopVoiceInputUnderExternalCoordinationAsync(cts.Token);
+
+        Assert.Equal(1, voiceInput.StopListeningCallCount);
+        Assert.Same(voiceInput.StopResult, result);
+        Assert.Equal(cts.Token, voiceInput.LastStopListeningToken);
+        Assert.Equal(["voiceInput.stopListening"], log.Entries);
+    }
+
+    [Fact]
+    public async Task CancelVoiceInputUnderExternalCoordination_DelegatesExactlyOnce()
+    {
+        var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
+
+        await coordinator.CancelVoiceInputUnderExternalCoordinationAsync();
+
+        Assert.Equal(1, voiceInput.CancelCallCount);
+        Assert.Equal(["voiceInput.cancel"], log.Entries);
+    }
+
+    [Fact]
+    public async Task ListenForUtteranceUnderExternalCoordination_PreservesEveryArgument()
+    {
+        var (coordinator, log, voiceInput, _, _) = CreateCoordinator();
+        using var cts = new CancellationTokenSource();
+        var maximumDuration = TimeSpan.FromSeconds(17);
+        var trailingSilence = TimeSpan.FromMilliseconds(1_234);
+        var preRoll = new byte[] { 1, 2, 3 };
+        var postWake = new byte[] { 4, 5 };
+
+        var result = await coordinator.ListenForUtteranceUnderExternalCoordinationAsync(
+            maximumDuration,
+            trailingSilence,
+            preRoll,
+            postWake,
+            cts.Token);
+
+        Assert.Equal(1, voiceInput.ListenForUtteranceCallCount);
+        Assert.Same(voiceInput.ListenResult, result);
+        Assert.Equal(maximumDuration, voiceInput.LastMaximumDuration);
+        Assert.Equal(trailingSilence, voiceInput.LastTrailingSilence);
+        Assert.Equal(preRoll, voiceInput.LastInitialPcmAudio.ToArray());
+        Assert.Equal(postWake, voiceInput.LastInitialSpeechPcmAudio.ToArray());
+        Assert.Equal(cts.Token, voiceInput.LastListenForUtteranceToken);
+        Assert.Equal(["voiceInput.listenForUtterance"], log.Entries);
+    }
+
+    [Fact]
+    public async Task StartWakeWordUnderExternalCoordination_PreservesPhraseAndToken()
+    {
+        var (coordinator, log, _, _, wakeWord) = CreateCoordinator();
+        using var cts = new CancellationTokenSource();
+
+        var result = await coordinator.StartWakeWordUnderExternalCoordinationAsync(
+            WakeWordPhrase.HeyKohana,
+            cts.Token);
+
+        Assert.Equal(1, wakeWord.StartListeningCallCount);
+        Assert.Same(wakeWord.StartResult, result);
+        Assert.Equal(WakeWordPhrase.HeyKohana, wakeWord.LastStartPhrase);
+        Assert.Equal(cts.Token, wakeWord.LastStartListeningToken);
+        Assert.Equal(["wakeWord.startListening"], log.Entries);
+    }
+
+    [Fact]
+    public async Task StopWakeWordUnderExternalCoordination_DelegatesExactlyOnce()
+    {
+        var (coordinator, log, _, _, wakeWord) = CreateCoordinator();
+
+        await coordinator.StopWakeWordUnderExternalCoordinationAsync();
+
+        Assert.Equal(1, wakeWord.StopListeningCallCount);
+        Assert.Equal(["wakeWord.stopListening"], log.Entries);
+    }
+
+    [Fact]
+    public async Task ExternallyCoordinatedOperations_AddNoTtsStopNoWakeWordPauseNoPreparation()
+    {
+        // Contraste explícito con StartPushToTalkAsync/ListenAfterWakeWordAsync, que sí
+        // pausan wake word y detienen el TTS. Aquí esos pasos son responsabilidad del
+        // orquestador, así que el coordinador no debe ejecutarlos.
+        var (coordinator, log, voiceInput, voiceOutput, wakeWord) = CreateCoordinator();
+
+        await coordinator.StartVoiceInputUnderExternalCoordinationAsync();
+        await coordinator.StopVoiceInputUnderExternalCoordinationAsync();
+        await coordinator.ListenForUtteranceUnderExternalCoordinationAsync(
+            TimeSpan.FromSeconds(20),
+            TimeSpan.FromMilliseconds(1_500));
+
+        Assert.Equal(0, voiceOutput.StopCallCount);
+        Assert.Equal(0, wakeWord.StopListeningCallCount);
+        Assert.Equal(0, voiceInput.PrepareCallCount);
+        Assert.Equal(0, wakeWord.PrepareCallCount);
+        Assert.Equal(
+            ["voiceInput.startListening", "voiceInput.stopListening", "voiceInput.listenForUtterance"],
+            log.Entries);
+    }
+
+    [Fact]
+    public async Task ExternallyCoordinatedStart_IsNotSerializedByTheCoordinatorsInternalGates()
+    {
+        // Determinista sin sleeps: `StartListeningAsync` del fake incrementa su contador
+        // de concurrencia antes de suspenderse en el gancho. Al invocar dos veces de
+        // forma consecutiva, ambas llamadas llegan al fake antes de que ninguna termine
+        // — algo imposible con el compuesto StartPushToTalkAsync, cuya prueba
+        // TwoSimultaneousPushToTalkCalls_NeverOverlapInTheUnderlyingService exige que el
+        // máximo observado sea 1.
+        var (coordinator, _, voiceInput, _, _) = CreateCoordinator();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        voiceInput.BeforeStartListeningReturns = () => release.Task;
+
+        var first = coordinator.StartVoiceInputUnderExternalCoordinationAsync();
+        var second = coordinator.StartVoiceInputUnderExternalCoordinationAsync();
+
+        Assert.False(first.IsCompleted);
+        Assert.False(second.IsCompleted);
+        Assert.Equal(2, voiceInput.MaxObservedConcurrentStartListeningCalls);
+
+        release.SetResult();
+        await Task.WhenAll(first, second);
+
+        Assert.Equal(2, voiceInput.StartListeningCallCount);
+    }
 }
