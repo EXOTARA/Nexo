@@ -308,8 +308,14 @@ public sealed class CompositionInvariantTests
             "private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)",
             "private async Task PauseWakeWordAsync()");
 
-        Assert.Contains("_wakeWordGate.WaitAsync()", body, StringComparison.Ordinal);
-        Assert.Contains("_wakeWordGate.Release()", body, StringComparison.Ordinal);
+        // Sincronización final (1.3B3): el único candado de wake word vive en el
+        // coordinador y se sostiene mediante un ámbito; MainWindow ya no tiene semáforo
+        // de wake word propio. La sección crítica conserva la misma duración.
+        Assert.Contains(
+            "await using var wakeWordScope = await _voiceCoordinator.AcquireWakeWordScopeAsync();",
+            body,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("_wakeWordGate", body, StringComparison.Ordinal);
         Assert.Contains("SetWakeWordIndicator(", body, StringComparison.Ordinal);
         Assert.Contains("RefreshRuntimeDashboard();", body, StringComparison.Ordinal);
         Assert.Contains("PauseWakeWordInGameMode", body, StringComparison.Ordinal);
@@ -318,15 +324,9 @@ public sealed class CompositionInvariantTests
         Assert.Contains("_lifetimeCancellation.Token", body, StringComparison.Ordinal);
         Assert.Contains("catch (OperationCanceledException)", body, StringComparison.Ordinal);
 
-        Assert.Contains(
-            "await _voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync();",
-            body,
-            StringComparison.Ordinal);
+        Assert.Contains("await wakeWordScope.StopListeningAsync();", body, StringComparison.Ordinal);
         Assert.Contains("_voiceCoordinator.PrepareWakeWordAsync(", body, StringComparison.Ordinal);
-        Assert.Contains(
-            "await _voiceCoordinator.StartWakeWordUnderExternalCoordinationAsync(",
-            body,
-            StringComparison.Ordinal);
+        Assert.Contains("await wakeWordScope.StartListeningAsync(", body, StringComparison.Ordinal);
         Assert.Contains("_voiceCoordinator.WakeWordSensitivity", body, StringComparison.Ordinal);
         Assert.Contains("_voiceCoordinator.WakeWordCustomAliases", body, StringComparison.Ordinal);
         Assert.Contains("_voiceCoordinator.IsVoiceInputReady", body, StringComparison.Ordinal);
@@ -334,9 +334,9 @@ public sealed class CompositionInvariantTests
         Assert.Contains("_voiceCoordinator.IsWakeWordReady", body, StringComparison.Ordinal);
 
         // Orden Stop → Prepare → Start conservado.
-        var stopIndex = body.IndexOf("StopWakeWordUnderExternalCoordinationAsync", StringComparison.Ordinal);
+        var stopIndex = body.IndexOf("wakeWordScope.StopListeningAsync", StringComparison.Ordinal);
         var prepareIndex = body.IndexOf("PrepareWakeWordAsync", StringComparison.Ordinal);
-        var startIndex = body.IndexOf("StartWakeWordUnderExternalCoordinationAsync", StringComparison.Ordinal);
+        var startIndex = body.IndexOf("wakeWordScope.StartListeningAsync", StringComparison.Ordinal);
         Assert.True(
             stopIndex >= 0 && prepareIndex > stopIndex && startIndex > prepareIndex,
             "El orden Stop -> Prepare -> Start cambió en ApplyWakeWordPreferenceAsync.");
@@ -353,13 +353,13 @@ public sealed class CompositionInvariantTests
             "private async Task PauseWakeWordAsync()",
             "private Task ResumeWakeWordIfEnabledAsync()");
 
-        Assert.Contains("_wakeWordGate.WaitAsync()", body, StringComparison.Ordinal);
-        Assert.Contains("_wakeWordGate.Release()", body, StringComparison.Ordinal);
-        Assert.Contains("SetWakeWordIndicator(active: false);", body, StringComparison.Ordinal);
         Assert.Contains(
-            "await _voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync();",
+            "await using var wakeWordScope = await _voiceCoordinator.AcquireWakeWordScopeAsync();",
             body,
             StringComparison.Ordinal);
+        Assert.DoesNotContain("_wakeWordGate", body, StringComparison.Ordinal);
+        Assert.Contains("SetWakeWordIndicator(active: false);", body, StringComparison.Ordinal);
+        Assert.Contains("await wakeWordScope.StopListeningAsync();", body, StringComparison.Ordinal);
         Assert.DoesNotContain("_wakeWordService", body, StringComparison.Ordinal);
     }
 
@@ -435,32 +435,11 @@ public sealed class CompositionInvariantTests
             "private async Task HandleWakeWordDetectedAsync",
             "private async Task HandleVoiceRecognitionResultAsync");
 
-        AssertMemberAppearsOnlyWithin(
-            content,
-            "_voiceCoordinator.StartWakeWordUnderExternalCoordinationAsync",
-            "private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)",
-            "private async Task PauseWakeWordAsync()");
-
-        // StopWakeWordUnderExternalCoordinationAsync aparece en dos métodos aprobados
-        // (ApplyWakeWordPreferenceAsync y PauseWakeWordAsync): se cuenta el total de
-        // apariciones en el archivo y se compara con la suma de las de cada método, en
-        // vez de exigir que quede dentro de un único rango.
-        var applyBody = ExtractMethodBody(
-            content,
-            "private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)",
-            "private async Task PauseWakeWordAsync()");
-        var pauseBody = ExtractMethodBody(
-            content,
-            "private async Task PauseWakeWordAsync()",
-            "private Task ResumeWakeWordIfEnabledAsync()");
-
-        const string stopWakeWordMember = "_voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync";
-        var totalOccurrences = CountOccurrences(content, stopWakeWordMember);
-        var approvedOccurrences =
-            CountOccurrences(applyBody, stopWakeWordMember) +
-            CountOccurrences(pauseBody, stopWakeWordMember);
-        Assert.Equal(approvedOccurrences, totalOccurrences);
-        Assert.True(approvedOccurrences > 0, "StopWakeWordUnderExternalCoordinationAsync no se usó en ningún método aprobado.");
+        // Las operaciones de wake word ya no pasan por la API de coordinación externa:
+        // desde 1.3B3 se ejecutan sobre el ámbito de wake word del coordinador
+        // (verificado en ApplyWakeWordPreferenceAsync_/PauseWakeWordAsync_...). Aquí solo
+        // se comprueban las operaciones de entrada de voz que aún usan esa API de
+        // transición hasta que también se migran a su ámbito.
     }
 
     [Fact]
@@ -489,19 +468,17 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
-    public void MainWindow_StillOwnsItsThreeVoiceSemaphores()
+    public void MainWindow_NoLongerOwnsTheWakeWordSemaphore()
     {
-        // Fase 1.3B2 runtime: MainWindow conserva sus tres semáforos como única fuente
-        // de exclusión — el runtime de voz se canaliza por el coordinador, pero la
-        // sincronización sigue siendo enteramente de MainWindow.
+        // Fase 1.3B3: el candado de wake word se transfirió al coordinador (un único
+        // SemaphoreSlim, sostenido por ámbito). MainWindow ya no declara `_wakeWordGate`.
+        // El candado de entrada de voz se migra en el commit siguiente; el de decisiones
+        // del Resource Governor permanece en MainWindow por diseño.
         var content = ReadMainWindowSource();
 
+        Assert.DoesNotContain("_wakeWordGate", content, StringComparison.Ordinal);
         Assert.Contains(
             "private readonly SemaphoreSlim _voiceGate = new(1, 1);",
-            content,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "private readonly SemaphoreSlim _wakeWordGate = new(1, 1);",
             content,
             StringComparison.Ordinal);
         Assert.Contains(

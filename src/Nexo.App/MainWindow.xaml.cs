@@ -78,7 +78,6 @@ public partial class MainWindow : Window
     private readonly IScreenCaptureService _screenCaptureService;
     private readonly VoiceCoordinator _voiceCoordinator;
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
-    private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
     private readonly SemaphoreSlim _aiGate = new(1, 1);
     private readonly SemaphoreSlim _resourceGovernorVoiceGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -2436,10 +2435,10 @@ public partial class MainWindow : Window
 
     private async Task ApplyWakeWordPreferenceAsync(bool showCapsule)
     {
-        await _wakeWordGate.WaitAsync();
+        await using var wakeWordScope = await _voiceCoordinator.AcquireWakeWordScopeAsync();
         try
         {
-            await _voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync();
+            await wakeWordScope.StopListeningAsync();
             SetWakeWordIndicator(active: false);
             RefreshRuntimeDashboard();
 
@@ -2496,7 +2495,7 @@ public partial class MainWindow : Window
 
             _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
             _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
-            var start = await _voiceCoordinator.StartWakeWordUnderExternalCoordinationAsync(
+            var start = await wakeWordScope.StartListeningAsync(
                 _preferences.WakeWordPhrase,
                 _lifetimeCancellation.Token);
 
@@ -2544,24 +2543,16 @@ public partial class MainWindow : Window
         {
             // Nexo se está cerrando o la preparación fue cancelada.
         }
-        finally
-        {
-            _wakeWordGate.Release();
-        }
+
+        // El ámbito de wake word se libera aquí, al salir del método (igual que el
+        // antiguo finally): la sección crítica conserva exactamente la misma duración.
     }
 
     private async Task PauseWakeWordAsync()
     {
-        await _wakeWordGate.WaitAsync();
-        try
-        {
-            await _voiceCoordinator.StopWakeWordUnderExternalCoordinationAsync();
-            SetWakeWordIndicator(active: false);
-        }
-        finally
-        {
-            _wakeWordGate.Release();
-        }
+        await using var wakeWordScope = await _voiceCoordinator.AcquireWakeWordScopeAsync();
+        await wakeWordScope.StopListeningAsync();
+        SetWakeWordIndicator(active: false);
     }
 
     private Task ResumeWakeWordIfEnabledAsync()
