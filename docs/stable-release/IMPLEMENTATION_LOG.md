@@ -10,7 +10,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3A parcial: coordinador aislado, MainWindow aún no migrado** |
+| **Fase actual** | **Fase 1.3A.1: corrección de semántica de sesión push-to-talk** |
 | **Siguiente fase** | Fase 1, paso 1.3B (migrar `MainWindow` a `VoiceCoordinator`) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
@@ -367,6 +367,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.1.1 (2026-07-23) | **606** | **0** | **0** | Core 576 + Windows 30. +86 pruebas. Correcciones D1, D2 y D4 |
 | Fase 1.2 (2026-07-23) | **615** | **0** | **0** | Core 576 (sin cambios) + Windows 39. +9 pruebas de composition root e invariantes |
 | Fase 1.3A (2026-07-23) | **638** | **0** | **0** | Core 576 (sin cambios) + Windows 62. +23 pruebas: `VoiceCoordinator` aislado (17) e invariantes de composition root/estructurales (6) |
+| Fase 1.3A.1 (2026-07-23) | **651** | **0** | **0** | Core 576 (sin cambios) + Windows 75. +13 pruebas de sesión persistente; 1 prueba existente corregida (documentada, no eliminada) |
 
 ---
 
@@ -481,28 +482,36 @@ mismo orden que hoy, antes de cablear eventos.
 
 ## SIGUIENTE PASO EXACTO
 
-**Fase 1.3A parcial: coordinador aislado, MainWindow aún no migrado.** Ver la sección completa
-"Fase 1.3A — VoiceCoordinator aislado" más abajo para el resultado exacto. 638 pruebas, 0
-fallidas, 0 warnings. `MainWindow.xaml.cs` y `App.xaml.cs` **no se tocaron** en esta subfase.
+**Fase 1.3A.1: corrección de semántica de sesión push-to-talk.** Ver la sección completa
+"Fase 1.3A.1 — sesión de push-to-talk persistente" más abajo para el resultado exacto. 651
+pruebas, 0 fallidas, 0 warnings. `MainWindow.xaml.cs` y `App.xaml.cs` **no se tocaron** en esta
+subfase, igual que en 1.3A.
 
 El siguiente paso es **1.3B — migrar `MainWindow` a `VoiceCoordinator`**. No se ha iniciado ningún
 trabajo de 1.3B. Antes de empezar, quien retome debe:
 
-1. Releer la sección "Fase 1.3A" completa para conocer la API real de `VoiceCoordinator` y la
-   corrección de propiedad (el coordinador **no libera** los tres servicios de voz).
+1. Releer las secciones "Fase 1.3A" y "Fase 1.3A.1" completas para conocer la API real de
+   `VoiceCoordinator`, la corrección de propiedad (el coordinador **no libera** los tres servicios
+   de voz) y la semántica de sesión persistente de push-to-talk (el candado de voz se retiene
+   entre `StartPushToTalkAsync` y `StopPushToTalkAsync`/`CancelPushToTalkAsync`, no solo durante
+   la llamada de arranque).
 2. Repetir el smoke test manual interactivo (riesgo #13, heredado de 1.2, aún abierto) antes de
-   dar 1.3B por cerrada — es el paso de mayor riesgo funcional de toda la Fase 1, y esta subfase
-   no tuvo forma de verificarlo interactivamente.
+   dar 1.3B por cerrada — es el paso de mayor riesgo funcional de toda la Fase 1, y ninguna
+   subfase hasta ahora tuvo forma de verificarlo interactivamente.
 3. Decidir explícitamente, y documentarlo antes de tocar código, si `MainWindow.Window_Closed`
    pasa a delegar la liberación de los tres servicios de voz en `VoiceCoordinator.Dispose()` (lo
    que exigiría que el coordinador SÍ los libere, revirtiendo la corrección de propiedad de 1.3A)
    o si `MainWindow` sigue liberándolos directamente y `VoiceCoordinator` sigue sin ser su dueño
    de forma permanente. **No cambiar esto por inercia**: es una decisión de diseño, no un detalle.
-4. Migrar método por método (dispositivo de entrada → push-to-talk → wake word runtime → modo
+4. Al migrar `AssistantView_VoiceInputStarted`/`AssistantView_VoiceInputStopped`, usar
+   `StartPushToTalkAsync`/`StopPushToTalkAsync` del coordinador **sin** volver a envolverlos en
+   `_voiceGate.WaitAsync()`/`Release()` propios de `MainWindow` — el coordinador ya gestiona esa
+   exclusión de extremo a extremo; duplicarla causaría un candado sobre un candado.
+5. Migrar método por método (dispositivo de entrada → push-to-talk → wake word runtime → modo
    prueba/aliases → puente con Resource Governor → disposición), en commits pequeños y
    compilables, siguiendo el plan detallado en `artifacts\Kohana-Fase-1.3-Auditoria.md`.
 
-**No iniciar 1.4 sin que 1.3 (A y B) esté verde.**
+**No iniciar 1.4 sin que 1.3 (A, A.1 y B) esté verde.**
 
 ---
 
@@ -757,3 +766,162 @@ prueba de identidad de aliases compara contenido (`Assert.Equal`) en vez de refe
 en particular, la decisión aún no tomada sobre quién libera los tres servicios de voz tras 1.3B
 (punto 3 de "Siguiente paso exacto"), y el smoke test manual interactivo, todavía sin repetir
 desde la fase 1.1.1.
+
+---
+
+### Fase 1.3A.1 — sesión de push-to-talk persistente (2026-07-23)
+
+Corrección aplicada tras revisión externa de la subfase 1.3A. **Antes de modificar código**, esta
+sesión releyó `VoiceCoordinator.cs`, `VoiceCoordinatorTests.cs`, `VoiceCoordinatorFakes.cs`, los
+métodos `AssistantView_VoiceInputStarted`/`Stopped` de `MainWindow.xaml.cs` y esta misma sección
+de "Fase 1.3A", y encontró evidencia que **contradice la premisa del problema tal como se
+describió**: el código real de `MainWindow` (líneas 2061-2142 en el momento de la revisión) libera
+`_voiceGate` al terminar `AssistantView_VoiceInputStarted` —justo después de que
+`StartListeningAsync` devuelve, con el micrófono ya grabando— y lo vuelve a adquirir por separado
+en `AssistantView_VoiceInputStopped`. No existe hoy ningún mecanismo en `MainWindow` que retenga el
+candado durante toda la sesión de escucha; `VoiceCoordinator` (fase 1.3A) reproducía fielmente ese
+mismo patrón. Esta evidencia se presentó explícitamente antes de tocar nada, y se pidió una
+decisión: **se autorizó implementar sesión persistente de todas formas**, como mejora deliberada
+—no como restauración de un comportamiento que nunca existió— para que 1.3B no herede el hueco de
+concurrencia ya identificado (una segunda escucha podría, en teoría, competir con una sesión de
+push-to-talk activa durante la ventana en que hoy el candado queda libre).
+
+**Causa exacta del problema (tal como quedó, no como se describió inicialmente):**
+`VoiceCoordinator.StartPushToTalkAsync` adquiría y liberaba `_voiceGate` **dentro de una sola
+llamada** (acquire → secuencia de arranque → release en el mismo `finally`). Una vez que
+`StartPushToTalkAsync` devolvía el control mientras el servicio seguía escuchando, nada impedía
+que una segunda llamada a cualquier operación que tocara `_voiceGate` (otro `StartPushToTalkAsync`,
+o `ListenAfterWakeWordAsync`) entrara antes de que se llamara a `StopPushToTalkAsync` o
+`CancelPushToTalkAsync`. La prueba `TwoSimultaneousPushToTalkCalls_NeverOverlapInTheUnderlyingService`
+de 1.3A solo demostraba que dos `Start` concurrentes entre sí no se solapaban; nunca comprobaba
+que la exclusión siguiera activa durante el intervalo entre un `Start` ya terminado y el `Stop`/
+`Cancel` correspondiente.
+
+**Diferencia entre la semántica anterior y la corregida:**
+
+| | Semántica 1.3A | Semántica 1.3A.1 |
+|---|---|---|
+| Alcance del candado de voz | Una sola llamada (`Start` por separado, `Stop` por separado) | Toda la sesión: `Start` exitoso → `Stop`/`Cancel` |
+| Segundo `Start` mientras la sesión sigue abierta | Podía proceder de inmediato | Bloqueado hasta que `Stop`/`Cancel` cierra la sesión activa |
+| `Start` fallido/cancelado | Liberaba el candado (sin cambio) | Sigue liberando el candado — nunca hubo sesión que retener |
+| `Stop`/`Cancel` concurrentes | No aplicaba (nada que cerrar de forma exclusiva) | Exactamente uno ejecuta el cierre real; el otro es no-op |
+
+**Diseño de sesión elegido:** un token opaco privado `PushToTalkSession` (clase sellada, sin
+campos) almacenado en `_activeSession` (`PushToTalkSession?`). `StartPushToTalkAsync`, si el
+arranque tiene éxito, instala la sesión con `Interlocked.Exchange(ref _activeSession, new
+PushToTalkSession())` y **no libera** `_voiceGate` en su `finally`. `StopPushToTalkAsync` y
+`CancelPushToTalkAsync` no adquieren `_voiceGate` con `WaitAsync()` — eso causaría interbloqueo,
+porque el propio candado que necesitan liberar es el que sostiene la sesión activa. En su lugar,
+cada uno ejecuta `Interlocked.Exchange(ref _activeSession, null)`: quien recibe una sesión no nula
+es el único responsable de llamar al servicio subyacente y liberar `_voiceGate` (en `finally`,
+incluso si el servicio lanza); quien recibe `null` no hace nada. Es la estrategia mínima que
+pedía el punto 10 de la corrección: pequeña (un campo, dos usos de `Interlocked.Exchange`),
+determinista (sin locks de monitor mantenidos durante `await`, sin `Thread.Sleep`, sin polling) y
+documentada en el propio código.
+
+**Comportamiento de `Start`, `Stop`, `Cancel` y `Dispose`:**
+
+- **`StartPushToTalkAsync`**: adquiere `_voiceGate` (bloqueante si hay sesión activa, exactamente
+  como antes de la corrección para el propio `Start`). Si el arranque tiene éxito
+  (`VoiceStartResult.IsAvailable == true`), instala la sesión y **no libera** el candado. Si
+  falla, se cancela o lanza antes de ese punto, libera el candado en el mismo método —nunca deja
+  el candado retenido sin una sesión que lo represente.
+- **`StopPushToTalkAsync`**: sin sesión activa, es un no-op que devuelve
+  `VoiceRecognitionResult.NoSpeech(...)` sin tocar el servicio ni el candado. Con sesión activa,
+  llama `StopListeningAsync` exactamente una vez y libera `_voiceGate` exactamente una vez en
+  `finally`, incluso si el servicio lanza.
+- **`CancelPushToTalkAsync`**: simétrico — no-op sin sesión; con sesión, llama `CancelAsync` una
+  vez y libera el candado una vez en `finally`.
+- **`Dispose`**: la bandera `_disposed` pasó de `bool` a `int` gestionado con
+  `Interlocked.CompareExchange`, para que dos `Dispose()` concurrentes sean seguros sin lock de
+  monitor. Sigue sin llamar `Dispose()` sobre los tres servicios de voz. Es seguro llamarlo con una
+  sesión de push-to-talk abierta o una operación de wake word ya terminada (ninguna de esas rutas
+  deja un candado retenido *dentro* de un `await` activo en ese instante, solo *entre* llamadas).
+  **Límite conocido, documentado en vez de resuelto** (por instrucción explícita de detenerse si
+  garantizar un `Dispose` síncrono totalmente seguro exigía ampliar la arquitectura): si una
+  llamada está bloqueada literalmente dentro de `_voiceGate.WaitAsync()` o
+  `_wakeWordGate.WaitAsync()` en el instante exacto en que `Dispose()` libera esos semáforos, el
+  resultado de esa espera pendiente queda indefinido por el propio contrato de `SemaphoreSlim` —
+  resolverlo exigiría un mecanismo de conteo de operaciones en vuelo o `IAsyncDisposable`, ambos
+  fuera del alcance mínimo autorizado y explícitamente prohibido este último. Contrato del
+  llamador documentado en el código: no invocar `Dispose()` mientras se sepa que hay una llamada
+  bloqueada esperando un candado. Hoy el único llamador real (`KohanaCompositionRoot.Dispose`) lo
+  invoca al cerrar la aplicación, cuando nada más usa el coordinador.
+
+**Pruebas creadas (13, todas las exigidas por el nombre exacto pedido):**
+`FirstStartCompletes_SecondStartWaitsUntilStop`, `FirstStartCompletes_SecondStartWaitsUntilCancel`,
+`SecondStart_DoesNotCallUnderlyingServiceWhileFirstSessionIsActive`,
+`Stop_ReleasesSessionExactlyOnce`, `Cancel_ReleasesSessionExactlyOnce`, `FailedStart_ReleasesSession`,
+`CancelledStart_ReleasesSession`, `ConcurrentStopAndCancel_DoNotDoubleRelease`,
+`SessionCanStartAgainAfterStop`, `SessionCanStartAgainAfterCancel`,
+`WakeWordLockOrderRemainsVoiceThenWakeWord`, `Dispose_DoesNotDisposeUnderlyingServices`,
+`Dispose_DoesNotRaceWithAnActiveOrWaitingSession`. Todas deterministas: la concurrencia se produce
+con `TaskCompletionSource` controlados por la prueba y comprobaciones de `Task.IsCompleted`
+inmediatamente después de que una llamada se suspende en su primer `await` (nunca con `Task.Delay`
+como sincronización). Las dos pruebas de carrera genuina
+(`ConcurrentStopAndCancel_DoNotDoubleRelease`, `Dispose_DoesNotRaceWithAnActiveOrWaitingSession`)
+no dependen de qué rama gana la carrera, solo de que el resultado observable (sin excepción, sin
+doble liberación) se cumpla sin importar el orden real de ejecución — se corrieron 3 veces
+seguidas sin fallos para descartar inestabilidad.
+
+**Prueba existente corregida (no eliminada):**
+`TwoSimultaneousPushToTalkCalls_NeverOverlapInTheUnderlyingService` esperaba que dos `Start`
+concurrentes completaran ambos sin ningún `Stop` intermedio — válido bajo la semántica de 1.3A,
+inválido bajo la semántica corregida (el segundo nunca progresaría sin un `Stop`/`Cancel`, por
+diseño). Se corrigió insertando el `Stop` que la nueva semántica exige, conservando intacto el
+objetivo original de la prueba (el servicio subyacente nunca ve dos `StartListeningAsync`
+solapados), documentado con un comentario explícito en el propio archivo de pruebas.
+
+**Fake ampliado:** `FakeVoiceInputService.StartListeningAsync` (en `VoiceCoordinatorFakes.cs`)
+ganó una segunda comprobación de `cancellationToken.ThrowIfCancellationRequested()` **después**
+del gancho controlable `BeforeStartListeningReturns`, para poder simular cancelación real mientras
+la llamada está en vuelo dentro del servicio subyacente (no solo cancelación previa a la llamada),
+necesaria para `CancelledStart_ReleasesSession`.
+
+**Archivos modificados:**
+- `src/Nexo.Windows/Voice/VoiceCoordinator.cs` — campo `_activeSession` y clase anidada privada
+  `PushToTalkSession`; `StartPushToTalkAsync`/`StopPushToTalkAsync`/`CancelPushToTalkAsync`
+  reescritos con la semántica de sesión persistente; `_disposed` de `bool` a `int` atómico.
+- `tests/Nexo.Windows.Tests/Voice/VoiceCoordinatorTests.cs` — +13 pruebas nuevas, 1 corregida.
+- `tests/Nexo.Windows.Tests/Voice/VoiceCoordinatorFakes.cs` — segunda comprobación de cancelación
+  en `FakeVoiceInputService.StartListeningAsync`.
+
+`KohanaCompositionRoot.cs` **no se modificó**: las firmas públicas de `VoiceCoordinator` no
+cambiaron (mismos nombres, mismos parámetros, mismos tipos de retorno), así que no hizo falta
+tocar el composition root para compilar. `MainWindow.xaml.cs` y `App.xaml.cs` tampoco se tocaron.
+
+**Resultado de build y pruebas (Release, tres corridas consecutivas de `Nexo.Windows.Tests` sin
+variación, para descartar inestabilidad en las pruebas de concurrencia):**
+
+```
+dotnet build Nexo.slnx -c Release    → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas   (sin cambios)
+  Nexo.Windows.Tests.dll →  75 superadas, 0 con error, 0 omitidas   (62 + 13 nuevas)
+Total: 651 pruebas, 0 fallidas, 0 warnings.
+```
+
+**Desviaciones respecto al prompt recibido:**
+1. Se usó `[Fact(Timeout = 5000)]` en una prueba heredada de 1.3A (`ConcurrentStartWakeWordAndPushToTalk_DoNotDeadlock`,
+   sin tocar en esta subfase) como red de seguridad contra interbloqueo — no participa en ninguna
+   aserción, ya documentado como desviación en el informe de 1.3A.
+2. El campo `_disposed` cambió de tipo (`bool` → `int`) para poder usar `Interlocked.CompareExchange`;
+   no se pidió explícitamente pero es la forma mínima de cumplir "Dispose debe seguir siendo
+   idempotente" bajo llamadas concurrentes, sin introducir un lock de monitor.
+3. Se detuvo la implementación de un `Dispose` síncrono completamente libre de casos indefinidos
+   (llamada bloqueada dentro de `WaitAsync()` en el instante exacto de `Dispose`) y se documentó
+   como límite conocido con contrato de llamador, tal como el propio prompt autorizaba
+   explícitamente ("si garantizar un Dispose síncrono seguro exige ampliar significativamente la
+   arquitectura, detente... y explica una solución mínima"). No se introdujo `IAsyncDisposable`.
+4. No hubo ninguna otra desviación: no se modificó `MainWindow.xaml.cs`, `App.xaml.cs` ni
+   `KohanaCompositionRoot.cs`; no se introdujo `IVoiceCoordinator`; no se generó portable; no se
+   inició 1.3B.
+
+**Riesgos pendientes para 1.3B:** los mismos tres heredados de la sección "Fase 1.3A" (decisión de
+propiedad definitiva de los tres servicios, smoke test manual interactivo todavía sin repetir, y
+migración método por método sin cobertura de caracterización previa de `MainWindow`), más uno
+nuevo: **1.3B debe usar `StartPushToTalkAsync`/`StopPushToTalkAsync` del coordinador sin volver a
+envolverlos en el `_voiceGate` propio de `MainWindow`** (que hoy sigue existiendo en
+`AssistantView_VoiceInputStarted`/`Stopped`) — duplicar la exclusión causaría un candado sobre un
+candado, no un error funcional inmediato pero sí lógica redundante y confusa que 1.3B debe
+eliminar como parte de la migración, no conservar por inercia.
