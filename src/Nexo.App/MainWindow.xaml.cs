@@ -1929,11 +1929,12 @@ public partial class MainWindow : Window
         {
             await PauseWakeWordAsync();
 
-            // CancelAsync() se deja sin migrar deliberadamente: VoiceCoordinator solo
-            // expone CancelPushToTalkAsync, que añade su propio candado de voz interno
-            // (no presente hoy en esta ruta) — no es una equivalencia exacta, así que se
-            // conserva la llamada directa al servicio (ver informe de la subfase 1.3B1).
-            await _voiceInputService.CancelAsync();
+            // Fase 1.3B2 runtime: CancelVoiceInputUnderExternalCoordinationAsync delega
+            // en CancelAsync() sin adquirir ningún candado interno del coordinador —
+            // equivalencia exacta a la llamada directa que sustituye, a diferencia de
+            // CancelPushToTalkAsync (que sí adquiere _voiceGate del coordinador y por
+            // eso seguía descartado; ver informe de la subfase 1.3B1).
+            await _voiceCoordinator.CancelVoiceInputUnderExternalCoordinationAsync();
 
             _preferences.VoiceInputDeviceNumber = deviceNumber;
             _voiceCoordinator.InputDeviceNumber = deviceNumber;
@@ -2084,18 +2085,18 @@ public partial class MainWindow : Window
         try
         {
             await PauseWakeWordAsync();
-            _voiceOutputService.Stop();
+            _voiceCoordinator.StopSpeaking();
 
-            if (!_voiceInputService.IsReady)
+            if (!_voiceCoordinator.IsVoiceInputReady)
             {
                 await PrepareVoiceAsync();
-                if (!_voiceInputService.IsReady)
+                if (!_voiceCoordinator.IsVoiceInputReady)
                 {
                     return;
                 }
             }
 
-            var result = await _voiceInputService.StartListeningAsync();
+            var result = await _voiceCoordinator.StartVoiceInputUnderExternalCoordinationAsync();
 
             if (!result.IsAvailable)
             {
@@ -2134,7 +2135,7 @@ public partial class MainWindow : Window
         await _voiceGate.WaitAsync();
         try
         {
-            if (!_voiceInputService.IsListening)
+            if (!_voiceCoordinator.IsVoiceInputListening)
             {
                 return;
             }
@@ -2143,7 +2144,7 @@ public partial class MainWindow : Window
                 AssistantVoiceState.Processing,
                 "Transcribiendo localmente con Whisper…");
 
-            var result = await _voiceInputService.StopListeningAsync();
+            var result = await _voiceCoordinator.StopVoiceInputUnderExternalCoordinationAsync();
             await HandleVoiceRecognitionResultAsync(result);
         }
         catch (OperationCanceledException)
