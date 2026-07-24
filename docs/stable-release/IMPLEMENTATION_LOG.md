@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3A parcial: coordinador aislado, MainWindow aún no migrado** |
-| **Siguiente fase** | Fase 1, paso 1.3B (migrar `MainWindow` a `VoiceCoordinator`) — **no iniciada** |
+| **Fase actual** | **Fase 1.3B1: VoiceCoordinator inyectado; migradas únicamente configuración de dispositivo y preparación de entrada de voz** |
+| **Siguiente fase** | Fase 1, paso 1.3B2 (migrar push-to-talk) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-23 |
-| **Bloqueador activo** | Ninguno para iniciar 1.3B |
+| **Bloqueador activo** | Ninguno para iniciar 1.3B2 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -367,6 +367,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.1.1 (2026-07-23) | **606** | **0** | **0** | Core 576 + Windows 30. +86 pruebas. Correcciones D1, D2 y D4 |
 | Fase 1.2 (2026-07-23) | **615** | **0** | **0** | Core 576 (sin cambios) + Windows 39. +9 pruebas de composition root e invariantes |
 | Fase 1.3A (2026-07-23) | **638** | **0** | **0** | Core 576 (sin cambios) + Windows 62. +23 pruebas: `VoiceCoordinator` aislado (17) e invariantes de composition root/estructurales (6) |
+| Fase 1.3B1 (2026-07-23) | **645** | **0** | **0** | Core 576 (sin cambios) + Windows 69. +7 pruebas estructurales de inyección y migración parcial |
 
 ---
 
@@ -481,28 +482,31 @@ mismo orden que hoy, antes de cablear eventos.
 
 ## SIGUIENTE PASO EXACTO
 
-**Fase 1.3A parcial: coordinador aislado, MainWindow aún no migrado.** Ver la sección completa
-"Fase 1.3A — VoiceCoordinator aislado" más abajo para el resultado exacto. 638 pruebas, 0
-fallidas, 0 warnings. `MainWindow.xaml.cs` y `App.xaml.cs` **no se tocaron** en esta subfase.
+**Fase 1.3B1 completada: `VoiceCoordinator` inyectado en `MainWindow`; migradas únicamente
+configuración de dispositivo y preparación de entrada de voz.** Ver la sección "Fase 1.3B1" más
+abajo para el resultado exacto. 645 pruebas, 0 fallidas, 0 warnings.
 
-El siguiente paso es **1.3B — migrar `MainWindow` a `VoiceCoordinator`**. No se ha iniciado ningún
-trabajo de 1.3B. Antes de empezar, quien retome debe:
+El siguiente paso es **1.3B2 — migrar push-to-talk** (`AssistantView_VoiceInputStarted`,
+`AssistantView_VoiceInputStopped`, y el `CancelAsync()` directo que quedó pendiente en
+`ChangeVoiceInputDeviceAsync`). Antes de empezar, quien retome debe:
 
-1. Releer la sección "Fase 1.3A" completa para conocer la API real de `VoiceCoordinator` y la
-   corrección de propiedad (el coordinador **no libera** los tres servicios de voz).
+1. Releer las secciones "Fase 1.3A" y "Fase 1.3B1" completas para conocer la API real de
+   `VoiceCoordinator`, qué ya está migrado y qué falta deliberadamente.
 2. Repetir el smoke test manual interactivo (riesgo #13, heredado de 1.2, aún abierto) antes de
-   dar 1.3B por cerrada — es el paso de mayor riesgo funcional de toda la Fase 1, y esta subfase
-   no tuvo forma de verificarlo interactivamente.
+   dar 1.3B por cerrada del todo — es el paso de mayor riesgo funcional de toda la Fase 1, y
+   ninguna subfase hasta ahora tuvo forma de verificarlo interactivamente.
 3. Decidir explícitamente, y documentarlo antes de tocar código, si `MainWindow.Window_Closed`
    pasa a delegar la liberación de los tres servicios de voz en `VoiceCoordinator.Dispose()` (lo
    que exigiría que el coordinador SÍ los libere, revirtiendo la corrección de propiedad de 1.3A)
    o si `MainWindow` sigue liberándolos directamente y `VoiceCoordinator` sigue sin ser su dueño
    de forma permanente. **No cambiar esto por inercia**: es una decisión de diseño, no un detalle.
-4. Migrar método por método (dispositivo de entrada → push-to-talk → wake word runtime → modo
-   prueba/aliases → puente con Resource Governor → disposición), en commits pequeños y
-   compilables, siguiendo el plan detallado en `artifacts\Kohana-Fase-1.3-Auditoria.md`.
+4. Decidir qué hacer con el `CancelAsync()` directo de `ChangeVoiceInputDeviceAsync` (sin
+   equivalencia exacta en el coordinador hoy) al migrar push-to-talk como unidad completa.
+5. Seguir migrando método por método (wake word runtime → modo prueba/aliases → puente con
+   Resource Governor → disposición), en commits pequeños y compilables, siguiendo el plan
+   detallado en `artifacts\Kohana-Fase-1.3-Auditoria.md`.
 
-**No iniciar 1.4 sin que 1.3 (A y B) esté verde.**
+**No iniciar 1.4 sin que 1.3 (A, A.1, B1 y B2) esté verde.**
 
 ---
 
@@ -810,3 +814,114 @@ por operación dentro de cada método del coordinador. Nada de eso se tocó por 
 `AssistantView_VoiceInputStopped`)— y no introducir semántica de sesión persistente entre eventos
 independientes salvo que se apruebe explícitamente como cambio de comportamiento deliberado, con
 el mismo nivel de evidencia y aprobación que exigió esta corrección.
+
+---
+
+### Fase 1.3B1 — VoiceCoordinator inyectado; configuración y preparación migradas (2026-07-23)
+
+Primer paso de consumo real de `VoiceCoordinator` por `MainWindow`. Antes de tocar código se leyó
+`VoiceCoordinator.cs`, `KohanaCompositionRoot.cs`, `App.xaml.cs`, el constructor y campos de
+`MainWindow.xaml.cs`, y los cuerpos exactos de `ConfigureVoiceInputDevices`,
+`ChangeVoiceInputDeviceAsync`, `PrepareVoiceAsync` e `InitializeVoiceFeaturesAsync`, para registrar
+su comportamiento antes de sustituir ninguna llamada.
+
+**Cambio de constructor:** `MainWindow` gana un noveno parámetro, al final de la firma para
+minimizar el cambio: `VoiceCoordinator? voiceCoordinator = null`. Los ocho parámetros existentes
+no cambian de orden. Si no se provee (solo ocurre en construcción directa fuera de
+`App.OnStartup`, p. ej. el diseñador de XAML), el valor por defecto envuelve los **mismos** tres
+campos ya resueltos (`_voiceInputService`, `_voiceOutputService`, `_wakeWordService`) —
+`voiceCoordinator ?? new VoiceCoordinator(_voiceInputService, _voiceOutputService,
+_wakeWordService)` — nunca construye un motor nuevo ni un segundo `VoiceCoordinator` "real".
+`App.OnStartup` entrega exactamente `_compositionRoot.VoiceCoordinator`, el mismo singleton que
+expone el composition root desde la fase 1.3A. `MainWindow` no recibe `IServiceProvider` en
+ningún punto. `MainWindow` conserva los tres campos directos `_voiceInputService`,
+`_voiceOutputService`, `_wakeWordService` — todavía son necesarios para las partes no migradas.
+
+**Métodos migrados (solo mecánica de dispositivo y preparación, comportamiento verificado
+idéntico antes de sustituir):**
+
+- `ConfigureVoiceInputDevices()` — `_voiceInputService.GetInputDevices()` → `_voiceCoordinator.GetInputDevices()`
+  (paso directo, sin diferencia). Las dos asignaciones separadas
+  `_voiceInputService.InputDeviceNumber = selectedDeviceNumber;` y
+  `_wakeWordService.InputDeviceNumber = selectedDeviceNumber;` se sustituyen por una sola
+  `_voiceCoordinator.InputDeviceNumber = selectedDeviceNumber;` — se confirmó leyendo
+  `VoiceCoordinator.cs` que su setter hace exactamente esas dos asignaciones, en el mismo orden
+  (entrada de voz primero, wake word después), antes de sustituir.
+- `ChangeVoiceInputDeviceAsync(int deviceNumber)` — mismas dos sustituciones de dispositivo que
+  arriba, más `_voiceInputService.IsReady` → `_voiceCoordinator.IsVoiceInputReady` (paso directo).
+  **`await _voiceInputService.CancelAsync();` se deja sin migrar, deliberadamente**: el único
+  método del coordinador que envuelve `CancelAsync` es `CancelPushToTalkAsync`, que además adquiere
+  su propio `_voiceGate` interno — un efecto adicional que la llamada actual, directa y sin
+  candado, no tiene en este punto. No es una equivalencia exacta (regla de "PRESERVACIÓN
+  OBLIGATORIA" punto 3: documentar la diferencia y no usarla ciegamente), así que se conservó la
+  llamada directa. Queda para 1.3B2, cuando se migre push-to-talk como unidad completa.
+- `PrepareVoiceAsync()` — `!_voiceInputService.IsReady` → `!_voiceCoordinator.IsVoiceInputReady`;
+  `await _voiceInputService.PrepareAsync(progress, _lifetimeCancellation.Token)` →
+  `await _voiceCoordinator.PrepareVoiceInputAsync(progress, _lifetimeCancellation.Token)` — paso
+  directo con la misma firma, mismo `IProgress<VoicePreparationProgress>`, mismo
+  `CancellationToken`, mismo `catch (OperationCanceledException)` sin cambios.
+- `InitializeVoiceFeaturesAsync()` — **sin cambios**, tal como exigía el alcance: sigue llamando
+  `await PrepareVoiceAsync();` textualmente igual; su comportamiento cambia solo como consecuencia
+  indirecta de que `PrepareVoiceAsync` ahora usa el coordinador internamente.
+
+**Deliberadamente no migrados en 1.3B1** (fuera de alcance, verificado que siguen intactos):
+`AssistantView_VoiceInputStarted`, `AssistantView_VoiceInputStopped`, `HandleWakeWordDetectedAsync`,
+`HandleVoiceRecognitionResultAsync`, `PauseWakeWordAsync`, `ResumeWakeWordIfEnabledAsync`,
+`ApplyWakeWordPreferenceAsync`, `StartWakeWordTestAsync`, `SpeakVoiceResult`, el puente con
+Resource Governor, las suscripciones a `WakeWordDetected`/`RecognitionObserved` en el constructor,
+`Window_Closed` y el orden de `Dispose()`, y la propiedad de los tres servicios de voz (sigue
+siendo de `MainWindow`, no del coordinador).
+
+**Comportamiento anterior vs. resultante:** ninguno de los tres métodos migrados cambia su salida
+observable. Las sustituciones son pasos directos verificados leyendo `VoiceCoordinator.cs` antes
+de aplicarlas: `GetInputDevices()`, `IsVoiceInputReady` y `PrepareVoiceInputAsync(...)` delegan
+exactamente en el mismo campo/llamada que sustituyen, sin lógica adicional. La única sustitución
+que colapsa dos líneas en una (`InputDeviceNumber`) se verificó de la misma forma antes de usarla.
+
+**Archivos modificados:**
+- `src/Nexo.App/MainWindow.xaml.cs` — campo `_voiceCoordinator`, parámetro de constructor,
+  `ConfigureVoiceInputDevices`, `ChangeVoiceInputDeviceAsync`, `PrepareVoiceAsync`.
+- `src/Nexo.App/App.xaml.cs` — pasa `_compositionRoot.VoiceCoordinator` como noveno argumento.
+- `tests/Nexo.Windows.Tests/Composition/CompositionInvariantTests.cs` — +7 pruebas estructurales.
+
+`VoiceCoordinator.cs` y `KohanaCompositionRoot.cs` **no se modificaron** — solo se leyeron para
+confirmar equivalencia antes de sustituir llamadas.
+
+**Pruebas nuevas (7, todas basadas en símbolos/bloques de texto, no en números de línea):**
+`App_PassesTheCompositionRootsVoiceCoordinatorToMainWindow`,
+`MainWindow_ReceivesVoiceCoordinatorAsATypedConstructorDependency`,
+`MainWindow_FallbackWrapsExistingServices_NeverBuildsAFourthEngineSet`,
+`ConfigureVoiceInputDevices_RoutesEnumerationAndSelectionThroughTheCoordinator`,
+`ChangeVoiceInputDeviceAsync_UsesCoordinatorForDeviceSelection_ButKeepsDirectCancelCall`,
+`PrepareVoiceAsync_RoutesReadinessAndPreparationThroughTheCoordinator`,
+`PushToTalkWakeWordAndTtsMethods_RemainUnmigrated`. Las pruebas ya existentes
+`MainWindow_DoesNotReferenceIServiceProvider`, `MainWindow_StillOwnsTheThreeVoiceServicesAndTheirDisposalOrder`
+y `NexoCoreProject_HasNoPackageReferences` no se tocaron y siguen verdes: cubren directamente los
+criterios 3, 8 y 9 del prompt sin necesidad de duplicarlas. Un ajuste durante la implementación:
+`ChangeVoiceInputDeviceAsync_UsesCoordinatorForDeviceSelection_ButKeepsDirectCancelCall` comprobaba
+inicialmente `"_voiceCoordinator.GetInputDevices()"` como una sola cadena contigua, pero esa
+llamada está encadenada en dos líneas (`_voiceCoordinator` y `.GetInputDevices()` en la siguiente,
+por el formato de la sustitución de `_voiceInputService`); se corrigió a dos comprobaciones
+separadas para no depender del salto de línea exacto, tal como exige el prompt.
+
+**Resultado de build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release    → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas   (sin cambios)
+  Nexo.Windows.Tests.dll →  69 superadas, 0 con error, 0 omitidas   (62 + 7 nuevas)
+Total: 645 pruebas, 0 fallidas, 0 warnings.
+```
+
+**No se generó portable.** No se hizo smoke test manual: no lo exigía la validación de esta
+subfase, y una instancia de `Kohana.exe` ya estaba corriendo con un PID que esta sesión no
+inició, así que no se tocó (consistente con la regla de solo terminar procesos propios).
+
+**Riesgos pendientes para 1.3B2:** `CancelAsync()` en `ChangeVoiceInputDeviceAsync` sigue sin
+equivalencia exacta en el coordinador — 1.3B2 deberá decidir si migra push-to-talk como unidad
+completa (momento en que ese `CancelAsync` directo probablemente desaparezca junto con el resto de
+la lógica de push-to-talk) o si se le da a `VoiceCoordinator` un método de cancelación sin candado
+para casos como este. El smoke test manual interactivo (riesgo #13, heredado desde 1.2) sigue sin
+repetirse. La decisión de propiedad definitiva de los tres servicios de voz tras la migración
+completa sigue sin tomarse.
