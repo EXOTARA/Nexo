@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3B1: VoiceCoordinator inyectado; migradas únicamente configuración de dispositivo y preparación de entrada de voz** |
-| **Siguiente fase** | Fase 1, paso 1.3B2 (migrar push-to-talk) — **no iniciada** |
+| **Fase actual** | **Fase 1.3B2A: operaciones de coordinación externa preparadas, sin consumidor** |
+| **Siguiente fase** | Fase 1, paso 1.3B2B (migrar push-to-talk conservando los candados de MainWindow) — **no iniciada** |
 | **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-23 |
-| **Bloqueador activo** | Ninguno para iniciar 1.3B2 |
+| **Bloqueador activo** | Ninguno para iniciar 1.3B2B |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -368,6 +368,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.2 (2026-07-23) | **615** | **0** | **0** | Core 576 (sin cambios) + Windows 39. +9 pruebas de composition root e invariantes |
 | Fase 1.3A (2026-07-23) | **638** | **0** | **0** | Core 576 (sin cambios) + Windows 62. +23 pruebas: `VoiceCoordinator` aislado (17) e invariantes de composition root/estructurales (6) |
 | Fase 1.3B1 (2026-07-23) | **645** | **0** | **0** | Core 576 (sin cambios) + Windows 69. +7 pruebas estructurales de inyección y migración parcial |
+| Fase 1.3B2A (2026-07-23) | **658** | **0** | **0** | Core 576 (sin cambios) + Windows 82. +8 pruebas de la API de transición + 5 invariantes de frontera |
 
 ---
 
@@ -925,3 +926,41 @@ la lógica de push-to-talk) o si se le da a `VoiceCoordinator` un método de can
 para casos como este. El smoke test manual interactivo (riesgo #13, heredado desde 1.2) sigue sin
 repetirse. La decisión de propiedad definitiva de los tres servicios de voz tras la migración
 completa sigue sin tomarse.
+
+---
+
+### Fase 1.3B2A — operaciones de coordinación externa preparadas, sin consumidor (2026-07-23)
+
+Primer paso de la Fase 1.3B2, según la **auditoría correctiva** de 1.3B2 (`artifacts\Kohana-Fase-1.3B2-Auditoria-Correctiva.md`), que refutó la recomendación de la auditoría original: migrar los cuatro métodos de push-to-talk a los métodos compuestos del coordinador dejaría **dos dominios de `_wakeWordGate`** sobre la misma instancia de `IWakeWordService` (el interno del coordinador vía `StopWakeWordCoreAsync`, y el de `MainWindow` vía `ApplyWakeWordPreferenceAsync`/`PauseWakeWordAsync`). La estrategia aprobada (Alternativa B) es: **`MainWindow` conserva sus tres semáforos como única fuente de exclusión** durante toda la fase 1.3B2, y el coordinador expone operaciones *sin candado* que la vista podrá consumir sin cambiar todavía el propietario de la sincronización.
+
+**Los candados siguen en `MainWindow`.** No se tocó `_voiceGate`, `_wakeWordGate` ni `_resourceGovernorVoiceGate`, ni sus call sites. **No cambió ningún comportamiento real:** esta subfase solo añade API y pruebas; `MainWindow.xaml.cs` y `App.xaml.cs` no se modificaron (confirmado por `git diff`).
+
+**API de transición añadida a `VoiceCoordinator`** (seis delegaciones transparentes, cuerpo de expresión, sin adquirir candados, sin pausar wake word, sin detener TTS, sin preparar, sin capturar excepciones, sin fire-and-forget):
+- `StartVoiceInputUnderExternalCoordinationAsync(CancellationToken)` → `StartListeningAsync`
+- `StopVoiceInputUnderExternalCoordinationAsync(CancellationToken)` → `StopListeningAsync`
+- `CancelVoiceInputUnderExternalCoordinationAsync()` → `CancelAsync`
+- `ListenForUtteranceUnderExternalCoordinationAsync(...)` → `ListenForUtteranceAsync` (mismo orden de argumentos)
+- `StartWakeWordUnderExternalCoordinationAsync(WakeWordPhrase, CancellationToken)` → `StartListeningAsync`
+- `StopWakeWordUnderExternalCoordinationAsync()` → `StopListeningAsync`
+
+Cada una lleva XML-doc que advierte: no adquiere los candados internos, solo debe llamarla un orquestador que ya garantice la exclusión (hoy la vista principal), y **no debe combinarse en la misma sección crítica con los métodos compuestos** (`StartPushToTalkAsync` y equivalentes), que sí adquieren los candados internos. La API se declara **de transición, no definitiva**.
+
+**Nomenclatura:** el prompt prohibió el sufijo `Core`. El helper privado `StopWakeWordCoreAsync` (que **sí** adquiere `_wakeWordGate`) se renombró a `StopWakeWordWithinCoordinatorGateAsync`, actualizando sus dos call sites internos, sin cambiar comportamiento, orden, candados ni visibilidad. Así el nombre refleja que se ejecuta dentro del dominio de candados del coordinador, en contraste con las operaciones `…UnderExternalCoordinationAsync`.
+
+**Los métodos compuestos continúan sin consumidor.** `StartPushToTalkAsync`, `StopPushToTalkAsync`, `CancelPushToTalkAsync`, `ListenAfterWakeWordAsync`, `StartWakeWordAsync`, `StopWakeWordAsync`, `PauseWakeWordAsync` se conservan intactos, probados por su cobertura existente, pero ninguna ruta real los invoca. Un invariante estructural nuevo **falla si `MainWindow` los consume** — el límite queda aplicado técnicamente, no solo declarado.
+
+**Pruebas nuevas (13):** 8 de la API de transición en `VoiceCoordinatorTests.cs` (delegación exacta una vez, preservación de todos los argumentos, ausencia de Stop/pausa/preparación, y no-serialización de dos entradas concurrentes — determinista con `TaskCompletionSource`, sin `Task.Delay`); 5 invariantes de frontera en `CompositionInvariantTests.cs` (MainWindow no consume las seis operaciones nuevas; no consume los siete compuestos con candado; conserva `_voiceGate`/`_wakeWordGate`; las operaciones nuevas no tocan los candados en su cuerpo; el helper usa el nombre desambiguado). Los fakes ganaron captura de argumentos. **Ninguna prueba existente se debilitó ni se eliminó.**
+
+Estabilidad verificada: la suite de Windows se corrió **5 veces consecutivas** sin intermitencia (82/82 en cada corrida).
+
+**Resultado de build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release    → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas   (sin cambios)
+  Nexo.Windows.Tests.dll →  82 superadas, 0 con error, 0 omitidas   (69 + 13 nuevas)
+Total: 658 pruebas, 0 fallidas, 0 warnings.
+```
+
+**1.3B2B migrará únicamente push-to-talk** (`AssistantView_VoiceInputStarted`/`Stopped`) para que sus llamadas directas a los servicios pasen por estas operaciones de coordinación externa, **manteniendo los candados actuales de `MainWindow`**. **La transferencia definitiva de candados al coordinador queda para una fase posterior** (1.3B2C y siguientes), momento en que también se resolverán el `CancelAsync` de cambio de dispositivo, las escrituras de `Sensitivity`/`CustomAliases` sin candado, el tercer dominio `_resourceGovernorVoiceGate`, la revisión de `Window_Closed` y el fallback no liberado del constructor — todos documentados en la auditoría correctiva, ninguno abordado aquí.
