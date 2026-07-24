@@ -72,9 +72,6 @@ public partial class MainWindow : Window
     private readonly SpanishRoutineCommandParser _routineCommandParser = new();
     private readonly IAiChatService _aiChatService;
     private readonly IAudioMixerService _audioMixerService;
-    private readonly IVoiceInputService _voiceInputService;
-    private readonly IVoiceOutputService _voiceOutputService;
-    private readonly IWakeWordService _wakeWordService;
     private readonly IScreenCaptureService _screenCaptureService;
     private readonly VoiceCoordinator _voiceCoordinator;
     private readonly SemaphoreSlim _aiGate = new(1, 1);
@@ -145,9 +142,6 @@ public partial class MainWindow : Window
         ManagedOllamaSupervisor? managedOllamaSupervisor = null,
         IAiChatService? aiChatService = null,
         IAudioMixerService? audioMixerService = null,
-        IVoiceInputService? voiceInputService = null,
-        IVoiceOutputService? voiceOutputService = null,
-        IWakeWordService? wakeWordService = null,
         IScreenCaptureService? screenCaptureService = null,
         VoiceCoordinator? voiceCoordinator = null)
     {
@@ -160,18 +154,15 @@ public partial class MainWindow : Window
         // directa en pruebas; App.OnStartup siempre los provee desde KohanaCompositionRoot.
         _aiChatService = aiChatService ?? new AiChatRouterService();
         _audioMixerService = audioMixerService ?? new WindowsAudioMixerService();
-        _voiceInputService = voiceInputService ?? new WhisperVoiceInputService();
-        _voiceOutputService = voiceOutputService ?? new WindowsTextToSpeechService();
-        _wakeWordService = wakeWordService ?? new VoskWakeWordService();
         _screenCaptureService = screenCaptureService ?? new WindowsScreenCaptureService();
 
-        // Fase 1.3B1: el coordinador se agrega al final de la firma para minimizar el
-        // cambio. Si no se provee (construcción directa fuera de App.OnStartup), envuelve
-        // los mismos tres campos ya resueltos arriba — nunca construye un cuarto motor.
-        // MainWindow sigue recibiendo y liberando _voiceInputService/_voiceOutputService/
-        // _wakeWordService directamente: solo se usa el coordinador donde 1.3B1 migra.
+        // Fase 1.3B3: el coordinador de voz es una dependencia obligatoria y el único
+        // punto de acceso al subsistema de voz. MainWindow ya no recibe ni construye los
+        // tres servicios (Whisper, TTS, Vosk): su propiedad y liberación viven en
+        // KohanaCompositionRoot. Construir MainWindow sin coordinador es un error de
+        // programación, no un caso a cubrir con un motor de repuesto sin liberar.
         _voiceCoordinator = voiceCoordinator
-            ?? new VoiceCoordinator(_voiceInputService, _voiceOutputService, _wakeWordService);
+            ?? throw new ArgumentNullException(nameof(voiceCoordinator));
 
         _startHidden = startHidden;
         _managedOllamaSupervisor = managedOllamaSupervisor;
@@ -219,8 +210,10 @@ public partial class MainWindow : Window
         _tasksView.TasksChanged += TasksView_TasksChanged;
         _focusView.FocusChanged += FocusView_FocusChanged;
         _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
-        _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
-        _wakeWordService.RecognitionObserved += WakeWordService_RecognitionObserved;
+        // Los eventos de wake word se suscriben a través del coordinador (paso directo al
+        // servicio subyacente): MainWindow ya no necesita una referencia al servicio.
+        _voiceCoordinator.WakeWordDetected += WakeWordService_WakeWordDetected;
+        _voiceCoordinator.RecognitionObserved += WakeWordService_RecognitionObserved;
         _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _captureView.CaptureRequested += CaptureView_CaptureRequested;
@@ -828,15 +821,18 @@ public partial class MainWindow : Window
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
         _commandPaletteWindow.Close();
-        _wakeWordService.WakeWordDetected -= WakeWordService_WakeWordDetected;
-        _wakeWordService.RecognitionObserved -= WakeWordService_RecognitionObserved;
-        _wakeWordService.Dispose();
+        // Fase 1.3B3: MainWindow desuscribe los eventos de wake word (a través del
+        // coordinador) y cancela el token de vida, pero YA NO libera los tres servicios de
+        // voz: su propiedad y Dispose viven en KohanaCompositionRoot y se ejecutan en
+        // App.OnExit, justo después de que esta ventana se cierre. La guardia _isClosed y
+        // el token cancelado impiden que cualquier operación en vuelo o evento encolado
+        // opere durante el cierre; el Dispose de cada servicio detiene su grabador.
+        _voiceCoordinator.WakeWordDetected -= WakeWordService_WakeWordDetected;
+        _voiceCoordinator.RecognitionObserved -= WakeWordService_RecognitionObserved;
         if (_aiChatService is IDisposable disposableAiService)
         {
             disposableAiService.Dispose();
         }
-        _voiceOutputService.Dispose();
-        _voiceInputService.Dispose();
         _trayIcon.Dispose();
         _lifetimeCancellation.Dispose();
 
@@ -1917,9 +1913,9 @@ public partial class MainWindow : Window
 
         _preferences.VoiceInputDeviceNumber = selectedDeviceNumber;
 
-        // VoiceCoordinator.InputDeviceNumber aplica el valor a _voiceInputService y a
-        // _wakeWordService en un único setter: efecto idéntico a las dos asignaciones
-        // directas que sustituye (confirmado leyendo VoiceCoordinator.cs antes de este
+        // VoiceCoordinator.InputDeviceNumber aplica el valor a la entrada de voz y al wake
+        // word en un único setter: efecto idéntico a las dos asignaciones directas que
+        // sustituyó (confirmado leyendo VoiceCoordinator.cs antes de este
         // cambio), en el mismo orden (entrada de voz primero, wake word después).
         _voiceCoordinator.InputDeviceNumber = selectedDeviceNumber;
         _settingsView.SetVoiceInputDevices(devices, selectedDeviceNumber);

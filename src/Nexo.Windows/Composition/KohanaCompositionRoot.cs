@@ -33,12 +33,13 @@ public sealed class KohanaCompositionRoot : IDisposable
     public IScreenCaptureService ScreenCaptureService { get; }
 
     /// <summary>
-    /// Mecánica reutilizable de voz (fase 1.3A), construida sobre las mismas tres
-    /// instancias expuestas arriba — no un cuarto motor. <c>MainWindow</c> todavía no la
-    /// consume: sigue recibiendo <see cref="VoiceInputService"/>, <see cref="VoiceOutputService"/>
-    /// y <see cref="WakeWordService"/> directamente, y sigue siendo su único dueño de
-    /// ciclo de vida. Este coordinador no libera esas tres instancias en su propio
-    /// <see cref="Voice.VoiceCoordinator.Dispose"/> — ver la nota en esa clase.
+    /// Mecánica reutilizable de voz, construida sobre las mismas tres instancias expuestas
+    /// arriba — no un cuarto motor. Desde la fase 1.3B3 es el único punto por el que
+    /// <c>MainWindow</c> accede al subsistema de voz: <c>MainWindow</c> ya no recibe los
+    /// tres servicios directamente. El coordinador posee la sincronización (sus dos
+    /// <see cref="System.Threading.SemaphoreSlim"/>) pero **no** el ciclo de vida de los
+    /// tres servicios: la propiedad y el <see cref="Dispose"/> de Whisper, TTS y Vosk son
+    /// responsabilidad de este composition root (ver <see cref="Dispose"/>).
     /// </summary>
     public VoiceCoordinator VoiceCoordinator { get; }
 
@@ -58,8 +59,9 @@ public sealed class KohanaCompositionRoot : IDisposable
         var services = new ServiceCollection();
 
         // Se registran las instancias ya construidas, no los tipos: el ServiceProvider no
-        // libera instancias que no creó él mismo, así que Window_Closed sigue siendo la única
-        // ruta que llama a Dispose() sobre estos seis servicios, exactamente como hoy.
+        // libera instancias que no creó él mismo (verificado empíricamente), así que la
+        // liberación de estos servicios es responsabilidad explícita de este composition
+        // root (subsistema de voz) o de MainWindow.Window_Closed (IA), nunca del contenedor.
         services.AddSingleton<IAiChatService>(aiChatService);
         services.AddSingleton<IAudioMixerService>(audioMixerService);
         services.AddSingleton<IVoiceInputService>(voiceInputService);
@@ -90,9 +92,16 @@ public sealed class KohanaCompositionRoot : IDisposable
 
         _disposed = true;
 
-        // Libera solo los recursos propios del coordinador (dos SemaphoreSlim); no toca
-        // los tres servicios de voz, que Window_Closed sigue liberando en MainWindow.
+        // Fase 1.3B3: este composition root es el dueño del subsistema de voz. Libera
+        // primero el coordinador (sus dos SemaphoreSlim) y después los tres servicios que
+        // construyó, en el mismo orden relativo que MainWindow.Window_Closed usaba antes
+        // (wake word → salida de voz → entrada de voz). El Dispose de cada servicio es
+        // idempotente. El ServiceProvider no libera instancias registradas, así que esta
+        // es la única ruta de Dispose de estos servicios.
         VoiceCoordinator.Dispose();
+        WakeWordService.Dispose();
+        VoiceOutputService.Dispose();
+        VoiceInputService.Dispose();
         Provider.Dispose();
     }
 }

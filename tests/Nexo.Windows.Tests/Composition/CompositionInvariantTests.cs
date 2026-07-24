@@ -75,43 +75,53 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
-    public void MainWindow_StillOwnsTheThreeVoiceServicesAndTheirDisposalOrder()
+    public void CompositionRoot_OwnsAndDisposesTheThreeVoiceServicesInOrder()
     {
-        // Subfase 1.3A: MainWindow todavía recibe los tres servicios directamente y
-        // Window_Closed conserva exactamente el orden de liberación de la fase 1.2.
-        var mainWindowPath = Path.Combine(RepositoryRoot, "src", "Nexo.App", "MainWindow.xaml.cs");
-        var content = File.ReadAllText(mainWindowPath);
+        // Fase 1.3B3: la propiedad y liberación de Whisper, TTS y Vosk viven en el
+        // composition root. Su Dispose libera el coordinador y después los tres servicios
+        // en el mismo orden relativo que Window_Closed usaba antes (wake word → salida de
+        // voz → entrada de voz), y termina liberando el ServiceProvider.
+        var content = ReadCompositionRootSource();
 
-        Assert.Contains("IVoiceInputService? voiceInputService", content, StringComparison.Ordinal);
-        Assert.Contains("IVoiceOutputService? voiceOutputService", content, StringComparison.Ordinal);
-        Assert.Contains("IWakeWordService? wakeWordService", content, StringComparison.Ordinal);
+        var disposeStart = content.IndexOf("public void Dispose()", StringComparison.Ordinal);
+        Assert.True(disposeStart >= 0, "No se encontró Dispose() en KohanaCompositionRoot.");
+        var disposeBody = content[disposeStart..];
 
-        var disposeBlockStart = content.IndexOf(
-            "_wakeWordService.WakeWordDetected -= WakeWordService_WakeWordDetected;",
-            StringComparison.Ordinal);
-        Assert.True(disposeBlockStart >= 0, "No se encontró el bloque de liberación de voz en Window_Closed.");
+        var coordinatorIndex = disposeBody.IndexOf("VoiceCoordinator.Dispose();", StringComparison.Ordinal);
+        var wakeWordIndex = disposeBody.IndexOf("WakeWordService.Dispose();", StringComparison.Ordinal);
+        var voiceOutputIndex = disposeBody.IndexOf("VoiceOutputService.Dispose();", StringComparison.Ordinal);
+        var voiceInputIndex = disposeBody.IndexOf("VoiceInputService.Dispose();", StringComparison.Ordinal);
+        var providerIndex = disposeBody.IndexOf("Provider.Dispose();", StringComparison.Ordinal);
 
-        var disposeBlock = content.Substring(disposeBlockStart, 400);
-        var wakeWordUnsubIndex = disposeBlock.IndexOf(
-            "_wakeWordService.WakeWordDetected -=", StringComparison.Ordinal);
-        var recognitionUnsubIndex = disposeBlock.IndexOf(
-            "_wakeWordService.RecognitionObserved -=", StringComparison.Ordinal);
-        var wakeWordDisposeIndex = disposeBlock.IndexOf(
-            "_wakeWordService.Dispose();", StringComparison.Ordinal);
-        var aiChatDisposeIndex = disposeBlock.IndexOf(
-            "disposableAiService.Dispose();", StringComparison.Ordinal);
-        var voiceOutputDisposeIndex = disposeBlock.IndexOf(
-            "_voiceOutputService.Dispose();", StringComparison.Ordinal);
-        var voiceInputDisposeIndex = disposeBlock.IndexOf(
-            "_voiceInputService.Dispose();", StringComparison.Ordinal);
+        Assert.True(coordinatorIndex >= 0
+            && wakeWordIndex > coordinatorIndex
+            && voiceOutputIndex > wakeWordIndex
+            && voiceInputIndex > voiceOutputIndex
+            && providerIndex > voiceInputIndex,
+            "El orden de liberación del subsistema de voz en KohanaCompositionRoot.Dispose no es el esperado.");
+    }
 
-        Assert.True(wakeWordUnsubIndex >= 0
-            && recognitionUnsubIndex > wakeWordUnsubIndex
-            && wakeWordDisposeIndex > recognitionUnsubIndex
-            && aiChatDisposeIndex > wakeWordDisposeIndex
-            && voiceOutputDisposeIndex > aiChatDisposeIndex
-            && voiceInputDisposeIndex > voiceOutputDisposeIndex,
-            "El orden de Dispose() en Window_Closed cambió respecto a la fase 1.2.");
+    [Fact]
+    public void MainWindow_NoLongerReceivesOrDisposesTheThreeVoiceServices()
+    {
+        // Fase 1.3B3: MainWindow ya no recibe los tres servicios por constructor, no los
+        // declara como campos y no los libera. Solo accede al subsistema de voz a través
+        // del coordinador; los eventos de wake word se suscriben y desuscriben por él.
+        var content = ReadMainWindowSource();
+
+        Assert.DoesNotContain("IVoiceInputService? voiceInputService", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("IVoiceOutputService? voiceOutputService", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("IWakeWordService? wakeWordService", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceInputService", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("_voiceOutputService", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("_wakeWordService", content, StringComparison.Ordinal);
+
+        // Los eventos se enrutan por el coordinador (paso directo), suscritos y
+        // desuscritos exactamente una vez cada uno.
+        Assert.Equal(1, CountOccurrences(content, "_voiceCoordinator.WakeWordDetected += WakeWordService_WakeWordDetected;"));
+        Assert.Equal(1, CountOccurrences(content, "_voiceCoordinator.WakeWordDetected -= WakeWordService_WakeWordDetected;"));
+        Assert.Equal(1, CountOccurrences(content, "_voiceCoordinator.RecognitionObserved += WakeWordService_RecognitionObserved;"));
+        Assert.Equal(1, CountOccurrences(content, "_voiceCoordinator.RecognitionObserved -= WakeWordService_RecognitionObserved;"));
     }
 
     // ---------- Fase 1.3B1: VoiceCoordinator inyectado en MainWindow ----------
@@ -134,17 +144,20 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
-    public void MainWindow_FallbackWrapsExistingServices_NeverBuildsAFourthEngineSet()
+    public void MainWindow_RequiresTheVoiceCoordinator_WithoutBuildingAFallbackEngineSet()
     {
         var content = ReadMainWindowSource();
 
-        // El valor por defecto (solo para construcción directa fuera de App.OnStartup)
-        // envuelve los mismos tres campos ya resueltos arriba: nunca construye un motor
-        // adicional ni un segundo VoiceCoordinator "real" — App.OnStartup siempre provee
-        // el suyo, verificado en App_PassesTheCompositionRootsVoiceCoordinatorToMainWindow.
+        // Fase 1.3B3: el coordinador es obligatorio. Si no se provee, MainWindow lanza en
+        // vez de construir un cuarto conjunto de motores sin liberar. Ya no existe el
+        // fallback `?? new VoiceCoordinator(...)` que envolvía los tres servicios.
         Assert.Contains(
-            "?? new VoiceCoordinator(_voiceInputService, _voiceOutputService, _wakeWordService)",
+            "?? throw new ArgumentNullException(nameof(voiceCoordinator))",
             content, StringComparison.Ordinal);
+        Assert.DoesNotContain("new VoiceCoordinator(", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("new WhisperVoiceInputService()", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("new WindowsTextToSpeechService()", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("new VoskWakeWordService()", content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -579,6 +592,10 @@ public sealed class CompositionInvariantTests
 
     private static string ReadAppSource() =>
         File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Nexo.App", "App.xaml.cs"));
+
+    private static string ReadCompositionRootSource() =>
+        File.ReadAllText(Path.Combine(
+            RepositoryRoot, "src", "Nexo.Windows", "Composition", "KohanaCompositionRoot.cs"));
 
     private static string ExtractMethodBody(string content, string startMarker, string? endMarker)
     {

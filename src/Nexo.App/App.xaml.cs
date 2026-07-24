@@ -57,9 +57,6 @@ public partial class App : System.Windows.Application
             _managedOllamaSupervisor,
             _compositionRoot.AiChatService,
             _compositionRoot.AudioMixerService,
-            _compositionRoot.VoiceInputService,
-            _compositionRoot.VoiceOutputService,
-            _compositionRoot.WakeWordService,
             _compositionRoot.ScreenCaptureService,
             _compositionRoot.VoiceCoordinator);
         MainWindow = mainWindow;
@@ -76,10 +73,12 @@ public partial class App : System.Windows.Application
         _managedOllamaSupervisor?.Dispose();
         _managedOllamaSupervisor = null;
 
-        // Los seis servicios que resuelve el contenedor ya se liberan de forma explícita en
-        // MainWindow.Window_Closed, exactamente como antes de esta fase. Esto solo libera el
-        // ServiceProvider en sí; no vuelve a llamar a Dispose() sobre esos servicios porque el
-        // contenedor no es dueño de instancias que no creó él mismo (ver KohanaCompositionRoot).
+        // Fase 1.3B3: KohanaCompositionRoot es dueño del subsistema de voz (el coordinador
+        // más Whisper, TTS y Vosk) y los libera aquí, después de que Window_Closed ya haya
+        // cancelado el token de vida y desuscrito los eventos de wake word. El
+        // ServiceProvider no libera instancias que no creó él mismo (verificado), así que
+        // esta es la única ruta de Dispose de esos servicios. Los demás servicios de
+        // interfaz (IA, mezclador, captura) mantienen su liberación anterior.
         _compositionRoot?.Dispose();
         _compositionRoot = null;
 
