@@ -20,7 +20,7 @@ public sealed class GitHubUpdateService : IUpdateService, IDisposable
         if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
         {
             _httpClient.DefaultRequestHeaders.UserAgent.Add(
-                new ProductInfoHeaderValue("Nexo", "0.9"));
+                new ProductInfoHeaderValue("Kohana", "0.9"));
         }
 
         _httpClient.DefaultRequestHeaders.Accept.Add(
@@ -42,7 +42,7 @@ public sealed class GitHubUpdateService : IUpdateService, IDisposable
         {
             return UpdateCheckResult.Unavailable(
                 currentVersion,
-                "No pude interpretar la versión actual de Nexo.");
+                "No pude interpretar la versión actual de Kohana.");
         }
 
         try
@@ -76,12 +76,12 @@ public sealed class GitHubUpdateService : IUpdateService, IDisposable
             {
                 return UpdateCheckResult.Unavailable(
                     currentVersion,
-                    "El repositorio todavía no tiene una versión publicada que Nexo pueda comparar.");
+                    "El repositorio todavía no tiene una versión publicada que Kohana pueda comparar.");
             }
 
             var latest = candidate.Parsed.ToString();
             var releaseName = string.IsNullOrWhiteSpace(candidate.Release.Name)
-                ? $"Nexo {latest}"
+                ? $"Kohana {latest}"
                 : candidate.Release.Name;
             var releaseUrl = candidate.Release.HtmlUrl ?? string.Empty;
 

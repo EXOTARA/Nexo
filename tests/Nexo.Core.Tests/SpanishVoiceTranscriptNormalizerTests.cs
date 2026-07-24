@@ -18,9 +18,14 @@ public sealed class SpanishVoiceTranscriptNormalizerTests
     [InlineData("Su vez potify al 50.", "sube spotify al 50")]
     [InlineData("bajas Spotify al 50", "baja spotify al 50")]
     [InlineData("bájale a Spotify", "baja a spotify")]
+    [InlineData("Kohana, abre PowerShell", "abre powershell")]
+    [InlineData("Oye Kohana muestra Peek", "muestra peek")]
     [InlineData("Nexo, abre PowerShell", "abre powershell")]
     [InlineData("Oye Nexo muestra Peek", "muestra peek")]
     [InlineData("Nexo qué día es hoy", "que dia es hoy")]
+    [InlineData("Ahí Nexo, qué es esto", "que es esto")]
+    [InlineData("Ey Neso abre calculadora", "abre calculadora")]
+    [InlineData("Hey Nexo", "")]
     public void Normalize_CorrectsFrequentShortCommandErrors(
         string transcript,
         string expected)

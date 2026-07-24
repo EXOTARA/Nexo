@@ -48,7 +48,7 @@ jobs:
       - name: Guardar artefactos
         uses: actions/upload-artifact@v4
         with:
-          name: nexo-${{ steps.version.outputs.value }}
+          name: kohana-${{ steps.version.outputs.value }}
           path: |
             artifacts/dist/*.zip
             artifacts/dist/*.sha256
@@ -63,7 +63,7 @@ jobs:
         run: |
           $arguments = @(
             "release", "create", "${{ github.ref_name }}",
-            "--title", "Nexo ${{ steps.version.outputs.value }}",
+            "--title", "Kohana ${{ steps.version.outputs.value }}",
             "--generate-notes"
           )
 

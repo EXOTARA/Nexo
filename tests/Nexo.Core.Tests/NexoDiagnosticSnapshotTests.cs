@@ -12,7 +12,7 @@ public sealed class NexoDiagnosticSnapshotTests
             "1.0.0",
             "Windows",
             ".NET 10",
-            @"C:\Users\Test\AppData\Local\Nexo",
+            @"C:\Users\Test\AppData\Local\Kohana",
             [
                 new DiagnosticItem("Ollama", DiagnosticStatus.Ready, "Conectado."),
                 new DiagnosticItem("Whisper", DiagnosticStatus.Warning, "Pendiente.")
@@ -20,7 +20,7 @@ public sealed class NexoDiagnosticSnapshotTests
 
         var text = snapshot.ToClipboardText();
 
-        Assert.Contains("Nexo · diagnóstico local", text);
+        Assert.Contains("Kohana · diagnóstico local", text);
         Assert.Contains("[Ready] Ollama: Conectado.", text);
         Assert.Contains("[Warning] Whisper: Pendiente.", text);
         Assert.False(text.Contains("conversation", StringComparison.OrdinalIgnoreCase));

@@ -26,7 +26,7 @@ jobs:
         run: dotnet build .\Nexo.slnx -c Release --no-restore
 
       - name: Pruebas
-        run: dotnet test .\Nexo.slnx -c Release --no-build --logger "trx;LogFileName=nexo-tests.trx"
+        run: dotnet test .\Nexo.slnx -c Release --no-build --logger "trx;LogFileName=kohana-tests.trx"
 
       - name: Publicación de comprobación
         shell: pwsh
@@ -39,7 +39,7 @@ jobs:
       - name: Guardar portable
         uses: actions/upload-artifact@v4
         with:
-          name: nexo-win-x64-portable
+          name: kohana-win-x64-portable
           path: |
             artifacts/dist/*.zip
             artifacts/dist/*.sha256

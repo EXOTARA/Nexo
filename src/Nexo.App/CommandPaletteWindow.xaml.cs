@@ -306,7 +306,7 @@ public partial class CommandPaletteWindow : Window
             CommandPaletteInputPolicy.IsLikelyNaturalPrompt(query))
         {
             var promptSuggestion = new CommandPaletteSuggestion(
-                "Preguntar a Nexo",
+                "Preguntar a Kohana",
                 query.Trim(),
                 "Enviar esta consulta exactamente como la escribiste",
                 "✦",

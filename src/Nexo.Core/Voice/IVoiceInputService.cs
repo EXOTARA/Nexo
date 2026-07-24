@@ -22,6 +22,7 @@ public interface IVoiceInputService : IDisposable
         TimeSpan maximumDuration,
         TimeSpan trailingSilence,
         ReadOnlyMemory<byte> initialPcmAudio = default,
+        ReadOnlyMemory<byte> initialSpeechPcmAudio = default,
         CancellationToken cancellationToken = default);
 
     Task CancelAsync();

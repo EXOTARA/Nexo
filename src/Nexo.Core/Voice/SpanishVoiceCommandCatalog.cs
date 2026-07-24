@@ -111,11 +111,24 @@ public static class SpanishVoiceCommandCatalog
             }
         }
 
+        var wakePrefixes = new[]
+        {
+            "kohana",
+            "oye kohana",
+            "hey kohana",
+            "nexo",
+            "oye nexo",
+            "hey nexo",
+            "exo"
+        };
+
         var allPhrases = new HashSet<string>(basePhrases, StringComparer.OrdinalIgnoreCase);
         foreach (var phrase in basePhrases)
         {
-            allPhrases.Add($"nexo {phrase}");
-            allPhrases.Add($"exo {phrase}");
+            foreach (var prefix in wakePrefixes)
+            {
+                allPhrases.Add($"{prefix} {phrase}");
+            }
         }
 
         return allPhrases

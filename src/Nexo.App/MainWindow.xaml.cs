@@ -20,6 +20,7 @@ using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Focus;
 using Nexo.Core.Metrics;
+using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
@@ -30,6 +31,7 @@ using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Focus;
 using Nexo.Windows.Metrics;
+using Nexo.Windows.Resources;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Tasks;
 using Nexo.Windows.Voice;
@@ -76,8 +78,10 @@ public partial class MainWindow : Window
     private readonly SemaphoreSlim _voiceGate = new(1, 1);
     private readonly SemaphoreSlim _wakeWordGate = new(1, 1);
     private readonly SemaphoreSlim _aiGate = new(1, 1);
+    private readonly SemaphoreSlim _resourceGovernorVoiceGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
+    private readonly WindowsResourceGovernorService _resourceGovernorService = new();
     private readonly ShellPreferences _preferences;
     private readonly JsonTaskStore _taskStore = new();
     private readonly TaskManager _taskManager;
@@ -105,6 +109,7 @@ public partial class MainWindow : Window
 
     private HwndSource? _windowSource;
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
+    private ResourceGovernorDecision _resourceDecision = ResourceGovernorDecision.Normal;
     private bool _isHiding;
     private bool _isClosed;
     private bool _allowExit;
@@ -117,6 +122,13 @@ public partial class MainWindow : Window
     private bool _promptFromCommandPalette;
     private bool _sideRailExpanded;
     private bool _visualContextPersistent;
+    private bool _silentVisualContext;
+    private bool _resourceGovernorWakeWordPaused;
+    private bool _wakeWordTestActive;
+    private CancellationTokenSource? _wakeWordTestCancellation;
+    private WakeWordRecognitionObservedEventArgs? _lastWakeWordObservation;
+    private string _runtimeAiStatus = "Desactivada";
+    private bool _runtimeAiHealthy;
     private string? _visualContextMetadata;
     private string? _pendingVoicePrompt;
     private AiImageAttachment? _pendingVisionAttachment;
@@ -176,6 +188,8 @@ public partial class MainWindow : Window
         _focusView.FocusChanged += FocusView_FocusChanged;
         _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
         _wakeWordService.WakeWordDetected += WakeWordService_WakeWordDetected;
+        _wakeWordService.RecognitionObserved += WakeWordService_RecognitionObserved;
+        _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
         _captureView.CaptureRequested += CaptureView_CaptureRequested;
         _commandPaletteWindow.PromptSubmitted += CommandPaletteWindow_PromptSubmitted;
@@ -184,6 +198,8 @@ public partial class MainWindow : Window
         _homeView.TasksRequested += HomeView_TasksRequested;
         _homeView.FocusRequested += HomeView_FocusRequested;
         _homeView.ContextRequested += HomeView_ContextRequested;
+        _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
+        _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -197,10 +213,13 @@ public partial class MainWindow : Window
         _settingsView.ApplyPreferences(_preferences);
         UpdateAiProviderStatus();
         ApplyPreferences();
+        _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
         ConfigureVoiceInputDevices();
         NavigateTo("Home", animate: false);
-        ApplySideRailButtonLayout(expanded: false);
+        SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
+        UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
+        RefreshRuntimeDashboard();
 
         _clockTimer = new DispatcherTimer
         {
@@ -337,6 +356,26 @@ public partial class MainWindow : Window
             }
         };
 
+        _settingsView.WakeWordSensitivityChanged += sensitivity =>
+        {
+            _preferences.WakeWordSensitivity = sensitivity;
+            _wakeWordService.Sensitivity = sensitivity;
+            SavePreferences();
+            if (_preferences.WakeWordEnabled)
+            {
+                _ = ApplyWakeWordPreferenceAsync(showCapsule: false);
+            }
+        };
+
+        _settingsView.WakeWordTestRequested += async (_, _) =>
+            await StartWakeWordTestAsync();
+
+        _settingsView.WakeWordAliasFromLastRequested += async (_, _) =>
+            await AddLastWakeWordObservationAsAliasAsync();
+
+        _settingsView.WakeWordAliasesClearRequested += async (_, _) =>
+            await ClearWakeWordAliasesAsync();
+
         _settingsView.AiProviderChanged += provider =>
         {
             var preset = AiProviderDefaults.Get(provider);
@@ -384,6 +423,27 @@ public partial class MainWindow : Window
                 ClearPendingVisionAttachment();
             }
             SavePreferences();
+            RefreshRuntimeDashboard();
+        };
+
+        _settingsView.ResourceGovernorEnabledChanged += enabled =>
+        {
+            _preferences.ResourceGovernorEnabled = enabled;
+            SavePreferences();
+            _ = RefreshMetricsAsync();
+        };
+
+        _settingsView.PauseWakeWordInGameModeChanged += enabled =>
+        {
+            _preferences.PauseWakeWordInGameMode = enabled;
+            SavePreferences();
+            _ = ApplyResourceGovernorDecisionAsync(_resourceDecision);
+        };
+
+        _settingsView.ProtectVisionWhenBusyChanged += enabled =>
+        {
+            _preferences.ProtectVisionWhenBusy = enabled;
+            SavePreferences();
         };
 
         _settingsView.StartWithWindowsChanged += enabled =>
@@ -408,8 +468,8 @@ public partial class MainWindow : Window
             SavePreferences();
             _settingsView.SetWindowsIntegrationStatus(
                 enabled
-                    ? "Cerrar Nexo lo ocultará en la bandeja."
-                    : "Cerrar Nexo terminará completamente la aplicación.",
+                    ? "Cerrar Kohana lo ocultará en la bandeja."
+                    : "Cerrar Kohana terminará completamente la aplicación.",
                 isSuccess: null);
         };
 
@@ -507,12 +567,17 @@ public partial class MainWindow : Window
 
     private void SideRailToggleButton_Click(object sender, RoutedEventArgs e)
     {
-        SetSideRailExpanded(!_sideRailExpanded, animate: true);
+        SetSideRailExpanded(!_sideRailExpanded, animate: true, persist: true);
     }
 
-    private void SetSideRailExpanded(bool expanded, bool animate)
+    private void SetSideRailExpanded(bool expanded, bool animate, bool persist = true)
     {
         _sideRailExpanded = expanded;
+        if (persist)
+        {
+            _preferences.SideRailExpanded = expanded;
+            SavePreferences();
+        }
         SideRailToggleButton.ToolTip = expanded
             ? "Contraer navegación"
             : "Expandir navegación";
@@ -549,8 +614,27 @@ public partial class MainWindow : Window
     private void ApplySideRailButtonLayout(bool expanded)
     {
         var buttonWidth = expanded ? 178d : 52d;
+        SideRailContentGrid.Width = buttonWidth;
         SideRailToggleButton.Width = buttonWidth;
         SettingsNavButton.Width = buttonWidth;
+        SideRailBrandText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        SideRailChevronRotate.Angle = expanded ? 180 : 0;
+
+        foreach (var label in new[]
+                 {
+                     HomeNavLabel,
+                     AssistantNavLabel,
+                     TasksNavLabel,
+                     FocusNavLabel,
+                     RoutinesNavLabel,
+                     AudioNavLabel,
+                     CaptureNavLabel,
+                     SystemNavLabel,
+                     SettingsNavLabel
+                 })
+        {
+            label.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        }
 
         foreach (var button in new[]
                  {
@@ -633,12 +717,12 @@ public partial class MainWindow : Window
 
         if (!RegisterHotKey(windowHandle, ShellHotkeyId, ModAlt, VirtualKeyA))
         {
-            _assistantView.AddNexoMessage("Alt + A ya está siendo utilizado por otra aplicación.");
+            _assistantView.AddKohanaMessage("Alt + A ya está siendo utilizado por otra aplicación.");
         }
 
         if (!RegisterHotKey(windowHandle, PeekHotkeyId, ModAlt | ModShift, VirtualKeyA))
         {
-            _assistantView.AddNexoMessage("Alt + Shift + A ya está siendo utilizado por otra aplicación.");
+            _assistantView.AddKohanaMessage("Alt + Shift + A ya está siendo utilizado por otra aplicación.");
         }
 
         if (!RegisterHotKey(
@@ -647,7 +731,7 @@ public partial class MainWindow : Window
                 ModControl,
                 VirtualKeySpace))
         {
-            _assistantView.AddNexoMessage(
+            _assistantView.AddKohanaMessage(
                 "Ctrl + Espacio ya está siendo utilizado por otra aplicación.");
         }
 
@@ -657,7 +741,7 @@ public partial class MainWindow : Window
                 ModControl | ModShift,
                 VirtualKeySpace))
         {
-            _assistantView.AddNexoMessage(
+            _assistantView.AddKohanaMessage(
                 "Ctrl + Shift + Espacio ya está siendo utilizado por otra aplicación.");
         }
     }
@@ -705,10 +789,15 @@ public partial class MainWindow : Window
             _conversationStore.Save(_assistantView.GetConversationSnapshot());
         }
 
+        _wakeWordTestActive = false;
+        _wakeWordTestCancellation?.Cancel();
+        _wakeWordTestCancellation?.Dispose();
+        _wakeWordTestCancellation = null;
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
         _commandPaletteWindow.Close();
         _wakeWordService.WakeWordDetected -= WakeWordService_WakeWordDetected;
+        _wakeWordService.RecognitionObserved -= WakeWordService_RecognitionObserved;
         _wakeWordService.Dispose();
         if (_aiChatService is IDisposable disposableAiService)
         {
@@ -832,24 +921,30 @@ public partial class MainWindow : Window
 
         if (snapshot.IsRunning)
         {
+            _runtimeAiStatus = "Ollama listo";
+            _runtimeAiHealthy = true;
+            RefreshRuntimeDashboard();
             var recovered = _managedAiRuntimeFailureNotified;
             _managedAiRuntimeFailureNotified = false;
             UpdateAiProviderStatus();
 
             if (recovered)
             {
-                _assistantView.AddNexoMessage(
+                _assistantView.AddKohanaMessage(
                     "La IA local volvió a estar disponible automáticamente.");
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Success,
                     "IA local recuperada",
-                    "Nexo volvió a iniciar el motor local.",
+                    "Kohana volvió a iniciar el motor local.",
                     _preferences.Position);
             }
 
             return;
         }
 
+        _runtimeAiStatus = "Ollama necesita atención";
+        _runtimeAiHealthy = false;
+        RefreshRuntimeDashboard();
         var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
             ? "modelo local"
             : _preferences.AiModel;
@@ -862,7 +957,7 @@ public partial class MainWindow : Window
         }
 
         _managedAiRuntimeFailureNotified = true;
-        _assistantView.AddNexoMessage(
+        _assistantView.AddKohanaMessage(
             $"No pude preparar la IA local: {snapshot.Message}");
         _capsuleWindow.ShowMessage(
             CapsuleKind.Error,
@@ -1097,6 +1192,15 @@ public partial class MainWindow : Window
 
         try
         {
+            if (_pendingVisionAttachment is null &&
+                VisualContextPromptPolicy.ShouldAcquireVisualContext(prompt, fromVoice))
+            {
+                await PrepareVisualContextAsync(
+                    showWorkspace: false,
+                    showFeedback: false,
+                    silentContext: true);
+            }
+
             _assistantView.AddUserMessage(prompt);
 
             // Las rutas locales ya muestran su propio resultado. Evitamos una
@@ -1153,13 +1257,30 @@ public partial class MainWindow : Window
         {
             const string unavailableMessage =
                 "La consulta es abierta, pero la IA está desactivada. Puedes elegir OpenAI, Ollama, LM Studio o un servidor compatible en Personalización.";
-            _assistantView.AddNexoMessage(unavailableMessage);
+            _assistantView.AddKohanaMessage(unavailableMessage);
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "IA desactivada",
                 "Elige un proveedor desde Personalización.",
                 _preferences.Position);
             SpeakVoiceResult("La inteligencia artificial está desactivada.");
+            return;
+        }
+
+        var resourceDecision = await EnsureFreshResourceDecisionAsync();
+        var usesLocalRuntime = AiExecutionLocationPolicy.UsesLocalRuntime(configuration);
+        var aiAllowed = usesLocalRuntime
+            ? resourceDecision.AllowLocalAi
+            : resourceDecision.AllowRemoteAi;
+
+        if (!aiAllowed)
+        {
+            PresentResourceRestriction(
+                resourceDecision,
+                usesLocalRuntime
+                    ? "La IA local está pausada para proteger el rendimiento."
+                    : "Las consultas de IA están pausadas durante el Modo Juego.",
+                fromVoice);
             return;
         }
 
@@ -1235,7 +1356,7 @@ public partial class MainWindow : Window
                 : "pensando…";
 
             _assistantView.SetAiActivity(activity);
-            _assistantView.BeginNexoStreamingMessage(
+            _assistantView.BeginKohanaStreamingMessage(
                 requestMode == AiRequestMode.VisionTechnicalDiagnostic
                     ? "Analizando la evidencia visible…"
                     : "Pensando…");
@@ -1271,10 +1392,10 @@ public partial class MainWindow : Window
                     _assistantView.SetAiActivity("respondiendo…");
                 }
 
-                _assistantView.AppendNexoStreamingText(chunk);
+                _assistantView.AppendKohanaStreamingText(chunk);
             }
 
-            var finalText = _assistantView.CompleteNexoStreamingMessage();
+            var finalText = _assistantView.CompleteKohanaStreamingMessage();
             streamingStarted = false;
 
             if (string.IsNullOrWhiteSpace(finalText))
@@ -1307,10 +1428,10 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelNexoStreamingMessage();
+                _assistantView.CancelKohanaStreamingMessage();
             }
 
-            _assistantView.AddNexoMessage(
+            _assistantView.AddKohanaMessage(
                 $"No pude obtener una respuesta: {exception.Message}");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
@@ -1323,12 +1444,12 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelNexoStreamingMessage();
+                _assistantView.CancelKohanaStreamingMessage();
             }
 
             if (!_isClosed)
             {
-                _assistantView.AddNexoMessage("La consulta fue cancelada.");
+                _assistantView.AddKohanaMessage("La consulta fue cancelada.");
             }
         }
         catch (Exception exception) when (
@@ -1336,12 +1457,12 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelNexoStreamingMessage();
+                _assistantView.CancelKohanaStreamingMessage();
             }
 
             const string detail =
-                "La conexión se interrumpió mientras Nexo recibía la respuesta.";
-            _assistantView.AddNexoMessage($"No pude obtener una respuesta: {detail}");
+                "La conexión se interrumpió mientras Kohana recibía la respuesta.";
+            _assistantView.AddKohanaMessage($"No pude obtener una respuesta: {detail}");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "Respuesta interrumpida",
@@ -1355,16 +1476,40 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task LookAtForegroundWindowAsync()
+    private Task LookAtForegroundWindowAsync() =>
+        PrepareVisualContextAsync(
+            showWorkspace: true,
+            showFeedback: true,
+            silentContext: false);
+
+    private async Task<bool> PrepareVisualContextAsync(
+        bool showWorkspace,
+        bool showFeedback,
+        bool silentContext)
     {
         if (!_preferences.VisionEnabled)
         {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Warning,
-                "Nexo Vision desactivado",
-                "Actívalo desde Personalización.",
-                _preferences.Position);
-            return;
+            if (showFeedback)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Warning,
+                    "Kohana Vision desactivado",
+                    "Actívalo desde Personalización.",
+                    _preferences.Position,
+                    force: true);
+            }
+
+            return false;
+        }
+
+        var resourceDecision = await EnsureFreshResourceDecisionAsync();
+        if (_preferences.ProtectVisionWhenBusy && !resourceDecision.AllowVision)
+        {
+            PresentResourceRestriction(
+                resourceDecision,
+                "Mirar está pausado para evitar tirones o pérdida de rendimiento.",
+                fromVoice: silentContext);
+            return false;
         }
 
         RememberForegroundWindow();
@@ -1377,19 +1522,27 @@ public partial class MainWindow : Window
 
         if (target is null)
         {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Information,
-                "Elige qué mirar",
-                "Activa la ventana y usa Ctrl + Shift + Espacio.",
-                _preferences.Position);
-            return;
+            if (showFeedback)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Information,
+                    "No encontré qué mirar",
+                    "Activa una ventana y vuelve a intentarlo.",
+                    _preferences.Position,
+                    force: true);
+            }
+
+            return false;
         }
 
-        _capsuleWindow.ShowMessage(
-            CapsuleKind.Processing,
-            "Mirando la ventana activa",
-            target.Title,
-            _preferences.Position);
+        if (showFeedback)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Processing,
+                "Mirando la ventana activa",
+                target.Title,
+                _preferences.Position);
+        }
 
         VisionCaptureResult result;
         try
@@ -1400,42 +1553,63 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            return;
+            return false;
         }
 
         if (!result.IsSuccess || result.PngBytes is null)
         {
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Error,
-                "No pude mirar esta ventana",
-                result.Detail,
-                _preferences.Position);
-            return;
+            if (showFeedback)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Error,
+                    "No pude mirar esta ventana",
+                    result.Detail,
+                    _preferences.Position,
+                    force: true);
+            }
+
+            return false;
         }
 
         _visualContextPersistent = true;
+        _silentVisualContext = silentContext;
         _visualContextMetadata =
             "Contexto visual temporal de Windows.\n" +
             $"Aplicación: {target.Subtitle}\n" +
             $"Ventana: {target.Title}\n" +
-            $"Tamaño visible: {result.Width} × {result.Height} píxeles.";
+            $"Tamaño visible: {result.Width} × {result.Height} píxeles.\n" +
+            "La imagen se procesó en memoria y no se guardó en disco.";
         _pendingVisionAttachment = AiImageAttachment.FromBytes(
             result.PngBytes,
             "image/png",
             target.Title);
-        _assistantView.SetVisionAttachment(
-            target.Title,
-            result.PngBytes,
-            isVisualContext: true);
+
+        if (!silentContext)
+        {
+            _assistantView.SetVisionAttachment(
+                target.Title,
+                result.PngBytes,
+                isVisualContext: true);
+        }
+
         RestartVisualContextExpiry();
 
-        ShowAnimated();
-        NavigateTo("Assistant", animate: true);
-        _capsuleWindow.ShowMessage(
-            CapsuleKind.Success,
-            "Contexto visual listo",
-            $"Estoy viendo {target.Title}. Pregunta lo que necesites.",
-            _preferences.Position);
+        if (showWorkspace)
+        {
+            ShowAnimated();
+            NavigateTo("Assistant", animate: true);
+        }
+
+        if (showFeedback)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Success,
+                "Contexto visual listo",
+                $"Estoy viendo {target.Title}. Pregunta lo que necesites.",
+                _preferences.Position);
+        }
+
+        return true;
     }
 
     private void RestartVisualContextExpiry()
@@ -1453,11 +1627,11 @@ public partial class MainWindow : Window
     {
         if (!_preferences.VisionEnabled)
         {
-            _assistantView.AddNexoMessage(
-                "Nexo Vision está desactivado. Puedes activarlo en Personalización → Inteligencia artificial.");
+            _assistantView.AddKohanaMessage(
+                "Kohana Vision está desactivado. Puedes activarlo en Personalización → Inteligencia artificial.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Warning,
-                "Nexo Vision desactivado",
+                "Kohana Vision desactivado",
                 "Actívalo desde Personalización.",
                 _preferences.Position);
             return;
@@ -1544,6 +1718,7 @@ public partial class MainWindow : Window
 
         _visualContextExpiryTimer.Stop();
         _visualContextPersistent = false;
+        _silentVisualContext = false;
         _visualContextMetadata = null;
         _pendingVisionAttachment = AiImageAttachment.FromBytes(
             result.PngBytes,
@@ -1562,6 +1737,7 @@ public partial class MainWindow : Window
     {
         _visualContextExpiryTimer.Stop();
         _visualContextPersistent = false;
+        _silentVisualContext = false;
         _visualContextMetadata = null;
         _pendingVisionAttachment = null;
         _assistantView.ClearVisionAttachment();
@@ -1640,8 +1816,11 @@ public partial class MainWindow : Window
     {
         if (_preferences.AiProvider == AiProviderKind.Disabled)
         {
+            _runtimeAiStatus = "Desactivada";
+            _runtimeAiHealthy = false;
             _assistantView.SetAiProviderStatus(
                 "IA desactivada · los comandos locales siguen disponibles");
+            RefreshRuntimeDashboard();
             return;
         }
 
@@ -1649,7 +1828,12 @@ public partial class MainWindow : Window
         var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
             ? "sin modelo seleccionado"
             : _preferences.AiModel;
+        _runtimeAiStatus = _preferences.AiProvider == AiProviderKind.Ollama
+            ? "Ollama configurado"
+            : $"{providerName} configurado";
+        _runtimeAiHealthy = true;
         _assistantView.SetAiProviderStatus($"{providerName} · {model}");
+        RefreshRuntimeDashboard();
     }
 
     private AiProviderConfiguration BuildAiConfiguration()
@@ -1767,7 +1951,7 @@ public partial class MainWindow : Window
         {
             _pendingVoicePrompt = null;
             _assistantView.AddUserMessage(prompt);
-            _assistantView.AddNexoMessage("Orden cancelada. No hice ningún cambio.");
+            _assistantView.AddKohanaMessage("Orden cancelada. No hice ningún cambio.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "Orden cancelada",
@@ -1799,7 +1983,7 @@ public partial class MainWindow : Window
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "Preparando voz local",
-                "La primera vez Nexo descarga un modelo multilingüe.",
+                "La primera vez Kohana descarga un modelo multilingüe.",
                 _preferences.Position);
         }
 
@@ -1939,6 +2123,144 @@ public partial class MainWindow : Window
         _ = Dispatcher.InvokeAsync(() => HandleWakeWordDetectedAsync(e)).Task.Unwrap();
     }
 
+    private void WakeWordService_RecognitionObserved(
+        object? sender,
+        WakeWordRecognitionObservedEventArgs e)
+    {
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _lastWakeWordObservation = e;
+            if (_wakeWordTestActive)
+            {
+                _settingsView.SetWakeWordObservation(e);
+            }
+        }));
+    }
+
+    private async Task StartWakeWordTestAsync()
+    {
+        if (!_preferences.WakeWordEnabled)
+        {
+            _settingsView.SetWakeWordTestStatus(
+                "Activa primero la frase de voz.",
+                isSuccess: false);
+            return;
+        }
+
+        _wakeWordTestCancellation?.Cancel();
+        _wakeWordTestCancellation?.Dispose();
+        _wakeWordTestCancellation = new CancellationTokenSource();
+        _wakeWordTestActive = true;
+        _lastWakeWordObservation = null;
+        _settingsView.ClearWakeWordObservation();
+
+        _settingsView.SetWakeWordTestStatus(
+            $"Escuchando durante 12 segundos. Di “{_preferences.WakeWordPhrase.ToSpokenText()}”.",
+            isSuccess: null);
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Information,
+            "Prueba de activación",
+            $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” con voz natural.",
+            _preferences.Position);
+
+        if (!_wakeWordService.IsListening)
+        {
+            await ApplyWakeWordPreferenceAsync(showCapsule: false);
+        }
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(12), _wakeWordTestCancellation.Token);
+            if (_wakeWordTestActive)
+            {
+                _wakeWordTestActive = false;
+                var detail = _lastWakeWordObservation is null
+                    ? "Vosk no produjo texto. Revisa el micrófono o prueba sensibilidad Alta."
+                    : $"Lo último que escuchó Vosk fue “{_lastWakeWordObservation.RecognizedText}”. " +
+                      _lastWakeWordObservation.Match.Detail;
+                _settingsView.SetWakeWordTestStatus(detail, isSuccess: false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // La prueba terminó al detectar la frase o al iniciar otra prueba.
+        }
+    }
+
+    private async Task AddLastWakeWordObservationAsAliasAsync()
+    {
+        var observed = _lastWakeWordObservation?.RecognizedText;
+        if (!WakeWordAliasPolicy.TryNormalize(observed, out var alias, out var detail))
+        {
+            _settingsView.SetWakeWordTestStatus(detail, isSuccess: false);
+            return;
+        }
+
+        if (_preferences.WakeWordAliases.Contains(alias, StringComparer.Ordinal))
+        {
+            _settingsView.SetWakeWordTestStatus($"“{alias}” ya está guardado.", isSuccess: true);
+            return;
+        }
+
+        if (_preferences.WakeWordAliases.Count >= WakeWordAliasPolicy.MaximumAliases)
+        {
+            _settingsView.SetWakeWordTestStatus(
+                $"Puedes guardar hasta {WakeWordAliasPolicy.MaximumAliases} aliases.",
+                isSuccess: false);
+            return;
+        }
+
+        _preferences.WakeWordAliases.Add(alias);
+        _preferences.WakeWordAliases = WakeWordAliasPolicy.NormalizeMany(_preferences.WakeWordAliases);
+        _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
+        SavePreferences();
+        _settingsView.SetWakeWordAliases(_preferences.WakeWordAliases);
+        _settingsView.SetWakeWordTestStatus($"Alias “{alias}” guardado.", isSuccess: true);
+        await ApplyWakeWordPreferenceAsync(showCapsule: false);
+    }
+
+    private async Task ClearWakeWordAliasesAsync()
+    {
+        _preferences.WakeWordAliases.Clear();
+        _wakeWordService.CustomAliases = [];
+        SavePreferences();
+        _settingsView.SetWakeWordAliases(_preferences.WakeWordAliases);
+        _settingsView.SetWakeWordTestStatus("Aliases personales eliminados.", isSuccess: true);
+        await ApplyWakeWordPreferenceAsync(showCapsule: false);
+    }
+
+    private async Task RestartWakeWordAsync()
+    {
+        if (!_preferences.WakeWordEnabled)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "Voz desactivada",
+                "Activa una frase desde Personalización → Voz.",
+                _preferences.Position);
+            return;
+        }
+
+        await PauseWakeWordAsync();
+        await ApplyWakeWordPreferenceAsync(showCapsule: false);
+        _capsuleWindow.ShowMessage(
+            _wakeWordService.IsListening ? CapsuleKind.Success : CapsuleKind.Warning,
+            _wakeWordService.IsListening ? "Voz reiniciada" : "Voz no disponible",
+            _wakeWordService.IsListening
+                ? $"Esperando “{_preferences.WakeWordPhrase.ToSpokenText()}”."
+                : "Revisa el micrófono y el diagnóstico.",
+            _preferences.Position);
+    }
+
+    private static string GetWakeWordMatchLabel(WakeWordMatchKind kind) => kind switch
+    {
+        WakeWordMatchKind.Phonetic => "pronunciación española",
+        WakeWordMatchKind.Approximate => "coincidencia aproximada",
+        WakeWordMatchKind.CustomAlias => "alias personal",
+        WakeWordMatchKind.Legacy => "frase heredada",
+        _ => "coincidencia exacta"
+    };
+
     private async Task HandleWakeWordDetectedAsync(WakeWordDetectedEventArgs e)
     {
         if (_isClosed || !_preferences.WakeWordEnabled)
@@ -1946,6 +2268,23 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_wakeWordTestActive)
+        {
+            _wakeWordTestActive = false;
+            _wakeWordTestCancellation?.Cancel();
+            _settingsView.SetWakeWordTestStatus(
+                $"Detecté “{e.RecognizedText}” como {GetWakeWordMatchLabel(e.MatchKind)}. La frase funciona.",
+                isSuccess: true);
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Success,
+                "Frase detectada",
+                e.RecognizedText,
+                _preferences.Position);
+            await ApplyWakeWordPreferenceAsync(showCapsule: false);
+            return;
+        }
+
+        RememberForegroundWindow();
         await _voiceGate.WaitAsync();
         try
         {
@@ -1963,17 +2302,18 @@ public partial class MainWindow : Window
 
             _assistantView.SetVoiceState(
                 AssistantVoiceState.Listening,
-                $"{e.Phrase.ToSpokenText()} detectado. Te escucho…");
+                $"{e.Phrase.ToSpokenText()} detectado. Habla con calma; no cortaré las pausas breves.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Processing,
                 "Te escucho",
-                "Di la orden después de la señal.",
+                "Habla con naturalidad. Terminaré después de 1.5 segundos de silencio.",
                 _preferences.Position);
 
             var result = await _voiceInputService.ListenForUtteranceAsync(
-                maximumDuration: TimeSpan.FromSeconds(8),
-                trailingSilence: TimeSpan.FromMilliseconds(700),
+                maximumDuration: TimeSpan.FromSeconds(20),
+                trailingSilence: TimeSpan.FromMilliseconds(1_500),
                 initialPcmAudio: e.PreRollAudio,
+                initialSpeechPcmAudio: e.PostWakeAudio,
                 cancellationToken: _lifetimeCancellation.Token);
 
             _assistantView.SetVoiceState(
@@ -2029,9 +2369,9 @@ public partial class MainWindow : Window
             _pendingVoicePrompt = result.Text;
             var question =
                 $"Escuché “{result.Text}”, pero no estoy totalmente seguro. " +
-                "Di “Nexo, confirmar”, repite la orden o di “Nexo, cancelar”.";
+                "Di “Kohana, confirmar”, repite la orden o di “Kohana, cancelar”.";
 
-            _assistantView.AddNexoMessage(question);
+            _assistantView.AddKohanaMessage(question);
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Warning,
                 "¿Confirmas la orden?",
@@ -2057,9 +2397,19 @@ public partial class MainWindow : Window
         {
             await _wakeWordService.StopListeningAsync();
             SetWakeWordIndicator(active: false);
+            RefreshRuntimeDashboard();
 
             if (!_preferences.WakeWordEnabled || _isClosed || _voiceInputService.IsListening)
             {
+                return;
+            }
+
+            if (_preferences.PauseWakeWordInGameMode && _resourceDecision.PauseWakeWord)
+            {
+                SetWakeWordIndicator(active: false);
+                _assistantView.SetVoiceAvailability(
+                    _voiceInputService.IsReady,
+                    "Activación por voz pausada por Modo Juego.");
                 return;
             }
 
@@ -2100,6 +2450,8 @@ public partial class MainWindow : Window
                 return;
             }
 
+            _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
+            _wakeWordService.CustomAliases = _preferences.WakeWordAliases;
             var start = await _wakeWordService.StartListeningAsync(
                 _preferences.WakeWordPhrase,
                 _lifetimeCancellation.Token);
@@ -2114,7 +2466,7 @@ public partial class MainWindow : Window
                 {
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Error,
-                        "No pude escuchar Nexo",
+                        "No pude escuchar Kohana",
                         start.Detail,
                         _preferences.Position);
                 }
@@ -2122,6 +2474,7 @@ public partial class MainWindow : Window
             }
 
             SetWakeWordIndicator(active: true);
+            RefreshRuntimeDashboard();
             _assistantView.SetVoiceAvailability(
                 _voiceInputService.IsReady,
                 $"Di “{_preferences.WakeWordPhrase.ToSpokenText()}” y la orden de corrido, o espera “Te escucho”.");
@@ -2169,7 +2522,9 @@ public partial class MainWindow : Window
 
     private Task ResumeWakeWordIfEnabledAsync()
     {
-        return _preferences.WakeWordEnabled && !_isClosed
+        return _preferences.WakeWordEnabled &&
+               !_isClosed &&
+               !(_preferences.PauseWakeWordInGameMode && _resourceDecision.PauseWakeWord)
             ? ApplyWakeWordPreferenceAsync(showCapsule: false)
             : Task.CompletedTask;
     }
@@ -2203,7 +2558,7 @@ public partial class MainWindow : Window
             case RoutineCommandType.OpenRoutines:
                 ShowAnimated();
                 NavigateTo("Routines", animate: true);
-                _assistantView.AddNexoMessage("Abrí el módulo de rutinas.");
+                _assistantView.AddKohanaMessage("Abrí el módulo de rutinas.");
                 return;
 
             case RoutineCommandType.ListRoutines:
@@ -2211,7 +2566,7 @@ public partial class MainWindow : Window
                     .Where(routine => routine.IsEnabled)
                     .Select(routine => $"• {routine.Name}: “{routine.TriggerPhrase}”")
                     .ToArray();
-                _assistantView.AddNexoMessage(
+                _assistantView.AddKohanaMessage(
                     available.Length == 0
                         ? "No hay rutinas activas."
                         : "Rutinas disponibles:" + Environment.NewLine + string.Join(Environment.NewLine, available));
@@ -2226,7 +2581,7 @@ public partial class MainWindow : Window
                 var routine = _routineManager.FindBestMatch(command.RoutineName);
                 if (routine is null)
                 {
-                    _assistantView.AddNexoMessage(
+                    _assistantView.AddKohanaMessage(
                         $"No encontré una rutina que coincida con “{command.RoutineName}”.");
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Warning,
@@ -2245,7 +2600,7 @@ public partial class MainWindow : Window
     {
         if (!routine.IsEnabled)
         {
-            _assistantView.AddNexoMessage($"La rutina {routine.Name} está desactivada.");
+            _assistantView.AddKohanaMessage($"La rutina {routine.Name} está desactivada.");
             return;
         }
 
@@ -2257,13 +2612,13 @@ public partial class MainWindow : Window
                     .Where(step => step.IsEnabled)
                     .Select((step, index) => $"{index + 1}. {DescribeAutomationAction(step)}"));
             var decision = MessageBox.Show(
-                $"Nexo ejecutará estas acciones:" + Environment.NewLine + Environment.NewLine + preview,
+                $"Kohana ejecutará estas acciones:" + Environment.NewLine + Environment.NewLine + preview,
                 $"Ejecutar {routine.Name}",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
             if (decision != MessageBoxResult.Yes)
             {
-                _assistantView.AddNexoMessage($"Cancelé la rutina {routine.Name}.");
+                _assistantView.AddKohanaMessage($"Cancelé la rutina {routine.Name}.");
                 return;
             }
         }
@@ -2279,7 +2634,7 @@ public partial class MainWindow : Window
             var report = await _routineRunner.RunAsync(
                 routine,
                 _lifetimeCancellation.Token);
-            _assistantView.AddNexoMessage(report.BuildSummary());
+            _assistantView.AddKohanaMessage(report.BuildSummary());
             _tasksView.Refresh();
             _focusView.Refresh(DateTimeOffset.Now);
             await _audioView.RefreshAsync(force: true);
@@ -2300,7 +2655,7 @@ public partial class MainWindow : Window
         {
             if (!_isClosed)
             {
-                _assistantView.AddNexoMessage($"La rutina {routine.Name} fue cancelada.");
+                _assistantView.AddKohanaMessage($"La rutina {routine.Name} fue cancelada.");
             }
         }
     }
@@ -2421,7 +2776,7 @@ public partial class MainWindow : Window
         }
 
         _focusView.Refresh(DateTimeOffset.Now);
-        _assistantView.AddNexoMessage(response);
+        _assistantView.AddKohanaMessage(response);
         _capsuleWindow.ShowMessage(
             capsuleKind,
             capsuleTitle,
@@ -2556,7 +2911,7 @@ public partial class MainWindow : Window
                 break;
         }
 
-        _assistantView.AddNexoMessage(response);
+        _assistantView.AddKohanaMessage(response);
         _capsuleWindow.ShowMessage(
             capsuleKind,
             capsuleTitle,
@@ -2573,7 +2928,7 @@ public partial class MainWindow : Window
             case LocalCommandType.ShowPeek:
                 if (!_preferences.PeekEnabled)
                 {
-                    _assistantView.AddNexoMessage("La vista Peek está desactivada en Personalización.");
+                    _assistantView.AddKohanaMessage("La vista Peek está desactivada en Personalización.");
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Warning,
                         "Peek está desactivado",
@@ -2652,7 +3007,7 @@ public partial class MainWindow : Window
                 break;
 
             default:
-                _assistantView.AddNexoMessage("No pude ejecutar esa orden local todavía.");
+                _assistantView.AddKohanaMessage("No pude ejecutar esa orden local todavía.");
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Warning,
                     "Comando no disponible",
@@ -2670,7 +3025,7 @@ public partial class MainWindow : Window
             culture);
         var response = $"Hoy es {date}.";
 
-        _assistantView.AddNexoMessage(response);
+        _assistantView.AddKohanaMessage(response);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Fecha actual",
@@ -2684,7 +3039,7 @@ public partial class MainWindow : Window
         var time = DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
         var response = $"Son las {time}.";
 
-        _assistantView.AddNexoMessage(response);
+        _assistantView.AddKohanaMessage(response);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Hora actual",
@@ -2711,7 +3066,7 @@ public partial class MainWindow : Window
             $"GPU {FormatPercentage(_latestSnapshot.GpuUsagePercent)}. " +
             $"Mayor uso de memoria: {topProcess}.";
 
-        _assistantView.AddNexoMessage(summary);
+        _assistantView.AddKohanaMessage(summary);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Estado del equipo listo",
@@ -2755,7 +3110,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _assistantView.AddNexoMessage($"Abrí {displayName}.");
+        _assistantView.AddKohanaMessage($"Abrí {displayName}.");
         ShowCommandSuccess($"{displayName} abierto", "La carpeta se abrió localmente.");
     }
 
@@ -2790,7 +3145,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _assistantView.AddNexoMessage($"Abrí {displayName}.");
+        _assistantView.AddKohanaMessage($"Abrí {displayName}.");
         ShowCommandSuccess($"{displayName} abierto", "La acción se ejecutó localmente.");
     }
 
@@ -2845,7 +3200,7 @@ public partial class MainWindow : Window
 
     private void ShowLocalLaunchFailure(string displayName)
     {
-        _assistantView.AddNexoMessage($"No pude abrir {displayName}.");
+        _assistantView.AddKohanaMessage($"No pude abrir {displayName}.");
         _capsuleWindow.ShowMessage(
             CapsuleKind.Error,
             "No se pudo abrir",
@@ -2866,12 +3221,12 @@ public partial class MainWindow : Window
                 UseShellExecute = true
             });
 
-            _assistantView.AddNexoMessage($"{confirmation} en {userFolder}.");
+            _assistantView.AddKohanaMessage($"{confirmation} en {userFolder}.");
             ShowCommandSuccess(confirmation, userFolder);
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            _assistantView.AddNexoMessage($"No pude abrir {fileName}.");
+            _assistantView.AddKohanaMessage($"No pude abrir {fileName}.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "No se pudo abrir",
@@ -2930,7 +3285,7 @@ public partial class MainWindow : Window
     {
         if (addToConversation)
         {
-            _assistantView.AddNexoMessage(result.Detail);
+            _assistantView.AddKohanaMessage(result.Detail);
         }
 
         var capsuleKind = result.Status switch
@@ -3098,7 +3453,7 @@ public partial class MainWindow : Window
                 ? (Brush)FindResource("BrushAccentSoft")
                 : Brushes.Transparent;
             pair.Value.Foreground = selected
-                ? (Brush)FindResource("BrushTextPrimary")
+                ? (Brush)FindResource("BrushAccent")
                 : (Brush)FindResource("BrushTextSecondary");
         }
 
@@ -3107,7 +3462,7 @@ public partial class MainWindow : Window
             ? (Brush)FindResource("BrushAccentSoft")
             : Brushes.Transparent;
         SettingsNavButton.Foreground = settingsSelected
-            ? (Brush)FindResource("BrushTextPrimary")
+            ? (Brush)FindResource("BrushAccent")
             : (Brush)FindResource("BrushTextSecondary");
     }
 
@@ -3121,10 +3476,10 @@ public partial class MainWindow : Window
             "Focus" => ("Enfoque", "Sesiones cortas sin perder el ritmo"),
             "Routines" => ("Rutinas", "Acciones repetibles, claras y controladas"),
             "Audio" => ("Audio", "Control local por aplicación"),
-            "Capture" => ("Captura", "Selecciona qué puede ver Nexo"),
+            "Capture" => ("Captura", "Selecciona qué puede ver Kohana"),
             "System" => ("Sistema", "Estado y diagnóstico del equipo"),
             "Settings" => ("Personalizar", "Apariencia, privacidad y comportamiento"),
-            _ => ("Nexo", "Tu espacio de acciones y contexto")
+            _ => ("Kohana", "Tu espacio de acciones y contexto")
         };
 
         WorkspaceTitleText.Text = title;
@@ -3145,7 +3500,7 @@ public partial class MainWindow : Window
 
         var culture = new CultureInfo("es-MX");
         var greetingDetail =
-            $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Nexo está listo";
+            $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Kohana está listo";
 
         var pending = _taskManager.GetAll()
             .Where(task => !task.IsCompleted)
@@ -3197,7 +3552,7 @@ public partial class MainWindow : Window
             : "Lista para analizar";
         var contextDetail = _lastExternalWindowHandle != 0
             ? "Pulsa aquí para capturarla con tu autorización."
-            : "Abre una ventana y Nexo podrá verla cuando lo pidas.";
+            : "Abre una ventana y Kohana podrá verla cuando lo pidas.";
 
         _homeView.Refresh(new HomeDashboardViewModel(
             greeting,
@@ -3216,6 +3571,7 @@ public partial class MainWindow : Window
         Width = _preferences.Width;
         ApplyShellOpacity();
         ApplyAccent(_preferences.AccentColor);
+        _wakeWordService.Sensitivity = _preferences.WakeWordSensitivity;
         ApplyModuleVisibility();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
     }
@@ -3340,7 +3696,16 @@ public partial class MainWindow : Window
 
         try
         {
+            var ownHandle = new WindowInteropHelper(this).Handle.ToInt64();
+            var preferredExternalWindow = _lastExternalWindowHandle;
             var snapshot = await Task.Run(_metricsService.ReadSnapshot);
+            var decision = _preferences.ResourceGovernorEnabled
+                ? await Task.Run(() => _resourceGovernorService.Evaluate(
+                    snapshot,
+                    preferredExternalWindow,
+                    ownHandle))
+                : ResourceGovernorDecision.Normal;
+
             if (_isClosed)
             {
                 return;
@@ -3348,6 +3713,7 @@ public partial class MainWindow : Window
 
             _latestSnapshot = snapshot;
             UpdateMetricControls(snapshot);
+            await ApplyResourceGovernorDecisionAsync(decision);
         }
         catch (Exception)
         {
@@ -3356,6 +3722,162 @@ public partial class MainWindow : Window
         finally
         {
             Interlocked.Exchange(ref _metricsRefreshInProgress, 0);
+        }
+    }
+
+    private async Task<ResourceGovernorDecision> EnsureFreshResourceDecisionAsync()
+    {
+        if (!_preferences.ResourceGovernorEnabled)
+        {
+            return ResourceGovernorDecision.Normal;
+        }
+
+        var snapshotAge = DateTimeOffset.Now - _latestSnapshot.CapturedAt;
+        if (_latestSnapshot.CapturedAt == DateTimeOffset.MinValue ||
+            snapshotAge > TimeSpan.FromSeconds(4))
+        {
+            await RefreshMetricsAsync();
+        }
+
+        return _resourceDecision;
+    }
+
+    private async Task ApplyResourceGovernorDecisionAsync(
+        ResourceGovernorDecision decision)
+    {
+        ArgumentNullException.ThrowIfNull(decision);
+
+        var previous = _resourceDecision;
+        _resourceDecision = decision;
+        _capsuleWindow.SuppressTransientMessages = decision.SuppressTransientOverlays;
+        if (decision.SuppressTransientOverlays)
+        {
+            _capsuleWindow.HideImmediately();
+        }
+
+        UpdateResourceModeIndicator(decision);
+
+        var decisionChanged =
+            previous.Mode != decision.Mode ||
+            !previous.Reason.Equals(decision.Reason, StringComparison.Ordinal);
+
+        if (decisionChanged)
+        {
+            WriteResourceGovernorLog(previous, decision);
+            if (previous.Mode != decision.Mode)
+            {
+                var title = decision.Mode switch
+                {
+                    ResourceMode.Game => "Modo Juego activo",
+                    ResourceMode.Busy => "Rendimiento protegido",
+                    _ => "Modo normal restaurado"
+                };
+                _homeView.AddRecentAction(title, decision.Reason);
+            }
+        }
+
+        await _resourceGovernorVoiceGate.WaitAsync();
+        try
+        {
+            var shouldPauseWakeWord =
+                _preferences.PauseWakeWordInGameMode && decision.PauseWakeWord;
+
+            if (shouldPauseWakeWord)
+            {
+                if (_wakeWordService.IsListening)
+                {
+                    await PauseWakeWordAsync();
+                }
+
+                _resourceGovernorWakeWordPaused = _preferences.WakeWordEnabled;
+                return;
+            }
+
+            if (_resourceGovernorWakeWordPaused)
+            {
+                _resourceGovernorWakeWordPaused = false;
+                await ResumeWakeWordIfEnabledAsync();
+            }
+        }
+        finally
+        {
+            _resourceGovernorVoiceGate.Release();
+        }
+    }
+
+    private void UpdateResourceModeIndicator(ResourceGovernorDecision decision)
+    {
+        ResourceModeIndicator.Visibility = decision.Mode == ResourceMode.Normal
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        ResourceModeText.Text = decision.Mode switch
+        {
+            ResourceMode.Game => "Modo Juego",
+            ResourceMode.Busy => "Equipo ocupado",
+            _ => "Normal"
+        };
+        ResourceModeIndicator.ToolTip = decision.Reason;
+        ResourceModeDot.Fill = decision.Mode == ResourceMode.Game
+            ? (Brush)FindResource("BrushDanger")
+            : (Brush)FindResource("BrushWarning");
+        RefreshRuntimeDashboard();
+    }
+
+    private void RefreshRuntimeDashboard()
+    {
+        _systemView.UpdateRuntimeStatus(
+            _voiceInputService.IsReady,
+            _preferences.WakeWordEnabled,
+            _wakeWordService.IsListening,
+            _preferences.VisionEnabled,
+            _runtimeAiStatus,
+            _runtimeAiHealthy,
+            _resourceDecision.Mode,
+            _resourceDecision.Reason);
+    }
+
+    private void PresentResourceRestriction(
+        ResourceGovernorDecision decision,
+        string detail,
+        bool fromVoice)
+    {
+        var title = decision.Mode == ResourceMode.Game
+            ? "Kohana está en Modo Juego"
+            : "El equipo está ocupado";
+        var message = $"{detail} {decision.Reason}";
+
+        _assistantView.AddKohanaMessage(message);
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Warning,
+            title,
+            detail,
+            _preferences.Position,
+            force: true);
+
+        if (fromVoice)
+        {
+            _voiceOutputService.SpeakShort(detail);
+        }
+    }
+
+    private static void WriteResourceGovernorLog(
+        ResourceGovernorDecision previous,
+        ResourceGovernorDecision current)
+    {
+        try
+        {
+            Directory.CreateDirectory(Nexo.Core.Diagnostics.NexoDataPaths.LogsDirectory);
+            File.AppendAllText(
+                Nexo.Core.Diagnostics.NexoDataPaths.ResourceGovernorLog,
+                $"{DateTimeOffset.Now:O} | {previous.Mode} -> {current.Mode} | {current.Reason}{Environment.NewLine}");
+        }
+        catch (IOException)
+        {
+            // El registro no debe afectar el funcionamiento de Nexo.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // El registro no debe afectar el funcionamiento de Nexo.
         }
     }
 
@@ -3371,7 +3893,7 @@ public partial class MainWindow : Window
     {
         if (!_preferences.PeekEnabled)
         {
-            _assistantView.AddNexoMessage("La vista Peek está desactivada en Personalización.");
+            _assistantView.AddKohanaMessage("La vista Peek está desactivada en Personalización.");
             return;
         }
 
@@ -3392,11 +3914,11 @@ public partial class MainWindow : Window
         }
         catch (IOException)
         {
-            _assistantView.AddNexoMessage("No se pudo guardar la configuración en este momento.");
+            _assistantView.AddKohanaMessage("No se pudo guardar la configuración en este momento.");
         }
         catch (UnauthorizedAccessException)
         {
-            _assistantView.AddNexoMessage("Windows no permitió guardar la configuración.");
+            _assistantView.AddKohanaMessage("Windows no permitió guardar la configuración.");
         }
     }
 
@@ -3445,7 +3967,7 @@ public partial class MainWindow : Window
 
         _trayHintShown = true;
         _trayIcon.Notify(
-            "Nexo sigue activo",
+            "Kohana sigue activo",
             "Ábrelo con Alt + A o desde el icono de la bandeja.",
             TrayNotificationKind.Information,
             _preferences.ShowWindowsNotifications,

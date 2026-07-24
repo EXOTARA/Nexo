@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text.Json;
 using NAudio;
 using NAudio.Wave;
+using Nexo.Core.Diagnostics;
 using Nexo.Core.Voice;
 using Vosk;
 
@@ -20,15 +21,18 @@ public sealed class VoskWakeWordService : IWakeWordService
     private const int SampleRate = 16_000;
     private const int BitsPerSample = 16;
     private const int Channels = 1;
-    private const int PreRollMilliseconds = 2_200;
+    private const int PreRollMilliseconds = 3_000;
     private const int PreRollCapacityBytes =
         SampleRate * Channels * (BitsPerSample / 8) * PreRollMilliseconds / 1000;
+    private const int PostWakeCaptureMilliseconds = 1_200;
+    private const int PostWakeCapacityBytes =
+        SampleRate * Channels * (BitsPerSample / 8) * PostWakeCaptureMilliseconds / 1000;
     private const long MinimumArchiveBytes = 20L * 1024 * 1024;
     private const long ProgressStepBytes = 2L * 1024 * 1024;
 
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan DetectionCooldown = TimeSpan.FromSeconds(2.5);
-    private static readonly TimeSpan HandoffDelay = TimeSpan.FromMilliseconds(260);
+    private static readonly TimeSpan HandoffDelay = TimeSpan.FromMilliseconds(550);
     private static readonly HttpClient HttpClient = new()
     {
         Timeout = TimeSpan.FromMinutes(20)
@@ -39,6 +43,7 @@ public sealed class VoskWakeWordService : IWakeWordService
     private readonly string _modelDirectory;
     private readonly string _modelsRoot;
     private readonly byte[] _preRollBuffer = new byte[PreRollCapacityBytes];
+    private readonly byte[] _postWakeBuffer = new byte[PostWakeCapacityBytes];
 
     private Model? _model;
     private VoskRecognizer? _recognizer;
@@ -49,27 +54,49 @@ public sealed class VoskWakeWordService : IWakeWordService
     private bool _detectionRaised;
     private int _preRollWriteIndex;
     private int _preRollCount;
+    private int _postWakeCount;
+    private bool _capturePostWake;
     private CancellationTokenSource? _handoffCancellation;
+    private IReadOnlyList<string> _customAliases = [];
+    private string _lastObservedText = string.Empty;
     private bool _disposed;
 
     public VoskWakeWordService()
     {
-        _modelsRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Nexo",
-            "Models",
-            "Vosk");
+        _modelsRoot = NexoDataPaths.VoskModelsDirectory;
         _modelDirectory = Path.Combine(_modelsRoot, ModelName);
         IsReady = IsUsableModelDirectory();
     }
 
     public event EventHandler<WakeWordDetectedEventArgs>? WakeWordDetected;
 
+    public event EventHandler<WakeWordRecognitionObservedEventArgs>? RecognitionObserved;
+
     public bool IsReady { get; private set; }
 
     public bool IsListening { get; private set; }
 
     public int InputDeviceNumber { get; set; } = -1;
+
+    public WakeWordSensitivity Sensitivity { get; set; } = WakeWordSensitivity.Balanced;
+
+    public IReadOnlyList<string> CustomAliases
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return [.. _customAliases];
+            }
+        }
+        set
+        {
+            lock (_sync)
+            {
+                _customAliases = WakeWordAliasPolicy.NormalizeMany(value);
+            }
+        }
+    }
 
     public async Task<VoicePreparationResult> PrepareAsync(
         IProgress<VoicePreparationProgress>? progress = null,
@@ -95,7 +122,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             progress?.Report(VoicePreparationProgress.Preparing(
-                "Preparando la activación por “Nexo”…"));
+                "Preparando la activación por “Kohana”…"));
 
             Directory.CreateDirectory(_modelsRoot);
             var archivePath = Path.Combine(_modelsRoot, ModelName + ".zip.download");
@@ -159,7 +186,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             progress?.Report(VoicePreparationProgress.Preparing(
-                "Instalando el detector local de la palabra Nexo…"));
+                "Instalando el detector local de la palabra Kohana…"));
 
             Directory.CreateDirectory(stagingDirectory);
             ZipFile.ExtractToDirectory(archivePath, stagingDirectory, overwriteFiles: true);
@@ -237,7 +264,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             recognizer = new VoskRecognizer(
                 model,
                 SampleRate,
-                BuildGrammar(phrase));
+                BuildGrammar(phrase, Sensitivity));
             recorder = new WaveInEvent
             {
                 DeviceNumber = ResolveInputDeviceNumber(),
@@ -261,9 +288,12 @@ public sealed class VoskWakeWordService : IWakeWordService
                 _detectionRaised = false;
                 _preRollWriteIndex = 0;
                 _preRollCount = 0;
+                _postWakeCount = 0;
+                _capturePostWake = false;
                 _handoffCancellation?.Cancel();
                 _handoffCancellation?.Dispose();
                 _handoffCancellation = null;
+                _lastObservedText = string.Empty;
                 IsListening = true;
                 ownershipTransferred = true;
             }
@@ -290,7 +320,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             return VoiceStartResult.Unavailable(
-                "No pude iniciar la escucha de la palabra Nexo. Revisa el micrófono y la arquitectura de Windows.");
+                "No pude iniciar la escucha de la palabra Kohana. Revisa el micrófono y la arquitectura de Windows.");
         }
     }
 
@@ -349,6 +379,11 @@ public sealed class VoskWakeWordService : IWakeWordService
             }
 
             AppendPreRollUnsafe(e.Buffer, e.BytesRecorded);
+            if (_capturePostWake)
+            {
+                AppendPostWakeUnsafe(e.Buffer, e.BytesRecorded);
+            }
+
             detectionRaised = _detectionRaised;
             recognizer = _recognizer;
             phrase = _phrase;
@@ -366,8 +401,15 @@ public sealed class VoskWakeWordService : IWakeWordService
             var recognizedText = ReadRecognizedText(
                 json,
                 isFinal ? "text" : "partial");
+            var aliases = CustomAliases;
+            var match = WakeWordTextMatcher.Evaluate(
+                recognizedText,
+                phrase,
+                Sensitivity,
+                aliases);
 
-            if (!WakeWordTextMatcher.IsMatch(recognizedText, phrase))
+            PublishRecognitionObservation(phrase, recognizedText, isFinal, match);
+            if (!match.IsMatch)
             {
                 return;
             }
@@ -384,6 +426,8 @@ public sealed class VoskWakeWordService : IWakeWordService
 
                 _detectionRaised = true;
                 _lastDetection = now;
+                _postWakeCount = 0;
+                _capturePostWake = true;
                 _handoffCancellation?.Cancel();
                 _handoffCancellation?.Dispose();
                 _handoffCancellation = new CancellationTokenSource();
@@ -393,6 +437,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             _ = RaiseWakeWordAfterHandoffAsync(
                 phrase,
                 recognizedText,
+                match.Kind,
                 handoffCancellation.Token);
         }
         catch (ObjectDisposedException)
@@ -404,6 +449,7 @@ public sealed class VoskWakeWordService : IWakeWordService
     private async Task RaiseWakeWordAfterHandoffAsync(
         WakeWordPhrase phrase,
         string recognizedText,
+        WakeWordMatchKind matchKind,
         CancellationToken cancellationToken)
     {
         try
@@ -411,6 +457,7 @@ public sealed class VoskWakeWordService : IWakeWordService
             await Task.Delay(HandoffDelay, cancellationToken);
 
             byte[] preRollAudio;
+            byte[] postWakeAudio;
             lock (_sync)
             {
                 if (!IsListening || cancellationToken.IsCancellationRequested)
@@ -418,7 +465,9 @@ public sealed class VoskWakeWordService : IWakeWordService
                     return;
                 }
 
+                _capturePostWake = false;
                 preRollAudio = SnapshotPreRollUnsafe();
+                postWakeAudio = SnapshotPostWakeUnsafe();
             }
 
             WakeWordDetected?.Invoke(
@@ -426,7 +475,9 @@ public sealed class VoskWakeWordService : IWakeWordService
                 new WakeWordDetectedEventArgs(
                     phrase,
                     recognizedText,
-                    preRollAudio));
+                    preRollAudio,
+                    postWakeAudio,
+                    matchKind));
         }
         catch (OperationCanceledException)
         {
@@ -495,6 +546,42 @@ public sealed class VoskWakeWordService : IWakeWordService
         return result;
     }
 
+    private void AppendPostWakeUnsafe(byte[] source, int count)
+    {
+        if (_postWakeCount >= _postWakeBuffer.Length)
+        {
+            return;
+        }
+
+        var bytesToCopy = Math.Min(
+            Math.Min(count, source.Length),
+            _postWakeBuffer.Length - _postWakeCount);
+        Buffer.BlockCopy(
+            source,
+            0,
+            _postWakeBuffer,
+            _postWakeCount,
+            bytesToCopy);
+        _postWakeCount += bytesToCopy;
+    }
+
+    private byte[] SnapshotPostWakeUnsafe()
+    {
+        if (_postWakeCount == 0)
+        {
+            return [];
+        }
+
+        var result = new byte[_postWakeCount];
+        Buffer.BlockCopy(
+            _postWakeBuffer,
+            0,
+            result,
+            0,
+            _postWakeCount);
+        return result;
+    }
+
     private void Recorder_RecordingStopped(object? sender, StoppedEventArgs e)
     {
         _recordingStopped?.TrySetResult(e.Exception);
@@ -519,9 +606,12 @@ public sealed class VoskWakeWordService : IWakeWordService
             _detectionRaised = false;
             _preRollWriteIndex = 0;
             _preRollCount = 0;
+            _postWakeCount = 0;
+            _capturePostWake = false;
             _handoffCancellation?.Cancel();
             _handoffCancellation?.Dispose();
             _handoffCancellation = null;
+            _lastObservedText = string.Empty;
             IsListening = false;
         }
 
@@ -582,11 +672,67 @@ public sealed class VoskWakeWordService : IWakeWordService
                 File.Exists(Path.Combine(directory, "am", "final.mdl")));
     }
 
-    private static string BuildGrammar(WakeWordPhrase phrase) => phrase switch
+    private string BuildGrammar(
+        WakeWordPhrase phrase,
+        WakeWordSensitivity sensitivity)
     {
-        WakeWordPhrase.OyeNexo => "[\"oye nexo\", \"[unk]\"]",
-        _ => "[\"nexo\", \"oye nexo\", \"[unk]\"]"
-    };
+        var phrases = WakeWordTextMatcher.GetGrammarPhrases(
+            phrase,
+            sensitivity,
+            CustomAliases);
+        return JsonSerializer.Serialize(phrases.Append("[unk]").ToArray());
+    }
+
+    private void PublishRecognitionObservation(
+        WakeWordPhrase phrase,
+        string recognizedText,
+        bool isFinal,
+        WakeWordMatchResult match)
+    {
+        if (string.IsNullOrWhiteSpace(recognizedText))
+        {
+            return;
+        }
+
+        var normalized = WakeWordTextMatcher.Normalize(recognizedText);
+        lock (_sync)
+        {
+            if (!isFinal && string.Equals(_lastObservedText, normalized, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastObservedText = normalized;
+        }
+
+        WriteRecognitionLog(phrase, isFinal, match);
+        RecognitionObserved?.Invoke(
+            this,
+            new WakeWordRecognitionObservedEventArgs(
+                phrase,
+                recognizedText,
+                isFinal,
+                match));
+    }
+
+    private static void WriteRecognitionLog(
+        WakeWordPhrase phrase,
+        bool isFinal,
+        WakeWordMatchResult match)
+    {
+        try
+        {
+            Directory.CreateDirectory(NexoDataPaths.LogsDirectory);
+            File.AppendAllText(
+                NexoDataPaths.WakeWordRecognitionLog,
+                $"{DateTimeOffset.Now:O} | {phrase} | {(isFinal ? "final" : "partial")} | " +
+                $"{match.Kind} | {match.NormalizedText} | {match.Detail}{Environment.NewLine}");
+        }
+        catch
+        {
+            // El diagnóstico nunca debe interrumpir la escucha.
+        }
+    }
 
     private static string ReadRecognizedText(string? json, string propertyName)
     {

@@ -46,7 +46,7 @@ public sealed class ShellPreferencesTests
         preferences.Normalize();
 
         Assert.Equal(700, preferences.Width);
-        Assert.Equal(12, preferences.SchemaVersion);
+        Assert.Equal(16, preferences.SchemaVersion);
     }
 
 
@@ -60,7 +60,7 @@ public sealed class ShellPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal("#8B6CFF", preferences.AccentColor);
+        Assert.Equal("#E98AAF", preferences.AccentColor);
     }
 
     [Fact]
@@ -104,5 +104,43 @@ public void Normalize_ClampsConversationMessageLimit()
     Assert.True(preferences.SaveConversationHistory);
     Assert.Equal(30, preferences.RecentConversationMessageLimit);
     }
+    [Fact]
+    public void Normalize_EnablesResourceProtectionForLegacySettings()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 12,
+            ResourceGovernorEnabled = false,
+            PauseWakeWordInGameMode = false,
+            ProtectVisionWhenBusy = false
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.True(preferences.ResourceGovernorEnabled);
+        Assert.True(preferences.PauseWakeWordInGameMode);
+        Assert.True(preferences.ProtectVisionWhenBusy);
+    }
+
+    [Fact]
+    public void Normalize_AddsShellAndWakeWordReliabilityDefaults()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 14,
+            SideRailExpanded = true,
+            WakeWordSensitivity = (Nexo.Core.Voice.WakeWordSensitivity)99
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.False(preferences.SideRailExpanded);
+        Assert.Equal(
+            Nexo.Core.Voice.WakeWordSensitivity.Balanced,
+            preferences.WakeWordSensitivity);
+    }
+
 }
 

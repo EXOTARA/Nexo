@@ -1,26 +1,15 @@
-# Aplicar Sprint 10
+# Aplicar Kohana 0.9.5-beta
 
-Copia únicamente el contenido de la carpeta `patch` sobre la raíz de
-`C:\Dev\Nexo` y acepta combinar/reemplazar archivos.
+1. Cierra Kohana desde la bandeja.
+2. Extrae el ZIP sobre `C:\Dev\Nexo` conservando `.git`.
+3. Limpia `bin` y `obj`.
+4. Ejecuta `dotnet restore`, `dotnet test` y `dotnet build` en Release.
+5. Abre `src\Nexo.App\bin\Release\net10.0-windows\Kohana.exe`.
 
-Antes de compilar, sal completamente de Nexo desde la bandeja.
+## Pruebas prioritarias
 
-```powershell
-cd C:\Dev\Nexo
-dotnet restore .\Nexo.slnx
-dotnet build .\Nexo.slnx
-dotnet test .\Nexo.slnx
-```
-
-Para crear la edición portable:
-
-```powershell
-.\scripts\publish.ps1 -Version "0.9.0-beta"
-.\scripts\verify-release.ps1
-```
-
-Para el instalador, instala Inno Setup 6 y ejecuta:
-
-```powershell
-.\scripts\build-installer.ps1 -Version "0.9.0-beta"
-```
+- Expandir y contraer la barra lateral varias veces; no debe quedar espacio residual.
+- Confirmar que el botón del menú y Ctrl + Espacio tienen símbolos distintos.
+- Probar “Ey Kohana” en sensibilidad Equilibrada y Alta.
+- Usar el botón **Probar frase**: debe confirmar la detección sin iniciar una orden.
+- Reiniciar Kohana y comprobar que conserva el estado de la barra lateral y la sensibilidad.

@@ -5,7 +5,7 @@ namespace Nexo.Core.Ai;
 public static class VisionDiagnosticPromptBuilder
 {
     public const string ExtractionInstructions =
-        "Eres el extractor visual técnico de Nexo. " +
+        "Eres el extractor visual técnico de Kohana. " +
         "Lee únicamente lo que realmente sea visible en la captura. " +
         "No expliques todavía la solución y no inventes código, archivos, líneas ni mensajes. " +
         "Devuelve solamente el objeto JSON solicitado. " +
@@ -29,7 +29,7 @@ public static class VisionDiagnosticPromptBuilder
     {
         var normalized = evidence.Normalize();
         var builder = new StringBuilder();
-        builder.AppendLine("Estás en el modo de diagnóstico visual técnico de Nexo.");
+        builder.AppendLine("Estás en el modo de diagnóstico visual técnico de Kohana.");
         builder.AppendLine("Debes dar una respuesta accionable basada en la captura y en la evidencia estructurada.");
         builder.AppendLine();
         builder.AppendLine("Evidencia extraída:");
@@ -65,10 +65,10 @@ public static class VisionDiagnosticPromptBuilder
         var normalized = evidence.Normalize();
         if (!normalized.ErrorVisible)
         {
-            return "Nexo detectó: no hay un error legible en la captura.";
+            return "Kohana detectó: no hay un error legible en la captura.";
         }
 
-        return $"Nexo detectó: {normalized.BuildCompactSummary()}";
+        return $"Kohana detectó: {normalized.BuildCompactSummary()}";
     }
 
     private static string ValueOrUnknown(string value) =>

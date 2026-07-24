@@ -1,5 +1,7 @@
 using Nexo.Core.Ai;
+using Nexo.Core.Voice;
 using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
+using WakeSensitivity = Nexo.Core.Voice.WakeWordSensitivity;
 
 namespace Nexo.Core.Settings;
 
@@ -18,9 +20,11 @@ public sealed class ShellPreferences
 
     public double Opacity { get; set; } = 0.96;
 
-    public string AccentColor { get; set; } = "#8B6CFF";
+    public string AccentColor { get; set; } = "#E98AAF";
 
     public bool AnimationsEnabled { get; set; } = true;
+
+    public bool SideRailExpanded { get; set; }
 
     public bool ShowAudioModule { get; set; } = true;
 
@@ -50,7 +54,11 @@ public sealed class ShellPreferences
 
     public bool WakeWordEnabled { get; set; }
 
-    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.Nexo;
+    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.OyeKohana;
+
+    public WakeSensitivity WakeWordSensitivity { get; set; } = WakeSensitivity.Balanced;
+
+    public List<string> WakeWordAliases { get; set; } = [];
 
     public AiProviderKind AiProvider { get; set; } = AiProviderKind.Disabled;
 
@@ -73,6 +81,12 @@ public sealed class ShellPreferences
     public bool PlayNotificationSounds { get; set; } = true;
 
     public bool HasCompletedOnboarding { get; set; }
+
+    public bool ResourceGovernorEnabled { get; set; } = true;
+
+    public bool PauseWakeWordInGameMode { get; set; } = true;
+
+    public bool ProtectVisionWhenBusy { get; set; } = true;
 
     public void Normalize()
     {
@@ -98,7 +112,7 @@ public sealed class ShellPreferences
         if (SchemaVersion < 5)
         {
             WakeWordEnabled = false;
-            WakeWordPhrase = WakePhrase.Nexo;
+            WakeWordPhrase = WakePhrase.OyeKohana;
             SchemaVersion = 5;
         }
 
@@ -151,6 +165,46 @@ public sealed class ShellPreferences
             SchemaVersion = 12;
         }
 
+        if (SchemaVersion < 13)
+        {
+            ResourceGovernorEnabled = true;
+            PauseWakeWordInGameMode = true;
+            ProtectVisionWhenBusy = true;
+            SchemaVersion = 13;
+        }
+
+        if (SchemaVersion < 14)
+        {
+            // La etapa Kohana conserva compatibilidad con archivos antiguos,
+            // pero recomienda una frase más distintiva para reducir activaciones accidentales.
+            if (WakeWordPhrase.IsLegacy())
+            {
+                WakeWordPhrase = WakePhrase.OyeKohana;
+            }
+
+            if (string.Equals(AccentColor, "#8B6CFF", StringComparison.OrdinalIgnoreCase))
+            {
+                AccentColor = "#E98AAF";
+            }
+
+            SchemaVersion = 14;
+        }
+
+        if (SchemaVersion < 15)
+        {
+            SideRailExpanded = false;
+            WakeWordSensitivity = WakeSensitivity.Balanced;
+            SchemaVersion = 15;
+        }
+
+        if (SchemaVersion < 16)
+        {
+            // Los archivos antiguos pueden no incluir esta propiedad, pero una
+            // actualización no debe borrar aliases que ya estén presentes.
+            WakeWordAliases ??= [];
+            SchemaVersion = 16;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -160,8 +214,15 @@ public sealed class ShellPreferences
 
         if (!Enum.IsDefined(WakeWordPhrase))
         {
-            WakeWordPhrase = WakePhrase.Nexo;
+            WakeWordPhrase = WakePhrase.OyeKohana;
         }
+
+        if (!Enum.IsDefined(WakeWordSensitivity))
+        {
+            WakeWordSensitivity = WakeSensitivity.Balanced;
+        }
+
+        WakeWordAliases = WakeWordAliasPolicy.NormalizeMany(WakeWordAliases);
 
         if (!Enum.IsDefined(AiProvider))
         {
@@ -190,7 +251,7 @@ public sealed class ShellPreferences
 
         if (string.IsNullOrWhiteSpace(AccentColor))
         {
-            AccentColor = "#8B6CFF";
+            AccentColor = "#E98AAF";
         }
     }
 }

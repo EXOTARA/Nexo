@@ -54,7 +54,7 @@ public sealed class ManagedOllamaSupervisor : IDisposable
                 OllamaRuntimeState.Unavailable,
                 OllamaRuntimeEndpoints.ManagedBaseUrl,
                 null,
-                "La IA administrada por Nexo no está configurada.");
+                "La IA administrada por Kohana no está configurada.");
         }
 
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(

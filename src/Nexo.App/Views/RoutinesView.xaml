@@ -34,7 +34,7 @@
                 <TextBlock Text="Motor seguro"
                            FontWeight="SemiBold" />
                 <TextBlock Margin="0,4,0,0"
-                           Text="Nexo solo ejecuta acciones de una lista permitida. Los pasos sensibles muestran una vista previa antes de comenzar."
+                           Text="Kohana solo ejecuta acciones de una lista permitida. Los pasos sensibles muestran una vista previa antes de comenzar."
                            TextWrapping="Wrap"
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>

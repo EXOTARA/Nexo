@@ -84,7 +84,7 @@
             <TextBlock Margin="0,20,0,9" Text="Integración con Windows" FontWeight="SemiBold" />
             <CheckBox x:Name="StartWithWindowsCheckBox"
                       Margin="0,0,0,8"
-                      Content="Iniciar Nexo con Windows"
+                      Content="Iniciar Kohana con Windows"
                       Checked="StartWithWindowsCheckBox_Changed"
                       Unchecked="StartWithWindowsCheckBox_Changed" />
             <TextBlock Margin="24,0,0,10"
@@ -107,7 +107,7 @@
                       Unchecked="NotificationSoundsCheckBox_Changed" />
             <TextBlock x:Name="WindowsIntegrationStatusText"
                        Margin="24,8,0,0"
-                       Text="Nexo seguirá activo mientras esté visible en la bandeja."
+                       Text="Kohana seguirá activa mientras esté visible en la bandeja."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
             <WrapPanel Margin="0,12,0,0">
@@ -146,7 +146,7 @@
                       Checked="SaveConversationHistoryCheckBox_Changed"
                       Unchecked="SaveConversationHistoryCheckBox_Changed" />
             <TextBlock Margin="24,6,0,0"
-                       Text="Desactivado por defecto: Nexo conserva solo los 8 mensajes más recientes durante la sesión y los elimina al cerrar."
+                       Text="Desactivado por defecto: Kohana conserva solo los 8 mensajes más recientes durante la sesión y los elimina al cerrar."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
@@ -205,7 +205,7 @@
                      Tag="ApiKeyVariable"
                      LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
             <TextBlock Margin="0,6,0,0"
-                       Text="Nexo guarda solo el nombre de la variable, nunca la clave. OpenAI usa OPENAI_API_KEY; los proveedores locales normalmente no requieren una."
+                       Text="Kohana guarda solo el nombre de la variable, nunca la clave. OpenAI usa OPENAI_API_KEY; los proveedores locales normalmente no requieren una."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
@@ -221,11 +221,11 @@
 
             <CheckBox x:Name="VisionEnabledCheckBox"
                       Margin="0,12,0,0"
-                      Content="Permitir capturas bajo demanda con Nexo Vision"
+                      Content="Permitir capturas bajo demanda con Kohana Vision"
                       Checked="VisionEnabledCheckBox_Changed"
                       Unchecked="VisionEnabledCheckBox_Changed" />
             <TextBlock Margin="24,6,0,0"
-                       Text="Nexo solo captura después de que eliges una ventana o monitor y confirmas la vista previa. La imagen no se guarda en el historial."
+                       Text="Kohana solo captura después de que eliges una ventana o monitor y confirmas la vista previa. La imagen no se guarda en el historial."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
@@ -262,13 +262,13 @@
                       SelectionChanged="VoiceInputDeviceComboBox_SelectionChanged" />
             <TextBlock x:Name="VoiceInputDeviceStatusText"
                        Margin="0,6,0,0"
-                       Text="Nexo usa el micrófono predeterminado de Windows."
+                       Text="Kohana usa el micrófono predeterminado de Windows."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
             <CheckBox x:Name="WakeWordEnabledCheckBox"
                       Margin="0,12,0,0"
-                      Content="Activar Nexo mediante una frase de voz (experimental)"
+                      Content="Activar Kohana mediante una frase de voz (experimental)"
                       Checked="WakeWordEnabledCheckBox_Changed"
                       Unchecked="WakeWordEnabledCheckBox_Changed" />
 
@@ -276,23 +276,93 @@
                 <TextBlock Margin="0,0,0,7"
                            Text="Frase de activación"
                            FontWeight="SemiBold" />
-                <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="WakeWordNexoRadioButton"
+                <WrapPanel>
+                    <RadioButton x:Name="WakeWordKohanaRadioButton"
                                  GroupName="WakeWordPhrase"
-                                 Content="Nexo"
-                                 Tag="Nexo"
+                                 Content="Kohana"
+                                 Tag="Kohana"
                                  Checked="WakeWordPhraseRadioButton_Checked" />
-                    <RadioButton x:Name="WakeWordOyeNexoRadioButton"
+                    <RadioButton x:Name="WakeWordOyeKohanaRadioButton"
                                  Margin="18,0,0,0"
                                  GroupName="WakeWordPhrase"
-                                 Content="Oye Nexo"
-                                 Tag="OyeNexo"
+                                 Content="Oye Kohana · recomendado"
+                                 Tag="OyeKohana"
                                  Checked="WakeWordPhraseRadioButton_Checked" />
+                    <RadioButton x:Name="WakeWordHeyKohanaRadioButton"
+                                 Margin="18,0,0,0"
+                                 GroupName="WakeWordPhrase"
+                                 Content="Ey / Hey Kohana"
+                                 Tag="HeyKohana"
+                                 Checked="WakeWordPhraseRadioButton_Checked" />
+                </WrapPanel>
+
+                <TextBlock Margin="0,14,0,6"
+                           Text="Sensibilidad"
+                           FontWeight="SemiBold" />
+                <ComboBox x:Name="WakeWordSensitivityComboBox"
+                          Width="220"
+                          HorizontalAlignment="Left"
+                          SelectionChanged="WakeWordSensitivityComboBox_SelectionChanged">
+                    <ComboBoxItem Content="Precisa · menos activaciones accidentales" Tag="Strict" />
+                    <ComboBoxItem Content="Equilibrada · recomendada" Tag="Balanced" />
+                    <ComboBoxItem Content="Alta · reconoce más variantes" Tag="High" />
+                </ComboBox>
+
+                <StackPanel Margin="0,12,0,0">
+                    <WrapPanel>
+                        <Button x:Name="WakeWordTestButton"
+                                Content="Probar frase"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="WakeWordTestButton_Click" />
+                        <Button x:Name="WakeWordUseObservedAliasButton"
+                                Margin="8,0,0,0"
+                                Content="Usar lo escuchado"
+                                IsEnabled="False"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="WakeWordUseObservedAliasButton_Click" />
+                        <Button x:Name="WakeWordClearAliasesButton"
+                                Margin="8,0,0,0"
+                                Content="Borrar aliases"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="WakeWordClearAliasesButton_Click" />
+                    </WrapPanel>
+                    <TextBlock x:Name="WakeWordTestStatusText"
+                               Margin="0,9,0,0"
+                               Text="Di la frase seleccionada cuando inicie la prueba."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="WakeWordAliasesText"
+                               Margin="0,5,0,0"
+                               Text="Aliases personales: ninguno"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
                 </StackPanel>
             </StackPanel>
 
             <TextBlock Margin="24,8,0,0"
-                       Text="La escucha se realiza localmente y es opcional. Mientras está activa, el modelo ligero de Vosk puede usar alrededor de 300 MB de RAM. Whisper solo se carga después de detectar la frase."
+                       Text="La escucha se realiza localmente. En español, Kohana suele reconocerse como ‘cojana’ o ‘kojana’. La prueba muestra exactamente qué entendió Vosk y permite guardar una variante personal. Whisper solo se carga después de detectar la frase."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <TextBlock Margin="0,20,0,9"
+                       Text="Rendimiento adaptativo"
+                       FontWeight="SemiBold" />
+            <CheckBox x:Name="ResourceGovernorEnabledCheckBox"
+                      Content="Adaptar Kohana al uso de CPU, GPU y pantalla completa"
+                      Checked="ResourceGovernorCheckBox_Changed"
+                      Unchecked="ResourceGovernorCheckBox_Changed" />
+            <CheckBox x:Name="PauseWakeWordInGameModeCheckBox"
+                      Margin="24,9,0,0"
+                      Content="Pausar la activación por voz en Modo Juego"
+                      Checked="ResourceGovernorCheckBox_Changed"
+                      Unchecked="ResourceGovernorCheckBox_Changed" />
+            <CheckBox x:Name="ProtectVisionWhenBusyCheckBox"
+                      Margin="24,9,0,0"
+                      Content="Pausar Mirar cuando el equipo esté ocupado"
+                      Checked="ResourceGovernorCheckBox_Changed"
+                      Unchecked="ResourceGovernorCheckBox_Changed" />
+            <TextBlock Margin="24,8,0,0"
+                       Text="Los comandos locales siempre permanecen disponibles. Kohana vuelve al modo normal automáticamente."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 

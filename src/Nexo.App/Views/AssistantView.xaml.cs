@@ -12,9 +12,6 @@ namespace Nexo.App.Views;
 
 public partial class AssistantView : UserControl
 {
-    private const string WelcomeText =
-        "Escribe una orden o consulta. Los comandos locales se ejecutan al instante; la IA entra solo cuando realmente hace falta.";
-
     private readonly List<ConversationMessage> _messages = [];
     private readonly StringBuilder _streamingBuffer = new();
     private Border? _streamingBubble;
@@ -90,7 +87,7 @@ public partial class AssistantView : UserControl
             VisionButton.IsEnabled = available;
             VisionButton.ToolTip = available
                 ? "Mirar la ventana activa · Ctrl + Shift + Espacio"
-                : "Nexo Vision está desactivado en Personalización";
+                : "Kohana Vision está desactivado en Personalización";
         }
     }
 
@@ -177,12 +174,13 @@ public partial class AssistantView : UserControl
             case AssistantVoiceState.Listening:
                 MicButton.IsEnabled = true;
                 MicButton.Background = (Brush)FindResource("BrushAccentSoft");
-                VoiceStatusText.Text = detail ?? "Escuchando… suelta el botón cuando termines.";
+                VoiceStatusText.Text = detail ?? "Escuchando… pulsa otra vez cuando termines.";
                 VoiceStatusText.Visibility = Visibility.Visible;
                 MicButton.ToolTip = VoiceStatusText.Text;
                 break;
 
             case AssistantVoiceState.Processing:
+                _voiceInputActive = false;
                 MicButton.IsEnabled = false;
                 VoiceStatusText.Text = detail ?? "Convirtiendo tu voz en una orden…";
                 VoiceStatusText.Visibility = Visibility.Visible;
@@ -190,6 +188,7 @@ public partial class AssistantView : UserControl
                 break;
 
             case AssistantVoiceState.Error:
+                _voiceInputActive = false;
                 MicButton.IsEnabled = _voiceAvailable;
                 MicButton.ClearValue(BackgroundProperty);
                 VoiceStatusText.Text = detail ?? "No pude usar el micrófono.";
@@ -198,33 +197,35 @@ public partial class AssistantView : UserControl
                 break;
 
             default:
+                _voiceInputActive = false;
                 MicButton.IsEnabled = _voiceAvailable;
                 MicButton.ClearValue(BackgroundProperty);
                 VoiceStatusText.Text = detail ??
-                    "Voz local lista. Mantén presionado el icono para hablar.";
+                    "Voz local lista. Pulsa el icono para hablar y vuelve a pulsarlo para terminar.";
                 VoiceStatusText.Visibility = Visibility.Collapsed;
                 MicButton.ToolTip = VoiceStatusText.Text;
                 break;
         }
     }
 
-    public void BeginNexoStreamingMessage(string placeholder = "Pensando…")
+    public void BeginKohanaStreamingMessage(string placeholder = "Pensando…")
     {
-        CancelNexoStreamingMessage();
+        CancelKohanaStreamingMessage();
 
+        ShowConversationSurface();
         _streamingBuffer.Clear();
         _streamingHasContent = false;
         _streamingBubble = CreateMessageBubble(
             placeholder,
             HorizontalAlignment.Left,
             (Brush)FindResource("BrushSurfaceRaised"));
-        _streamingTextBlock = _streamingBubble.Child as TextBlock;
+        _streamingTextBlock = FindMessageTextBlock(_streamingBubble);
 
         ConversationPanel.Children.Add(_streamingBubble);
         ScrollConversationToEnd();
     }
 
-    public void AppendNexoStreamingText(string text)
+    public void AppendKohanaStreamingText(string text)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -233,7 +234,7 @@ public partial class AssistantView : UserControl
 
         if (_streamingBubble is null || _streamingTextBlock is null)
         {
-            BeginNexoStreamingMessage();
+            BeginKohanaStreamingMessage();
         }
 
         if (!_streamingHasContent)
@@ -248,7 +249,7 @@ public partial class AssistantView : UserControl
         ScrollConversationToEnd();
     }
 
-    public string CompleteNexoStreamingMessage()
+    public string CompleteKohanaStreamingMessage()
     {
         var text = _streamingBuffer.ToString().Trim();
         ClearStreamingReferences(removeBubble: false);
@@ -269,9 +270,14 @@ public partial class AssistantView : UserControl
         return text;
     }
 
-    public void CancelNexoStreamingMessage()
+    public void CancelKohanaStreamingMessage()
     {
+        var hadStreamingBubble = _streamingBubble is not null;
         ClearStreamingReferences(removeBubble: true);
+        if (hadStreamingBubble && _messages.Count == 0)
+        {
+            RenderConversation();
+        }
     }
 
     public void AddUserMessage(string text)
@@ -282,7 +288,7 @@ public partial class AssistantView : UserControl
             DateTimeOffset.Now));
     }
 
-    public void AddNexoMessage(string text)
+    public void AddKohanaMessage(string text)
     {
         AddMessage(new ConversationMessage(
             ConversationRole.Assistant,
@@ -323,26 +329,30 @@ public partial class AssistantView : UserControl
         ClearStreamingReferences(removeBubble: false);
         ConversationPanel.Children.Clear();
 
-        if (_messages.Count == 0)
+        var hasMessages = _messages.Count > 0;
+        EmptyStatePanel.Visibility = hasMessages
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        ConversationScroll.Visibility = hasMessages
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        foreach (var message in _messages)
         {
+            var isUser = message.Role == ConversationRole.User;
             ConversationPanel.Children.Add(CreateMessageBubble(
-                WelcomeText,
-                HorizontalAlignment.Left,
-                (Brush)FindResource("BrushSurfaceRaised")));
-        }
-        else
-        {
-            foreach (var message in _messages)
-            {
-                var isUser = message.Role == ConversationRole.User;
-                ConversationPanel.Children.Add(CreateMessageBubble(
-                    message.Text,
-                    isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                    (Brush)FindResource(isUser ? "BrushAccentSoft" : "BrushSurfaceRaised")));
-            }
+                message.Text,
+                isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                (Brush)FindResource(isUser ? "BrushAccentSoft" : "BrushSurfaceRaised")));
         }
 
         ScrollConversationToEnd();
+    }
+
+    private void ShowConversationSurface()
+    {
+        EmptyStatePanel.Visibility = Visibility.Collapsed;
+        ConversationScroll.Visibility = Visibility.Visible;
     }
 
     private void ScrollConversationToEnd()
@@ -376,43 +386,15 @@ public partial class AssistantView : UserControl
         VisionAttachmentCleared?.Invoke(this, EventArgs.Empty);
     }
 
-    private void MicButton_PreviewMouseLeftButtonDown(
-        object sender,
-        MouseButtonEventArgs e)
+    private void MicButton_Click(object sender, RoutedEventArgs e)
     {
-        BeginVoiceInput();
-        e.Handled = true;
-    }
-
-    private void MicButton_PreviewMouseLeftButtonUp(
-        object sender,
-        MouseButtonEventArgs e)
-    {
-        EndVoiceInput();
-        e.Handled = true;
-    }
-
-    private void MicButton_LostMouseCapture(object sender, MouseEventArgs e)
-    {
-        EndVoiceInput();
-    }
-
-    private void MicButton_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Space)
-        {
-            BeginVoiceInput();
-            e.Handled = true;
-        }
-    }
-
-    private void MicButton_PreviewKeyUp(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Space)
+        if (_voiceInputActive)
         {
             EndVoiceInput();
-            e.Handled = true;
+            return;
         }
+
+        BeginVoiceInput();
     }
 
     private void BeginVoiceInput()
@@ -423,7 +405,6 @@ public partial class AssistantView : UserControl
         }
 
         _voiceInputActive = true;
-        MicButton.CaptureMouse();
         VoiceInputStarted?.Invoke(this, EventArgs.Empty);
     }
 
@@ -435,12 +416,29 @@ public partial class AssistantView : UserControl
         }
 
         _voiceInputActive = false;
-        if (MicButton.IsMouseCaptured)
+        VoiceInputStopped?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void QuickPromptButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string prompt } || string.IsNullOrWhiteSpace(prompt))
         {
-            MicButton.ReleaseMouseCapture();
+            return;
         }
 
-        VoiceInputStopped?.Invoke(this, EventArgs.Empty);
+        PromptBox.Text = prompt;
+        PromptBox.CaretIndex = PromptBox.Text.Length;
+        FocusPrompt();
+    }
+
+    private void PromptBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (PromptHintText is not null)
+        {
+            PromptHintText.Visibility = string.IsNullOrEmpty(PromptBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
     }
 
     private void PromptBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -459,7 +457,7 @@ public partial class AssistantView : UserControl
 
     private void ClearConversationButton_Click(object sender, RoutedEventArgs e)
     {
-        CancelNexoStreamingMessage();
+        CancelKohanaStreamingMessage();
         _messages.Clear();
         if (HasVisionAttachment)
         {
@@ -507,29 +505,62 @@ public partial class AssistantView : UserControl
         Brush background)
     {
         var isUser = alignment == HorizontalAlignment.Right;
+        var textBlock = new TextBlock
+        {
+            Text = text,
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 13,
+            LineHeight = 20,
+            Foreground = (Brush)Application.Current.FindResource("BrushTextPrimary")
+        };
+
         return new Border
         {
-            Margin = new Thickness(0, 8, 0, 0),
-            Padding = new Thickness(12, 10, 12, 10),
+            Margin = new Thickness(0, 7, 0, 0),
+            Padding = new Thickness(13, 11, 13, 11),
             CornerRadius = isUser
-                ? new CornerRadius(16, 16, 6, 16)
-                : new CornerRadius(16, 16, 16, 6),
+                ? new CornerRadius(17, 17, 6, 17)
+                : new CornerRadius(17, 17, 17, 6),
             Background = background,
             BorderBrush = (Brush)Application.Current.FindResource(
-                isUser ? "BrushAccent" : "BrushBorder"),
-            BorderThickness = new Thickness(isUser ? 0.5 : 0.7),
+                isUser ? "BrushAccentBorder" : "BrushBorder"),
+            BorderThickness = new Thickness(1),
             HorizontalAlignment = alignment,
-            MaxWidth = isUser ? 300 : 340,
-            Child = new TextBlock
-            {
-                Text = text,
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 13,
-                LineHeight = 20,
-                Foreground = (Brush)Application.Current.FindResource("BrushTextPrimary")
-            }
+            MaxWidth = isUser ? 370 : 430,
+            Child = textBlock
         };
     }
+
+    private static TextBlock? FindMessageTextBlock(DependencyObject root)
+    {
+        if (root is TextBlock textBlock)
+        {
+            return textBlock;
+        }
+
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var found = FindMessageTextBlock(VisualTreeHelper.GetChild(root, index));
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    // Compatibilidad temporal para extensiones que todavía usan los nombres internos anteriores.
+    public void BeginNexoStreamingMessage(string placeholder = "Pensando…") =>
+        BeginKohanaStreamingMessage(placeholder);
+
+    public void AppendNexoStreamingText(string text) => AppendKohanaStreamingText(text);
+
+    public string CompleteNexoStreamingMessage() => CompleteKohanaStreamingMessage();
+
+    public void CancelNexoStreamingMessage() => CancelKohanaStreamingMessage();
+
+    public void AddNexoMessage(string text) => AddKohanaMessage(text);
 }
 
 public enum AssistantVoiceState

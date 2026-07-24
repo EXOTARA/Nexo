@@ -11,6 +11,8 @@ public sealed class NaturalCommandParserTests
     [InlineData("muéstrame Peek", LocalCommandType.ShowPeek)]
     [InlineData("enseña Peek", LocalCommandType.ShowPeek)]
     [InlineData("muestra el Peek", LocalCommandType.ShowPeek)]
+    [InlineData("Kohana, cómo está mi PC", LocalCommandType.ShowSystemStatus)]
+    [InlineData("Oye Kohana, cómo está mi PC", LocalCommandType.ShowSystemStatus)]
     [InlineData("Nexo, cómo está mi PC", LocalCommandType.ShowSystemStatus)]
     [InlineData("cómo anda mi computadora", LocalCommandType.ShowSystemStatus)]
     [InlineData("abre PowerShell", LocalCommandType.OpenPowerShell)]
@@ -175,8 +177,8 @@ public sealed class NaturalCommandParserTests
     [Fact]
     public void Normalize_RemovesAccentsAndPunctuation()
     {
-        var normalized = NaturalCommandParser.Normalize("¡Nexo, cómo está mi PC?");
+        var normalized = NaturalCommandParser.Normalize("¡Kohana, cómo está mi PC?");
 
-        Assert.Equal("nexo como esta mi pc", normalized);
+        Assert.Equal("kohana como esta mi pc", normalized);
     }
 }

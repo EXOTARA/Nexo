@@ -147,7 +147,7 @@ public sealed class OllamaNativeChatService : IAiChatService, IDisposable
         catch (JsonException)
         {
             return AiChatResult.Failed(
-                "Ollama respondió con un formato que Nexo todavía no reconoce.");
+                "Ollama respondió con un formato que Kohana todavía no reconoce.");
         }
     }
 

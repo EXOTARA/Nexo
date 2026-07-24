@@ -157,7 +157,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
         catch (JsonException)
         {
             return AiChatResult.Failed(
-                "El proveedor respondió con un formato que Nexo todavía no reconoce.");
+                "El proveedor respondió con un formato que Kohana todavía no reconoce.");
         }
     }
 
@@ -335,7 +335,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
             var variable = string.IsNullOrWhiteSpace(configuration.ApiKeyEnvironmentVariable)
                 ? "OPENAI_API_KEY"
                 : configuration.ApiKeyEnvironmentVariable;
-            return $"No encontré la variable de entorno {variable}. Nexo no guarda claves dentro del proyecto.";
+            return $"No encontré la variable de entorno {variable}. Kohana no guarda claves dentro del proyecto.";
         }
 
         return null;

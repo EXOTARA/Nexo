@@ -22,12 +22,19 @@ public partial class SettingsView : UserControl
     public event Action<int>? VoiceInputDeviceChanged;
     public event Action<bool>? WakeWordEnabledChanged;
     public event Action<WakeWordPhrase>? WakeWordPhraseChanged;
+    public event Action<WakeWordSensitivity>? WakeWordSensitivityChanged;
+    public event EventHandler? WakeWordTestRequested;
+    public event EventHandler? WakeWordAliasFromLastRequested;
+    public event EventHandler? WakeWordAliasesClearRequested;
     public event Action<AiProviderKind>? AiProviderChanged;
     public event Action<string>? AiBaseUrlChanged;
     public event Action<string>? AiModelChanged;
     public event Action<string>? AiApiKeyEnvironmentVariableChanged;
     public event Action<bool>? ShareSystemMetricsWithAiChanged;
     public event Action<bool>? VisionEnabledChanged;
+    public event Action<bool>? ResourceGovernorEnabledChanged;
+    public event Action<bool>? PauseWakeWordInGameModeChanged;
+    public event Action<bool>? ProtectVisionWhenBusyChanged;
     public event Action<bool>? StartWithWindowsChanged;
     public event Action<bool>? MinimizeToTrayChanged;
     public event Action<bool>? WindowsNotificationsChanged;
@@ -64,14 +71,21 @@ public partial class SettingsView : UserControl
         SpeakVoiceResponsesCheckBox.IsChecked = preferences.SpeakVoiceResponses;
         VoiceInputDeviceComboBox.SelectedValue = preferences.VoiceInputDeviceNumber;
         WakeWordEnabledCheckBox.IsChecked = preferences.WakeWordEnabled;
-        WakeWordNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.Nexo;
-        WakeWordOyeNexoRadioButton.IsChecked = preferences.WakeWordPhrase == WakeWordPhrase.OyeNexo;
+        WakeWordKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.Kohana or WakeWordPhrase.Nexo;
+        WakeWordOyeKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeNexo;
+        WakeWordHeyKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
+        SelectWakeWordSensitivity(preferences.WakeWordSensitivity);
+        SetWakeWordAliases(preferences.WakeWordAliases);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
         AiApiKeyVariableTextBox.Text = preferences.AiApiKeyEnvironmentVariable;
         ShareSystemMetricsWithAiCheckBox.IsChecked = preferences.ShareSystemMetricsWithAi;
         VisionEnabledCheckBox.IsChecked = preferences.VisionEnabled;
+        ResourceGovernorEnabledCheckBox.IsChecked = preferences.ResourceGovernorEnabled;
+        PauseWakeWordInGameModeCheckBox.IsChecked = preferences.PauseWakeWordInGameMode;
+        ProtectVisionWhenBusyCheckBox.IsChecked = preferences.ProtectVisionWhenBusy;
+        UpdateResourceGovernorOptionsAvailability();
         StartWithWindowsCheckBox.IsChecked = preferences.StartWithWindows;
         MinimizeToTrayCheckBox.IsChecked = preferences.MinimizeToTray;
         WindowsNotificationsCheckBox.IsChecked = preferences.ShowWindowsNotifications;
@@ -188,6 +202,49 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private void ResourceGovernorCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (ResourceGovernorEnabledCheckBox is null)
+        {
+            return;
+        }
+
+        UpdateResourceGovernorOptionsAvailability();
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        if (sender == ResourceGovernorEnabledCheckBox)
+        {
+            ResourceGovernorEnabledChanged?.Invoke(
+                ResourceGovernorEnabledCheckBox.IsChecked == true);
+        }
+        else if (sender == PauseWakeWordInGameModeCheckBox)
+        {
+            PauseWakeWordInGameModeChanged?.Invoke(
+                PauseWakeWordInGameModeCheckBox.IsChecked == true);
+        }
+        else if (sender == ProtectVisionWhenBusyCheckBox)
+        {
+            ProtectVisionWhenBusyChanged?.Invoke(
+                ProtectVisionWhenBusyCheckBox.IsChecked == true);
+        }
+    }
+
+    private void UpdateResourceGovernorOptionsAvailability()
+    {
+        if (PauseWakeWordInGameModeCheckBox is null ||
+            ProtectVisionWhenBusyCheckBox is null)
+        {
+            return;
+        }
+
+        var enabled = ResourceGovernorEnabledCheckBox.IsChecked == true;
+        PauseWakeWordInGameModeCheckBox.IsEnabled = enabled;
+        ProtectVisionWhenBusyCheckBox.IsEnabled = enabled;
+    }
+
     private void SpeakVoiceResponsesCheckBox_Changed(object sender, RoutedEventArgs e)
     {
         if (!_isApplyingPreferences)
@@ -279,8 +336,8 @@ public partial class SettingsView : UserControl
         VoiceInputDeviceStatusText.Text = devices.Count switch
         {
             0 => "Windows no encontró micrófonos disponibles.",
-            1 => "Se encontró un micrófono. Nexo lo usará para Mic y la frase de activación.",
-            _ => "El micrófono elegido se usa tanto para Mic como para “Nexo”."
+            1 => "Se encontró un micrófono. Kohana lo usará para Mic y la frase de activación.",
+            _ => "El micrófono elegido se usa tanto para Mic como para “Oye Kohana”."
         };
         _isApplyingPreferences = false;
     }
@@ -471,22 +528,109 @@ public partial class SettingsView : UserControl
             return;
         }
 
-        var value = phrase.Equals("OyeNexo", StringComparison.OrdinalIgnoreCase)
-            ? WakeWordPhrase.OyeNexo
-            : WakeWordPhrase.Nexo;
+        var value = phrase.Equals("OyeKohana", StringComparison.OrdinalIgnoreCase)
+            ? WakeWordPhrase.OyeKohana
+            : phrase.Equals("HeyKohana", StringComparison.OrdinalIgnoreCase)
+                ? WakeWordPhrase.HeyKohana
+                : WakeWordPhrase.Kohana;
         WakeWordPhraseChanged?.Invoke(value);
+    }
+
+    private void WakeWordSensitivityComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isApplyingPreferences ||
+            WakeWordSensitivityComboBox.SelectedItem is not ComboBoxItem { Tag: string value } ||
+            !Enum.TryParse<WakeWordSensitivity>(value, ignoreCase: true, out var sensitivity))
+        {
+            return;
+        }
+
+        WakeWordSensitivityChanged?.Invoke(sensitivity);
+    }
+
+    private void WakeWordTestButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            WakeWordTestRequested?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public void SetWakeWordTestStatus(string detail, bool? isSuccess)
+    {
+        WakeWordTestStatusText.Text = detail;
+        WakeWordTestStatusText.Foreground = isSuccess switch
+        {
+            true => (System.Windows.Media.Brush)FindResource("BrushSuccess"),
+            false => (System.Windows.Media.Brush)FindResource("BrushWarning"),
+            _ => (System.Windows.Media.Brush)FindResource("BrushTextSecondary")
+        };
+    }
+
+    public void SetWakeWordObservation(WakeWordRecognitionObservedEventArgs observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        var state = observation.IsFinal ? "final" : "parcial";
+        SetWakeWordTestStatus(
+            $"Vosk ({state}) escuchó “{observation.RecognizedText}”. {observation.Match.Detail}",
+            observation.Match.IsMatch ? true : null);
+        WakeWordUseObservedAliasButton.IsEnabled =
+            !observation.Match.IsMatch &&
+            WakeWordAliasPolicy.TryNormalize(observation.RecognizedText, out _, out _);
+    }
+
+    public void SetWakeWordAliases(IReadOnlyCollection<string> aliases)
+    {
+        aliases ??= Array.Empty<string>();
+        WakeWordAliasesText.Text = aliases.Count == 0
+            ? "Aliases personales: ninguno"
+            : "Aliases personales: " + string.Join(", ", aliases.Select(alias => $"“{alias}”"));
+        WakeWordClearAliasesButton.IsEnabled = aliases.Count > 0;
+    }
+
+    public void ClearWakeWordObservation()
+    {
+        WakeWordUseObservedAliasButton.IsEnabled = false;
+    }
+
+    private void WakeWordUseObservedAliasButton_Click(object sender, RoutedEventArgs e) =>
+        WakeWordAliasFromLastRequested?.Invoke(this, EventArgs.Empty);
+
+    private void WakeWordClearAliasesButton_Click(object sender, RoutedEventArgs e) =>
+        WakeWordAliasesClearRequested?.Invoke(this, EventArgs.Empty);
+
+    private void SelectWakeWordSensitivity(WakeWordSensitivity sensitivity)
+    {
+        foreach (var item in WakeWordSensitivityComboBox.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag is string value &&
+                Enum.TryParse<WakeWordSensitivity>(value, ignoreCase: true, out var parsed) &&
+                parsed == sensitivity)
+            {
+                WakeWordSensitivityComboBox.SelectedItem = item;
+                return;
+            }
+        }
+
+        WakeWordSensitivityComboBox.SelectedIndex = 1;
     }
 
     private void UpdateWakeWordOptionsAvailability()
     {
-        if (WakeWordNexoRadioButton is null)
+        if (WakeWordKohanaRadioButton is null)
         {
             return;
         }
 
         var enabled = WakeWordEnabledCheckBox.IsChecked == true;
-        WakeWordNexoRadioButton.IsEnabled = enabled;
-        WakeWordOyeNexoRadioButton.IsEnabled = enabled;
+        WakeWordKohanaRadioButton.IsEnabled = enabled;
+        WakeWordOyeKohanaRadioButton.IsEnabled = enabled;
+        WakeWordHeyKohanaRadioButton.IsEnabled = enabled;
+        WakeWordSensitivityComboBox.IsEnabled = enabled;
+        WakeWordTestButton.IsEnabled = enabled;
+        WakeWordUseObservedAliasButton.IsEnabled = false;
+        WakeWordClearAliasesButton.IsEnabled = enabled &&
+            !WakeWordAliasesText.Text.EndsWith("ninguno", StringComparison.OrdinalIgnoreCase);
     }
 
     private void UpdatePeekOptionsAvailability()

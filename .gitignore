@@ -38,3 +38,5 @@ conversation.json
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+.nexo-patch-backup/

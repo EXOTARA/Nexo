@@ -44,7 +44,7 @@ public partial class VisionTargetPickerWindow : Window
             MessageBox.Show(
                 this,
                 "Selecciona una ventana o un monitor.",
-                "Nexo Vision",
+                "Kohana Vision",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
