@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3B3.1: hotfix de salida completa desde bandeja (proceso fantasma corregido)** |
+| **Fase actual** | **Fase 1.3C: consolidación final de la arquitectura extraída (turno nocturno, rama `nightshift/phase1-finalization`)** |
 | **Siguiente fase** | Fase 1, paso 1.4 (siguiente extracción según `STABLE_RELEASE_PLAN.md`) — **no iniciada** |
-| **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
+| **Rama** | `release/kohana-1.0-rc` (estable) · `nightshift/phase1-finalization` (turno nocturno, activa) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno; pendiente el smoke test manual de 1.3B3.1 |
+| **Bloqueador activo** | Ninguno; pendientes los smoke tests manuales de 1.3B3.1 y 1.3C |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -372,6 +372,7 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.3B2 runtime (2026-07-23) | **663** | **0** | **0** | Core 576 (sin cambios) + Windows 87. 3 invariantes obsoletas sustituidas por 8 nuevas que verifican el runtime real |
 | Fase 1.3B3 (2026-07-24) | **660** | **0** | **0** | Core 576 (sin cambios) + Windows 84. Ámbitos de exclusión, propiedad única y cierre. Windows repetida 5 veces sin intermitencia |
 | Fase 1.3B3.1 (2026-07-24) | **666** | **0** | **0** | Core 576 (sin cambios) + Windows 90. +6 invariantes de la ruta de salida. Windows repetida 5 veces sin intermitencia |
+| Fase 1.3C (2026-07-24) | **664** | **0** | **0** | Core 576 (sin cambios) + Windows 88. Consolidación: servicios obligatorios, docs sin fases, 2 pruebas obsoletas sustituidas + 1 invariante reforzada. Windows repetida 5 veces sin intermitencia. Rama `nightshift/phase1-finalization` |
 
 ---
 
@@ -1234,3 +1235,64 @@ y SHA-256 en `artifacts\Kohana-Fase-1.3B3.1-Exit-Hotfix-Informe.md`).
 elegir **Salir** desde la bandeja, `Kohana.exe` desaparece por completo, Alt + A deja de aplicar y un
 nuevo `Kohana.exe` abre con normalidad como instancia primaria; y que la X con "Minimizar a bandeja"
 sigue ocultando sin cerrar.
+
+---
+
+### Fase 1.3C — consolidación final de la arquitectura extraída (2026-07-24)
+
+Turno nocturno, rama `nightshift/phase1-finalization` (basada en `release/kohana-1.0-rc` = e5c2233
++ el hotfix 1.3B3.1 ya completado). Cierra el paso 3 del ADR 0001 consolidando la arquitectura
+lograda de 1.2 a 1.3B3.1 **sin añadir capacidades visibles**. Solo limpiezas respaldadas por
+evidencia.
+
+**Auditoría (evidencia).**
+- `VoiceCoordinator`: los 16 miembros públicos son consumidos por `MainWindow` (≥1 uso cada uno) →
+  **no hay API muerta**; el diseño de ámbitos de 1.3B3 ya era mínimo.
+- `KohanaCompositionRoot`: `Provider`, `VoiceInputService`, `VoiceOutputService`, `WakeWordService`
+  tienen **0 consumidores de producción**, pero **sí** consumidores de prueba
+  (`KohanaCompositionRootTests` verifica tipos concretos, singletons y "no un cuarto motor"). Por
+  tanto **no son API muerta**: se conservan públicos como superficie de verificación de composición
+  (la razón por la que el root vive en `Nexo.Windows`), y se documenta así.
+- `MainWindow`: los servicios `IAiChatService`/`IAudioMixerService`/`IScreenCaptureService` aún
+  tenían fallback `?? new ...()` (residual desde 1.2), mientras el coordinador de voz ya era
+  obligatorio desde 1.3B3 — inconsistencia de la composición.
+
+**Implementación (cambios respaldados).**
+1. **Servicios obligatorios en `MainWindow`.** Los tres fallbacks residuales `?? new ...()` se
+   sustituyen por `?? throw new ArgumentNullException(...)`, igual que el coordinador. `MainWindow`
+   ya **nunca** construye un motor; todos los servicios provienen de la raíz de composición única.
+   Se eliminan así las últimas dependencias de tipos concretos de servicio en `MainWindow`.
+2. **Pruebas obsoletas sustituidas.** `KohanaCompositionRootTests` tenía dos pruebas con premisa
+   **pre-1.3B3** ("el root NO libera los tres motores de voz"), hoy falsa (el root SÍ los libera).
+   Se sustituyen por `Dispose_ReleasesTheWholeVoiceSubsystemIdempotently`; el orden exacto de
+   liberación ya lo guarda estructuralmente `CompositionRoot_OwnsAndDisposesTheThreeVoiceServicesInOrder`.
+3. **Invariante reforzada.** `MainWindow_RequiresEveryInjectedService_WithoutBuildingAnyFallback`
+   exige que los cuatro servicios lancen si faltan y que no exista ningún `?? new` ni construcción
+   directa de motores.
+4. **Comentarios de fase eliminados.** Las 9 anotaciones "Fase 1.3Bx / Subfase / diseño final de la
+   fase …" en `MainWindow`, `App`, `VoiceCoordinator` y `KohanaCompositionRoot` se reescriben como
+   documentación atemporal del diseño final. XML-docs de `KohanaCompositionRoot` actualizados.
+5. **ADR 0001** cerrado con un addendum del estado final (salida completa + composición única +
+   frontera de acceso a la voz).
+
+**Invariantes preservados (verificados por pruebas):** composición única; `MainWindow` sin
+`IServiceProvider` ni Service Locator; `Nexo.Core` sin `PackageReference`; acceso a la voz solo por
+`VoiceCoordinator`; ownership y `Dispose` únicos en `KohanaCompositionRoot`; cierre idempotente y no
+bloqueante (1.3B3.1); ámbitos `IAsyncDisposable` intactos.
+
+**No se tocó:** UX, textos, motores, parámetros de Whisper/Vosk, Resource Governor, ni se inició
+hardware detection, memoria, OCR o skills.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll →  88 superadas, 0 con error, 0 omitidas
+Total: 664 pruebas, 0 fallidas, 0 warnings. Suite de Windows repetida 5 veces adicionales sin intermitencia.
+```
+
+**Smoke test manual pendiente.** La consolidación no cambia conducta observable; el smoke test manual
+(idéntico al de 1.3B3.1) sigue pendiente del usuario. Detalle completo en
+`artifacts\Kohana-Fase-1-Consolidation-Informe.md`.

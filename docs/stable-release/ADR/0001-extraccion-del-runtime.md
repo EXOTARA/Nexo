@@ -72,3 +72,23 @@ sincronización definitivo, que completa —sin contradecir— la decisión orig
 
 Sigue vigente el principio del ADR: cada paso compilable, con pruebas y sin cambiar conducta
 observable (verificado con smoke test manual en 1.3B2 y pendiente de repetir en 1.3B3).
+
+## Addendum — cierre de la Fase 1.3 (2026-07-24, hotfix 1.3B3.1 + consolidación 1.3C)
+
+Estado **final** de la extracción del runtime, tras corregir el cierre y consolidar la arquitectura:
+
+- **Salida completa (1.3B3.1):** la parada del runtime de IA administrado se hace de forma asíncrona
+  antes de `Application.Shutdown` (`MainWindow.RequestExitAsync`), no con sync-sobre-async en
+  `App.OnExit`. `App.OnExit` no bloquea y alcanza `SingleInstanceCoordinator.Dispose()`, que libera
+  el mutex; una nueva instancia puede convertirse en primaria. Sin `Environment.Exit`/`Process.Kill`/
+  `.Wait()`/`.Result`/`GetResult()`.
+- **Composición única (1.3C):** `KohanaCompositionRoot` es la única raíz de composición y el único
+  dueño/liberador del subsistema de voz. `MainWindow` recibe **todos** sus servicios por constructor
+  como dependencias **obligatorias** (lanza si faltan) y no construye ningún motor; no usa
+  `IServiceProvider` ni Service Locator. `Nexo.Core` permanece sin dependencias de infraestructura.
+- **Frontera de acceso:** la capa de aplicación accede a la voz **solo** a través de
+  `VoiceCoordinator`; los tres motores y el contenedor son detalle del composition root (expuestos
+  únicamente para verificación de composición en pruebas).
+
+El paso 3 queda **cerrado**. Los pasos 4–7 del plan (navegación, tareas/enfoque/rutinas, IA/Vision,
+vista mínima) siguen pendientes y no forman parte de esta consolidación.
