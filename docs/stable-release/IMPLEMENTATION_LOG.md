@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1 CERRADA (aprobada manualmente) + Design System Foundation 0.1 aprobado como infraestructura visual** |
-| **Siguiente fase** | Fase 2 — **no iniciada** (ver `STABLE_RELEASE_PLAN.md`) |
-| **Rama** | `release/kohana-1.0-rc` en `7b77116` (promovida por fast-forward desde `nightshift/phase1-finalization`) |
+| **Fase actual** | **Fase 2.1 — Hardware Capability Profile v1 implementada** en `phase2/hardware-capability-profile-v1`, pendiente de smoke test manual |
+| **Siguiente fase** | Fase 2.2 — Adaptive Engine Registry y modos Automático/Eco/Equilibrado/Máximo (tras aprobación manual de 2.1) |
+| **Rama** | `release/kohana-1.0-rc` en `a8685dd` intacta; trabajo de 2.1 vive en `phase2/hardware-capability-profile-v1` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno. Rediseño visual completo pendiente (la fundación es solo infraestructura) |
+| **Bloqueador activo** | Ninguno en código. Smoke test manual de Fase 2.1 pendiente del usuario antes de iniciar 2.2 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1342,3 +1342,98 @@ desde `nightshift/phase1-finalization`, quedando en `7b77116`.
 
 La rama `nightshift/phase1-finalization` se conserva (no se elimina). Este checkpoint solo actualiza
 la documentación; no cambia código de producción.
+
+---
+
+### Fase 2.1 — Hardware Capability Profile v1 (2026-07-24)
+
+Primer sprint de la Fase 2. Construye una representación confiable y transparente de la capacidad
+**estable** del equipo (CPU, RAM, GPU, batería, arquitectura), separada de las métricas **dinámicas**
+que ya existían (`SystemSnapshot`). No selecciona ni cambia motores todavía — esa decisión es de la
+Fase 2.2 (Adaptive Engine Registry).
+
+**Modelos nuevos (`Nexo.Core.Hardware`, sin `PackageReference`, sin WMI/Registry/WinAPI):**
+
+- `ProcessorCapability`, `MemoryCapability`, `GraphicsCapability` — datos crudos por categoría, cada
+  campo opcional para poder representar "desconocido" sin recurrir a `0`.
+- `HardwareCapabilitySnapshot` — captura completa: procesador, memoria, lista de GPUs + GPU
+  preferida, presencia de batería, edición/versión de Windows, fecha de captura, si vino de caché.
+- `HardwareCapabilityTier` (`Basic`, `Standard`, `Accelerated`, `HighPerformance`),
+  `HardwareDataConfidence` (`Unknown`, `Estimated`, `Known`), `HardwareCapabilityReason` (mensaje
+  legible en español).
+- `HardwareCapabilityProfile` — salida de la política: perfil, resumen, razones positivas,
+  limitaciones, datos desconocidos, confianza general; incluye el `Snapshot` completo para que la UI
+  muestre los datos crudos sin duplicar campos.
+- `IHardwareCapabilityService` — `GetCachedProfile()` (síncrono, sin E/S) y `RefreshAsync(CancellationToken)`
+  (única vía que vuelve a detectar).
+
+**Política de clasificación (`HardwareCapabilityPolicy`):** pura (`Evaluate(snapshot) → profile`), sin
+estado, con umbrales centralizados como `const`. Cada categoría (RAM, procesadores lógicos, GPU/VRAM)
+se traduce a un nivel 0–3 solo si el dato es conocido; el nivel final es
+`floor(promedio de los niveles conocidos)`. Un dato desconocido se **excluye** del promedio en vez de
+contar como `0`, así que RAM/GPU/núcleos físicos desconocidos nunca fuerzan `Basic` por sí solos. Con
+cero categorías conocidas, el resultado es `Standard` con confianza `Unknown` (nunca `Basic` por
+defecto). Umbrales: RAM 8/16/32 GiB, procesadores lógicos 5/9/17, VRAM dedicada 4/8 GiB.
+
+**Detección en Windows (`Nexo.Windows.Hardware`):** `WindowsHardwareCapabilityService` orquesta cinco
+fuentes inyectables (`IProcessorInfoSource`, `IMemoryInfoSource`, `IGraphicsInfoSource`,
+`IBatteryInfoSource`, `IWindowsVersionInfoSource`), cada una con su propia captura de excepciones, de
+modo que el fallo de una fuente nunca destruye el resto del snapshot. Fuentes reales:
+
+- CPU: registro `HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0` (nombre, fabricante) +
+  `Environment.ProcessorCount` (lógicos) + `GetLogicalProcessorInformationEx` por P/Invoke a
+  `kernel32.dll` (núcleos físicos, contando entradas `RelationProcessorCore`).
+- RAM: `GlobalMemoryStatusEx` (P/Invoke a `kernel32.dll`).
+- GPU: registro `HKLM\SYSTEM\CurrentControlSet\Control\Video\{GUID}\0000`
+  (`HardwareInformation.AdapterString`, `HardwareInformation.qwMemorySize` — VRAM dedicada real de 64
+  bits, no el campo legado de 32 bits limitado a ~4 GB). Se conservan todas las GPUs detectadas; la
+  preferida es la dedicada con más memoria conocida, documentado en `SelectPreferredGraphicsAdapter`.
+- Batería: `GetSystemPowerStatus` (P/Invoke a `kernel32.dll`, bit `BatteryFlag`).
+- Windows: registro `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` (`ProductName`,
+  `DisplayVersion`/`ReleaseId`, `CurrentBuildNumber`).
+
+**Ninguna dependencia nueva.** `Nexo.Core` sigue sin `PackageReference` (invariante verificado por
+prueba). `Nexo.Windows` no agregó ningún paquete: todo se resuelve con `Microsoft.Win32.Registry` y
+P/Invoke, ya disponibles en el TFM `net10.0-windows`.
+
+**Caché y refresco:** el snapshot se cachea en memoria; `GetCachedProfile()` nunca hace E/S.
+`RefreshAsync` corre en `Task.Run` y es cancelable — una cancelación no toca la caché existente. La
+detección corre una vez al iniciar `MainWindow` (sin bloquear el hilo de UI) y de nuevo bajo demanda
+desde el botón "Actualizar detección".
+
+**Composición:** `IHardwareCapabilityService` se registra como instancia única en
+`KohanaCompositionRoot` (mismo patrón que los otros seis servicios), se inyecta a `MainWindow` como
+dependencia obligatoria (`?? throw`), y no requiere `Dispose` (no se inventó ciclo de vida). Ningún
+`IServiceProvider` en `MainWindow`; `MainWindow` no construye el servicio.
+
+**Interfaz:** `SystemView` gana la sección "Capacidad del equipo" (nivel, CPU, núcleos físicos y
+lógicos, RAM, arquitectura, GPU preferida, memoria gráfica, batería, estado de completitud, razones,
+datos desconocidos, botón de refresco) usando solo recursos existentes del Design System.
+`DiagnosticsWindow` gana un bloque técnico con todas las GPUs detectadas, datos crudos, fecha de
+captura, origen (caché/detección reciente) y confianza — sin exponer trazas de excepción. No se
+añadieron controles de modos (Automático/Eco/Equilibrado/Máximo): eso es de la Fase 2.2.
+
+**Pruebas nuevas:** 27 en total — 16 en `HardwareCapabilityPolicyTests` (los cuatro niveles, RAM/GPU/VRAM/
+núcleos físicos desconocidos sin forzar `Basic`, límites exactos de umbral, razones deterministas,
+misma entrada → misma clasificación) y 11 en `WindowsHardwareCapabilityServiceTests` (detección
+completa, fallo aislado de CPU/GPU/batería, múltiples GPUs, caché, refresco, cancelación con caché
+intacta, fallo total de todas las fuentes sin excepción). Se extendieron
+`KohanaCompositionRootTests` y `CompositionInvariantTests` para cubrir el nuevo servicio singleton.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 592 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 108 superadas, 0 con error, 0 omitidas
+Total: 700 pruebas (671 previas + 27 nuevas de Fase 2.1 + 2 de composición extendidas), 0 fallidas, 0 warnings.
+```
+
+**No se tocó:** voz, bandeja, Alt + A, cierre, instancia única, apariencia del Design System, ni se
+seleccionó o cambió ningún motor.
+
+**Smoke test manual pendiente.** El sprint no debe darse por cerrado hasta que el usuario confirme
+manualmente que los datos mostrados en "Capacidad del equipo" corresponden a su equipo real. Detalle
+completo del build, pruebas repetidas y ZIP en
+`artifacts\Kohana-Fase-2.1-Hardware-Capability-Profile-Informe.md`.
