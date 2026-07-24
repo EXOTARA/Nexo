@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3C: consolidación final de la arquitectura extraída (turno nocturno, rama `nightshift/phase1-finalization`)** |
-| **Siguiente fase** | Fase 1, paso 1.4 (siguiente extracción según `STABLE_RELEASE_PLAN.md`) — **no iniciada** |
-| **Rama** | `release/kohana-1.0-rc` (estable) · `nightshift/phase1-finalization` (turno nocturno, activa) |
+| **Fase actual** | **Fase 1 CERRADA (aprobada manualmente) + Design System Foundation 0.1 aprobado como infraestructura visual** |
+| **Siguiente fase** | Fase 2 — **no iniciada** (ver `STABLE_RELEASE_PLAN.md`) |
+| **Rama** | `release/kohana-1.0-rc` en `7b77116` (promovida por fast-forward desde `nightshift/phase1-finalization`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno; pendientes los smoke tests manuales de 1.3B3.1 y 1.3C |
+| **Bloqueador activo** | Ninguno. Rediseño visual completo pendiente (la fundación es solo infraestructura) |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1296,3 +1296,49 @@ Total: 664 pruebas, 0 fallidas, 0 warnings. Suite de Windows repetida 5 veces ad
 **Smoke test manual pendiente.** La consolidación no cambia conducta observable; el smoke test manual
 (idéntico al de 1.3B3.1) sigue pendiente del usuario. Detalle completo en
 `artifacts\Kohana-Fase-1-Consolidation-Informe.md`.
+
+---
+
+### Checkpoint manual — Fase 1 y Design System Foundation aprobados (2026-07-24)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test completo sobre el portable de la fundación
+visual, cerrando así la Fase 1 y aceptando el Design System Foundation 0.1. Tras la aprobación,
+`release/kohana-1.0-rc` se promovió por **fast-forward** (sin merge commit, squash, rebase ni cherry-pick)
+desde `nightshift/phase1-finalization`, quedando en `7b77116`.
+
+| Campo | Valor |
+|---|---|
+| **ZIP probado** | `Kohana-0.9.5-beta-design-system-foundation-smoke-win-x64.zip` |
+| **SHA-256** | `E8A8E77077AE1133CD20B38F7DB54D6CC6D157573E13C33AFB9FE28AC7AD2E43` |
+| **Commit promovido** | `7b77116` (`docs: record Kohana design system foundation`) |
+| **Release antes → después** | `5d368ec` → `7b77116` (fast-forward) |
+| **Pruebas** | 671 (576 Core + 95 Windows), 0 fallidas, 0 warnings |
+
+**Validación manual registrada (todo aprobado):**
+
+- Arranque correcto.
+- Mic mediante clic correcto; Whisper correcto.
+- Wake word "Kohana" y "Oye Kohana" correctos; orden de corrido correcta.
+- TTS correcto; cambio y persistencia del micrófono correctos; sensibilidad y aliases correctos.
+- Modo Juego correcto.
+- **Hotfix de salida (1.3B3.1) aprobado:** "Salir" desde bandeja termina completamente `Kohana.exe`;
+  reapertura correcta como instancia primaria; instancia única correcta.
+- **Diferencia ocultar/salir aprobada:** la X con "Minimizar a bandeja" oculta; **Alt + A** vuelve a
+  mostrar Kohana; "Salir" cierra por completo.
+- **Cierre durante escucha** correcto.
+- **Apariencia revisada:** prácticamente idéntica; **ninguna regresión** funcional ni visual observada.
+
+**Estado formal:**
+
+- **Fase 1 (extracción del runtime, ADR 0001) formalmente CERRADA.** Sincronización, propiedad,
+  ciclo de vida y cierre del subsistema de voz consolidados; composición única; `MainWindow` sin
+  candados de voz, sin motores directos, sin `IServiceProvider`.
+- **Design System Foundation 0.1 APROBADO** como **infraestructura visual** (tokens semánticos,
+  agregador de tema, estilos base), preservando la apariencia actual.
+- **Rediseño visual completo TODAVÍA PENDIENTE:** la fundación no es un rediseño; el sprint visual
+  (migración de literales restantes, anillo de foco activo, modo claro/alto contraste, iconografía y
+  logo, motion aplicado, accesibilidad) sigue pendiente.
+- **Fase 2 TODAVÍA NO iniciada.**
+
+La rama `nightshift/phase1-finalization` se conserva (no se elimina). Este checkpoint solo actualiza
+la documentación; no cambia código de producción.
