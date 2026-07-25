@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 2.1 — Hardware Capability Profile v1 implementada** en `phase2/hardware-capability-profile-v1`, pendiente de smoke test manual |
-| **Siguiente fase** | Fase 2.2 — Adaptive Engine Registry y modos Automático/Eco/Equilibrado/Máximo (tras aprobación manual de 2.1) |
-| **Rama** | `release/kohana-1.0-rc` en `a8685dd` intacta; trabajo de 2.1 vive en `phase2/hardware-capability-profile-v1` |
+| **Fase actual** | **Fase 2.1 — Hardware Capability Profile v1 APROBADA (smoke test manual confirmado)**, promovida por fast-forward a `release/kohana-1.0-rc` |
+| **Siguiente fase** | Fase 2.2 — Adaptive Engine Registry y modos Automático/Eco/Equilibrado/Máximo — **todavía no iniciada** |
+| **Rama** | `release/kohana-1.0-rc` en `2f77e22` (promovida por fast-forward desde `phase2/hardware-capability-profile-v1`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno en código. Smoke test manual de Fase 2.1 pendiente del usuario antes de iniciar 2.2 |
+| **Bloqueador activo** | Ninguno |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1437,3 +1437,54 @@ seleccionó o cambió ningún motor.
 manualmente que los datos mostrados en "Capacidad del equipo" corresponden a su equipo real. Detalle
 completo del build, pruebas repetidas y ZIP en
 `artifacts\Kohana-Fase-2.1-Hardware-Capability-Profile-Informe.md`.
+
+---
+
+### Checkpoint manual — Fase 2.1 Hardware Capability Profile aprobado (2026-07-24)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del ZIP publicado de la Fase 2.1. Tras la
+aprobación, `release/kohana-1.0-rc` se promovió por **fast-forward** (sin merge commit, squash,
+rebase ni cherry-pick) desde `phase2/hardware-capability-profile-v1`, quedando en `2f77e22`.
+
+| Campo | Valor |
+|---|---|
+| **ZIP probado** | `Kohana-0.9.5-beta-phase2.1-hardware-profile-smoke-win-x64.zip` |
+| **SHA-256** | `9661543B3E4B5A4DED31CAF8C8A15A76D7BAE76376E4334B9609704028CF50E2` |
+| **Commit promovido** | `2f77e22` (`docs: record phase 2.1 hardware capability profile`) |
+| **Release antes → después** | `a8685dd` → `2f77e22` (fast-forward) |
+| **Pruebas** | 700 (592 Core + 108 Windows), 0 fallidas, 0 warnings |
+
+**Validación manual registrada (todo aprobado):**
+
+- Arranque correcto.
+- Nivel de capacidad detectado: **Acelerada**.
+- CPU mostrada correctamente.
+- Núcleos físicos correctos.
+- Procesadores lógicos correctos.
+- RAM total correcta.
+- GPU preferida correcta.
+- VRAM correcta.
+- Sin GPUs duplicadas o incorrectas en el listado.
+- "Actualizar detección" funcionó correctamente, con la interfaz fluida durante la actualización
+  (sin bloqueo).
+- Diagnóstico técnico revisado sin discrepancias reportadas.
+- Alt + A correcto.
+- Micrófono y Whisper correctos.
+- Wake word correcto.
+- TTS correcto.
+- Ocultar, salir y reabrir correctos.
+- Sin regresiones funcionales observadas.
+
+**Batería:** no reportada en esta validación manual — el usuario no confirmó explícitamente el
+estado mostrado para la línea de batería, por lo que no se registra un resultado (ni "presente" ni
+"no detectada") para este campo.
+
+**Estado formal:**
+
+- **Hardware Capability Profile v1 APROBADO.**
+- **Fase 2.2 (Adaptive Engine Registry) todavía NO iniciada.**
+- Ningún modo de rendimiento (Automático/Eco/Equilibrado/Máximo) implementado todavía.
+- Ninguna selección de motor se aplica todavía.
+
+La rama `phase2/hardware-capability-profile-v1` se conserva (no se elimina). Este checkpoint solo
+actualiza la documentación; no cambia código de producción, pruebas, proyectos ni recursos visuales.
