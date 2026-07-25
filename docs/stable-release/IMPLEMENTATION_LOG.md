@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 2.1 — Hardware Capability Profile v1 APROBADA (smoke test manual confirmado)**, promovida por fast-forward a `release/kohana-1.0-rc` |
-| **Siguiente fase** | Fase 2.2 — Adaptive Engine Registry y modos Automático/Eco/Equilibrado/Máximo — **todavía no iniciada** |
-| **Rama** | `release/kohana-1.0-rc` en `2f77e22` (promovida por fast-forward desde `phase2/hardware-capability-profile-v1`) |
+| **Fase actual** | **Fase 2.2 — Adaptive Engine Registry v1 implementada** en `phase2/adaptive-engine-registry-v1`, pendiente de smoke test manual |
+| **Siguiente fase** | Fase 2.3 (por definir) — **no iniciada**. Ningún motor se selecciona ni cambia todavía |
+| **Rama** | `release/kohana-1.0-rc` en `9ddb903` intacta; trabajo de 2.2 vive en `phase2/adaptive-engine-registry-v1` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno |
+| **Bloqueador activo** | Ninguno en código. Smoke test manual de Fase 2.2 pendiente del usuario |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1488,3 +1488,104 @@ estado mostrado para la línea de batería, por lo que no se registra un resulta
 
 La rama `phase2/hardware-capability-profile-v1` se conserva (no se elimina). Este checkpoint solo
 actualiza la documentación; no cambia código de producción, pruebas, proyectos ni recursos visuales.
+
+---
+
+### Fase 2.2 — Adaptive Engine Registry y modos de rendimiento v1 (2026-07-24)
+
+Segundo sprint de la Fase 2. Construye un registro que sabe qué motores de voz/IA existen
+realmente en el runtime de Kohana, qué tan disponibles/configurados/activos están, y qué
+recomendaría cada modo de rendimiento (Automático/Ahorro/Equilibrado/Máximo) cruzando esa
+información con el `HardwareCapabilityProfile` de la Fase 2.1. **No cambia ningún motor
+automáticamente.** Whisper, Vosk, SAPI y Ollama siguen exactamente igual que antes de este sprint;
+solo se agregó transparencia sobre lo que Kohana podría recomendar.
+
+**Motores reales encontrados y registrados** (`WindowsAdaptiveEngineRegistry`):
+
+- **Whisper** (`WhisperVoiceInputService`) — reconocimiento de voz, modelo `Base` fijo (hardcodeado
+  en el código, nunca configurable), siempre en CPU (el paquete `Whisper.net.Runtime` referenciado
+  no incluye soporte GPU — no se afirma uso de GPU).
+- **Vosk** (`VoskWakeWordService`) — palabra de activación, modelo pequeño en español fijo.
+- **SAPI de Windows** (`WindowsTextToSpeechService`) — síntesis de voz; no expone qué voz eligió ni
+  si está hablando en este instante, así que esos campos quedan `Unknown` en vez de inventarse.
+- **OpenAI, Ollama, LM Studio, compatible con OpenAI** — los cuatro proveedores reales que
+  `AiChatRouterService` enruta hoy (confirmado leyendo su `Resolve`, no asumido).
+
+**Motores explícitamente excluidos** (no existen en el runtime, no se registran aunque se
+mencionen en documentación futura): openWakeWord, Silero VAD, Kokoro, Piper, `Windows.Media.Ocr`,
+cualquier motor de visión distinto de la captura de pantalla existente. Verificado por `grep`
+sobre `src/` — cero referencias reales a ninguno de estos.
+
+**Modelo de dominio** (`Nexo.Core.AdaptiveEngine`, sin `PackageReference`, sin WMI/Registry/WinAPI):
+`HardwarePerformanceMode` (Automatic/Eco/Balanced/Maximum), `EngineCategory` (SpeechToText/
+WakeWord/TextToSpeech/LocalLanguageModel — sin categoría de Visión: no hay un motor visual
+diferenciable de la captura de pantalla), `EngineIdentifier` (value type, no strings sueltos como
+contrato), `EngineCostLevel` (Unknown/Low/Moderate/High — sin cifras exactas), `EngineRequirement`,
+`EngineDescriptor`, `EngineRuntimeState` (tres `bool?` independientes: disponible/configurado/
+activo — un motor puede ser disponible-pero-no-configurado, configurado-pero-inactivo, o
+activo-pero-no-recomendado, simultáneamente), `EngineCompatibility`, `EngineRecommendation`,
+`AdaptiveEnginePlan`, `AdaptiveEnginePolicy` (pura, `static`), `IAdaptiveEngineRegistry`.
+
+**Política:** `AdaptiveEnginePolicy.Evaluate(hardwareProfile, mode, descriptors, runtimeStates,
+evaluatedAt)` — pura, con la fecha como parámetro explícito (no `DateTimeOffset.Now` interno) para
+que el mismo input produzca exactamente el mismo plan. Cada motor se clasifica compatible/
+incompatible comparando su requisito mínimo contra un presupuesto de costo por tier (Basic→Low,
+Standard→Moderate, Accelerated/HighPerformance→High); un costo `Unknown` nunca bloquea
+compatibilidad. Entre los motores compatibles de una categoría, el modo elige: Ahorro → el de
+menor costo; Máximo → el de mayor costo (nunca uno incompatible); Equilibrado → el más cercano a
+un costo moderado; Automático → igual que Equilibrado si la confianza del hardware es `Known`, o
+igual que Ahorro (conservador) si es `Unknown` — así "dato desconocido" nunca se confunde con
+"máquina incapaz".
+
+**Persistencia:** `ShellPreferences.HardwarePerformanceMode` (default `Automatic`), esquema
+subido a v17 siguiendo el mismo patrón de migración versionada + `Enum.IsDefined` de
+`WakeWordSensitivity`/`AiProvider`. Un valor corrupto o de una versión futura cae a `Automatic` en
+vez de fallar. Cambiar el modo recalcula el plan y persiste de inmediato; no reinicia motores.
+
+**Composición:** `IAdaptiveEngineRegistry` es el octavo singleton de `KohanaCompositionRoot`,
+construido después de `VoiceCoordinator` (lee su estado ya expuesto — `IsVoiceInputReady`,
+`IsWakeWordReady`, etc. — sin modificar su comportamiento ni su ciclo de vida). Inyectado a
+`MainWindow` como dependencia obligatoria, sin `IServiceProvider`, sin construcción directa.
+
+**Interfaz:** `SettingsView` gana "Modo de rendimiento" (cuatro `RadioButton` accesibles, con
+`AutomationProperties.Name`, cada una con descripción breve) — con un título distinto a la sección
+preexistente "Rendimiento adaptativo" del Resource Governor (modo Normal/Ocupado/Juego, un
+concepto reactivo no relacionado, para no confundir ambos). `SystemView` gana "Plan adaptativo"
+debajo de "Capacidad del equipo": motor configurado/activo/recomendado por categoría, motivos,
+advertencias, y una etiqueta "Solo recomendación" siempre que el motor activo no coincida con el
+recomendado. `DiagnosticsWindow` gana un bloque técnico con todos los motores registrados, sus
+requisitos, disponibilidad, compatibilidad, estado y el timestamp/tier/modo del plan — sin exponer
+claves de API ni rutas privadas.
+
+**Pruebas nuevas:** 69 en total. 30 en `AdaptiveEnginePolicyTests` (los cuatro modos en los cuatro
+tiers, costo de motor desconocido sin bloquear compatibilidad, confianza baja/desconocida forzando
+conservadurismo, motor recomendado-pero-no-disponible, disponible-pero-incompatible, activo
+distinto del recomendado, configurado-pero-inactivo, categoría sin motores, orden y razones
+deterministas, misma entrada → mismo plan). 13 en `WindowsAdaptiveEngineRegistryTests` (Whisper/
+Vosk/SAPI registrados una vez, identificadores únicos, proveedores remotos no marcados locales,
+estado real desde `VoiceCoordinator`, Ollama configurado no implica activo). 11 invariantes
+estructurales de interfaz (`AdaptiveEngineUiInvariantTests`) verificando los cuatro modos visibles,
+nombres accesibles, la etiqueta "Solo recomendación", el bloque técnico de Diagnostics, y que
+ningún manejador de UI toque un motor de voz u Ollama directamente. Se extendieron los tests de
+composición para el octavo singleton. Migrar el esquema a v17 requirió actualizar 9 pruebas de
+caracterización que verificaban el número de esquema "totalmente migrado" anterior (16 → 17).
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 629 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 140 superadas, 0 con error, 0 omitidas
+Total: 769 pruebas (700 previas + 69 nuevas de Fase 2.2), 0 fallidas, 0 warnings.
+```
+
+**No se tocó:** VoiceCoordinator no cambió de comportamiento (solo se leyó su estado ya público),
+ningún motor se descargó, instaló o sustituyó, ningún parámetro de voz actual cambió, Voice Lab no
+se inició.
+
+**Smoke test manual pendiente.** El sprint no debe darse por cerrado hasta que el usuario confirme
+manualmente que los cuatro modos se muestran y seleccionan correctamente, que "Plan adaptativo"
+refleja el hardware y los motores reales del equipo, y que cambiar de modo nunca cambia de motor
+observable. Detalle completo en
+`artifacts\Kohana-Fase-2.2-Adaptive-Engine-Registry-Informe.md`.
