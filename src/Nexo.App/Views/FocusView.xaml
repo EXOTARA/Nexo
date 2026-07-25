@@ -14,8 +14,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel>
-                <TextBlock Text="Enfoque" Style="{StaticResource SectionTitleStyle}" />
+            <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Temporizadores y sesiones privadas en tu equipo."
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>

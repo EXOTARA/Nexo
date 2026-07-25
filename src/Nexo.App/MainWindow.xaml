@@ -25,83 +25,10 @@
 
     <Window.Resources>
 
-        <Style x:Key="SideRailIconStyle" TargetType="Path">
-            <Setter Property="Width" Value="21" />
-            <Setter Property="Height" Value="21" />
-            <Setter Property="Stretch" Value="Uniform" />
-            <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-            <Setter Property="StrokeThickness" Value="1.65" />
-            <Setter Property="StrokeStartLineCap" Value="Round" />
-            <Setter Property="StrokeEndLineCap" Value="Round" />
-            <Setter Property="StrokeLineJoin" Value="Round" />
-        </Style>
-
-        <Style x:Key="FilledSideRailIconStyle"
-               TargetType="Path"
-               BasedOn="{StaticResource SideRailIconStyle}">
-            <Setter Property="StrokeThickness" Value="0" />
-            <Setter Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-        </Style>
-
-        <Style x:Key="SideNavButtonStyle"
-               TargetType="Button"
-               BasedOn="{StaticResource NavButtonStyle}">
-            <Setter Property="Width" Value="52" />
-            <Setter Property="Height" Value="46" />
-            <Setter Property="MinWidth" Value="0" />
-            <Setter Property="Margin" Value="0,3" />
-            <Setter Property="Padding" Value="4,0" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="ToolTipService.InitialShowDelay" Value="260" />
-            <Setter Property="ToolTipService.ShowDuration" Value="3200" />
-            <Setter Property="ToolTipService.Placement" Value="Right" />
-        </Style>
-
-        <Style x:Key="SideRailToggleButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="52" />
-            <Setter Property="Height" Value="48" />
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="4,0" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Surface"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="Transparent"
-                                BorderThickness="1"
-                                CornerRadius="15">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Surface" Property="Background" Value="{DynamicResource BrushSurfaceHover}" />
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource BrushAccent}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Surface" Property="Opacity" Value="0.7" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <Style x:Key="HeaderCommandButtonStyle" TargetType="Button">
             <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
             <Setter Property="Background" Value="{DynamicResource BrushSurfaceRaised}" />
-            <Setter Property="BorderBrush" Value="#2EFFFFFF" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="12,9" />
             <Setter Property="Cursor" Value="Hand" />
@@ -123,7 +50,7 @@
                                 <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource BrushAccentBorder}" />
                             </Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource BrushAccent}" />
+                                <Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Surface" Property="Opacity" Value="0.72" />
@@ -138,62 +65,22 @@
     <Border x:Name="ShellBorder"
             Margin="16"
             Background="{DynamicResource BrushBackground}"
+            BorderBrush="{DynamicResource BrushBorder}"
             BorderThickness="1"
-            CornerRadius="30"
+            CornerRadius="28"
             Opacity="0"
             SnapsToDevicePixels="True">
-        <Border.BorderBrush>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#70FFFFFF" Offset="0" />
-                <GradientStop Color="#20FFFFFF" Offset="0.45" />
-                <GradientStop Color="#35C4889A" Offset="1" />
-            </LinearGradientBrush>
-        </Border.BorderBrush>
         <Border.Effect>
-            <DropShadowEffect BlurRadius="38"
-                              ShadowDepth="10"
-                              Opacity="0.45"
-                              Color="#000000" />
+            <DropShadowEffect BlurRadius="30"
+                              ShadowDepth="8"
+                              Opacity="0.4"
+                              Color="Black" />
         </Border.Effect>
         <Border.RenderTransform>
             <TranslateTransform x:Name="ShellTranslate" X="24" />
         </Border.RenderTransform>
 
         <Grid ClipToBounds="True">
-            <Border CornerRadius="29">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#24111528" Offset="0" />
-                        <GradientStop Color="#0D101820" Offset="0.52" />
-                        <GradientStop Color="#24151922" Offset="1" />
-                    </LinearGradientBrush>
-                </Border.Background>
-            </Border>
-
-            <Ellipse Width="280"
-                     Height="280"
-                     Margin="-120,-140,0,0"
-                     HorizontalAlignment="Left"
-                     VerticalAlignment="Top"
-                     Fill="#12C4889A"
-                     IsHitTestVisible="False">
-                <Ellipse.Effect>
-                    <BlurEffect Radius="65" />
-                </Ellipse.Effect>
-            </Ellipse>
-
-            <Ellipse Width="220"
-                     Height="220"
-                     Margin="0,0,-100,-120"
-                     HorizontalAlignment="Right"
-                     VerticalAlignment="Bottom"
-                     Fill="#1264D7A5"
-                     IsHitTestVisible="False">
-                <Ellipse.Effect>
-                    <BlurEffect Radius="70" />
-                </Ellipse.Effect>
-            </Ellipse>
-
             <Grid Margin="13">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -202,21 +89,21 @@
 
                 <Border x:Name="SideRailBorder"
                         Grid.Column="0"
-                        Width="68"
+                        Width="{DynamicResource SidebarWidthCollapsed}"
                         Margin="0"
                         Padding="7,10"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Stretch"
-                        Background="#F2161C27"
-                        BorderBrush="#38FFFFFF"
+                        Background="{DynamicResource BrushSidebarSurface}"
+                        BorderBrush="{DynamicResource BrushBorder}"
                         BorderThickness="1"
-                        CornerRadius="22"
+                        CornerRadius="{DynamicResource RadiusShell}"
                         ClipToBounds="True">
                     <Border.Effect>
-                        <DropShadowEffect BlurRadius="22"
-                                          ShadowDepth="5"
-                                          Opacity="0.28"
-                                          Color="#000000" />
+                        <DropShadowEffect BlurRadius="18"
+                                          ShadowDepth="4"
+                                          Opacity="0.25"
+                                          Color="Black" />
                     </Border.Effect>
 
                     <Grid x:Name="SideRailContentGrid" Width="52" HorizontalAlignment="Left">
@@ -227,8 +114,9 @@
                         </Grid.RowDefinitions>
 
                         <Button x:Name="SideRailToggleButton"
-                                Style="{StaticResource SideRailToggleButtonStyle}"
+                                Style="{StaticResource SakuraSidebarToggleStyle}"
                                 ToolTip="Expandir o contraer navegación"
+                                AutomationProperties.Name="Expandir o contraer navegación"
                                 Click="SideRailToggleButton_Click">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -238,14 +126,14 @@
                                 <Border Width="42"
                                         Height="42"
                                         HorizontalAlignment="Left"
-                                        Background="{DynamicResource BrushSurfaceRaised}"
-                                        BorderBrush="{DynamicResource BrushBorder}"
+                                        Background="{DynamicResource BrushAccentSoft}"
+                                        BorderBrush="{DynamicResource BrushAccentBorder}"
                                         BorderThickness="1"
                                         CornerRadius="14">
                                     <Grid Width="21" Height="21">
                                         <Path Data="{StaticResource IconSidebarPanel}"
-                                              Style="{StaticResource SideRailIconStyle}"
-                                              Stroke="{DynamicResource BrushTextPrimary}" />
+                                              Style="{StaticResource SakuraNavigationIconStyle}"
+                                              Stroke="{DynamicResource BrushAccent}" />
                                         <Path Data="M13.5,8 L17.5,12 L13.5,16"
                                               Width="7"
                                               Height="9"
@@ -276,8 +164,7 @@
                                                FontWeight="SemiBold" />
                                     <TextBlock Text="Tu Windows, en flor"
                                                Margin="0,2,0,0"
-                                               Foreground="{DynamicResource BrushTextTertiary}"
-                                               FontSize="11.5" />
+                                               Style="{StaticResource SakuraPageSubtitleStyle}" />
                                 </StackPanel>
                             </Grid>
                         </Button>
@@ -289,120 +176,144 @@
                             <Button x:Name="HomeNavButton"
                                     Tag="Home"
                                     ToolTip="Inicio"
+                                    AutomationProperties.Name="Inicio"
                                     Click="NavigationButton_Click"
-                                    Style="{StaticResource SideNavButtonStyle}">
+                                    Style="{StaticResource SakuraNavigationItemStyle}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="42" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaHome}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="HomeNavLabel" Text="Inicio" FontSize="14" Visibility="Collapsed" />
+                                    <Border x:Name="HomeNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                    <Path Grid.Column="1" x:Name="HomeNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaHome}" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="HomeNavLabel" Text="Inicio" FontSize="14" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
                             <Button x:Name="AssistantNavButton"
                                     Tag="Assistant"
                                     ToolTip="Asistente"
+                                    AutomationProperties.Name="Asistente"
                                     Click="NavigationButton_Click"
-                                    Style="{StaticResource SideNavButtonStyle}">
+                                    Style="{StaticResource SakuraNavigationItemStyle}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="42" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaAssistant}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AssistantNavLabel" Text="Chat" FontSize="14" Visibility="Collapsed" />
+                                    <Border x:Name="AssistantNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                    <Path Grid.Column="1" x:Name="AssistantNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaAssistant}" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AssistantNavLabel" Text="Chat" FontSize="14" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
                             <Button x:Name="TasksNavButton"
                                     Tag="Tasks"
                                     ToolTip="Pendientes de hoy"
+                                    AutomationProperties.Name="Pendientes de hoy"
                                     Click="NavigationButton_Click"
-                                    Style="{StaticResource SideNavButtonStyle}">
+                                    Style="{StaticResource SakuraNavigationItemStyle}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="42" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaTasks}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="TasksNavLabel" Text="Hoy" FontSize="14" Visibility="Collapsed" />
+                                    <Border x:Name="TasksNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                    <Path Grid.Column="1" x:Name="TasksNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaTasks}" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="TasksNavLabel" Text="Hoy" FontSize="14" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
                             <Button x:Name="FocusNavButton"
                                     Tag="Focus"
                                     ToolTip="Enfoque"
+                                    AutomationProperties.Name="Enfoque"
                                     Click="NavigationButton_Click"
-                                    Style="{StaticResource SideNavButtonStyle}">
+                                    Style="{StaticResource SakuraNavigationItemStyle}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="42" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaFocus}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="FocusNavLabel" Text="Enfoque" FontSize="14" Visibility="Collapsed" />
+                                    <Border x:Name="FocusNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                    <Path Grid.Column="1" x:Name="FocusNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaFocus}" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="FocusNavLabel" Text="Enfoque" FontSize="14" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
                             <Button x:Name="RoutinesNavButton"
                                     Tag="Routines"
                                     ToolTip="Rutinas"
+                                    AutomationProperties.Name="Rutinas"
                                     Click="NavigationButton_Click"
-                                    Style="{StaticResource SideNavButtonStyle}">
+                                    Style="{StaticResource SakuraNavigationItemStyle}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="42" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaRoutines}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="RoutinesNavLabel" Text="Rutinas" FontSize="14" Visibility="Collapsed" />
+                                    <Border x:Name="RoutinesNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                    <Path Grid.Column="1" x:Name="RoutinesNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaRoutines}" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="RoutinesNavLabel" Text="Rutinas" FontSize="14" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
                             <Button x:Name="AudioNavButton"
                                     Tag="Audio"
                                     ToolTip="Audio"
+                                    AutomationProperties.Name="Audio"
                                     Click="NavigationButton_Click"
-                                    Style="{StaticResource SideNavButtonStyle}">
+                                    Style="{StaticResource SakuraNavigationItemStyle}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="42" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaAudio}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AudioNavLabel" Text="Audio" FontSize="14" Visibility="Collapsed" />
+                                    <Border x:Name="AudioNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                    <Path Grid.Column="1" x:Name="AudioNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaAudio}" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AudioNavLabel" Text="Audio" FontSize="14" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
                             <Button x:Name="CaptureNavButton"
                                     Tag="Capture"
                                     ToolTip="Captura"
+                                    AutomationProperties.Name="Captura"
                                     Click="NavigationButton_Click"
-                                    Style="{StaticResource SideNavButtonStyle}">
+                                    Style="{StaticResource SakuraNavigationItemStyle}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="42" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaCapture}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="CaptureNavLabel" Text="Captura" FontSize="14" Visibility="Collapsed" />
+                                    <Border x:Name="CaptureNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                    <Path Grid.Column="1" x:Name="CaptureNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaCapture}" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="CaptureNavLabel" Text="Captura" FontSize="14" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
                             <Button x:Name="SystemNavButton"
                                     Tag="System"
                                     ToolTip="Sistema"
+                                    AutomationProperties.Name="Sistema"
                                     Click="NavigationButton_Click"
-                                    Style="{StaticResource SideNavButtonStyle}">
+                                    Style="{StaticResource SakuraNavigationItemStyle}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="4" />
+                                        <ColumnDefinition Width="42" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaSystem}" />
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SystemNavLabel" Text="Sistema" FontSize="14" Visibility="Collapsed" />
+                                    <Border x:Name="SystemNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                    <Path Grid.Column="1" x:Name="SystemNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaSystem}" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SystemNavLabel" Text="Sistema" FontSize="14" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
                         </StackPanel>
@@ -411,15 +322,18 @@
                                 x:Name="SettingsNavButton"
                                 Tag="Settings"
                                 ToolTip="Personalización y perfiles"
+                                AutomationProperties.Name="Personalización y perfiles"
                                 Click="SettingsButton_Click"
-                                Style="{StaticResource SideNavButtonStyle}">
+                                Style="{StaticResource SakuraNavigationItemStyle}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="46" />
+                                    <ColumnDefinition Width="4" />
+                                    <ColumnDefinition Width="42" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Path Style="{StaticResource SideRailIconStyle}" Data="{StaticResource IconKohanaSettings}" />
-                                <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SettingsNavLabel" Text="Personalizar" FontSize="14" Visibility="Collapsed" />
+                                <Border x:Name="SettingsNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
+                                <Path Grid.Column="1" x:Name="SettingsNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaSettings}" />
+                                <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SettingsNavLabel" Text="Personalizar" FontSize="14" Visibility="Collapsed" />
                             </Grid>
                         </Button>
                     </Grid>
@@ -443,9 +357,8 @@
                                            Text="Inicio"
                                            MaxWidth="360"
                                            TextTrimming="CharacterEllipsis"
-                                           FontSize="21"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center" />
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource SakuraPageTitleStyle}" />
                                 <Border x:Name="WakeWordIndicator"
                                         Margin="11,1,0,0"
                                         Padding="8,3"
@@ -472,7 +385,7 @@
                                         Padding="8,3"
                                         VerticalAlignment="Center"
                                         Background="{DynamicResource BrushSurfaceRaised}"
-                                        BorderBrush="#2AFFFFFF"
+                                        BorderBrush="{DynamicResource BrushBorder}"
                                         BorderThickness="1"
                                         CornerRadius="9"
                                         Visibility="Collapsed">
@@ -494,9 +407,8 @@
                             <TextBlock x:Name="WorkspaceSubtitleText"
                                        Margin="0,5,0,0"
                                        Text="Tu espacio de acciones y contexto"
-                                       Foreground="{DynamicResource BrushTextSecondary}"
-                                       FontSize="11.5"
-                                       TextTrimming="CharacterEllipsis" />
+                                       TextTrimming="CharacterEllipsis"
+                                       Style="{StaticResource SakuraPageSubtitleStyle}" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -505,14 +417,16 @@
                                     Margin="0,0,11,0"
                                     Background="{DynamicResource BrushSuccess}"
                                     CornerRadius="5"
-                                    ToolTip="Kohana está activa" />
+                                    ToolTip="Kohana está activa"
+                                    AutomationProperties.Name="Kohana está activa" />
                             <Button x:Name="CommandPaletteButton"
                                     Width="42"
                                     Height="42"
                                     Padding="0"
                                     Style="{StaticResource HeaderCommandButtonStyle}"
                                     Click="CommandPaletteButton_Click"
-                                    ToolTip="Abrir comandos · Ctrl + Espacio">
+                                    ToolTip="Abrir comandos · Ctrl + Espacio"
+                                    AutomationProperties.Name="Abrir paleta de comandos">
                                 <Grid Width="19" Height="19">
                                     <Path Data="{StaticResource IconCommandPalette}"
                                           Stretch="Uniform"
@@ -529,10 +443,7 @@
                     <Border Grid.Row="1"
                             Margin="5,0,5,5"
                             Padding="17"
-                            Background="#BC121923"
-                            BorderBrush="#2DFFFFFF"
-                            BorderThickness="1"
-                            CornerRadius="25">
+                            Style="{StaticResource SakuraShellCardStyle}">
                         <ContentControl x:Name="ModuleHost" />
                     </Border>
 

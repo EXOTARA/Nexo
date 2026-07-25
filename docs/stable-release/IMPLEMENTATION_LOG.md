@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 2.2 — Adaptive Engine Registry v1 APROBADA (smoke test manual confirmado)**, promovida por fast-forward a `release/kohana-1.0-rc` |
-| **Siguiente fase** | Sprint de diseño visual de Kohana — **no iniciado**. Selección automática real de motores todavía no implementada |
-| **Rama** | `release/kohana-1.0-rc` en `79bf2e0` (promovida por fast-forward desde `phase2/adaptive-engine-registry-v1`) |
+| **Fase actual** | **Diseño D1 + D1.1 — Sakura Shell v1 APROBADO (smoke test manual confirmado)**, listo para integrar en `release/kohana-1.0-rc` |
+| **Siguiente fase** | Diseño D2 — Sakura Command Center. Primer defecto asignado: iconos de navegación seleccionados pierden su silueta (ver "Defecto visual abierto" más abajo) |
+| **Rama** | `release/kohana-1.0-rc` en `d795f8f`; trabajo aprobado de D1+D1.1 en `design/sakura-shell-v1` (`6e50945`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
-| **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno |
+| **Última actualización** | 2026-07-25 |
+| **Bloqueador activo** | Ninguno. Defecto visual conocido de iconos seleccionados: **no bloqueante** (sin crash), asignado a D2 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1635,3 +1635,232 @@ rebase ni cherry-pick) desde `phase2/adaptive-engine-registry-v1`, quedando en `
 
 La rama `phase2/adaptive-engine-registry-v1` se conserva (no se elimina). Este checkpoint solo
 actualiza la documentación; no cambia código de producción ni pruebas.
+
+---
+
+### Diseño D1 — Sakura Shell, navegación y lenguaje visual (2026-07-25)
+
+Primer sprint que produce un cambio visual evidente en Kohana. Hasta ahora la apariencia se había
+preservado deliberadamente (Design System Foundation 0.1 era solo infraestructura de tokens). Este
+sprint rediseña el marco principal — barra lateral, marca, navegación, encabezado, superficie de
+contenido, estados y transiciones — sin tocar el contenido profundo de cada pantalla ni ninguna
+función (voz, IA, modos de rendimiento, hardware, persistencia, hotkeys, bandeja, instancia única).
+
+**Dirección visual — "Sakura Nocturna":** grafito oscuro, superficies elevadas, acento Sakura
+apagado usado solo donde comunica algo (nunca como fondo dominante), geometría sobria y coherente,
+nada de efectos pesados ni pétalos decorativos sin función.
+
+**Cambios visibles principales:**
+
+- Se eliminaron las dos elipses decorativas con `BlurEffect` y el degradado interno redundante del
+  `ShellBorder` — ninguna comunicaba estado, ambas costaban composición GPU. El borde del shell
+  pasó de un degradado de tres colores a un borde sólido semántico con sombra sutil.
+- `MainWindow.xaml` terminó el sprint sin ningún color hexadecimal literal (verificado por
+  prueba): todos migraron a `DynamicResource` sobre tokens existentes o un único token nuevo
+  (`BrushSidebarSurface`, para diferenciar el fondo de la barra lateral del de la tarjeta de
+  contenido).
+- El estado de sección activa ahora se comunica con cuatro señales, no solo color: superficie
+  elevada, indicador vertical tipo "tallo", ícono relleno en vez de solo trazo, y etiqueta con más
+  peso de fuente.
+- El foco de teclado usa el token semántico `BrushFocusRing` (existía desde la Fundación 0.1, sin
+  consumidores hasta ahora) en vez de reutilizar `BrushAccent`.
+- Las transiciones existentes (cambio de sección, expandir/contraer barra lateral) ahora usan
+  tokens de movimiento (`MotionFast`/`MotionBase`/`MotionEaseOut`) en vez de literales, y respetan
+  `SystemParameters.ClientAreaAnimation` además de la preferencia propia de Kohana.
+- Se quitó el título de página duplicado que ocho de las nueve vistas renderizaban internamente
+  (TasksView, FocusView, RoutinesView, AudioView, CaptureView, SystemView, SettingsView,
+  AssistantView), ahora que el encabezado centralizado del shell es la única fuente del título.
+  Subtítulos, estados dinámicos y botones de acción de cada vista quedaron intactos.
+
+**Navegación:** las nueve entradas y su orden funcional no cambiaron (verificado por prueba contra
+`ShellNavigationPolicy.KnownDestinations`); tampoco cambiaron rutas, comandos ni nombres
+funcionales. Solo se rediseñaron los estilos visuales, ahora reutilizables en
+`Themes/Controls.xaml` (`SakuraNavigationItemStyle`, `SakuraNavigationIconStyle`/
+`SakuraNavigationIconFilledStyle`, `SakuraSidebarToggleStyle`) en vez de vivir localmente dentro de
+`MainWindow.xaml`.
+
+**Recursos nuevos:** `ColorSidebarSurface`/`BrushSidebarSurface` (Colors.xaml); `RadiusShell`,
+`SidebarWidthCollapsed/Expanded`, `SidebarButtonWidthCollapsed/Expanded`, `NavigationIconSize`,
+`NavigationIndicatorWidth` (Spacing.xaml); `SakuraNavigationIconStyle`,
+`SakuraNavigationIconFilledStyle`, `SakuraNavigationItemStyle`, `SakuraSidebarToggleStyle`,
+`SakuraPageTitleStyle`, `SakuraPageSubtitleStyle`, `SakuraShellCardStyle` (Controls.xaml). Ningún
+diccionario de tema nuevo — todo se agregó a los 8 archivos existentes, así que
+`DesignSystemResourceTests` (merge order, unicidad de claves, referencias válidas) sigue
+cubriéndolos sin modificar esa prueba.
+
+**No rediseñado en este sprint:** contenido interno de las 8 vistas (solo se quitó el título
+duplicado), el símbolo floral completo (`KohanaFlowerMarkStyle`, ya existía, sigue sin usarse),
+iconografía floral distintiva por módulo, modo claro/alto contraste, arrastre de ventana, icono de
+instalador. Detalle completo, principios y plan de D2 en `docs/design/SAKURA_SHELL_V1.md`.
+
+**Pruebas nuevas:** 24 en `SakuraShellStructureTests` — tokens/estilos nuevos existen, cero colores
+hexadecimales literales en `MainWindow.xaml`, las nueve entradas de navegación y su orden funcional
+se preservan, cada control de navegación tiene nombre accesible y tooltip, el estado activo cambia
+más que solo color, el foco es visible vía `BrushFocusRing`, las animaciones del shell consultan
+`SystemParameters.ClientAreaAnimation` y nunca exceden 300 ms ni usan `RepeatBehavior`, el mecanismo
+de `ContentControl` de navegación sigue intacto, ningún método visual construye un servicio de
+producción, y `VoiceCoordinator`/`AdaptiveEnginePolicy`/la ausencia de `PackageReference` en
+`Nexo.Core`/la ausencia de `IServiceProvider` en `MainWindow` permanecen sin tocar.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 629 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 164 superadas, 0 con error, 0 omitidas
+Total: 793 pruebas (769 previas + 24 nuevas de Diseño D1), 0 fallidas, 0 warnings.
+```
+
+**Limitación del smoke test automatizado:** al momento de esta validación seguía activa la sesión
+de smoke test manual de Fase 2.2 del usuario (`Kohana.exe` corriendo desde
+`artifacts\Kohana-0.9.5-beta-phase2.2-...\`). El mutex de instancia única de Kohana es de ámbito de
+sesión, no de ruta de ejecutable, así que cualquier lanzamiento de prueba durante ese período habría
+señalizado esa instancia y terminado de inmediato sin cargar el build nuevo. No se interrumpió esa
+sesión; la validación automatizada de este sprint se apoya en el build limpio y la suite completa en
+verde como señal de confianza, con el smoke test visual interactivo pendiente del usuario, como
+exige explícitamente este sprint (no se afirma aprobación estética).
+
+**Revisión visual humana pendiente.** Este sprint no debe darse por cerrado hasta que el usuario
+revise visualmente el resultado. Detalle completo, capturas (si existen) y pasos sugeridos en
+`artifacts\Kohana-Design-D1-Sakura-Shell-Informe.md`.
+
+## Diseño D1.1 — Hotfix de crash al navegar
+
+**Motivo:** el usuario probó el ZIP de Diseño D1
+(`Kohana-0.9.5-beta-design-d1-sakura-shell-smoke-win-x64.zip`) y reportó un bloqueo total: Kohana
+arranca bien en Inicio, pero se cierra de inmediato al seleccionar cualquiera de las otras ocho
+secciones. Diseño D1 quedó NO aprobado por este defecto.
+
+**Causa raíz (confirmada por evidencia, no por suposición):** el registro de eventos de Windows
+provisto por el usuario (`artifacts\Kohana-D1-Navigation-Crash-EventLog.txt`, entrada ".NET
+Runtime" Id 1026) contiene el stack trace administrado completo: un
+`System.Windows.Markup.XamlParseException` — "No se puede encontrar el recurso con el nombre
+'ColorAccentBorder'" — lanzado desde `Border.ArrangeOverride` durante el primer layout de un
+control recién insertado. `BrushFocusRing` (junto con `BrushTextMuted` y `BrushError`, con el mismo
+patrón) vivía en `Themes/Brushes.xaml` referenciando por `StaticResource` una clave `Color*`
+definida en `Themes/Colors.xaml`, un archivo distinto — una referencia cruzada entre diccionarios
+que WPF solo resuelve de forma fiable cuando ambas claves están en el mismo archivo. Antes de
+Diseño D1 nada consumía `BrushFocusRing`, así que el fallo quedó latente; el primer consumidor real
+fue el disparador `IsKeyboardFocused` de `SakuraNavigationItemStyle`/`SakuraSidebarToggleStyle`
+introducido en D1, que lo expuso en cuanto el usuario navegaba y el control recién insertado en el
+árbol visual recibía el foco — exactamente lo que ocurre en cada cambio de sección.
+
+**Por qué las 24 pruebas de Diseño D1 no lo detectaron:** `DesignSystemResourceTests` verifica que
+las claves de recurso existan *textualmente* en algún archivo de tema (regex/`XDocument`, sin cargar
+WPF); nunca ejecuta la resolución real de recursos en tiempo de ejecución, así que esta clase de
+error era estructuralmente invisible para ese tipo de prueba.
+
+**Corrección:** se movieron `BrushTextMuted`, `BrushError` y `BrushFocusRing` a `Colors.xaml`, junto
+a los `Color*` que referencian, para que la resolución sea siempre dentro del mismo archivo.
+`Brushes.xaml` se conserva vacío (con comentario) en vez de eliminarse, porque `ThemeResources.xaml`
+y `DesignSystemResourceTests` esperan que exista en el orden de fusión. No se tocó ninguna lógica de
+navegación, animación, `VoiceCoordinator` ni `AdaptiveEnginePolicy`.
+
+**Pruebas nuevas — `Nexo.App.Tests` (proyecto `UseWPF=true`, nuevo):** las pruebas estructurales de
+D1 no ejecutan WPF real, así que no podían servir de regresión para este tipo de fallo. Se añadió un
+proyecto de pruebas WPF en un hilo STA (`StaWpfFixture`) que reproduce el mecanismo exacto del
+crash: muta `Application.Current.Resources` igual que `ApplyAccent`, fuerza el foco de teclado sobre
+un botón con `SakuraNavigationItemStyle`/`SakuraSidebarToggleStyle` (11 pruebas en total, incluye
+las 9 vistas reales de producción insertadas y con layout forzado en un host, con fakes mínimos para
+`TaskManager`/`FocusManager`/`RoutineManager`/`IAudioMixerService`). Durante el desarrollo de estas
+pruebas, una excepción sin observar dentro de un manejador `async void` (`AudioView.Loaded`) colgó
+el fixture compartido indefinidamente; se corrigió instalando un manejador de
+`DispatcherUnhandledException` en `StaWpfFixture` que captura y relanza esa clase de excepción de
+forma determinista en vez de dejar que cuelgue el hilo STA — detalle completo en el informe.
+
+**Validación interactiva real:** se publicó el build corregido
+(`artifacts\Kohana-0.9.5-beta-design-d1.1-navigation-hotfix-smoke-win-x64`) y se ejecutó de verdad
+mediante automatización de UI (System.Windows.Automation), no solo pruebas de compilación: las
+nueve secciones en secuencia, vuelta a Inicio, barra lateral colapsada/expandida, ráfaga de clics
+rápidos entre secciones distintas, clics repetidos sobre la sección activa, navegación por teclado
+(Enter/Espacio), y ocultar/reabrir (cierre a bandeja + segundo lanzamiento reactivando la misma
+instancia vía `SingleInstanceCoordinator`). Kohana permaneció abierto y responsivo en todo momento.
+Evidencia completa en `artifacts\design-d1.1\`.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 629 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 164 superadas, 0 con error, 0 omitidas
+  Nexo.App.Tests.dll     →  11 superadas, 0 con error, 0 omitidas (proyecto nuevo)
+Total: 804 pruebas (793 previas + 11 nuevas de Diseño D1.1), 0 fallidas, 0 warnings.
+Suite completa repetida 5 veces adicionales sin variación (0 fallidas, sin señales de flakiness).
+```
+
+**Regresión (breve, sin tocar voz/motor adaptativo):** el diff de la corrección toca únicamente
+`Themes/Brushes.xaml` y `Themes/Colors.xaml` — cero líneas en `VoiceCoordinator`,
+`AdaptiveEnginePolicy`, motores, atajos globales o `SingleInstanceCoordinator` — por lo que esos
+sistemas no pueden haber regresado estructuralmente. La captura real de la sección Sistema tomada
+durante la validación interactiva (`shell-sistema-after.png`) confirma en vivo que el estado de voz,
+el Hardware Capability Profile (nivel "Acelerado", CPU/RAM/GPU detectados) y el plan del motor
+adaptativo (modo Automático, recomendación de Whisper) siguen renderizando con datos reales. Ocultar
+a la bandeja, reabrir vía instancia única y el mutex de instancia única se validaron en vivo en el
+paso 8 de la validación interactiva (ver arriba). El menú "Salir completamente" de la bandeja del
+sistema (`TrayIconController`) no se re-verificó con automatización de UI por la fragilidad de
+simular clics sobre coordenadas de la bandeja; ese camino no fue tocado por este hotfix.
+
+**Diseño D1.1 corrige el bloqueo de navegación de Diseño D1. Diseño D1 sigue sin promoverse a
+release; Diseño D2 no ha comenzado.** Informe completo en
+`artifacts\Kohana-Design-D1.1-Navigation-Hotfix-Informe.md`.
+
+> **Nota posterior (2026-07-25):** el estado descrito en el párrafo anterior corresponde al momento
+> en que se escribió, antes del smoke test manual del usuario. La aprobación y la integración
+> posteriores se registran en el checkpoint siguiente; este texto se conserva sin reescribir para
+> no falsear el historial.
+
+---
+
+### Checkpoint manual — Diseño D1 + D1.1 Sakura Shell aprobado (2026-07-25)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del build corregido de Diseño D1.1.
+
+| Campo | Valor |
+|---|---|
+| **Build probado** | `Kohana-0.9.5-beta-design-d1.1-navigation-hotfix-smoke-win-x64.zip` |
+| **SHA-256** | `909e5758d3959245b7ca7df615e58ad917d3795a5b69a20c397f5ec1430206d8` |
+| **Commit aprobado** | `6e50945` (`docs: record design D1.1 navigation hotfix`) |
+| **Pruebas verificadas en el preflight** | 804 (629 Core + 164 Windows + 11 App), 0 fallidas, 0 omitidas, 0 warnings |
+
+**Validación manual confirmada por el usuario (todo correcto):**
+
+- Kohana inicia correctamente.
+- Inicio se renderiza correctamente.
+- Se puede seleccionar el resto de las secciones.
+- **No ocurre ningún crash al navegar** — el defecto bloqueante de Diseño D1 queda resuelto.
+- Las configuraciones recomendadas procedentes del Engine Registry aparecen correctamente.
+- La información del motor recomendado/configurado se presenta en la aplicación.
+- El usuario considera correcta la prueba funcional de D1.1.
+- El usuario **autoriza integrar el trabajo aprobado en `release/kohana-1.0-rc`**.
+
+**Estado formal:**
+
+- **Diseño D1 + D1.1 APROBADO por el usuario e integrado en `release/kohana-1.0-rc`** mediante
+  merge explícito `--no-ff` (no squash, no rebase, no cherry-pick), conservando la trazabilidad de
+  los ocho commits de D1 y los tres de D1.1.
+- La rama `design/sakura-shell-v1` se conserva (no se elimina).
+- El hotfix D1.1 **ya no está pendiente de smoke manual**.
+
+#### Defecto visual abierto — iconos de navegación seleccionados (asignado a Diseño D2)
+
+Durante el mismo smoke manual el usuario observó un **defecto visual nuevo**, distinto del crash ya
+corregido:
+
+- Al seleccionar casi cualquier sección de la barra lateral, el contenedor obtiene correctamente su
+  fondo/acento rosa, pero **el icono interior deja de conservar su forma de línea reconocible**.
+- El glifo aparece como un pequeño bloque o cuadrado sólido magenta, dentro del cual apenas queda
+  visible una marca pequeña.
+- Ocurre en casi todos los elementos de navegación; el icono **no** seleccionado sí conserva una
+  silueta clara.
+
+**Clasificación:**
+
+- **No produce crash.** No bloquea la navegación ni ninguna funcionalidad.
+- **No es comportamiento intencional** — es un defecto real y debe corregirse.
+- Queda **abierto como primer defecto de Diseño D2** (tarea D2.0), antes de cualquier otro trabajo
+  de ese sprint.
+
+Este defecto no invalida la aprobación funcional de D1.1: el usuario aprobó explícitamente la
+corrección del crash y autorizó la integración conociendo este defecto visual pendiente.
