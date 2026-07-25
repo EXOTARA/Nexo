@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using Nexo.Core.Ai;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
 
@@ -35,6 +36,7 @@ public partial class SettingsView : UserControl
     public event Action<bool>? ResourceGovernorEnabledChanged;
     public event Action<bool>? PauseWakeWordInGameModeChanged;
     public event Action<bool>? ProtectVisionWhenBusyChanged;
+    public event Action<HardwarePerformanceMode>? HardwarePerformanceModeChanged;
     public event Action<bool>? StartWithWindowsChanged;
     public event Action<bool>? MinimizeToTrayChanged;
     public event Action<bool>? WindowsNotificationsChanged;
@@ -86,6 +88,7 @@ public partial class SettingsView : UserControl
         PauseWakeWordInGameModeCheckBox.IsChecked = preferences.PauseWakeWordInGameMode;
         ProtectVisionWhenBusyCheckBox.IsChecked = preferences.ProtectVisionWhenBusy;
         UpdateResourceGovernorOptionsAvailability();
+        ApplyHardwarePerformanceModeSelection(preferences.HardwarePerformanceMode);
         StartWithWindowsCheckBox.IsChecked = preferences.StartWithWindows;
         MinimizeToTrayCheckBox.IsChecked = preferences.MinimizeToTray;
         WindowsNotificationsCheckBox.IsChecked = preferences.ShowWindowsNotifications;
@@ -493,6 +496,31 @@ public partial class SettingsView : UserControl
         AiOllamaRadioButton.IsChecked = provider == AiProviderKind.Ollama;
         AiLmStudioRadioButton.IsChecked = provider == AiProviderKind.LMStudio;
         AiCompatibleRadioButton.IsChecked = provider == AiProviderKind.OpenAICompatible;
+    }
+
+    private void HardwarePerformanceModeRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not RadioButton { Tag: string modeTag })
+        {
+            return;
+        }
+
+        HardwarePerformanceModeChanged?.Invoke(ParseHardwarePerformanceMode(modeTag));
+    }
+
+    private static HardwarePerformanceMode ParseHardwarePerformanceMode(string modeTag)
+    {
+        return Enum.TryParse<HardwarePerformanceMode>(modeTag, ignoreCase: true, out var mode)
+            ? mode
+            : HardwarePerformanceMode.Automatic;
+    }
+
+    private void ApplyHardwarePerformanceModeSelection(HardwarePerformanceMode mode)
+    {
+        PerformanceModeAutomaticRadioButton.IsChecked = mode == HardwarePerformanceMode.Automatic;
+        PerformanceModeEcoRadioButton.IsChecked = mode == HardwarePerformanceMode.Eco;
+        PerformanceModeBalancedRadioButton.IsChecked = mode == HardwarePerformanceMode.Balanced;
+        PerformanceModeMaximumRadioButton.IsChecked = mode == HardwarePerformanceMode.Maximum;
     }
 
     private void UpdateAiOptionsAvailability()

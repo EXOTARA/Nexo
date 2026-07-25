@@ -50,7 +50,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
         // HALLAZGO DE LA FASE 1.1 — asimetría real de `JsonSettingsStore.Load`.
         // La ruta de éxito llama a `preferences.Normalize()`; las rutas de "archivo ausente"
         // y de "archivo corrupto" devuelven `new ShellPreferences()` **sin normalizar**.
-        // Por eso el esquema sale en 0 y no en 16.
+        // Por eso el esquema sale en 0 y no en 17.
         Assert.Equal(0, preferences.SchemaVersion);
     }
 
@@ -109,7 +109,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
         store.Save(new ShellPreferences { SchemaVersion = 0, Width = 10_000 });
 
         var loaded = new JsonSettingsStore(_settingsPath).Load();
-        Assert.Equal(16, loaded.SchemaVersion);
+        Assert.Equal(17, loaded.SchemaVersion);
         Assert.Equal(820, loaded.Width);
     }
 
@@ -168,14 +168,14 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var reloaded = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(16, reloaded.SchemaVersion);
+        Assert.Equal(17, reloaded.SchemaVersion);
         Assert.False(reloaded.HasCompletedOnboarding);
     }
 
     [Fact]
     public void AfterCorruption_ASecondSaveCyclePersistsNormally()
     {
-        // Una vez que el archivo vuelve a estar en el esquema 16, guardar funciona como
+        // Una vez que el archivo vuelve a estar en el esquema 17, guardar funciona como
         // siempre. La degradación es de un solo ciclo.
         File.WriteAllText(_settingsPath, "{ roto ");
         var store = new JsonSettingsStore(_settingsPath);
@@ -198,7 +198,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.Equal(17, preferences.SchemaVersion);
         Assert.Empty(Directory.GetFiles(_directory, "settings.json.corrupt-*"));
     }
 
@@ -218,7 +218,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.Equal(17, preferences.SchemaVersion);
         Assert.False(preferences.StartWithWindows);
         Assert.True(preferences.MinimizeToTray);
         Assert.Equal("#E98AAF", preferences.AccentColor);
@@ -238,7 +238,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.Equal(17, preferences.SchemaVersion);
         Assert.NotEmpty(preferences.WakeWordAliases);
     }
 
@@ -254,12 +254,67 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.Equal(17, preferences.SchemaVersion);
     }
 
     [Fact]
     public void CorruptFileBackup_ReturnsNullWhenThereIsNothingToPreserve()
     {
         Assert.Null(CorruptFileBackup.TryPreserve(Path.Combine(_directory, "no-existe.json")));
+    }
+
+    [Theory]
+    [InlineData(Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Automatic)]
+    [InlineData(Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Eco)]
+    [InlineData(Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Balanced)]
+    [InlineData(Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Maximum)]
+    public void HardwarePerformanceMode_RoundTripsThroughSaveAndLoad(
+        Nexo.Core.AdaptiveEngine.HardwarePerformanceMode mode)
+    {
+        var store = new JsonSettingsStore(_settingsPath);
+        var saved = new ShellPreferences { SchemaVersion = 17, HardwarePerformanceMode = mode };
+
+        store.Save(saved);
+        var loaded = new JsonSettingsStore(_settingsPath).Load();
+
+        Assert.Equal(mode, loaded.HardwarePerformanceMode);
+    }
+
+    [Fact]
+    public void HardwarePerformanceMode_MissingFromOlderFile_MigratesToAutomatic()
+    {
+        File.WriteAllText(
+            _settingsPath,
+            """
+            {
+              "SchemaVersion": 16
+            }
+            """);
+
+        var preferences = new JsonSettingsStore(_settingsPath).Load();
+
+        Assert.Equal(17, preferences.SchemaVersion);
+        Assert.Equal(
+            Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Automatic,
+            preferences.HardwarePerformanceMode);
+    }
+
+    [Fact]
+    public void HardwarePerformanceMode_InvalidValueOnDisk_FallsBackToAutomaticWithoutThrowing()
+    {
+        File.WriteAllText(
+            _settingsPath,
+            """
+            {
+              "SchemaVersion": 17,
+              "HardwarePerformanceMode": 99
+            }
+            """);
+
+        var preferences = new JsonSettingsStore(_settingsPath).Load();
+
+        Assert.Equal(
+            Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Automatic,
+            preferences.HardwarePerformanceMode);
     }
 }

@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 1.3B3: sincronización, propiedad y cierre del subsistema de voz centralizados en VoiceCoordinator / KohanaCompositionRoot** |
-| **Siguiente fase** | Fase 1, paso 1.4 (siguiente extracción según `STABLE_RELEASE_PLAN.md`) — **no iniciada** |
-| **Rama** | `release/kohana-1.0-rc` — **creada y activa** |
+| **Fase actual** | **Fase 2.2 — Adaptive Engine Registry v1 implementada** en `phase2/adaptive-engine-registry-v1`, pendiente de smoke test manual |
+| **Siguiente fase** | Fase 2.3 (por definir) — **no iniciada**. Ningún motor se selecciona ni cambia todavía |
+| **Rama** | `release/kohana-1.0-rc` en `9ddb903` intacta; trabajo de 2.2 vive en `phase2/adaptive-engine-registry-v1` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno; pendiente el smoke test manual de 1.3B3 |
+| **Bloqueador activo** | Ninguno en código. Smoke test manual de Fase 2.2 pendiente del usuario |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -371,6 +371,8 @@ Ver `STABLE_RELEASE_PLAN.md`. No adelantar fases.
 | Fase 1.3B2A (2026-07-23) | **658** | **0** | **0** | Core 576 (sin cambios) + Windows 82. +8 pruebas de la API de transición + 5 invariantes de frontera |
 | Fase 1.3B2 runtime (2026-07-23) | **663** | **0** | **0** | Core 576 (sin cambios) + Windows 87. 3 invariantes obsoletas sustituidas por 8 nuevas que verifican el runtime real |
 | Fase 1.3B3 (2026-07-24) | **660** | **0** | **0** | Core 576 (sin cambios) + Windows 84. Ámbitos de exclusión, propiedad única y cierre. Windows repetida 5 veces sin intermitencia |
+| Fase 1.3B3.1 (2026-07-24) | **666** | **0** | **0** | Core 576 (sin cambios) + Windows 90. +6 invariantes de la ruta de salida. Windows repetida 5 veces sin intermitencia |
+| Fase 1.3C (2026-07-24) | **664** | **0** | **0** | Core 576 (sin cambios) + Windows 88. Consolidación: servicios obligatorios, docs sin fases, 2 pruebas obsoletas sustituidas + 1 invariante reforzada. Windows repetida 5 veces sin intermitencia. Rama `nightshift/phase1-finalization` |
 
 ---
 
@@ -1139,3 +1141,451 @@ usuario. Con la sincronización, la propiedad y el cierre ya centralizados, no q
 arquitectónicos abiertos de la auditoría correctiva de 1.3B2: el tercer dominio se aclaró como
 *decision gate*, el fallback se eliminó y el orden de cierre quedó documentado y verificado. Detalle
 completo en `artifacts\Kohana-Fase-1.3B3-Voice-Lifecycle-Sprint-Informe.md`.
+
+---
+
+### Fase 1.3B3.1 — hotfix de salida completa desde bandeja (2026-07-24)
+
+**Síntoma manual.** Tras aprobar todas las funciones de voz de 1.3B3, el smoke test encontró una
+regresión bloqueante de cierre: al elegir **Salir** desde la bandeja, la interfaz y el icono
+desaparecían pero `Kohana.exe` **permanecía en segundo plano**; **Alt + A** ya no abría la
+aplicación; ejecutar `Kohana.exe` de nuevo no creaba ventana (la instancia fantasma conservaba la
+coordinación de instancia única); y el usuario tenía que matar el proceso desde el Administrador de
+tareas. El checkpoint de 1.3B3 quedó **no aprobado** hasta este hotfix.
+
+**Causa exacta (con evidencia).** Se instrumentó temporalmente la ruta de cierre (traza del último
+paso alcanzado + disparo automático de la ruta real de salida + clave de instancia aislada para no
+colisionar con una instancia real). La traza mostró que el último paso alcanzado era
+`ollama.Dispose before` y nada después: **el proceso se bloqueaba dentro de
+`ManagedOllamaSupervisor.Dispose`**, que hacía
+`_runtimeService.StopManagedAsync(CancellationToken.None).GetAwaiter().GetResult()` en el hilo de
+UI durante `App.OnExit`. En ese momento el `Dispatcher` de WPF ya **no bombea** (estamos dentro del
+callback síncrono de `Application.Shutdown`), y `StopManagedAsync` tiene `await`s sin
+`ConfigureAwait(false)` (espera del gate, `process.WaitForExitAsync`, verificación HTTP del
+endpoint) cuyas continuaciones se publican en el `SynchronizationContext` de la UI. Con el hilo de
+UI bloqueado en `GetResult()`, esas continuaciones no pueden ejecutarse: **interbloqueo clásico
+sync-sobre-async.**
+
+**Por qué Alt + A dejaba de funcionar y por qué el proceso permanecía.** El bloqueo ocurría
+**antes** de `_singleInstance.Dispose()`. Por tanto: el mutex de instancia única nunca se liberaba
+(un nuevo `Kohana.exe` cedía y se cerraba en vez de convertirse en primario), y el hilo de UI —
+bloqueado en `GetResult()`— no podía procesar la petición de activación de Alt + A (que se despacha
+vía `Dispatcher.BeginInvoke`). El proceso quedaba vivo pero inerte: un fantasma. No era un problema
+de la propiedad de voz de 1.3B3 (las tres liberaciones de Whisper/TTS/Vosk se alcanzan y completan
+sin bloqueo en cuanto se desatasca el paso de ollama, confirmado por la traza tras la corrección).
+
+**Solución aplicada (cambio mínimo seguro).** Se traslada la parada del runtime de IA administrado
+a una fase **asíncrona previa a `Application.Shutdown`**, mientras el `Dispatcher` aún bombea:
+
+- `ManagedOllamaSupervisor.StopAsync()` — parada asíncrona e idempotente (`_stopRequested`): cancela
+  el token de vida y `await _runtimeService.StopManagedAsync(...)` con continuaciones que sí se
+  procesan.
+- `ManagedOllamaSupervisor.Dispose()` — ya **no** hace sync-sobre-async: solo libera recursos
+  propios (idempotente, no bloquea).
+- `MainWindow.RequestExit` — inicia el apagado **una sola vez** (`_exitRequested`) y delega en
+  `RequestExitAsync`, que `await`ea `StopAsync()` y luego llama `Application.Current.Shutdown()` en
+  un `finally` (el cierre continúa aunque la parada falle). No se inician nuevas operaciones tras el
+  inicio del apagado.
+- `App.OnExit` — sin cambios de orden (ollama → composition root → instancia única); ahora
+  `ollama.Dispose` no bloquea, así que `OnExit` alcanza `_singleInstance.Dispose()` y libera la
+  instancia única.
+
+**Diferencia entre ocultar y salir (preservada).**
+- **X con "Minimizar a bandeja" activado** → oculta Kohana; el proceso sigue vivo; Alt + A la vuelve
+  a mostrar. (Verificado en el portable de producción: `WM_CLOSE` ocultó a bandeja, el proceso
+  siguió vivo.)
+- **Salir en el menú de bandeja** → cierra por completo; `Kohana.exe` desaparece; una nueva
+  instancia se convierte en primaria. (Verificado por el smoke instrumentado: la ruta real
+  `RequestExit → RequestExitAsync → Application.Shutdown → OnExit` completó, terminó el proceso con
+  código 0 y una segunda instancia con la misma clave se volvió primaria.)
+
+**Propiedad y sincronización preservadas.** No se revirtió nada de 1.3B3: `KohanaCompositionRoot`
+sigue siendo dueño y liberador de Whisper, TTS y Vosk; `VoiceCoordinator` sigue siendo dueño de sus
+dos semáforos; los ámbitos `IAsyncDisposable` no se tocaron; `MainWindow` sigue sin poseer ni
+liberar los servicios y sin `IServiceProvider`.
+
+**Pruebas.** +6 invariantes estructurales de la ruta de salida (Windows 84 → 90): `Dispose` sin
+sync-sobre-async; `StopAsync` asíncrono e idempotente; `RequestExit` de un solo inicio que no llama
+`Shutdown` directamente; `RequestExitAsync` que detiene el runtime antes de `Shutdown` (en el
+`finally`); `App.OnExit` en orden no bloqueante que alcanza la instancia única; y propiedad de voz
+de 1.3B3 conservada. La recuperación de instancia única y la distinción ocultar/salir ya están
+cubiertas por `SingleInstanceCharacterizationTests` (`ReleasingThePrimary_LetsTheNextInstanceTakeOver`,
+`Dispose_ReleasesTheMutexExactlyOnce`) y por los tests de `WindowsClosePolicy`
+(`ClosePolicy_HidesWhenTrayModeIsEnabled`, `ClosePolicy_AllowsExplicitExit`).
+
+**Instrumentación temporal.** El tracer `ShutdownTrace`, el disparo automático de salida, la clave
+de instancia por variable de entorno y el helper `TriggerExitForDiagnostics` se usaron solo para
+localizar el bloqueo y se **eliminaron antes del commit final**. El diff enviado contiene únicamente
+la corrección real (3 archivos) y las pruebas.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll →  90 superadas, 0 con error, 0 omitidas
+Total: 666 pruebas, 0 fallidas, 0 warnings. Suite de Windows repetida 5 veces adicionales sin intermitencia.
+```
+
+**ZIP:** `artifacts\Kohana-0.9.5-beta-phase1.3B3.1-exit-hotfix-smoke-win-x64.zip` (detalle de tamaño
+y SHA-256 en `artifacts\Kohana-Fase-1.3B3.1-Exit-Hotfix-Informe.md`).
+
+**Smoke test manual pendiente.** El usuario debe confirmar sobre el portable de este hotfix que, al
+elegir **Salir** desde la bandeja, `Kohana.exe` desaparece por completo, Alt + A deja de aplicar y un
+nuevo `Kohana.exe` abre con normalidad como instancia primaria; y que la X con "Minimizar a bandeja"
+sigue ocultando sin cerrar.
+
+---
+
+### Fase 1.3C — consolidación final de la arquitectura extraída (2026-07-24)
+
+Turno nocturno, rama `nightshift/phase1-finalization` (basada en `release/kohana-1.0-rc` = e5c2233
++ el hotfix 1.3B3.1 ya completado). Cierra el paso 3 del ADR 0001 consolidando la arquitectura
+lograda de 1.2 a 1.3B3.1 **sin añadir capacidades visibles**. Solo limpiezas respaldadas por
+evidencia.
+
+**Auditoría (evidencia).**
+- `VoiceCoordinator`: los 16 miembros públicos son consumidos por `MainWindow` (≥1 uso cada uno) →
+  **no hay API muerta**; el diseño de ámbitos de 1.3B3 ya era mínimo.
+- `KohanaCompositionRoot`: `Provider`, `VoiceInputService`, `VoiceOutputService`, `WakeWordService`
+  tienen **0 consumidores de producción**, pero **sí** consumidores de prueba
+  (`KohanaCompositionRootTests` verifica tipos concretos, singletons y "no un cuarto motor"). Por
+  tanto **no son API muerta**: se conservan públicos como superficie de verificación de composición
+  (la razón por la que el root vive en `Nexo.Windows`), y se documenta así.
+- `MainWindow`: los servicios `IAiChatService`/`IAudioMixerService`/`IScreenCaptureService` aún
+  tenían fallback `?? new ...()` (residual desde 1.2), mientras el coordinador de voz ya era
+  obligatorio desde 1.3B3 — inconsistencia de la composición.
+
+**Implementación (cambios respaldados).**
+1. **Servicios obligatorios en `MainWindow`.** Los tres fallbacks residuales `?? new ...()` se
+   sustituyen por `?? throw new ArgumentNullException(...)`, igual que el coordinador. `MainWindow`
+   ya **nunca** construye un motor; todos los servicios provienen de la raíz de composición única.
+   Se eliminan así las últimas dependencias de tipos concretos de servicio en `MainWindow`.
+2. **Pruebas obsoletas sustituidas.** `KohanaCompositionRootTests` tenía dos pruebas con premisa
+   **pre-1.3B3** ("el root NO libera los tres motores de voz"), hoy falsa (el root SÍ los libera).
+   Se sustituyen por `Dispose_ReleasesTheWholeVoiceSubsystemIdempotently`; el orden exacto de
+   liberación ya lo guarda estructuralmente `CompositionRoot_OwnsAndDisposesTheThreeVoiceServicesInOrder`.
+3. **Invariante reforzada.** `MainWindow_RequiresEveryInjectedService_WithoutBuildingAnyFallback`
+   exige que los cuatro servicios lancen si faltan y que no exista ningún `?? new` ni construcción
+   directa de motores.
+4. **Comentarios de fase eliminados.** Las 9 anotaciones "Fase 1.3Bx / Subfase / diseño final de la
+   fase …" en `MainWindow`, `App`, `VoiceCoordinator` y `KohanaCompositionRoot` se reescriben como
+   documentación atemporal del diseño final. XML-docs de `KohanaCompositionRoot` actualizados.
+5. **ADR 0001** cerrado con un addendum del estado final (salida completa + composición única +
+   frontera de acceso a la voz).
+
+**Invariantes preservados (verificados por pruebas):** composición única; `MainWindow` sin
+`IServiceProvider` ni Service Locator; `Nexo.Core` sin `PackageReference`; acceso a la voz solo por
+`VoiceCoordinator`; ownership y `Dispose` únicos en `KohanaCompositionRoot`; cierre idempotente y no
+bloqueante (1.3B3.1); ámbitos `IAsyncDisposable` intactos.
+
+**No se tocó:** UX, textos, motores, parámetros de Whisper/Vosk, Resource Governor, ni se inició
+hardware detection, memoria, OCR o skills.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 576 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll →  88 superadas, 0 con error, 0 omitidas
+Total: 664 pruebas, 0 fallidas, 0 warnings. Suite de Windows repetida 5 veces adicionales sin intermitencia.
+```
+
+**Smoke test manual pendiente.** La consolidación no cambia conducta observable; el smoke test manual
+(idéntico al de 1.3B3.1) sigue pendiente del usuario. Detalle completo en
+`artifacts\Kohana-Fase-1-Consolidation-Informe.md`.
+
+---
+
+### Checkpoint manual — Fase 1 y Design System Foundation aprobados (2026-07-24)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test completo sobre el portable de la fundación
+visual, cerrando así la Fase 1 y aceptando el Design System Foundation 0.1. Tras la aprobación,
+`release/kohana-1.0-rc` se promovió por **fast-forward** (sin merge commit, squash, rebase ni cherry-pick)
+desde `nightshift/phase1-finalization`, quedando en `7b77116`.
+
+| Campo | Valor |
+|---|---|
+| **ZIP probado** | `Kohana-0.9.5-beta-design-system-foundation-smoke-win-x64.zip` |
+| **SHA-256** | `E8A8E77077AE1133CD20B38F7DB54D6CC6D157573E13C33AFB9FE28AC7AD2E43` |
+| **Commit promovido** | `7b77116` (`docs: record Kohana design system foundation`) |
+| **Release antes → después** | `5d368ec` → `7b77116` (fast-forward) |
+| **Pruebas** | 671 (576 Core + 95 Windows), 0 fallidas, 0 warnings |
+
+**Validación manual registrada (todo aprobado):**
+
+- Arranque correcto.
+- Mic mediante clic correcto; Whisper correcto.
+- Wake word "Kohana" y "Oye Kohana" correctos; orden de corrido correcta.
+- TTS correcto; cambio y persistencia del micrófono correctos; sensibilidad y aliases correctos.
+- Modo Juego correcto.
+- **Hotfix de salida (1.3B3.1) aprobado:** "Salir" desde bandeja termina completamente `Kohana.exe`;
+  reapertura correcta como instancia primaria; instancia única correcta.
+- **Diferencia ocultar/salir aprobada:** la X con "Minimizar a bandeja" oculta; **Alt + A** vuelve a
+  mostrar Kohana; "Salir" cierra por completo.
+- **Cierre durante escucha** correcto.
+- **Apariencia revisada:** prácticamente idéntica; **ninguna regresión** funcional ni visual observada.
+
+**Estado formal:**
+
+- **Fase 1 (extracción del runtime, ADR 0001) formalmente CERRADA.** Sincronización, propiedad,
+  ciclo de vida y cierre del subsistema de voz consolidados; composición única; `MainWindow` sin
+  candados de voz, sin motores directos, sin `IServiceProvider`.
+- **Design System Foundation 0.1 APROBADO** como **infraestructura visual** (tokens semánticos,
+  agregador de tema, estilos base), preservando la apariencia actual.
+- **Rediseño visual completo TODAVÍA PENDIENTE:** la fundación no es un rediseño; el sprint visual
+  (migración de literales restantes, anillo de foco activo, modo claro/alto contraste, iconografía y
+  logo, motion aplicado, accesibilidad) sigue pendiente.
+- **Fase 2 TODAVÍA NO iniciada.**
+
+La rama `nightshift/phase1-finalization` se conserva (no se elimina). Este checkpoint solo actualiza
+la documentación; no cambia código de producción.
+
+---
+
+### Fase 2.1 — Hardware Capability Profile v1 (2026-07-24)
+
+Primer sprint de la Fase 2. Construye una representación confiable y transparente de la capacidad
+**estable** del equipo (CPU, RAM, GPU, batería, arquitectura), separada de las métricas **dinámicas**
+que ya existían (`SystemSnapshot`). No selecciona ni cambia motores todavía — esa decisión es de la
+Fase 2.2 (Adaptive Engine Registry).
+
+**Modelos nuevos (`Nexo.Core.Hardware`, sin `PackageReference`, sin WMI/Registry/WinAPI):**
+
+- `ProcessorCapability`, `MemoryCapability`, `GraphicsCapability` — datos crudos por categoría, cada
+  campo opcional para poder representar "desconocido" sin recurrir a `0`.
+- `HardwareCapabilitySnapshot` — captura completa: procesador, memoria, lista de GPUs + GPU
+  preferida, presencia de batería, edición/versión de Windows, fecha de captura, si vino de caché.
+- `HardwareCapabilityTier` (`Basic`, `Standard`, `Accelerated`, `HighPerformance`),
+  `HardwareDataConfidence` (`Unknown`, `Estimated`, `Known`), `HardwareCapabilityReason` (mensaje
+  legible en español).
+- `HardwareCapabilityProfile` — salida de la política: perfil, resumen, razones positivas,
+  limitaciones, datos desconocidos, confianza general; incluye el `Snapshot` completo para que la UI
+  muestre los datos crudos sin duplicar campos.
+- `IHardwareCapabilityService` — `GetCachedProfile()` (síncrono, sin E/S) y `RefreshAsync(CancellationToken)`
+  (única vía que vuelve a detectar).
+
+**Política de clasificación (`HardwareCapabilityPolicy`):** pura (`Evaluate(snapshot) → profile`), sin
+estado, con umbrales centralizados como `const`. Cada categoría (RAM, procesadores lógicos, GPU/VRAM)
+se traduce a un nivel 0–3 solo si el dato es conocido; el nivel final es
+`floor(promedio de los niveles conocidos)`. Un dato desconocido se **excluye** del promedio en vez de
+contar como `0`, así que RAM/GPU/núcleos físicos desconocidos nunca fuerzan `Basic` por sí solos. Con
+cero categorías conocidas, el resultado es `Standard` con confianza `Unknown` (nunca `Basic` por
+defecto). Umbrales: RAM 8/16/32 GiB, procesadores lógicos 5/9/17, VRAM dedicada 4/8 GiB.
+
+**Detección en Windows (`Nexo.Windows.Hardware`):** `WindowsHardwareCapabilityService` orquesta cinco
+fuentes inyectables (`IProcessorInfoSource`, `IMemoryInfoSource`, `IGraphicsInfoSource`,
+`IBatteryInfoSource`, `IWindowsVersionInfoSource`), cada una con su propia captura de excepciones, de
+modo que el fallo de una fuente nunca destruye el resto del snapshot. Fuentes reales:
+
+- CPU: registro `HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0` (nombre, fabricante) +
+  `Environment.ProcessorCount` (lógicos) + `GetLogicalProcessorInformationEx` por P/Invoke a
+  `kernel32.dll` (núcleos físicos, contando entradas `RelationProcessorCore`).
+- RAM: `GlobalMemoryStatusEx` (P/Invoke a `kernel32.dll`).
+- GPU: registro `HKLM\SYSTEM\CurrentControlSet\Control\Video\{GUID}\0000`
+  (`HardwareInformation.AdapterString`, `HardwareInformation.qwMemorySize` — VRAM dedicada real de 64
+  bits, no el campo legado de 32 bits limitado a ~4 GB). Se conservan todas las GPUs detectadas; la
+  preferida es la dedicada con más memoria conocida, documentado en `SelectPreferredGraphicsAdapter`.
+- Batería: `GetSystemPowerStatus` (P/Invoke a `kernel32.dll`, bit `BatteryFlag`).
+- Windows: registro `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` (`ProductName`,
+  `DisplayVersion`/`ReleaseId`, `CurrentBuildNumber`).
+
+**Ninguna dependencia nueva.** `Nexo.Core` sigue sin `PackageReference` (invariante verificado por
+prueba). `Nexo.Windows` no agregó ningún paquete: todo se resuelve con `Microsoft.Win32.Registry` y
+P/Invoke, ya disponibles en el TFM `net10.0-windows`.
+
+**Caché y refresco:** el snapshot se cachea en memoria; `GetCachedProfile()` nunca hace E/S.
+`RefreshAsync` corre en `Task.Run` y es cancelable — una cancelación no toca la caché existente. La
+detección corre una vez al iniciar `MainWindow` (sin bloquear el hilo de UI) y de nuevo bajo demanda
+desde el botón "Actualizar detección".
+
+**Composición:** `IHardwareCapabilityService` se registra como instancia única en
+`KohanaCompositionRoot` (mismo patrón que los otros seis servicios), se inyecta a `MainWindow` como
+dependencia obligatoria (`?? throw`), y no requiere `Dispose` (no se inventó ciclo de vida). Ningún
+`IServiceProvider` en `MainWindow`; `MainWindow` no construye el servicio.
+
+**Interfaz:** `SystemView` gana la sección "Capacidad del equipo" (nivel, CPU, núcleos físicos y
+lógicos, RAM, arquitectura, GPU preferida, memoria gráfica, batería, estado de completitud, razones,
+datos desconocidos, botón de refresco) usando solo recursos existentes del Design System.
+`DiagnosticsWindow` gana un bloque técnico con todas las GPUs detectadas, datos crudos, fecha de
+captura, origen (caché/detección reciente) y confianza — sin exponer trazas de excepción. No se
+añadieron controles de modos (Automático/Eco/Equilibrado/Máximo): eso es de la Fase 2.2.
+
+**Pruebas nuevas:** 27 en total — 16 en `HardwareCapabilityPolicyTests` (los cuatro niveles, RAM/GPU/VRAM/
+núcleos físicos desconocidos sin forzar `Basic`, límites exactos de umbral, razones deterministas,
+misma entrada → misma clasificación) y 11 en `WindowsHardwareCapabilityServiceTests` (detección
+completa, fallo aislado de CPU/GPU/batería, múltiples GPUs, caché, refresco, cancelación con caché
+intacta, fallo total de todas las fuentes sin excepción). Se extendieron
+`KohanaCompositionRootTests` y `CompositionInvariantTests` para cubrir el nuevo servicio singleton.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 592 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 108 superadas, 0 con error, 0 omitidas
+Total: 700 pruebas (671 previas + 27 nuevas de Fase 2.1 + 2 de composición extendidas), 0 fallidas, 0 warnings.
+```
+
+**No se tocó:** voz, bandeja, Alt + A, cierre, instancia única, apariencia del Design System, ni se
+seleccionó o cambió ningún motor.
+
+**Smoke test manual pendiente.** El sprint no debe darse por cerrado hasta que el usuario confirme
+manualmente que los datos mostrados en "Capacidad del equipo" corresponden a su equipo real. Detalle
+completo del build, pruebas repetidas y ZIP en
+`artifacts\Kohana-Fase-2.1-Hardware-Capability-Profile-Informe.md`.
+
+---
+
+### Checkpoint manual — Fase 2.1 Hardware Capability Profile aprobado (2026-07-24)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del ZIP publicado de la Fase 2.1. Tras la
+aprobación, `release/kohana-1.0-rc` se promovió por **fast-forward** (sin merge commit, squash,
+rebase ni cherry-pick) desde `phase2/hardware-capability-profile-v1`, quedando en `2f77e22`.
+
+| Campo | Valor |
+|---|---|
+| **ZIP probado** | `Kohana-0.9.5-beta-phase2.1-hardware-profile-smoke-win-x64.zip` |
+| **SHA-256** | `9661543B3E4B5A4DED31CAF8C8A15A76D7BAE76376E4334B9609704028CF50E2` |
+| **Commit promovido** | `2f77e22` (`docs: record phase 2.1 hardware capability profile`) |
+| **Release antes → después** | `a8685dd` → `2f77e22` (fast-forward) |
+| **Pruebas** | 700 (592 Core + 108 Windows), 0 fallidas, 0 warnings |
+
+**Validación manual registrada (todo aprobado):**
+
+- Arranque correcto.
+- Nivel de capacidad detectado: **Acelerada**.
+- CPU mostrada correctamente.
+- Núcleos físicos correctos.
+- Procesadores lógicos correctos.
+- RAM total correcta.
+- GPU preferida correcta.
+- VRAM correcta.
+- Sin GPUs duplicadas o incorrectas en el listado.
+- "Actualizar detección" funcionó correctamente, con la interfaz fluida durante la actualización
+  (sin bloqueo).
+- Diagnóstico técnico revisado sin discrepancias reportadas.
+- Alt + A correcto.
+- Micrófono y Whisper correctos.
+- Wake word correcto.
+- TTS correcto.
+- Ocultar, salir y reabrir correctos.
+- Sin regresiones funcionales observadas.
+
+**Batería:** no reportada en esta validación manual — el usuario no confirmó explícitamente el
+estado mostrado para la línea de batería, por lo que no se registra un resultado (ni "presente" ni
+"no detectada") para este campo.
+
+**Estado formal:**
+
+- **Hardware Capability Profile v1 APROBADO.**
+- **Fase 2.2 (Adaptive Engine Registry) todavía NO iniciada.**
+- Ningún modo de rendimiento (Automático/Eco/Equilibrado/Máximo) implementado todavía.
+- Ninguna selección de motor se aplica todavía.
+
+La rama `phase2/hardware-capability-profile-v1` se conserva (no se elimina). Este checkpoint solo
+actualiza la documentación; no cambia código de producción, pruebas, proyectos ni recursos visuales.
+
+---
+
+### Fase 2.2 — Adaptive Engine Registry y modos de rendimiento v1 (2026-07-24)
+
+Segundo sprint de la Fase 2. Construye un registro que sabe qué motores de voz/IA existen
+realmente en el runtime de Kohana, qué tan disponibles/configurados/activos están, y qué
+recomendaría cada modo de rendimiento (Automático/Ahorro/Equilibrado/Máximo) cruzando esa
+información con el `HardwareCapabilityProfile` de la Fase 2.1. **No cambia ningún motor
+automáticamente.** Whisper, Vosk, SAPI y Ollama siguen exactamente igual que antes de este sprint;
+solo se agregó transparencia sobre lo que Kohana podría recomendar.
+
+**Motores reales encontrados y registrados** (`WindowsAdaptiveEngineRegistry`):
+
+- **Whisper** (`WhisperVoiceInputService`) — reconocimiento de voz, modelo `Base` fijo (hardcodeado
+  en el código, nunca configurable), siempre en CPU (el paquete `Whisper.net.Runtime` referenciado
+  no incluye soporte GPU — no se afirma uso de GPU).
+- **Vosk** (`VoskWakeWordService`) — palabra de activación, modelo pequeño en español fijo.
+- **SAPI de Windows** (`WindowsTextToSpeechService`) — síntesis de voz; no expone qué voz eligió ni
+  si está hablando en este instante, así que esos campos quedan `Unknown` en vez de inventarse.
+- **OpenAI, Ollama, LM Studio, compatible con OpenAI** — los cuatro proveedores reales que
+  `AiChatRouterService` enruta hoy (confirmado leyendo su `Resolve`, no asumido).
+
+**Motores explícitamente excluidos** (no existen en el runtime, no se registran aunque se
+mencionen en documentación futura): openWakeWord, Silero VAD, Kokoro, Piper, `Windows.Media.Ocr`,
+cualquier motor de visión distinto de la captura de pantalla existente. Verificado por `grep`
+sobre `src/` — cero referencias reales a ninguno de estos.
+
+**Modelo de dominio** (`Nexo.Core.AdaptiveEngine`, sin `PackageReference`, sin WMI/Registry/WinAPI):
+`HardwarePerformanceMode` (Automatic/Eco/Balanced/Maximum), `EngineCategory` (SpeechToText/
+WakeWord/TextToSpeech/LocalLanguageModel — sin categoría de Visión: no hay un motor visual
+diferenciable de la captura de pantalla), `EngineIdentifier` (value type, no strings sueltos como
+contrato), `EngineCostLevel` (Unknown/Low/Moderate/High — sin cifras exactas), `EngineRequirement`,
+`EngineDescriptor`, `EngineRuntimeState` (tres `bool?` independientes: disponible/configurado/
+activo — un motor puede ser disponible-pero-no-configurado, configurado-pero-inactivo, o
+activo-pero-no-recomendado, simultáneamente), `EngineCompatibility`, `EngineRecommendation`,
+`AdaptiveEnginePlan`, `AdaptiveEnginePolicy` (pura, `static`), `IAdaptiveEngineRegistry`.
+
+**Política:** `AdaptiveEnginePolicy.Evaluate(hardwareProfile, mode, descriptors, runtimeStates,
+evaluatedAt)` — pura, con la fecha como parámetro explícito (no `DateTimeOffset.Now` interno) para
+que el mismo input produzca exactamente el mismo plan. Cada motor se clasifica compatible/
+incompatible comparando su requisito mínimo contra un presupuesto de costo por tier (Basic→Low,
+Standard→Moderate, Accelerated/HighPerformance→High); un costo `Unknown` nunca bloquea
+compatibilidad. Entre los motores compatibles de una categoría, el modo elige: Ahorro → el de
+menor costo; Máximo → el de mayor costo (nunca uno incompatible); Equilibrado → el más cercano a
+un costo moderado; Automático → igual que Equilibrado si la confianza del hardware es `Known`, o
+igual que Ahorro (conservador) si es `Unknown` — así "dato desconocido" nunca se confunde con
+"máquina incapaz".
+
+**Persistencia:** `ShellPreferences.HardwarePerformanceMode` (default `Automatic`), esquema
+subido a v17 siguiendo el mismo patrón de migración versionada + `Enum.IsDefined` de
+`WakeWordSensitivity`/`AiProvider`. Un valor corrupto o de una versión futura cae a `Automatic` en
+vez de fallar. Cambiar el modo recalcula el plan y persiste de inmediato; no reinicia motores.
+
+**Composición:** `IAdaptiveEngineRegistry` es el octavo singleton de `KohanaCompositionRoot`,
+construido después de `VoiceCoordinator` (lee su estado ya expuesto — `IsVoiceInputReady`,
+`IsWakeWordReady`, etc. — sin modificar su comportamiento ni su ciclo de vida). Inyectado a
+`MainWindow` como dependencia obligatoria, sin `IServiceProvider`, sin construcción directa.
+
+**Interfaz:** `SettingsView` gana "Modo de rendimiento" (cuatro `RadioButton` accesibles, con
+`AutomationProperties.Name`, cada una con descripción breve) — con un título distinto a la sección
+preexistente "Rendimiento adaptativo" del Resource Governor (modo Normal/Ocupado/Juego, un
+concepto reactivo no relacionado, para no confundir ambos). `SystemView` gana "Plan adaptativo"
+debajo de "Capacidad del equipo": motor configurado/activo/recomendado por categoría, motivos,
+advertencias, y una etiqueta "Solo recomendación" siempre que el motor activo no coincida con el
+recomendado. `DiagnosticsWindow` gana un bloque técnico con todos los motores registrados, sus
+requisitos, disponibilidad, compatibilidad, estado y el timestamp/tier/modo del plan — sin exponer
+claves de API ni rutas privadas.
+
+**Pruebas nuevas:** 69 en total. 30 en `AdaptiveEnginePolicyTests` (los cuatro modos en los cuatro
+tiers, costo de motor desconocido sin bloquear compatibilidad, confianza baja/desconocida forzando
+conservadurismo, motor recomendado-pero-no-disponible, disponible-pero-incompatible, activo
+distinto del recomendado, configurado-pero-inactivo, categoría sin motores, orden y razones
+deterministas, misma entrada → mismo plan). 13 en `WindowsAdaptiveEngineRegistryTests` (Whisper/
+Vosk/SAPI registrados una vez, identificadores únicos, proveedores remotos no marcados locales,
+estado real desde `VoiceCoordinator`, Ollama configurado no implica activo). 11 invariantes
+estructurales de interfaz (`AdaptiveEngineUiInvariantTests`) verificando los cuatro modos visibles,
+nombres accesibles, la etiqueta "Solo recomendación", el bloque técnico de Diagnostics, y que
+ningún manejador de UI toque un motor de voz u Ollama directamente. Se extendieron los tests de
+composición para el octavo singleton. Migrar el esquema a v17 requirió actualizar 9 pruebas de
+caracterización que verificaban el número de esquema "totalmente migrado" anterior (16 → 17).
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 629 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 140 superadas, 0 con error, 0 omitidas
+Total: 769 pruebas (700 previas + 69 nuevas de Fase 2.2), 0 fallidas, 0 warnings.
+```
+
+**No se tocó:** VoiceCoordinator no cambió de comportamiento (solo se leyó su estado ya público),
+ningún motor se descargó, instaló o sustituyó, ningún parámetro de voz actual cambió, Voice Lab no
+se inició.
+
+**Smoke test manual pendiente.** El sprint no debe darse por cerrado hasta que el usuario confirme
+manualmente que los cuatro modos se muestran y seleccionan correctamente, que "Plan adaptativo"
+refleja el hardware y los motores reales del equipo, y que cambiar de modo nunca cambia de motor
+observable. Detalle completo en
+`artifacts\Kohana-Fase-2.2-Adaptive-Engine-Registry-Informe.md`.

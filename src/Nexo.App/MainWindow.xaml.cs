@@ -15,10 +15,12 @@ using Nexo.App.Automation;
 using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Focus;
+using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
@@ -74,13 +76,16 @@ public partial class MainWindow : Window
     private readonly IAudioMixerService _audioMixerService;
     private readonly IScreenCaptureService _screenCaptureService;
     private readonly VoiceCoordinator _voiceCoordinator;
+    private readonly IHardwareCapabilityService _hardwareCapabilityService;
+    private readonly IAdaptiveEngineRegistry _adaptiveEngineRegistry;
+    private OllamaRuntimeSnapshot? _latestOllamaRuntimeSnapshot;
     private readonly SemaphoreSlim _aiGate = new(1, 1);
 
     // Serializa las DECISIONES del Resource Governor (pausar/reanudar wake word según el
     // modo de recursos y la bandera _resourceGovernorWakeWordPaused), no el acceso físico
-    // a Vosk: las operaciones reales del motor pasan después por el ámbito de wake word
-    // del coordinador (vía PauseWakeWordAsync/ApplyWakeWordPreferenceAsync). No es un
-    // candado del subsistema de voz; por eso permanece en MainWindow tras la fase 1.3B3.
+    // a Vosk: las operaciones reales del motor pasan después por el ámbito de wake word del
+    // coordinador (vía PauseWakeWordAsync/ApplyWakeWordPreferenceAsync). No es un candado
+    // del subsistema de voz —esos viven en VoiceCoordinator—; por eso vive en MainWindow.
     private readonly SemaphoreSlim _resourceGovernorDecisionGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly WindowsSystemMetricsService _metricsService = new();
@@ -116,6 +121,7 @@ public partial class MainWindow : Window
     private bool _isHiding;
     private bool _isClosed;
     private bool _allowExit;
+    private bool _exitRequested;
     private bool _trayHintShown;
     private int _metricsRefreshInProgress;
     private string _currentDestination = "Home";
@@ -143,26 +149,24 @@ public partial class MainWindow : Window
         IAiChatService? aiChatService = null,
         IAudioMixerService? audioMixerService = null,
         IScreenCaptureService? screenCaptureService = null,
-        VoiceCoordinator? voiceCoordinator = null)
+        VoiceCoordinator? voiceCoordinator = null,
+        IHardwareCapabilityService? hardwareCapabilityService = null,
+        IAdaptiveEngineRegistry? adaptiveEngineRegistry = null)
     {
         InitializeComponent();
         _commandPaletteWindow = new CommandPaletteWindow();
 
-        // Mismo orden relativo que los inicializadores de campo que sustituyen: se resuelven
-        // aquí, antes de cualquier otro campo dependiente y antes de cablear eventos, igual que
-        // ocurría cuando eran `= new ...()`. Los valores por defecto solo cubren la construcción
-        // directa en pruebas; App.OnStartup siempre los provee desde KohanaCompositionRoot.
-        _aiChatService = aiChatService ?? new AiChatRouterService();
-        _audioMixerService = audioMixerService ?? new WindowsAudioMixerService();
-        _screenCaptureService = screenCaptureService ?? new WindowsScreenCaptureService();
-
-        // Fase 1.3B3: el coordinador de voz es una dependencia obligatoria y el único
-        // punto de acceso al subsistema de voz. MainWindow ya no recibe ni construye los
-        // tres servicios (Whisper, TTS, Vosk): su propiedad y liberación viven en
-        // KohanaCompositionRoot. Construir MainWindow sin coordinador es un error de
-        // programación, no un caso a cubrir con un motor de repuesto sin liberar.
-        _voiceCoordinator = voiceCoordinator
-            ?? throw new ArgumentNullException(nameof(voiceCoordinator));
+        // Todos los servicios son dependencias obligatorias provistas por la raíz de
+        // composición (App.OnStartup): MainWindow nunca construye un motor. Se asignan aquí,
+        // antes de cualquier campo dependiente y antes de cablear eventos. El coordinador de
+        // voz es el único punto de acceso al subsistema de voz; MainWindow no recibe los tres
+        // motores (Whisper, TTS, Vosk), que posee y libera KohanaCompositionRoot.
+        _aiChatService = aiChatService ?? throw new ArgumentNullException(nameof(aiChatService));
+        _audioMixerService = audioMixerService ?? throw new ArgumentNullException(nameof(audioMixerService));
+        _screenCaptureService = screenCaptureService ?? throw new ArgumentNullException(nameof(screenCaptureService));
+        _voiceCoordinator = voiceCoordinator ?? throw new ArgumentNullException(nameof(voiceCoordinator));
+        _hardwareCapabilityService = hardwareCapabilityService ?? throw new ArgumentNullException(nameof(hardwareCapabilityService));
+        _adaptiveEngineRegistry = adaptiveEngineRegistry ?? throw new ArgumentNullException(nameof(adaptiveEngineRegistry));
 
         _startHidden = startHidden;
         _managedOllamaSupervisor = managedOllamaSupervisor;
@@ -225,6 +229,7 @@ public partial class MainWindow : Window
         _homeView.ContextRequested += HomeView_ContextRequested;
         _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
         _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
+        _systemView.HardwareCapabilityRefreshRequested += async (_, _) => await RefreshHardwareCapabilityAsync();
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -245,6 +250,7 @@ public partial class MainWindow : Window
         SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
         UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
         RefreshRuntimeDashboard();
+        _ = RefreshHardwareCapabilityAsync();
 
         _clockTimer = new DispatcherTimer
         {
@@ -369,6 +375,7 @@ public partial class MainWindow : Window
             _preferences.WakeWordEnabled = enabled;
             SavePreferences();
             _ = ApplyWakeWordPreferenceAsync(showCapsule: true);
+            RefreshAdaptiveEnginePlan();
         };
 
         _settingsView.WakeWordPhraseChanged += phrase =>
@@ -411,6 +418,7 @@ public partial class MainWindow : Window
             UpdateAiProviderStatus();
             SavePreferences();
             ConfigureManagedOllamaSupervisor();
+            RefreshAdaptiveEnginePlan();
         };
 
         _settingsView.AiBaseUrlChanged += baseUrl =>
@@ -469,6 +477,13 @@ public partial class MainWindow : Window
         {
             _preferences.ProtectVisionWhenBusy = enabled;
             SavePreferences();
+        };
+
+        _settingsView.HardwarePerformanceModeChanged += mode =>
+        {
+            _preferences.HardwarePerformanceMode = mode;
+            SavePreferences();
+            RefreshAdaptiveEnginePlan();
         };
 
         _settingsView.StartWithWindowsChanged += enabled =>
@@ -562,7 +577,9 @@ public partial class MainWindow : Window
             _voiceCoordinator.IsWakeWordReady,
             _voiceCoordinator.IsWakeWordListening,
             trayActive: true,
-            _startupService.IsEnabled())
+            _startupService.IsEnabled(),
+            _hardwareCapabilityService,
+            _adaptiveEngineRegistry)
         {
             Owner = this
         };
@@ -821,12 +838,12 @@ public partial class MainWindow : Window
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
         _commandPaletteWindow.Close();
-        // Fase 1.3B3: MainWindow desuscribe los eventos de wake word (a través del
-        // coordinador) y cancela el token de vida, pero YA NO libera los tres servicios de
-        // voz: su propiedad y Dispose viven en KohanaCompositionRoot y se ejecutan en
-        // App.OnExit, justo después de que esta ventana se cierre. La guardia _isClosed y
-        // el token cancelado impiden que cualquier operación en vuelo o evento encolado
-        // opere durante el cierre; el Dispose de cada servicio detiene su grabador.
+        // MainWindow desuscribe los eventos de wake word (a través del coordinador) y cancela
+        // el token de vida, pero NO libera los tres motores de voz: su propiedad y Dispose
+        // viven en KohanaCompositionRoot y se ejecutan en App.OnExit, justo después de que
+        // esta ventana se cierre. La guardia _isClosed y el token cancelado impiden que
+        // cualquier operación en vuelo o evento encolado opere durante el cierre; el Dispose
+        // de cada motor detiene su grabador.
         _voiceCoordinator.WakeWordDetected -= WakeWordService_WakeWordDetected;
         _voiceCoordinator.RecognitionObserved -= WakeWordService_RecognitionObserved;
         if (_aiChatService is IDisposable disposableAiService)
@@ -942,10 +959,14 @@ public partial class MainWindow : Window
     public void UpdateManagedAiRuntimeState(OllamaRuntimeSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        _latestOllamaRuntimeSnapshot = snapshot;
+
         if (_isClosed)
         {
             return;
         }
+
+        RefreshAdaptiveEnginePlan();
 
         if (snapshot.IsRunning)
         {
@@ -1929,8 +1950,8 @@ public partial class MainWindow : Window
         {
             await PauseWakeWordAsync();
 
-            // Fase 1.3B3: la cancelación de la entrada de voz corre sobre el ámbito de
-            // voz del coordinador, el único dominio de exclusión para Whisper.
+            // La cancelación de la entrada de voz corre sobre el ámbito de voz del
+            // coordinador, el único dominio de exclusión para Whisper.
             await voiceScope.CancelAsync();
 
             _preferences.VoiceInputDeviceNumber = deviceNumber;
@@ -3762,6 +3783,56 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task RefreshHardwareCapabilityAsync()
+    {
+        _systemView.ShowHardwareCapabilityUpdating();
+        try
+        {
+            var profile = await _hardwareCapabilityService.RefreshAsync(_lifetimeCancellation.Token);
+            if (_isClosed)
+            {
+                return;
+            }
+
+            _systemView.UpdateHardwareCapability(profile);
+            RefreshAdaptiveEnginePlan();
+        }
+        catch (OperationCanceledException)
+        {
+            // La ventana se cerró antes de que terminara la detección.
+        }
+        catch (Exception)
+        {
+            // La detección de hardware es informativa: un fallo nunca debe afectar el resto de Kohana.
+            if (!_isClosed)
+            {
+                _systemView.UpdateHardwareCapability(_hardwareCapabilityService.GetCachedProfile());
+                RefreshAdaptiveEnginePlan();
+            }
+        }
+    }
+
+    private void RefreshAdaptiveEnginePlan()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        var hardwareProfile = _hardwareCapabilityService.GetCachedProfile();
+        var descriptors = _adaptiveEngineRegistry.GetDescriptors();
+        var runtimeStates = _adaptiveEngineRegistry.CaptureRuntimeStates(_preferences, _latestOllamaRuntimeSnapshot);
+
+        var plan = AdaptiveEnginePolicy.Evaluate(
+            hardwareProfile,
+            _preferences.HardwarePerformanceMode,
+            descriptors,
+            runtimeStates,
+            DateTimeOffset.Now);
+
+        _systemView.UpdateAdaptiveEnginePlan(plan, descriptors);
+    }
+
     private async Task<ResourceGovernorDecision> EnsureFreshResourceDecisionAsync()
     {
         if (!_preferences.ResourceGovernorEnabled)
@@ -4013,13 +4084,37 @@ public partial class MainWindow : Window
 
     private void RequestExit()
     {
-        if (_isClosed)
+        if (_isClosed || _exitRequested)
         {
             return;
         }
 
-        _allowExit = true;
-        System.Windows.Application.Current.Shutdown();
+        // Un único inicio de apagado. La fase asíncrona (detener el runtime de IA
+        // administrado) se ejecuta MIENTRAS el Dispatcher aún bombea, antes de
+        // Application.Shutdown, para no bloquear el hilo de UI con sync-sobre-async durante
+        // App.OnExit. No se inician nuevas operaciones después de esto.
+        _exitRequested = true;
+        _ = RequestExitAsync();
+    }
+
+    private async Task RequestExitAsync()
+    {
+        try
+        {
+            if (_managedOllamaSupervisor is not null)
+            {
+                await _managedOllamaSupervisor.StopAsync();
+            }
+        }
+        catch (Exception)
+        {
+            // El apagado del runtime administrado es best-effort; el cierre continúa igual.
+        }
+        finally
+        {
+            _allowExit = true;
+            System.Windows.Application.Current.Shutdown();
+        }
     }
 
     private static string FormatPercentage(double? value)

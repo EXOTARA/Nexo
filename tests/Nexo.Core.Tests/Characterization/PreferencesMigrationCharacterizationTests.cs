@@ -5,7 +5,7 @@ using Nexo.Core.Voice;
 namespace Nexo.Core.Tests.Characterization;
 
 /// <summary>
-/// Fase 1.1 — congela las migraciones de preferencias (esquema v16) y los saneamientos que
+/// Fase 1.1 — congela las migraciones de preferencias (esquema v17) y los saneamientos que
 /// <see cref="ShellPreferences.Normalize"/> aplica en cada carga.
 ///
 /// Regla de `MIGRATION_PLAN.md`: cada incremento es aditivo, con default seguro, y **nunca**
@@ -13,10 +13,10 @@ namespace Nexo.Core.Tests.Characterization;
 /// </summary>
 public sealed class PreferencesMigrationCharacterizationTests
 {
-    private const int CurrentSchemaVersion = 16;
+    private const int CurrentSchemaVersion = 17;
 
     [Fact]
-    public void CurrentSchemaVersion_IsSixteen()
+    public void CurrentSchemaVersion_IsSeventeen()
     {
         var preferences = new ShellPreferences();
         preferences.Normalize();
@@ -30,7 +30,7 @@ public sealed class PreferencesMigrationCharacterizationTests
     [InlineData(8)]
     [InlineData(13)]
     [InlineData(15)]
-    public void AnyOlderSchema_MigratesForwardToSixteen(int startingVersion)
+    public void AnyOlderSchema_MigratesForwardToSeventeen(int startingVersion)
     {
         var preferences = new ShellPreferences { SchemaVersion = startingVersion };
 

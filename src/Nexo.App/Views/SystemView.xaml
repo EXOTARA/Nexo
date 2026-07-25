@@ -40,6 +40,159 @@
             </UniformGrid>
 
             <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Capacidad del equipo" FontSize="16" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HardwareCapabilitySummaryText"
+                                       Margin="0,3,0,0"
+                                       Text="Detectando la capacidad del equipo…"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                        <Button x:Name="HardwareCapabilityRefreshButton"
+                                Grid.Column="1"
+                                Content="Actualizar detección"
+                                VerticalAlignment="Top"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="HardwareCapabilityRefreshButton_Click"
+                                AutomationProperties.Name="Actualizar detección de capacidad del equipo" />
+                    </Grid>
+
+                    <UniformGrid Columns="2" Margin="-4,12,-4,0">
+                        <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="NIVEL" Style="{StaticResource MutedTextStyle}" />
+                                <TextBlock x:Name="HardwareCapabilityTierText" Margin="0,4,0,0" Text="—" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="CPU" Style="{StaticResource MutedTextStyle}" />
+                                <TextBlock x:Name="HardwareCapabilityCpuText" Margin="0,4,0,0" Text="—" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="NÚCLEOS" Style="{StaticResource MutedTextStyle}" />
+                                <TextBlock x:Name="HardwareCapabilityCoresText" Margin="0,4,0,0" Text="—" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="RAM TOTAL" Style="{StaticResource MutedTextStyle}" />
+                                <TextBlock x:Name="HardwareCapabilityRamText" Margin="0,4,0,0" Text="—" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="ARQUITECTURA" Style="{StaticResource MutedTextStyle}" />
+                                <TextBlock x:Name="HardwareCapabilityArchitectureText" Margin="0,4,0,0" Text="—" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="GPU PREFERIDA" Style="{StaticResource MutedTextStyle}" />
+                                <TextBlock x:Name="HardwareCapabilityGpuText" Margin="0,4,0,0" Text="—" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="MEMORIA GRÁFICA" Style="{StaticResource MutedTextStyle}" />
+                                <TextBlock x:Name="HardwareCapabilityGraphicsMemoryText" Margin="0,4,0,0" Text="—" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                        <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <StackPanel>
+                                <TextBlock Text="BATERÍA" Style="{StaticResource MutedTextStyle}" />
+                                <TextBlock x:Name="HardwareCapabilityBatteryText" Margin="0,4,0,0" Text="—" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <TextBlock x:Name="HardwareCapabilityCompletenessText"
+                               Margin="4,10,4,0"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="HardwareCapabilityReasonsText"
+                               Margin="4,6,4,0"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock x:Name="HardwareCapabilityMissingDataText"
+                               Margin="4,4,4,0"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Plan adaptativo" FontSize="16" FontWeight="SemiBold" />
+                            <TextBlock x:Name="AdaptiveEnginePlanSummaryText"
+                                       Margin="0,3,0,0"
+                                       Text="Calculando…"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                            <TextBlock Text="MODO" Style="{StaticResource MutedTextStyle}" HorizontalAlignment="Right" />
+                            <TextBlock x:Name="AdaptiveEnginePlanModeText" Text="—" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock x:Name="AdaptiveEnginePlanConfidenceText"
+                               Margin="0,8,0,0"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <ItemsControl x:Name="AdaptiveEnginePlanItemsControl" Margin="-4,10,-4,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding CategoryLabel}" FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="Solo recomendación"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource BrushWarning}"
+                                                       Visibility="{Binding RecommendationOnlyVisibility}" />
+                                        </Grid>
+                                        <TextBlock Margin="0,4,0,0" Text="{Binding ConfiguredLine}" Style="{StaticResource MutedTextStyle}" />
+                                        <TextBlock Margin="0,2,0,0" Text="{Binding ActiveLine}" Style="{StaticResource MutedTextStyle}" />
+                                        <TextBlock Margin="0,2,0,0" Text="{Binding RecommendedLine}" FontWeight="SemiBold" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   Text="{Binding ReasonText}"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource MutedTextStyle}" />
+                                        <TextBlock Margin="0,2,0,0"
+                                                   Text="{Binding WarningText}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding WarningVisibility}"
+                                                   Foreground="{DynamicResource BrushWarning}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,12">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

@@ -87,7 +87,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="12">
+                            CornerRadius="{DynamicResource RadiusMedium}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center" />
                     </Border>
@@ -130,7 +130,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="13">
+                            CornerRadius="{DynamicResource RadiusLarge}">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="Center" />
                     </Border>
@@ -172,7 +172,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="13">
+                            CornerRadius="{DynamicResource RadiusLarge}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center" />
                     </Border>
@@ -392,7 +392,7 @@
                             Background="{DynamicResource BrushTextPrimary}"
                             BorderBrush="{DynamicResource BrushAccent}"
                             BorderThickness="2"
-                            CornerRadius="9">
+                            CornerRadius="{DynamicResource RadiusSmall}">
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="8"
                                               ShadowDepth="1"

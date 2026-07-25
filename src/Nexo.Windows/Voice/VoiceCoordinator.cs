@@ -5,7 +5,7 @@ namespace Nexo.Windows.Voice;
 /// <summary>
 /// Punto único de acceso al subsistema de voz (entrada de voz, salida de voz y wake word)
 /// por encima de <see cref="IVoiceInputService"/>, <see cref="IVoiceOutputService"/> e
-/// <see cref="IWakeWordService"/>. Diseño final de la fase 1.3B3.
+/// <see cref="IWakeWordService"/>.
 ///
 /// Sincronización: este coordinador **posee** los dos únicos <see cref="SemaphoreSlim"/>
 /// que serializan las operaciones mutantes del subsistema —uno para entrada de voz y otro
@@ -116,7 +116,7 @@ public sealed class VoiceCoordinator : IDisposable
     public void StopSpeaking() => _voiceOutputService.Stop();
 
     // ---------------------------------------------------------------------------------
-    // Ámbitos de exclusión (diseño final de la fase 1.3B3).
+    // Ámbitos de exclusión: el diseño de sincronización del subsistema de voz.
     //
     // El único mecanismo de sincronización real del subsistema de voz vive aquí: los dos
     // SemaphoreSlim privados de arriba. Un orquestador externo (la vista principal) ya no

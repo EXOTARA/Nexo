@@ -58,7 +58,9 @@ public partial class App : System.Windows.Application
             _compositionRoot.AiChatService,
             _compositionRoot.AudioMixerService,
             _compositionRoot.ScreenCaptureService,
-            _compositionRoot.VoiceCoordinator);
+            _compositionRoot.VoiceCoordinator,
+            _compositionRoot.HardwareCapabilityService,
+            _compositionRoot.AdaptiveEngineRegistry);
         MainWindow = mainWindow;
 
         _singleInstance.ActivationRequested += (_, _) =>
@@ -70,15 +72,18 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // El runtime de IA administrado ya se detuvo de forma asíncrona en la ruta de
+        // salida (MainWindow.RequestExitAsync), antes de Application.Shutdown, mientras el
+        // Dispatcher aún bombeaba. Aquí el Dispose solo libera recursos sin bloquear.
         _managedOllamaSupervisor?.Dispose();
         _managedOllamaSupervisor = null;
 
-        // Fase 1.3B3: KohanaCompositionRoot es dueño del subsistema de voz (el coordinador
-        // más Whisper, TTS y Vosk) y los libera aquí, después de que Window_Closed ya haya
-        // cancelado el token de vida y desuscrito los eventos de wake word. El
-        // ServiceProvider no libera instancias que no creó él mismo (verificado), así que
-        // esta es la única ruta de Dispose de esos servicios. Los demás servicios de
-        // interfaz (IA, mezclador, captura) mantienen su liberación anterior.
+        // KohanaCompositionRoot es dueño del subsistema de voz (el coordinador más Whisper,
+        // TTS y Vosk) y los libera aquí, después de que Window_Closed ya haya cancelado el
+        // token de vida y desuscrito los eventos de wake word. El ServiceProvider no libera
+        // instancias que no creó él mismo (verificado), así que esta es la única ruta de
+        // Dispose de esos servicios. Los demás servicios de interfaz (IA, mezclador, captura)
+        // mantienen su liberación anterior.
         _compositionRoot?.Dispose();
         _compositionRoot = null;
 

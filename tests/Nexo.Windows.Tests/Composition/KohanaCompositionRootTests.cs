@@ -1,11 +1,15 @@
 using Microsoft.Extensions.DependencyInjection;
 using Nexo.Core.Ai;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Audio;
+using Nexo.Core.Hardware;
 using Nexo.Core.Vision;
 using Nexo.Core.Voice;
 using Nexo.Windows.Ai;
+using Nexo.Windows.AdaptiveEngine;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Composition;
+using Nexo.Windows.Hardware;
 using Nexo.Windows.Vision;
 using Nexo.Windows.Voice;
 
@@ -24,6 +28,8 @@ public sealed class KohanaCompositionRootTests
         Assert.IsType<WindowsTextToSpeechService>(root.VoiceOutputService);
         Assert.IsType<VoskWakeWordService>(root.WakeWordService);
         Assert.IsType<WindowsScreenCaptureService>(root.ScreenCaptureService);
+        Assert.IsType<WindowsHardwareCapabilityService>(root.HardwareCapabilityService);
+        Assert.IsType<WindowsAdaptiveEngineRegistry>(root.AdaptiveEngineRegistry);
     }
 
     [Fact]
@@ -39,6 +45,8 @@ public sealed class KohanaCompositionRootTests
         Assert.Same(root.VoiceOutputService, root.Provider.GetRequiredService<IVoiceOutputService>());
         Assert.Same(root.WakeWordService, root.Provider.GetRequiredService<IWakeWordService>());
         Assert.Same(root.ScreenCaptureService, root.Provider.GetRequiredService<IScreenCaptureService>());
+        Assert.Same(root.HardwareCapabilityService, root.Provider.GetRequiredService<IHardwareCapabilityService>());
+        Assert.Same(root.AdaptiveEngineRegistry, root.Provider.GetRequiredService<IAdaptiveEngineRegistry>());
     }
 
     [Fact]
@@ -55,7 +63,7 @@ public sealed class KohanaCompositionRootTests
     }
 
     [Fact]
-    public void Constructor_ProducesSixDistinctServiceInstances()
+    public void Constructor_ProducesDistinctServiceInstances()
     {
         using var root = new KohanaCompositionRoot();
 
@@ -66,15 +74,45 @@ public sealed class KohanaCompositionRootTests
             root.VoiceInputService,
             root.VoiceOutputService,
             root.WakeWordService,
-            root.ScreenCaptureService
+            root.ScreenCaptureService,
+            root.HardwareCapabilityService,
+            root.AdaptiveEngineRegistry
         };
 
         Assert.Equal(instances.Length, instances.Distinct().Count());
     }
 
     [Fact]
-    public void Dispose_DoesNotThrowAndIsIdempotent()
+    public void HardwareCapabilityService_IsASingleInstance()
     {
+        using var root = new KohanaCompositionRoot();
+
+        Assert.Same(
+            root.Provider.GetRequiredService<IHardwareCapabilityService>(),
+            root.Provider.GetRequiredService<IHardwareCapabilityService>());
+        Assert.Single(root.Provider.GetServices<IHardwareCapabilityService>());
+    }
+
+    [Fact]
+    public void AdaptiveEngineRegistry_IsASingleInstance()
+    {
+        using var root = new KohanaCompositionRoot();
+
+        Assert.Same(
+            root.Provider.GetRequiredService<IAdaptiveEngineRegistry>(),
+            root.Provider.GetRequiredService<IAdaptiveEngineRegistry>());
+        Assert.Single(root.Provider.GetServices<IAdaptiveEngineRegistry>());
+    }
+
+    [Fact]
+    public void Dispose_ReleasesTheWholeVoiceSubsystemIdempotently()
+    {
+        // El composition root es el dueño y única ruta de Dispose del subsistema de voz
+        // (coordinador + Whisper/TTS/Vosk). Cada Dispose subyacente es idempotente, así que
+        // liberar el root dos veces —o después de que el contenedor tampoco libere las
+        // instancias registradas— nunca lanza. El orden exacto de liberación se verifica de
+        // forma estructural en CompositionInvariantTests
+        // (CompositionRoot_OwnsAndDisposesTheThreeVoiceServicesInOrder).
         var root = new KohanaCompositionRoot();
 
         var exception = Record.Exception(() =>
@@ -86,22 +124,7 @@ public sealed class KohanaCompositionRootTests
         Assert.Null(exception);
     }
 
-    [Fact]
-    public void Dispose_DoesNotDisposeTheUnderlyingServiceInstances()
-    {
-        // El contenedor registra instancias ya construidas, no tipos: no debe liberar
-        // IWakeWordService/IVoiceInputService/IVoiceOutputService al liberarse a sí mismo,
-        // porque Window_Closed en MainWindow sigue siendo la única ruta responsable de eso.
-        var root = new KohanaCompositionRoot();
-        var wakeWordService = root.WakeWordService;
-
-        root.Dispose();
-
-        var exception = Record.Exception(() => wakeWordService.Sensitivity = wakeWordService.Sensitivity);
-        Assert.Null(exception);
-    }
-
-    // ---------- Fase 1.3A: VoiceCoordinator ----------
+    // ---------- VoiceCoordinator ----------
 
     [Fact]
     public void VoiceCoordinator_IsASingleInstance()
@@ -148,24 +171,4 @@ public sealed class KohanaCompositionRootTests
         Assert.Single(root.Provider.GetServices<VoiceCoordinator>());
     }
 
-    [Fact]
-    public void Dispose_DisposesTheCoordinatorsOwnResourcesButNotTheThreeVoiceServices()
-    {
-        var root = new KohanaCompositionRoot();
-        var voiceInputService = root.VoiceInputService;
-        var voiceOutputService = root.VoiceOutputService;
-        var wakeWordService = root.WakeWordService;
-
-        root.Dispose();
-
-        // El coordinador ya liberó sus propios candados; los tres servicios de voz
-        // siguen intactos porque MainWindow (aún) es su único dueño de ciclo de vida.
-        var exception = Record.Exception(() =>
-        {
-            _ = voiceInputService.IsReady;
-            voiceOutputService.Stop();
-            wakeWordService.Sensitivity = wakeWordService.Sensitivity;
-        });
-        Assert.Null(exception);
-    }
 }

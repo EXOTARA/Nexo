@@ -18,6 +18,7 @@ public sealed class ManagedOllamaSupervisor : IDisposable
     private Action<OllamaRuntimeSnapshot>? _snapshotChanged;
     private Task? _monitorTask;
     private bool _enabled;
+    private bool _stopRequested;
     private bool _disposed;
 
     public bool Configure(ShellPreferences preferences)
@@ -72,6 +73,36 @@ public sealed class ManagedOllamaSupervisor : IDisposable
         }
     }
 
+    /// <summary>
+    /// Detiene el monitor y el runtime administrado de forma **asíncrona** e idempotente.
+    /// Debe llamarse desde la ruta de salida (mientras el Dispatcher aún bombea, antes de
+    /// <c>Application.Shutdown</c>): así las continuaciones de <see cref="OllamaRuntimeService.StopManagedAsync"/>
+    /// se procesan con normalidad. Antes, este trabajo se hacía con
+    /// <c>GetAwaiter().GetResult()</c> dentro de <see cref="Dispose"/> durante
+    /// <c>App.OnExit</c>, cuando el Dispatcher ya no bombea: la continuación quedaba
+    /// encolada en un hilo bloqueado, el proceso no terminaba y quedaba una instancia
+    /// fantasma que retenía la coordinación de instancia única.
+    /// </summary>
+    public async Task StopAsync()
+    {
+        if (_stopRequested)
+        {
+            return;
+        }
+
+        _stopRequested = true;
+        _lifetimeCancellation.Cancel();
+
+        try
+        {
+            await _runtimeService.StopManagedAsync(CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            WriteLog($"No se pudo detener el runtime administrado: {exception.Message}");
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -82,17 +113,11 @@ public sealed class ManagedOllamaSupervisor : IDisposable
         _disposed = true;
         _lifetimeCancellation.Cancel();
 
-        try
-        {
-            _runtimeService.StopManagedAsync(CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-        }
-        catch (Exception exception)
-        {
-            WriteLog($"No se pudo detener el runtime administrado: {exception.Message}");
-        }
-
+        // La parada del proceso administrado ocurre de forma asíncrona en StopAsync, que la
+        // ruta de salida llama antes de Application.Shutdown. Aquí NO se hace
+        // sync-sobre-async: bloquear el hilo de UI con GetResult() durante App.OnExit
+        // (Dispatcher sin bombear) interbloqueaba y dejaba el proceso fantasma. Este Dispose
+        // solo libera recursos propios y es idempotente.
         _runtimeService.Dispose();
         _ensureGate.Dispose();
         _lifetimeCancellation.Dispose();

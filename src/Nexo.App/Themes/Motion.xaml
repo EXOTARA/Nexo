@@ -1,0 +1,18 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Kohana Design System — Motion (Fundación 0.1).
+
+        Duraciones y curvas de aceleración para animaciones sutiles (Sakura: orgánico y
+        calmado). Se definen como tokens reutilizables; las animaciones existentes se pueden
+        migrar a ellos de forma incremental sin cambiar su sensación cuando el valor coincida.
+    -->
+    <Duration x:Key="MotionInstant">0:0:0</Duration>
+    <Duration x:Key="MotionFast">0:0:0.12</Duration>
+    <Duration x:Key="MotionBase">0:0:0.2</Duration>
+    <Duration x:Key="MotionSlow">0:0:0.35</Duration>
+
+    <CubicEase x:Key="MotionEaseOut" EasingMode="EaseOut" />
+    <CubicEase x:Key="MotionEaseInOut" EasingMode="EaseInOut" />
+    <QuadraticEase x:Key="MotionEaseOutSoft" EasingMode="EaseOut" />
+</ResourceDictionary>
