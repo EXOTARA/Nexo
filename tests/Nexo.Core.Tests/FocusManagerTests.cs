@@ -270,6 +270,61 @@ public sealed class FocusManagerTests
         Assert.Equal(taskId, store.State.History.Single().TaskId);
     }
 
+    // ---------- Diseño D3.1: historial expuesto para el resumen de actividad reciente ----------
+
+    [Fact]
+    public void GetHistory_OnFreshManager_ReturnsEmpty()
+    {
+        var manager = CreateManager();
+
+        Assert.Empty(manager.GetHistory());
+    }
+
+    [Fact]
+    public void GetHistory_ReturnsRecordedSessionsWithRealDuration()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+        manager.Finish(ReferenceNow.AddMinutes(12));
+
+        var history = manager.GetHistory();
+
+        var entry = Assert.Single(history);
+        Assert.Equal("Enfoque", entry.Label);
+        Assert.Equal(TimeSpan.FromMinutes(12), entry.Duration);
+    }
+
+    [Fact]
+    public void GetHistory_DoesNotExposeTheInternalListInstance()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(10), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+        manager.Finish(ReferenceNow.AddMinutes(5));
+
+        var first = manager.GetHistory();
+        var second = manager.GetHistory();
+
+        Assert.NotSame(first, second);
+        Assert.Equal(first.Single().Id, second.Single().Id);
+    }
+
+    [Fact]
+    public void GetHistory_NeverContainsCancelledSessions()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        manager.Cancel();
+
+        Assert.Empty(manager.GetHistory());
+    }
+
     private static FocusManager CreateManager()
     {
         var manager = new FocusManager(new MemoryFocusStore());

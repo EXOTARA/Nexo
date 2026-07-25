@@ -165,8 +165,54 @@
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
-                <TextBlock Text="Inicio rápido"
+                <TextBlock x:Name="TopTaskText"
+                           Margin="0,0,0,10"
+                           Text=""
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed"
+                           Style="{StaticResource MutedTextStyle}" />
+
+                <TextBlock Text="Actividad reciente"
                            Margin="0,0,0,8"
+                           FontWeight="SemiBold" />
+                <ItemsControl x:Name="RecentSessionsItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,6"
+                                    Padding="9,7"
+                                    Style="{StaticResource SubtleCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TitleText}"
+                                                   FontSize="12.5"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding SubtitleText}"
+                                                   Margin="0,2,0,0"
+                                                   Style="{StaticResource MutedTextStyle}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding DurationText}"
+                                               Margin="10,0,0,0"
+                                               VerticalAlignment="Center"
+                                               FontSize="12.5"
+                                               FontWeight="SemiBold" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock x:Name="RecentSessionsEmptyText"
+                           Text="Aún no hay sesiones de enfoque registradas."
+                           Margin="0,0,0,4"
+                           Style="{StaticResource MutedTextStyle}" />
+
+                <TextBlock Text="Inicio rápido"
+                           Margin="0,16,0,8"
                            FontWeight="SemiBold" />
                 <UniformGrid Columns="2">
                     <Button Content="Enfoque · 25 min"

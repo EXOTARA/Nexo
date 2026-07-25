@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using Nexo.App.DailyFlow;
 using Nexo.Core.Focus;
 
 namespace Nexo.App.Views;
@@ -36,6 +37,8 @@ public partial class FocusView : UserControl
         TodaySessionsText.Text = $"{snapshot.CompletedSessionsToday} " +
             (snapshot.CompletedSessionsToday == 1 ? "sesión" : "sesiones");
         TodayMinutesText.Text = $"{snapshot.FocusMinutesToday} min";
+
+        RefreshHistory(now);
 
         if (timer is null)
         {
@@ -249,4 +252,38 @@ public partial class FocusView : UserControl
             ? $"{totalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}"
             : $"{(int)remaining.TotalMinutes:D2}:{remaining.Seconds:D2}";
     }
+
+    /// <summary>
+    /// Diseño D3.1 — resumen real de actividad reciente, usando solo el historial que
+    /// <see cref="FocusManager"/> ya guarda (nada inventado: sin rachas ni puntajes).
+    /// </summary>
+    private void RefreshHistory(DateTimeOffset now)
+    {
+        var history = _focusManager.GetHistory();
+        var summary = FocusHistorySummaryBuilder.Build(history, now, _resolveTaskTitle);
+
+        if (summary.HasTopTask)
+        {
+            TopTaskText.Text = $"Tarea con más tiempo hoy: {summary.TopTaskLabel} " +
+                $"({summary.TopTaskMinutesToday} min)";
+            TopTaskText.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            TopTaskText.Visibility = Visibility.Collapsed;
+        }
+
+        var recentItems = summary.RecentSessions
+            .Select(session => new RecentSessionItem(
+                session.TaskTitle is null ? session.Label : $"{session.Label} · {session.TaskTitle}",
+                session.TimestampText,
+                session.DurationText))
+            .ToArray();
+        RecentSessionsItemsControl.ItemsSource = recentItems;
+        RecentSessionsEmptyText.Visibility = recentItems.Length == 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private sealed record RecentSessionItem(string TitleText, string SubtitleText, string DurationText);
 }

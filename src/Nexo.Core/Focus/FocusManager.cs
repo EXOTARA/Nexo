@@ -249,6 +249,18 @@ public sealed class FocusManager
         }
     }
 
+    /// <summary>
+    /// Diseño D3.1 — copia de solo lectura del historial real, para que Nexo.App construya un
+    /// resumen de actividad reciente sin poder mutar el estado interno de <see cref="FocusManager"/>.
+    /// </summary>
+    public IReadOnlyList<FocusHistoryEntry> GetHistory()
+    {
+        lock (_sync)
+        {
+            return _state.History.Select(entry => entry.Copy()).ToList();
+        }
+    }
+
     public string BuildStatus(DateTimeOffset now)
     {
         lock (_sync)
