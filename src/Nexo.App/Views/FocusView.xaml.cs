@@ -8,15 +8,25 @@ namespace Nexo.App.Views;
 public partial class FocusView : UserControl
 {
     private readonly FocusManager _focusManager;
+    private readonly Func<Guid, string?>? _resolveTaskTitle;
+    private Guid? _pendingAssociatedTaskId;
 
-    public FocusView(FocusManager focusManager)
+    public FocusView(FocusManager focusManager, Func<Guid, string?>? resolveTaskTitle = null)
     {
         _focusManager = focusManager;
+        _resolveTaskTitle = resolveTaskTitle;
         InitializeComponent();
         Refresh(DateTimeOffset.Now);
     }
 
     public event EventHandler? FocusChanged;
+
+    /// <summary>
+    /// Diseño D3 — el usuario pidió marcar como completada la tarea que estaba asociada a la
+    /// sesión que acaba de terminar o finalizarse. Nunca se dispara sola: siempre en respuesta a
+    /// pulsar "Marcar como completada" en <see cref="TaskCompletionPromptBorder"/>.
+    /// </summary>
+    public event EventHandler<TaskFocusRequestedEventArgs>? CompleteAssociatedTaskRequested;
 
     public void Refresh(DateTimeOffset now)
     {
@@ -36,7 +46,9 @@ public partial class FocusView : UserControl
             TimerProgressBar.Value = 0;
             PauseButton.IsEnabled = false;
             ResumeButton.IsEnabled = false;
+            FinishButton.IsEnabled = false;
             CancelButton.IsEnabled = false;
+            AssociatedTaskBadge.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -57,7 +69,22 @@ public partial class FocusView : UserControl
         TimerProgressBar.Value = progress;
         PauseButton.IsEnabled = timer.Status == FocusTimerStatus.Running;
         ResumeButton.IsEnabled = timer.Status == FocusTimerStatus.Paused;
+        FinishButton.IsEnabled = true;
         CancelButton.IsEnabled = true;
+
+        // La tarea asociada se resuelve por Id cada vez (no se guarda el título en el timer):
+        // así, si Kohana se reinicia a mitad de una sesión asociada, el título mostrado sigue
+        // siendo el actual de la tarea, no uno congelado del momento en que empezó.
+        var taskTitle = timer.TaskId.HasValue ? _resolveTaskTitle?.Invoke(timer.TaskId.Value) : null;
+        if (!string.IsNullOrWhiteSpace(taskTitle))
+        {
+            AssociatedTaskText.Text = $"Enfocándote en: {taskTitle}";
+            AssociatedTaskBadge.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            AssociatedTaskBadge.Visibility = Visibility.Collapsed;
+        }
     }
 
     public void FocusPrimaryControl()
@@ -66,6 +93,55 @@ public partial class FocusView : UserControl
         {
             CustomMinutesTextBox.Focus();
         }
+    }
+
+    /// <summary>
+    /// Diseño D3 — llamado antes de navegar aquí desde "Enfocarme" en Hoy. La siguiente sesión que
+    /// se inicie (preset o duración personalizada) queda asociada a esta tarea; no inicia nada por
+    /// sí solo.
+    /// </summary>
+    public void PrepareTaskAssociation(Guid taskId, string taskTitle)
+    {
+        _pendingAssociatedTaskId = taskId;
+        ActionStatusText.Text = $"Elige una duración para enfocarte en «{taskTitle}».";
+    }
+
+    /// <summary>
+    /// Diseño D3 — muestra la sugerencia (no automática) de completar la tarea asociada a una
+    /// sesión que acaba de terminar, ya sea de forma natural o por "Finalizar".
+    /// </summary>
+    public void ShowTaskCompletionPrompt(Guid taskId, string taskTitle)
+    {
+        _pendingCompletionTaskId = taskId;
+        _pendingCompletionTaskTitle = taskTitle;
+        TaskCompletionPromptText.Text = $"Terminaste tu sesión enfocado en «{taskTitle}». ¿Marcarla como completada?";
+        TaskCompletionPromptBorder.Visibility = Visibility.Visible;
+    }
+
+    private Guid? _pendingCompletionTaskId;
+    private string _pendingCompletionTaskTitle = string.Empty;
+
+    private void DismissTaskCompletionButton_Click(object sender, RoutedEventArgs e) =>
+        HideTaskCompletionPrompt();
+
+    private void CompleteAssociatedTaskButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingCompletionTaskId is not { } taskId)
+        {
+            HideTaskCompletionPrompt();
+            return;
+        }
+
+        var title = _pendingCompletionTaskTitle;
+        HideTaskCompletionPrompt();
+        CompleteAssociatedTaskRequested?.Invoke(this, new TaskFocusRequestedEventArgs(taskId, title));
+    }
+
+    private void HideTaskCompletionPrompt()
+    {
+        _pendingCompletionTaskId = null;
+        _pendingCompletionTaskTitle = string.Empty;
+        TaskCompletionPromptBorder.Visibility = Visibility.Collapsed;
     }
 
     private void PresetButton_Click(object sender, RoutedEventArgs e)
@@ -110,8 +186,34 @@ public partial class FocusView : UserControl
     private void ResumeButton_Click(object sender, RoutedEventArgs e) =>
         Apply(_focusManager.Resume(DateTimeOffset.Now));
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e) =>
+    private void FinishButton_Click(object sender, RoutedEventArgs e)
+    {
+        var now = DateTimeOffset.Now;
+        // Se lee el TaskId ANTES de finalizar: Finish() limpia el temporizador activo, así que
+        // después ya no habría forma de saber a qué tarea pertenecía.
+        var timer = _focusManager.GetSnapshot(now).ActiveTimer;
+        var taskId = timer?.TaskId;
+
+        var result = _focusManager.Finish(now);
+        Apply(result);
+
+        if (result.Success && taskId is { } id)
+        {
+            var title = _resolveTaskTitle?.Invoke(id);
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                ShowTaskCompletionPrompt(id, title);
+            }
+        }
+    }
+
+    private void CancelButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Cancelar descarta la sesión sin registrarla: no tiene sentido ofrecer completar la
+        // tarea asociada a algo que ni siquiera queda en el historial.
+        HideTaskCompletionPrompt();
         Apply(_focusManager.Cancel());
+    }
 
     private void Start(TimeSpan duration, FocusSessionKind kind)
     {
@@ -122,11 +224,15 @@ public partial class FocusView : UserControl
             _ => "Temporizador"
         };
 
+        var taskId = _pendingAssociatedTaskId;
+        _pendingAssociatedTaskId = null;
+
         Apply(_focusManager.Start(
             duration,
             label,
             kind,
-            DateTimeOffset.Now));
+            DateTimeOffset.Now,
+            taskId));
     }
 
     private void Apply(FocusOperationResult result)

@@ -14,6 +14,9 @@ public sealed class FocusHistoryEntry
 
     public TimeSpan Duration { get; set; }
 
+    /// <summary>Diseño D3: ver <see cref="FocusTimer.TaskId"/> — misma semántica, informativa.</summary>
+    public Guid? TaskId { get; set; }
+
     public FocusHistoryEntry Copy() => new()
     {
         Id = Id,
@@ -21,6 +24,7 @@ public sealed class FocusHistoryEntry
         Kind = Kind,
         StartedAt = StartedAt,
         CompletedAt = CompletedAt,
-        Duration = Duration
+        Duration = Duration,
+        TaskId = TaskId
     };
 }
