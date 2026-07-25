@@ -39,4 +39,17 @@
     <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
     <SolidColorBrush x:Key="BrushSakuraGlow" Color="#E4BBC7" />
     <SolidColorBrush x:Key="BrushSidebarSurface" Color="{StaticResource ColorSidebarSurface}" />
+
+    <!--
+        Diseño D1.1 (hotfix) — BrushTextMuted, BrushError y BrushFocusRing vivían en Brushes.xaml
+        referenciando estos Color* por StaticResource *entre archivos distintos*. Esa referencia
+        cruzada es frágil en WPF: solo se resuelve de forma fiable cuando ambas claves están en el
+        mismo diccionario. Antes de la Fase de diseño nada consumía BrushFocusRing, así que el
+        fallo quedó latente; el primer consumidor real (el anillo de foco de la barra lateral)
+        lo expuso como un XamlParseException no controlado al navegar. Se movieron aquí, junto a
+        los Color* que referencian, para que la resolución sea siempre dentro del mismo archivo.
+    -->
+    <SolidColorBrush x:Key="BrushTextMuted" Color="{StaticResource ColorTextTertiary}" />
+    <SolidColorBrush x:Key="BrushError" Color="{StaticResource ColorDanger}" />
+    <SolidColorBrush x:Key="BrushFocusRing" Color="{StaticResource ColorAccentBorder}" />
 </ResourceDictionary>
