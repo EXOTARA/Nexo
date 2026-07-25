@@ -55,6 +55,18 @@ public sealed class CompositionInvariantTests
     }
 
     [Fact]
+    public void MainWindow_RequiresAdaptiveEngineRegistryWithoutBuildingItDirectly()
+    {
+        var content = ReadMainWindowSource();
+
+        Assert.Contains(
+            "?? throw new ArgumentNullException(nameof(adaptiveEngineRegistry))",
+            content, StringComparison.Ordinal);
+        Assert.DoesNotContain("new WindowsAdaptiveEngineRegistry(", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("IServiceProvider", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VoiceCoordinator_HasNoWpfOrMainWindowOrPreferenceDependencies()
     {
         // Fase 1.3A: el coordinador debe ser mecánica de voz pura, sin WPF, sin

@@ -1,10 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Nexo.Core.Ai;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Audio;
 using Nexo.Core.Hardware;
 using Nexo.Core.Vision;
 using Nexo.Core.Voice;
 using Nexo.Windows.Ai;
+using Nexo.Windows.AdaptiveEngine;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Composition;
 using Nexo.Windows.Hardware;
@@ -27,6 +29,7 @@ public sealed class KohanaCompositionRootTests
         Assert.IsType<VoskWakeWordService>(root.WakeWordService);
         Assert.IsType<WindowsScreenCaptureService>(root.ScreenCaptureService);
         Assert.IsType<WindowsHardwareCapabilityService>(root.HardwareCapabilityService);
+        Assert.IsType<WindowsAdaptiveEngineRegistry>(root.AdaptiveEngineRegistry);
     }
 
     [Fact]
@@ -43,6 +46,7 @@ public sealed class KohanaCompositionRootTests
         Assert.Same(root.WakeWordService, root.Provider.GetRequiredService<IWakeWordService>());
         Assert.Same(root.ScreenCaptureService, root.Provider.GetRequiredService<IScreenCaptureService>());
         Assert.Same(root.HardwareCapabilityService, root.Provider.GetRequiredService<IHardwareCapabilityService>());
+        Assert.Same(root.AdaptiveEngineRegistry, root.Provider.GetRequiredService<IAdaptiveEngineRegistry>());
     }
 
     [Fact]
@@ -71,7 +75,8 @@ public sealed class KohanaCompositionRootTests
             root.VoiceOutputService,
             root.WakeWordService,
             root.ScreenCaptureService,
-            root.HardwareCapabilityService
+            root.HardwareCapabilityService,
+            root.AdaptiveEngineRegistry
         };
 
         Assert.Equal(instances.Length, instances.Distinct().Count());
@@ -86,6 +91,17 @@ public sealed class KohanaCompositionRootTests
             root.Provider.GetRequiredService<IHardwareCapabilityService>(),
             root.Provider.GetRequiredService<IHardwareCapabilityService>());
         Assert.Single(root.Provider.GetServices<IHardwareCapabilityService>());
+    }
+
+    [Fact]
+    public void AdaptiveEngineRegistry_IsASingleInstance()
+    {
+        using var root = new KohanaCompositionRoot();
+
+        Assert.Same(
+            root.Provider.GetRequiredService<IAdaptiveEngineRegistry>(),
+            root.Provider.GetRequiredService<IAdaptiveEngineRegistry>());
+        Assert.Single(root.Provider.GetServices<IAdaptiveEngineRegistry>());
     }
 
     [Fact]
