@@ -15,10 +15,8 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel>
-                <TextBlock Text="Hoy" Style="{StaticResource SectionTitleStyle}" />
-                <TextBlock Margin="0,4,0,0"
-                           Text="Tareas y recordatorios guardados únicamente en este equipo."
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Tareas y recordatorios guardados únicamente en este equipo."
                            TextWrapping="Wrap"
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>

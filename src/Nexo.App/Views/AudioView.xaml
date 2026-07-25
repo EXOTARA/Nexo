@@ -17,10 +17,8 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel>
-                <TextBlock Text="Audio" Style="{StaticResource SectionTitleStyle}" />
+            <StackPanel VerticalAlignment="Center">
                 <TextBlock x:Name="DeviceNameText"
-                           Margin="0,4,0,0"
                            Text="Buscando el dispositivo de salida…"
                            TextTrimming="CharacterEllipsis"
                            Style="{StaticResource MutedTextStyle}" />
