@@ -99,6 +99,14 @@ public partial class FocusView : UserControl
     }
 
     /// <summary>
+    /// Diseño D3.1 — inicia un preset de enfoque desde fuera de la vista (Command Center). Reusa
+    /// el mismo <see cref="Start"/> privado que los botones de "Inicio rápido", así una tarea
+    /// pendiente de asociar (ver <see cref="PrepareTaskAssociation"/>) no se pierde solo porque el
+    /// usuario haya iniciado la sesión desde Ctrl + K en vez de tocar un botón.
+    /// </summary>
+    public void StartPreset(TimeSpan duration) => Start(duration, FocusSessionKind.Focus);
+
+    /// <summary>
     /// Diseño D3 — llamado antes de navegar aquí desde "Enfocarme" en Hoy. La siguiente sesión que
     /// se inicie (preset o duración personalizada) queda asociada a esta tarea; no inicia nada por
     /// sí solo.

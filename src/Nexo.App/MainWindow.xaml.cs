@@ -879,19 +879,18 @@ public partial class MainWindow : Window
             keywords: ["barra", "lateral", "sidebar", "contraer", "expandir", "navegación"]));
 
         registry.Register(new KohanaCommandDescriptor(
-            "focus.start",
-            "Iniciar sesión de enfoque",
-            "Abre Enfoque para comenzar una sesión.",
+            "focus.open",
+            "Abrir Enfoque",
+            "Va a la sección de Enfoque.",
             KohanaCommandCategory.Focus,
             _ =>
             {
                 NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
                 return Task.FromResult(CommandExecutionResult.Success());
             },
-            keywords: ["enfoque", "concentración", "pomodoro", "sesión"],
-            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is null
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("Ya hay una sesión de enfoque en curso.")));
+            keywords: ["enfoque", "concentración", "pomodoro", "sesión", "abrir"]));
+
+        registry.RegisterRange(BuildFocusStartCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "focus.cancel",
@@ -901,7 +900,7 @@ public partial class MainWindow : Window
             _ =>
             {
                 var result = _focusManager.Cancel();
-                _focusView.Refresh(DateTimeOffset.Now);
+                CheckFocusTimer();
                 return Task.FromResult(result.Success
                     ? CommandExecutionResult.Success(result.Message)
                     : CommandExecutionResult.Failure(result.Message));
@@ -919,7 +918,7 @@ public partial class MainWindow : Window
             _ =>
             {
                 var result = _focusManager.Pause(DateTimeOffset.Now);
-                _focusView.Refresh(DateTimeOffset.Now);
+                CheckFocusTimer();
                 return Task.FromResult(result.Success
                     ? CommandExecutionResult.Success(result.Message)
                     : CommandExecutionResult.Failure(result.Message));
@@ -937,7 +936,7 @@ public partial class MainWindow : Window
             _ =>
             {
                 var result = _focusManager.Resume(DateTimeOffset.Now);
-                _focusView.Refresh(DateTimeOffset.Now);
+                CheckFocusTimer();
                 return Task.FromResult(result.Success
                     ? CommandExecutionResult.Success(result.Message)
                     : CommandExecutionResult.Failure(result.Message));
@@ -957,6 +956,18 @@ public partial class MainWindow : Window
             availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
                 ? KohanaCommandAvailability.Available
                 : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.history",
+            "Mostrar historial de enfoque",
+            "Abre Enfoque, donde están las últimas sesiones y el resumen del día.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["enfoque", "historial", "actividad", "resumen", "sesiones"]));
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -1014,6 +1025,42 @@ public partial class MainWindow : Window
         registry.RegisterRange(BuildRoutineExecutionCommands());
 
         return registry;
+    }
+
+    /// <summary>
+    /// Diseño D3.1 — un comando por cada preset de duración, solo disponible cuando no hay ya una
+    /// sesión de enfoque en curso: nunca deben aparecer dos comandos de "iniciar" e "finalizar/
+    /// pausar" incompatibles a la vez como disponibles. Cada uno reusa
+    /// <see cref="FocusView.StartPreset"/> (no llama a FocusManager.Start directamente) para no
+    /// perder una tarea pendiente de asociar si el usuario ya venía de "Enfocarme" en una tarea.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
+    {
+        (int Minutes, string Id)[] presets =
+        [
+            (15, "focus.start.15"),
+            (25, "focus.start.25"),
+            (45, "focus.start.45")
+        ];
+
+        foreach (var (minutes, id) in presets)
+        {
+            yield return new KohanaCommandDescriptor(
+                id,
+                $"Iniciar enfoque · {minutes} min",
+                $"Comienza una sesión de enfoque de {minutes} minutos.",
+                KohanaCommandCategory.Focus,
+                _ =>
+                {
+                    _focusView.StartPreset(TimeSpan.FromMinutes(minutes));
+                    CheckFocusTimer();
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: ["enfoque", "iniciar", "concentración", "pomodoro", minutes.ToString(CultureInfo.InvariantCulture)],
+                availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is null
+                    ? KohanaCommandAvailability.Available
+                    : KohanaCommandAvailability.Unavailable("Ya hay una sesión de enfoque en curso."));
+        }
     }
 
     /// <summary>
