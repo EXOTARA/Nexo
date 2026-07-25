@@ -151,56 +151,75 @@
                     </Grid>
                 </Button>
 
-                <Button Grid.Column="1"
-                        Margin="6,0,0,0"
-                        MinHeight="152"
-                        Style="{StaticResource BentoCardButtonStyle}"
-                        AutomationProperties.Name="Enfoque. Ir a Enfoque"
-                        Click="FocusCard_Click">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                <Grid Grid.Column="1" Margin="6,0,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Button Grid.Row="0"
+                            MinHeight="152"
+                            Style="{StaticResource BentoCardButtonStyle}"
+                            AutomationProperties.Name="Enfoque. Ir a Enfoque"
+                            Click="FocusCard_Click">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Style="{StaticResource BentoIconSurfaceStyle}">
-                                <Grid>
-                                    <Ellipse Width="19"
-                                             Height="19"
-                                             Stroke="{DynamicResource BrushAccent}"
-                                             StrokeThickness="2" />
-                                    <Ellipse Width="6"
-                                             Height="6"
-                                             Fill="{DynamicResource BrushAccent}" />
-                                </Grid>
-                            </Border>
-                            <TextBlock Grid.Column="1"
-                                       Margin="11,0,0,0"
-                                       VerticalAlignment="Center"
-                                       Text="Enfoque"
-                                       FontSize="14"
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource BentoIconSurfaceStyle}">
+                                    <Grid>
+                                        <Ellipse Width="19"
+                                                 Height="19"
+                                                 Stroke="{DynamicResource BrushAccent}"
+                                                 StrokeThickness="2" />
+                                        <Ellipse Width="6"
+                                                 Height="6"
+                                                 Fill="{DynamicResource BrushAccent}" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock Grid.Column="1"
+                                           Margin="11,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Text="Enfoque"
+                                           FontSize="14"
+                                           FontWeight="SemiBold" />
+                            </Grid>
+                            <TextBlock Grid.Row="1"
+                                       x:Name="FocusValueText"
+                                       Margin="0,18,0,0"
+                                       Text="25 min"
+                                       FontSize="28"
                                        FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="2"
+                                       x:Name="FocusDetailText"
+                                       Margin="0,8,0,0"
+                                       Text="Listo para empezar"
+                                       Foreground="{DynamicResource BrushTextSecondary}"
+                                       FontSize="12.5"
+                                       TextWrapping="Wrap" />
                         </Grid>
-                        <TextBlock Grid.Row="1"
-                                   x:Name="FocusValueText"
-                                   Margin="0,18,0,0"
-                                   Text="25 min"
-                                   FontSize="28"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Grid.Row="2"
-                                   x:Name="FocusDetailText"
-                                   Margin="0,8,0,0"
-                                   Text="Listo para empezar"
-                                   Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="12.5"
-                                   TextWrapping="Wrap" />
-                    </Grid>
-                </Button>
+                    </Button>
+
+                    <!--
+                        Diseño D3.1 — acción rápida contextual (Pausar/Continuar), hermana del
+                        botón de arriba (no anidada) para que ambos reciban clics de forma
+                        independiente y sean alcanzables por Tab por separado. Solo visible cuando
+                        hay una sesión de enfoque activa o en pausa.
+                    -->
+                    <Button Grid.Row="1"
+                            x:Name="FocusQuickActionButton"
+                            Margin="0,8,0,0"
+                            Padding="0,7"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Visibility="Collapsed"
+                            Click="FocusQuickActionButton_Click" />
+                </Grid>
             </Grid>
 
             <Grid Grid.Row="2" Margin="0,0,0,12">

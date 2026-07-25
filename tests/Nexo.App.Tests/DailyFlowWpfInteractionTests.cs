@@ -371,7 +371,7 @@ public sealed class DailyFlowWpfInteractionTests
 
             view.Refresh(new HomeDashboardViewModel(
                 "Buenos días", "hoy", "0", "Todavía no tienes tareas para hoy",
-                "—", "No hay una sesión de enfoque activa",
+                "—", "No hay una sesión de enfoque activa", false, false,
                 "2", "2 disponibles",
                 "Lista para analizar", "detalle"));
             host.UpdateLayout();

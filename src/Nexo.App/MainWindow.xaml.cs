@@ -264,6 +264,8 @@ public partial class MainWindow : Window
         _homeView.ContextRequested += HomeView_ContextRequested;
         _homeView.NewTaskRequested += HomeView_NewTaskRequested;
         _homeView.StartFocusRequested += HomeView_StartFocusRequested;
+        _homeView.PauseFocusRequested += (_, _) => { _focusManager.Pause(DateTimeOffset.Now); CheckFocusTimer(); };
+        _homeView.ResumeFocusRequested += (_, _) => { _focusManager.Resume(DateTimeOffset.Now); CheckFocusTimer(); };
         _homeView.CommandCenterRequested += (_, _) => ShowCommandCenter();
         _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
         _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
