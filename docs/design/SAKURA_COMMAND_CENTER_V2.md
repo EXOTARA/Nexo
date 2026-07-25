@@ -3,6 +3,12 @@
 > Segundo sprint de diseño. Parte de `release/kohana-1.0-rc` con Diseño D1 + D1.1 ya integrados y
 > aprobados por el usuario. Convierte el Sakura Shell (marco visual) en un centro de control con
 > comandos reales, componentes reutilizables y preferencias visuales persistentes.
+>
+> **Estado (2026-07-25): APROBADO por el usuario e integrado en `release/kohana-1.0-rc`.** El smoke
+> test manual confirmó navegación sin crash, iconos seleccionados correctos, Ctrl + K abriendo el
+> Command Center con búsqueda/flechas/Enter/Escape funcionales, Engine Registry correcto y
+> preferencias visuales funcionando. Detalle en
+> `artifacts\Kohana-Design-D2.1-Approval-And-Integration-Informe.md`.
 
 ## 1. Estado actual (medido, no supuesto)
 

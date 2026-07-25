@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D2 — Sakura Command Center implementado** en `design/sakura-command-center-v2`, pendiente de smoke test manual |
+| **Fase actual** | **Diseño D2 — Sakura Command Center APROBADO (smoke test manual confirmado)**, listo para integrar en `release/kohana-1.0-rc` |
 | **Siguiente fase** | Diseño D3 — rediseño funcional de las nueve vistas sobre los componentes compartidos de D2 (**no iniciado**) |
-| **Rama** | `release/kohana-1.0-rc` en `0e8cef4` (D1 + D1.1 integrados y aprobados); D2 vive en `design/sakura-command-center-v2` |
+| **Rama** | `release/kohana-1.0-rc` en `0e8cef4` (D1 + D1.1 integrados y aprobados); trabajo aprobado de D2 en `design/sakura-command-center-v2` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-25 |
-| **Bloqueador activo** | Ninguno en código. Validación interactiva de D2 pendiente: la instancia de Kohana del usuario retiene el mutex de instancia única |
+| **Bloqueador activo** | Ninguno |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1925,3 +1925,40 @@ componentes compartidos que D2 deja definidos y probados.
 
 **Diseño D2 pendiente de smoke test manual del usuario. No se declara aprobado.** Informe completo
 en `artifacts\Kohana-Design-D2-Sakura-Command-Center-Informe.md`.
+
+> **Nota posterior (2026-07-25):** el estado descrito arriba corresponde al momento en que se
+> escribió, antes del smoke test manual del usuario. La aprobación se registra en el checkpoint
+> siguiente; este texto se conserva sin reescribir para no falsear el historial.
+
+---
+
+### Checkpoint manual — Diseño D2 Sakura Command Center aprobado (2026-07-25)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del build D2.
+
+**Validación manual confirmada por el usuario (todo correcto):**
+
+- Kohana inicia correctamente.
+- Las nueve secciones abren sin crash.
+- **Los iconos seleccionados conservan correctamente su forma** — el defecto de D2.0 queda
+  resuelto.
+- La barra lateral expandida y compacta funciona.
+- **Ctrl + K abre el Sakura Command Center.**
+- La búsqueda, flechas, Enter y Escape funcionan.
+- La navegación mediante comandos funciona.
+- Engine Registry y las recomendaciones del motor aparecen correctamente.
+- Las preferencias visuales funcionan.
+- No se detectaron cierres, congelamientos, textos cortados ni problemas visibles.
+- El usuario **autoriza integrar el trabajo aprobado en `release/kohana-1.0-rc`**.
+
+**Estado formal:**
+
+- **Diseño D2 APROBADO por el usuario para integración.**
+- Ya **no está pendiente de smoke manual**.
+- La validación interactiva automatizada que había quedado bloqueada (instancia del usuario
+  retenía el mutex de instancia única) se completó después de la aprobación, con capturas reales
+  de una instancia propia de esta validación — ver
+  `artifacts\design-d2\interactive-validation-after-user-approval.txt`.
+
+Detalle completo de la integración en `release/kohana-1.0-rc` en
+`artifacts\Kohana-Design-D2.1-Approval-And-Integration-Informe.md`.
