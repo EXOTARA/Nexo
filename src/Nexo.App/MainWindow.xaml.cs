@@ -1374,6 +1374,13 @@ public partial class MainWindow : Window
 
         RememberForegroundWindow();
         ShowAnimated();
+
+        // Diseño D3.1: mientras Kohana estaba oculto en la bandeja, _focusTickTimer siguió
+        // corriendo (nunca se detiene salvo al cerrar), así que el dominio está al día — pero el
+        // reloj visible de Enfoque (y el resumen de Inicio) no se refrescan solos hasta el
+        // siguiente tick de hasta un segundo. Se sincroniza de inmediato al reactivar, igual que
+        // ya hace HandleSystemResume() al volver de suspensión.
+        CheckFocusTimer();
     }
 
     private void ConfigureManagedOllamaSupervisor()
@@ -3917,10 +3924,15 @@ public partial class MainWindow : Window
         UpdateNavigationState(destination);
         UpdateWorkspaceHeader(destination);
 
-        if (destination.Equals("Home", StringComparison.OrdinalIgnoreCase))
-        {
-            RefreshHomeView();
-        }
+        // Diseño D3.1: el temporizador de Enfoque sigue corriendo cada segundo en segundo plano
+        // (_focusTickTimer) sin importar qué sección esté activa, así que el dominio nunca se
+        // atrasa. Pero antes, solo Inicio forzaba un refresco inmediato de sus propios controles
+        // al navegar — Enfoque no lo hacía, así que su reloj visible podía quedarse hasta un
+        // segundo desactualizado hasta el siguiente tick programado. Se llama al mismo punto
+        // central que ya usa HandleSystemResume() (reanudar desde suspensión) para no duplicar
+        // esta condición por cada uno de los nueve destinos: siempre sincroniza tanto Enfoque
+        // como Inicio, sin crear un timer nuevo ni cambiar la fuente de verdad (los timestamps).
+        CheckFocusTimer();
 
         if (!animate || !ShellAnimationsAllowed)
         {
