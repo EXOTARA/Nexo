@@ -22,6 +22,7 @@
                     Content="Nueva"
                     Padding="14,8"
                     Style="{StaticResource PrimaryButtonStyle}"
+                    AutomationProperties.Name="Nueva rutina"
                     Click="NewRoutineButton_Click" />
         </Grid>
 
@@ -77,26 +78,44 @@
                                                            FontWeight="SemiBold" />
                                             </Border>
                                         </Grid>
-                                        <TextBlock Grid.Row="1"
-                                                   Margin="0,9,0,0"
-                                                   Text="{Binding StepSummary}"
-                                                   TextWrapping="Wrap"
-                                                   Style="{StaticResource MutedTextStyle}" />
-                                        <UniformGrid Grid.Row="2" Columns="3" Margin="0,10,0,0">
+                                        <Grid Grid.Row="1" Margin="0,9,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding StepSummary}"
+                                                       TextWrapping="Wrap"
+                                                       Style="{StaticResource MutedTextStyle}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="8,0,0,0"
+                                                       Text="{Binding LastExecutionText}"
+                                                       Foreground="{Binding LastExecutionBrush}"
+                                                       FontSize="11.5" />
+                                        </Grid>
+                                        <UniformGrid Grid.Row="2" Columns="4" Margin="0,10,0,0">
                                             <Button Content="Ejecutar"
                                                     Tag="{Binding Id}"
-                                                    Margin="0,0,4,0"
+                                                    Margin="0,0,3,0"
                                                     Style="{StaticResource PrimaryButtonStyle}"
+                                                    AutomationProperties.Name="{Binding RunAutomationName}"
                                                     Click="RunRoutineButton_Click" />
+                                            <Button Content="{Binding ToggleLabel}"
+                                                    Tag="{Binding Id}"
+                                                    Margin="3,0"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    AutomationProperties.Name="{Binding ToggleAutomationName}"
+                                                    Click="ToggleRoutineButton_Click" />
                                             <Button Content="Editar"
                                                     Tag="{Binding Id}"
-                                                    Margin="2,0"
+                                                    Margin="3,0"
                                                     Style="{StaticResource SecondaryButtonStyle}"
+                                                    AutomationProperties.Name="{Binding EditAutomationName}"
                                                     Click="EditRoutineButton_Click" />
                                             <Button Content="Eliminar"
                                                     Tag="{Binding Id}"
-                                                    Margin="4,0,0,0"
+                                                    Margin="3,0,0,0"
                                                     Style="{StaticResource SecondaryButtonStyle}"
+                                                    AutomationProperties.Name="{Binding DeleteAutomationName}"
                                                     Click="DeleteRoutineButton_Click" />
                                         </UniformGrid>
                                     </Grid>

@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Nexo.App.Automation;
+using Nexo.App.DailyFlow;
 using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
@@ -117,6 +118,13 @@ public partial class MainWindow : Window
     /// del encabezado) para no alargar el arranque con una ventana que puede no usarse.
     /// </summary>
     private CommandCenterWindow? _commandCenterWindow;
+
+    /// <summary>
+    /// Diseño D3 — ver <see cref="DailyFlowEventHub"/>. Reenvía los eventos de dominio que ya
+    /// existían (TasksChanged/FocusChanged/rutina ejecutada) a un solo punto de extensión, sin
+    /// reemplazar los manejadores existentes.
+    /// </summary>
+    private readonly DailyFlowEventHub _dailyFlowHub = new();
     private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
     private readonly bool _startHidden;
@@ -190,7 +198,9 @@ public partial class MainWindow : Window
             _focusManager,
             _taskManager));
         _tasksView = new TasksView(_taskManager);
-        _focusView = new FocusView(_focusManager);
+        _focusView = new FocusView(
+            _focusManager,
+            taskId => _taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title);
         _routinesView = new RoutinesView(_routineManager);
         _audioView = new AudioView(_audioMixerService);
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
@@ -219,7 +229,9 @@ public partial class MainWindow : Window
         _assistantView.VisionCaptureRequested += AssistantView_VisionCaptureRequested;
         _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
         _tasksView.TasksChanged += TasksView_TasksChanged;
+        _tasksView.FocusRequested += TasksView_FocusRequested;
         _focusView.FocusChanged += FocusView_FocusChanged;
+        _focusView.CompleteAssociatedTaskRequested += FocusView_CompleteAssociatedTaskRequested;
         _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
         // Los eventos de wake word se suscriben a través del coordinador (paso directo al
         // servicio subyacente): MainWindow ya no necesita una referencia al servicio.
@@ -233,7 +245,11 @@ public partial class MainWindow : Window
         _homeView.CommandRequested += HomeView_CommandRequested;
         _homeView.TasksRequested += HomeView_TasksRequested;
         _homeView.FocusRequested += HomeView_FocusRequested;
+        _homeView.RoutinesRequested += HomeView_RoutinesRequested;
         _homeView.ContextRequested += HomeView_ContextRequested;
+        _homeView.NewTaskRequested += HomeView_NewTaskRequested;
+        _homeView.StartFocusRequested += HomeView_StartFocusRequested;
+        _homeView.CommandCenterRequested += (_, _) => ShowCommandCenter();
         _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
         _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
         _systemView.HardwareCapabilityRefreshRequested += async (_, _) => await RefreshHardwareCapabilityAsync();
@@ -1009,6 +1025,46 @@ public partial class MainWindow : Window
     private void HomeView_FocusRequested(object? sender, EventArgs e)
     {
         NavigateTo("Focus", animate: true);
+    }
+
+    private void HomeView_RoutinesRequested(object? sender, EventArgs e)
+    {
+        NavigateTo(ShellNavigationPolicy.Routines, animate: true);
+    }
+
+    private void HomeView_NewTaskRequested(object? sender, EventArgs e)
+    {
+        NavigateTo(ShellNavigationPolicy.Tasks, animate: true);
+        _tasksView.OpenNewEditor();
+    }
+
+    private void HomeView_StartFocusRequested(object? sender, EventArgs e)
+    {
+        NavigateTo(ShellNavigationPolicy.Focus, animate: true);
+        _focusView.FocusPrimaryControl();
+    }
+
+    /// <summary>
+    /// Diseño D3 — "Enfocarme" desde una tarea en Hoy. Prepara la asociación en FocusView (la
+    /// próxima sesión que se inicie ahí quedará asociada) y navega; no inicia la sesión por sí
+    /// solo, para que la persona elija la duración como con cualquier otra sesión.
+    /// </summary>
+    private void TasksView_FocusRequested(object? sender, TaskFocusRequestedEventArgs e)
+    {
+        _focusView.PrepareTaskAssociation(e.TaskId, e.TaskTitle);
+        NavigateTo(ShellNavigationPolicy.Focus, animate: true);
+        _focusView.FocusPrimaryControl();
+    }
+
+    /// <summary>
+    /// Diseño D3 — el usuario confirmó explícitamente que quiere marcar como completada la tarea
+    /// asociada a una sesión de enfoque que acaba de terminar. Nunca ocurre automáticamente.
+    /// </summary>
+    private void FocusView_CompleteAssociatedTaskRequested(object? sender, TaskFocusRequestedEventArgs e)
+    {
+        _taskManager.Complete(e.TaskId);
+        _tasksView.Refresh();
+        RefreshHomeView();
     }
 
     private async void HomeView_ContextRequested(object? sender, EventArgs e)
@@ -2963,11 +3019,16 @@ public partial class MainWindow : Window
                 routine,
                 approval,
                 _lifetimeCancellation.Token);
+            // Diseño D3: el runner no conoce el registro de rutinas (no le corresponde); se
+            // registra aquí, justo después, con el resultado real de la ejecución.
+            _routineManager.RecordExecution(routine.Id, report.CompletedAt, report.Succeeded);
             _assistantView.AddKohanaMessage(report.BuildSummary());
             _tasksView.Refresh();
             _focusView.Refresh(DateTimeOffset.Now);
             await _audioView.RefreshAsync(force: true);
             _routinesView.Refresh();
+            RefreshHomeView();
+            _dailyFlowHub.RaiseRoutinesChanged();
 
             _capsuleWindow.ShowMessage(
                 report.Succeeded ? CapsuleKind.Success : CapsuleKind.Warning,
@@ -3015,6 +3076,7 @@ public partial class MainWindow : Window
         var completion = _focusManager.CollectCompletion(now);
         _focusView.Refresh(now);
         RefreshHomeView();
+        _dailyFlowHub.RaiseFocusChanged();
 
         if (completion is null)
         {
@@ -3040,6 +3102,18 @@ public partial class MainWindow : Window
             _preferences.ShowWindowsNotifications,
             _preferences.PlayNotificationSounds);
         SpeakVoiceResult(detail);
+
+        // Diseño D3: la finalización natural (se agotó el tiempo) también puede tener una tarea
+        // asociada. Igual que en "Finalizar" manual, nunca se completa sola: solo se ofrece.
+        if (completion.TaskId is { } completedTaskId)
+        {
+            var taskTitle = _taskManager.GetAll()
+                .FirstOrDefault(task => task.Id == completedTaskId)?.Title;
+            if (!string.IsNullOrWhiteSpace(taskTitle))
+            {
+                _focusView.ShowTaskCompletionPrompt(completedTaskId, taskTitle);
+            }
+        }
     }
 
     private Task ExecuteFocusCommandAsync(FocusCommand command)
@@ -3126,6 +3200,7 @@ public partial class MainWindow : Window
     {
         CheckTaskReminders();
         RefreshHomeView();
+        _dailyFlowHub.RaiseTasksChanged();
     }
 
     private void CheckTaskReminders()
@@ -3830,81 +3905,16 @@ public partial class MainWindow : Window
 
     private void RefreshHomeView()
     {
-        var now = DateTimeOffset.Now;
-        var localNow = now.LocalDateTime;
-        var greeting = localNow.Hour switch
-        {
-            < 6 => "Buenas noches",
-            < 12 => "Buenos días",
-            < 19 => "Buenas tardes",
-            _ => "Buenas noches"
-        };
+        // Diseño D3: el cálculo del resumen vive en DailyFlowSummaryBuilder (Nexo.App/DailyFlow),
+        // no aquí — MainWindow solo reúne las entradas y aplica el resultado a la vista.
+        var model = DailyFlowSummaryBuilder.BuildHomeDashboard(
+            _taskManager,
+            _focusManager,
+            _routineManager.GetAll(),
+            _lastExternalWindowHandle != 0,
+            DateTimeOffset.Now);
 
-        var culture = new CultureInfo("es-MX");
-        var greetingDetail =
-            $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Kohana está listo";
-
-        var pending = _taskManager.GetAll()
-            .Where(task => !task.IsCompleted)
-            .OrderBy(task => task.DueAt ?? DateTimeOffset.MaxValue)
-            .ThenByDescending(task => task.Priority)
-            .ToArray();
-        var today = pending
-            .Where(task => task.DueAt.HasValue &&
-                           task.DueAt.Value.LocalDateTime.Date == localNow.Date)
-            .ToArray();
-        var overdue = pending.Count(task => task.IsOverdue(now));
-
-        var taskValue = today.Length > 0
-            ? today.Length.ToString(CultureInfo.InvariantCulture)
-            : overdue > 0
-                ? overdue.ToString(CultureInfo.InvariantCulture)
-                : "0";
-        var taskDetail = today.FirstOrDefault() is { } nextToday
-            ? nextToday.DueAt.HasValue
-                ? $"Siguiente: {nextToday.Title} · {nextToday.DueAt.Value:HH:mm}"
-                : $"Siguiente: {nextToday.Title}"
-            : overdue > 0
-                ? $"{overdue} vencida{(overdue == 1 ? string.Empty : "s")} necesita atención"
-                : pending.FirstOrDefault() is { } nextPending
-                    ? $"Próxima: {nextPending.Title}"
-                    : "Nada urgente por ahora";
-
-        var focus = _focusManager.GetSnapshot(now);
-        string focusValue;
-        string focusDetail;
-        if (focus.ActiveTimer is { } timer)
-        {
-            var minutes = Math.Max(0, (int)Math.Ceiling(focus.Remaining.TotalMinutes));
-            focusValue = $"{minutes} min";
-            focusDetail = timer.Status == FocusTimerStatus.Paused
-                ? $"{timer.Label} · en pausa"
-                : timer.Label;
-        }
-        else
-        {
-            focusValue = "25 min";
-            focusDetail = focus.FocusMinutesToday > 0
-                ? $"{focus.FocusMinutesToday} min completados hoy"
-                : "Listo para empezar";
-        }
-
-        var contextTitle = _lastExternalWindowHandle != 0
-            ? "Ventana activa recordada"
-            : "Lista para analizar";
-        var contextDetail = _lastExternalWindowHandle != 0
-            ? "Pulsa aquí para capturarla con tu autorización."
-            : "Abre una ventana y Kohana podrá verla cuando lo pidas.";
-
-        _homeView.Refresh(new HomeDashboardViewModel(
-            greeting,
-            greetingDetail,
-            taskValue,
-            taskDetail,
-            focusValue,
-            focusDetail,
-            contextTitle,
-            contextDetail));
+        _homeView.Refresh(model);
     }
 
     private void ApplyPreferences()

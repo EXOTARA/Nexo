@@ -14,6 +14,16 @@ public sealed class RoutineDefinition
 
     public List<AutomationAction> Steps { get; set; } = [];
 
+    /// <summary>Diseño D3: cuándo se ejecutó por última vez. Anulable — nunca ejecutada todavía.</summary>
+    public DateTimeOffset? LastExecutedAt { get; set; }
+
+    /// <summary>
+    /// Diseño D3: si la última ejecución completó sin ninguna acción fallida
+    /// (<see cref="RoutineExecutionReport.Succeeded"/>). Anulable: sin significado hasta la
+    /// primera ejecución.
+    /// </summary>
+    public bool? LastExecutionSucceeded { get; set; }
+
     public RoutineDefinition Copy() => new()
     {
         Id = Id,
@@ -21,6 +31,8 @@ public sealed class RoutineDefinition
         TriggerPhrase = TriggerPhrase,
         IsEnabled = IsEnabled,
         RequiresConfirmation = RequiresConfirmation,
-        Steps = Steps.Select(step => step.Copy()).ToList()
+        Steps = Steps.Select(step => step.Copy()).ToList(),
+        LastExecutedAt = LastExecutedAt,
+        LastExecutionSucceeded = LastExecutionSucceeded
     };
 }
