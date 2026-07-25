@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D2 — Sakura Command Center APROBADO (smoke test manual confirmado)**, listo para integrar en `release/kohana-1.0-rc` |
-| **Siguiente fase** | Diseño D3 — rediseño funcional de las nueve vistas sobre los componentes compartidos de D2 (**no iniciado**) |
-| **Rama** | `release/kohana-1.0-rc` en `0e8cef4` (D1 + D1.1 integrados y aprobados); trabajo aprobado de D2 en `design/sakura-command-center-v2` |
+| **Fase actual** | **Diseño D3 — Sakura Daily Flow v1 implementado** en `design/daily-flow-v1`, pendiente de smoke test manual |
+| **Siguiente fase** | Diseño D4 (por definir) — **no iniciado** |
+| **Rama** | `release/kohana-1.0-rc` en `e2dce83` (D1 + D1.1 + D2 integrados y aprobados); trabajo de D3 vive en `design/daily-flow-v1` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-25 |
-| **Bloqueador activo** | Ninguno |
+| **Bloqueador activo** | Ninguno en código. Validación interactiva de D3 completada sin bloqueos; smoke manual de D3 pendiente del usuario |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1962,3 +1962,60 @@ El usuario ejecutó y **aprobó** manualmente el smoke test del build D2.
 
 Detalle completo de la integración en `release/kohana-1.0-rc` en
 `artifacts\Kohana-Design-D2.1-Approval-And-Integration-Informe.md`.
+
+---
+
+## Diseño D3 — Sakura Daily Flow v1
+
+**Rama:** `design/daily-flow-v1`, creada desde `release/kohana-1.0-rc` ya integrada con
+D1 + D1.1 + D2 (`e2dce83`).
+
+**Hallazgo central del descubrimiento:** Inicio, Hoy, Enfoque y Rutinas ya eran mucho más
+funcionales de lo que el sprint asumía — CRUD real con persistencia en las tres, no vistas básicas
+a construir desde cero. `NexoTask` ya tenía prioridad, vencimiento y recordatorio; `FocusTimer` ya
+persistía con timestamps, no con una cuenta regresiva serializada frágil. El sprint fue de
+**conexión y cierre de huecos puntuales**, documentados en `docs/design/SAKURA_DAILY_FLOW_V1.md`.
+
+**Huecos cerrados:** `TaskManager.Reopen` (no existía); confirmación al eliminar una tarea (antes
+borraba sin preguntar); asociación tarea↔enfoque (`FocusTimer.TaskId`/`FocusHistoryEntry.TaskId`,
+anulables); `FocusManager.Finish` — termina la sesión antes de tiempo contando el tiempo real
+transcurrido, distinto de `Cancel` (descarta sin historial); última ejecución y alternar
+habilitada/deshabilitada en `RoutineManager` (`RoutineState` sube de esquema v1 a v2); tarjeta de
+Rutinas y accesos rápidos en Inicio; corrección de un valor de relleno ("25 min" fijo en la tarjeta
+de Enfoque sin ninguna sesión activa, ahora un estado vacío honesto o los minutos acumulados
+reales).
+
+**Coordinación:** `DailyFlowEventHub` (sin lógica de dominio) reenvía las señales de cambio ya
+existentes a un punto único; `DailyFlowSummaryBuilder` extrae de `MainWindow` el cálculo del
+resumen de Inicio a una función pura y comprobable sin WPF.
+
+**Command Center:** se corrigió un defecto de nombres real (`"focus.cancel"` se titulaba
+"Finalizar sesión de enfoque" pero llamaba a `Cancel()`); comandos nuevos `focus.pause/resume/
+finish` y uno dinámico "Ejecutar `<rutina>`" por cada rutina habilitada, con el registro
+reconstruido en cada apertura para no quedar desactualizado.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 689 superadas
+  Nexo.Windows.Tests.dll → 164 superadas
+  Nexo.App.Tests.dll     → 107 superadas
+Total: 960 pruebas (901 previas + 59 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 3 veces adicionales sin variación ni flakiness.
+```
+
+**Validación interactiva:** completada sin bloqueos (no había ninguna instancia de Kohana en
+ejecución). Recorrido completo con `System.Windows.Automation`: crear tarea → editar → Enfocarme →
+iniciar sesión → Inicio refleja la sesión activa → pausar → continuar → finalizar → completar tarea
+desde el aviso (nunca automático) → reabrir la tarea → Rutinas (sin ejecutar ninguna: todas tienen
+efectos reales) → Command Center → sidebar → variante de acento → ocultar y reabrir con persistencia
+confirmada leyendo `%LOCALAPPDATA%\Kohana\tasks.json` directamente. Kohana permaneció responsivo en
+todo momento. 10 capturas reales en `artifacts\design-d3\screenshots\`.
+
+**Rendimiento (una muestra, no una serie estadística):** arranque ~1.56 s, memoria en reposo
+~290 MiB, cambio de sección ~25 ms, apertura del Command Center ~394 ms.
+
+**Diseño D3 pendiente de smoke test manual del usuario. No se declara aprobado.** Informe completo
+en `artifacts\Kohana-Design-D3-Sakura-Daily-Flow-Informe.md`.
