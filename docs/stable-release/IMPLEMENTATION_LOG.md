@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 2.2 — Adaptive Engine Registry v1 implementada** en `phase2/adaptive-engine-registry-v1`, pendiente de smoke test manual |
-| **Siguiente fase** | Fase 2.3 (por definir) — **no iniciada**. Ningún motor se selecciona ni cambia todavía |
-| **Rama** | `release/kohana-1.0-rc` en `9ddb903` intacta; trabajo de 2.2 vive en `phase2/adaptive-engine-registry-v1` |
+| **Fase actual** | **Fase 2.2 — Adaptive Engine Registry v1 APROBADA (smoke test manual confirmado)**, promovida por fast-forward a `release/kohana-1.0-rc` |
+| **Siguiente fase** | Sprint de diseño visual de Kohana — **no iniciado**. Selección automática real de motores todavía no implementada |
+| **Rama** | `release/kohana-1.0-rc` en `79bf2e0` (promovida por fast-forward desde `phase2/adaptive-engine-registry-v1`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno en código. Smoke test manual de Fase 2.2 pendiente del usuario |
+| **Bloqueador activo** | Ninguno |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1589,3 +1589,49 @@ manualmente que los cuatro modos se muestran y seleccionan correctamente, que "P
 refleja el hardware y los motores reales del equipo, y que cambiar de modo nunca cambia de motor
 observable. Detalle completo en
 `artifacts\Kohana-Fase-2.2-Adaptive-Engine-Registry-Informe.md`.
+
+---
+
+### Checkpoint manual — Fase 2.2 Adaptive Engine Registry aprobado (2026-07-24)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del ZIP publicado de la Fase 2.2. Tras la
+aprobación, `release/kohana-1.0-rc` se promovió por **fast-forward** (sin merge commit, squash,
+rebase ni cherry-pick) desde `phase2/adaptive-engine-registry-v1`, quedando en `79bf2e0`.
+
+| Campo | Valor |
+|---|---|
+| **ZIP probado** | `Kohana-0.9.5-beta-phase2.2-adaptive-engine-registry-smoke-win-x64.zip` |
+| **SHA-256** | `D2F5553DC246D95EBD97984A4758AA636688D400B9CD85D6BE3641D03EE695EB` |
+| **Commit promovido** | `79bf2e0` (`docs: record phase 2.2 adaptive engine registry`) |
+| **Release antes → después** | `9ddb903` → `79bf2e0` (fast-forward) |
+| **Pruebas** | 769 (629 Core + 140 Windows), 0 fallidas, 0 warnings |
+
+**Validación manual registrada (todo aprobado):**
+
+- Arranque correcto.
+- Sección "Modo de rendimiento" correcta: Automático, Ahorro, Equilibrado y Máximo visibles y
+  funcionales.
+- Selección por teclado correcta; cambio entre modos fluido.
+- Persistencia confirmada entre pantallas y después de cerrar y reabrir Kohana.
+- "Plan adaptativo" visible, usando correctamente el nivel de hardware **Acelerada**.
+- Entrada de voz, palabra de activación, TTS y modelo de lenguaje representados correctamente.
+- Estados **configurado**, **activo** y **recomendado** correctamente diferenciados; etiqueta
+  "Solo recomendación" correcta.
+- Las recomendaciones cambian según el modo seleccionado.
+- Probado con Ollama apagado: el estado se representó correctamente sin afirmar actividad falsa.
+- Ningún motor futuro incorrecto visible; ningún motor duplicado; ningún dato privado visible.
+- Cambiar de modo no reinicia ni sustituye ningún motor.
+- Alt + A correcto; micrófono y Whisper correctos; wake word correcto; TTS correcto; ocultar,
+  salir y reabrir correctos.
+- Sin regresiones visuales ni funcionales observadas.
+
+**Estado formal:**
+
+- **Adaptive Engine Registry v1 APROBADO.**
+- **Selección automática real de motores todavía NO implementada** — esta versión solo recomienda,
+  nunca aplica.
+- **Descargas y reinicios de motores todavía NO implementados.**
+- **Siguiente etapa prevista: sprint de diseño visual de Kohana.**
+
+La rama `phase2/adaptive-engine-registry-v1` se conserva (no se elimina). Este checkpoint solo
+actualiza la documentación; no cambia código de producción ni pruebas.
