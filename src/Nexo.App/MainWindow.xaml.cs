@@ -125,6 +125,14 @@ public partial class MainWindow : Window
     /// reemplazar los manejadores existentes.
     /// </summary>
     private readonly DailyFlowEventHub _dailyFlowHub = new();
+
+    /// <summary>
+    /// Diseño D3.1 — conecta el mini temporizador global del encabezado con FocusManager y la
+    /// navegación, sin acumular esa lógica en MainWindow. Se construye en el constructor porque
+    /// el mini temporizador es parte fija del shell (a diferencia del Command Center, que se crea
+    /// de forma perezosa).
+    /// </summary>
+    private readonly FocusContinuityCoordinator _focusContinuity;
     private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
     private readonly bool _startHidden;
@@ -203,6 +211,13 @@ public partial class MainWindow : Window
             taskId => _taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title);
         _routinesView = new RoutinesView(_routineManager);
         _audioView = new AudioView(_audioMixerService);
+
+        _focusContinuity = new FocusContinuityCoordinator(
+            _focusManager,
+            FocusMiniTimerControl,
+            taskId => _taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title,
+            () => NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled));
+        _focusContinuity.FinishRequested += (_, _) => FinishActiveFocusSession();
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
             [ShellNavigationPolicy.Home] = _homeView,
@@ -3214,6 +3229,15 @@ public partial class MainWindow : Window
         var completion = _focusManager.CollectCompletion(now);
         _focusView.Refresh(now);
         RefreshHomeView();
+        _focusContinuity.Refresh(now);
+
+        // El mini temporizador no se muestra dentro de la propia sección Enfoque: mostraría el
+        // mismo estado dos veces en la misma pantalla.
+        if (_currentDestination.Equals(ShellNavigationPolicy.Focus, StringComparison.OrdinalIgnoreCase))
+        {
+            FocusMiniTimerControl.Visibility = Visibility.Collapsed;
+        }
+
         _dailyFlowHub.RaiseFocusChanged();
 
         if (completion is null)
