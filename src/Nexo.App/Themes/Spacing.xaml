@@ -22,4 +22,17 @@
     <CornerRadius x:Key="RadiusMedium">12</CornerRadius>
     <CornerRadius x:Key="RadiusLarge">13</CornerRadius>
     <CornerRadius x:Key="RadiusPill">20</CornerRadius>
+    <CornerRadius x:Key="RadiusShell">24</CornerRadius>
+
+    <!--
+        Sakura Shell v1 (Diseño D1) — dimensiones de la barra lateral, tokenizadas a partir de
+        los valores literales que ya usaba el shell (68/194 colapsado/expandido) para no alterar
+        el layout existente al migrarlos.
+    -->
+    <sys:Double x:Key="SidebarWidthCollapsed">68</sys:Double>
+    <sys:Double x:Key="SidebarWidthExpanded">194</sys:Double>
+    <sys:Double x:Key="SidebarButtonWidthCollapsed">52</sys:Double>
+    <sys:Double x:Key="SidebarButtonWidthExpanded">178</sys:Double>
+    <sys:Double x:Key="NavigationIconSize">21</sys:Double>
+    <sys:Double x:Key="NavigationIndicatorWidth">3</sys:Double>
 </ResourceDictionary>

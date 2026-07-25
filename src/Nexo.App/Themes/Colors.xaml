@@ -18,6 +18,7 @@
     <Color x:Key="ColorSuccess">#71CFA8</Color>
     <Color x:Key="ColorWarning">#DDBE72</Color>
     <Color x:Key="ColorDanger">#DF7E8A</Color>
+    <Color x:Key="ColorSidebarSurface">#10131C</Color>
 
     <SolidColorBrush x:Key="BrushBackground" Color="{StaticResource ColorBackground}" />
     <SolidColorBrush x:Key="BrushSurface" Color="{StaticResource ColorSurface}" />
@@ -37,4 +38,5 @@
     <SolidColorBrush x:Key="BrushWarning" Color="{StaticResource ColorWarning}" />
     <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
     <SolidColorBrush x:Key="BrushSakuraGlow" Color="#E4BBC7" />
+    <SolidColorBrush x:Key="BrushSidebarSurface" Color="{StaticResource ColorSidebarSurface}" />
 </ResourceDictionary>
