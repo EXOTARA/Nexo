@@ -612,6 +612,14 @@ public partial class MainWindow : Window
         SetSideRailExpanded(!_sideRailExpanded, animate: true, persist: true);
     }
 
+    /// <summary>
+    /// Diseño D1 (Sakura Shell): las animaciones del shell respetan tanto la preferencia propia
+    /// de Kohana como la preferencia de Windows (Configuración de accesibilidad → Efectos
+    /// visuales). Si cualquiera de las dos está desactivada, los cambios de estado se aplican
+    /// de inmediato, sin transición.
+    /// </summary>
+    private bool ShellAnimationsAllowed => _preferences.AnimationsEnabled && SystemParameters.ClientAreaAnimation;
+
     private void SetSideRailExpanded(bool expanded, bool animate, bool persist = true)
     {
         _sideRailExpanded = expanded;
@@ -625,9 +633,11 @@ public partial class MainWindow : Window
             : "Expandir navegación";
         ApplySideRailButtonLayout(expanded);
 
-        var targetWidth = expanded ? 194d : 68d;
+        var targetWidth = expanded
+            ? (double)FindResource("SidebarWidthExpanded")
+            : (double)FindResource("SidebarWidthCollapsed");
 
-        if (!animate || !_preferences.AnimationsEnabled)
+        if (!animate || !ShellAnimationsAllowed)
         {
             SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
             SideRailBorder.Width = targetWidth;
@@ -637,11 +647,11 @@ public partial class MainWindow : Window
         var currentWidth = SideRailBorder.ActualWidth > 0
             ? SideRailBorder.ActualWidth
             : SideRailBorder.Width;
-        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var easing = (CubicEase)FindResource("MotionEaseOut");
         var animation = new DoubleAnimation(
             currentWidth,
             targetWidth,
-            TimeSpan.FromMilliseconds(180))
+            (Duration)FindResource("MotionBase"))
         {
             EasingFunction = easing
         };
@@ -655,7 +665,9 @@ public partial class MainWindow : Window
 
     private void ApplySideRailButtonLayout(bool expanded)
     {
-        var buttonWidth = expanded ? 178d : 52d;
+        var buttonWidth = expanded
+            ? (double)FindResource("SidebarButtonWidthExpanded")
+            : (double)FindResource("SidebarButtonWidthCollapsed");
         SideRailContentGrid.Width = buttonWidth;
         SideRailToggleButton.Width = buttonWidth;
         SettingsNavButton.Width = buttonWidth;
@@ -3440,7 +3452,7 @@ public partial class MainWindow : Window
             RefreshHomeView();
         }
 
-        if (!animate || !_preferences.AnimationsEnabled)
+        if (!animate || !ShellAnimationsAllowed)
         {
             ModuleHost.Opacity = 1;
             ModuleHost.RenderTransform = Transform.Identity;
@@ -3452,8 +3464,8 @@ public partial class MainWindow : Window
         var transform = new TranslateTransform(14, 0);
         ModuleHost.RenderTransform = transform;
 
-        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var duration = TimeSpan.FromMilliseconds(145);
+        var easing = (CubicEase)FindResource("MotionEaseOut");
+        var duration = (Duration)FindResource("MotionFast");
 
         transform.BeginAnimation(
             TranslateTransform.XProperty,
@@ -3486,38 +3498,46 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Diseño D1 (Sakura Shell): el estado seleccionado nunca depende solo del color. Cada
+    /// entrada combina superficie elevada (fondo), indicador tipo "tallo" a la izquierda,
+    /// ícono relleno en vez de solo trazo, y texto con más peso — la misma combinación que se
+    /// verifica en <c>AdaptiveEngineUiInvariantTests</c>-equivalentes de este sprint.
+    /// </summary>
     private void UpdateNavigationState(string destination)
     {
-        var buttons = new Dictionary<string, Button>(StringComparer.OrdinalIgnoreCase)
+        var items = new (string Key, Button Button, Border Indicator, System.Windows.Shapes.Path Icon, TextBlock Label)[]
         {
-            ["Home"] = HomeNavButton,
-            ["Assistant"] = AssistantNavButton,
-            ["Tasks"] = TasksNavButton,
-            ["Focus"] = FocusNavButton,
-            ["Routines"] = RoutinesNavButton,
-            ["Audio"] = AudioNavButton,
-            ["Capture"] = CaptureNavButton,
-            ["System"] = SystemNavButton
+            ("Home", HomeNavButton, HomeNavIndicator, HomeNavIcon, HomeNavLabel),
+            ("Assistant", AssistantNavButton, AssistantNavIndicator, AssistantNavIcon, AssistantNavLabel),
+            ("Tasks", TasksNavButton, TasksNavIndicator, TasksNavIcon, TasksNavLabel),
+            ("Focus", FocusNavButton, FocusNavIndicator, FocusNavIcon, FocusNavLabel),
+            ("Routines", RoutinesNavButton, RoutinesNavIndicator, RoutinesNavIcon, RoutinesNavLabel),
+            ("Audio", AudioNavButton, AudioNavIndicator, AudioNavIcon, AudioNavLabel),
+            ("Capture", CaptureNavButton, CaptureNavIndicator, CaptureNavIcon, CaptureNavLabel),
+            ("System", SystemNavButton, SystemNavIndicator, SystemNavIcon, SystemNavLabel),
+            ("Settings", SettingsNavButton, SettingsNavIndicator, SettingsNavIcon, SettingsNavLabel)
         };
 
-        foreach (var pair in buttons)
+        foreach (var item in items)
         {
-            var selected = pair.Key.Equals(destination, StringComparison.OrdinalIgnoreCase);
-            pair.Value.Background = selected
-                ? (Brush)FindResource("BrushAccentSoft")
-                : Brushes.Transparent;
-            pair.Value.Foreground = selected
-                ? (Brush)FindResource("BrushAccent")
-                : (Brush)FindResource("BrushTextSecondary");
+            var selected = item.Key.Equals(destination, StringComparison.OrdinalIgnoreCase);
+            ApplyNavigationItemState(item.Button, item.Indicator, item.Icon, item.Label, selected);
         }
+    }
 
-        var settingsSelected = destination.Equals("Settings", StringComparison.OrdinalIgnoreCase);
-        SettingsNavButton.Background = settingsSelected
+    private void ApplyNavigationItemState(Button button, Border indicator, System.Windows.Shapes.Path icon, TextBlock label, bool selected)
+    {
+        button.Background = selected
             ? (Brush)FindResource("BrushAccentSoft")
             : Brushes.Transparent;
-        SettingsNavButton.Foreground = settingsSelected
+        button.Foreground = selected
             ? (Brush)FindResource("BrushAccent")
             : (Brush)FindResource("BrushTextSecondary");
+
+        indicator.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        icon.Style = (Style)FindResource(selected ? "SakuraNavigationIconFilledStyle" : "SakuraNavigationIconStyle");
+        label.FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal;
     }
 
     private void UpdateWorkspaceHeader(string destination)
@@ -3632,7 +3652,10 @@ public partial class MainWindow : Window
 
     private void ApplyShellOpacity()
     {
-        var baseColor = (Color)ColorConverter.ConvertFromString("#0D1119");
+        // Diseño D1: usa el color de fondo real del tema (BrushBackground) en vez de un
+        // literal hexadecimal casi-duplicado, para que el shell siga una única fuente de
+        // verdad de color. El comportamiento (opacidad configurable del shell) no cambia.
+        var baseColor = ((SolidColorBrush)FindResource("BrushBackground")).Color;
         var alpha = (byte)Math.Round(_preferences.Opacity * 255);
         ShellBorder.Background = new SolidColorBrush(Color.FromArgb(
             alpha,
