@@ -1,0 +1,208 @@
+using Nexo.Core.Ai;
+using Nexo.Core.AdaptiveEngine;
+using Nexo.Core.Settings;
+using Nexo.Windows.Voice;
+
+namespace Nexo.Windows.AdaptiveEngine;
+
+public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
+{
+    private static readonly IReadOnlyDictionary<EngineIdentifier, AiProviderKind> AiProviderByEngineId =
+        new Dictionary<EngineIdentifier, AiProviderKind>
+        {
+            [KnownEngineIds.OpenAiLanguageModel] = AiProviderKind.OpenAI,
+            [KnownEngineIds.OllamaLanguageModel] = AiProviderKind.Ollama,
+            [KnownEngineIds.LmStudioLanguageModel] = AiProviderKind.LMStudio,
+            [KnownEngineIds.OpenAiCompatibleLanguageModel] = AiProviderKind.OpenAICompatible
+        };
+
+    private readonly VoiceCoordinator _voiceCoordinator;
+    private readonly IReadOnlyList<EngineDescriptor> _descriptors;
+
+    public WindowsAdaptiveEngineRegistry(VoiceCoordinator voiceCoordinator)
+    {
+        _voiceCoordinator = voiceCoordinator ?? throw new ArgumentNullException(nameof(voiceCoordinator));
+        _descriptors = BuildDescriptors();
+    }
+
+    public IReadOnlyList<EngineDescriptor> GetDescriptors() => _descriptors;
+
+    public IReadOnlyList<EngineRuntimeState> CaptureRuntimeStates(
+        ShellPreferences preferences,
+        OllamaRuntimeSnapshot? ollamaRuntimeSnapshot)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+
+        var states = new List<EngineRuntimeState>
+        {
+            new(
+                KnownEngineIds.WhisperSpeechToText,
+                IsAvailable: _voiceCoordinator.IsVoiceInputReady,
+                IsConfigured: true,
+                IsActive: _voiceCoordinator.IsVoiceInputListening,
+                Detail: null),
+            new(
+                KnownEngineIds.VoskWakeWord,
+                IsAvailable: _voiceCoordinator.IsWakeWordReady,
+                IsConfigured: preferences.WakeWordEnabled,
+                IsActive: _voiceCoordinator.IsWakeWordListening,
+                Detail: null),
+            new(
+                KnownEngineIds.WindowsSapiTextToSpeech,
+                IsAvailable: true,
+                IsConfigured: true,
+                IsActive: null,
+                Detail: "SAPI no expone si está hablando en este momento.")
+        };
+
+        foreach (var (engineId, providerKind) in AiProviderByEngineId)
+        {
+            var isConfigured = preferences.AiProvider != AiProviderKind.Disabled &&
+                preferences.AiProvider == providerKind;
+
+            bool? isAvailable = null;
+            bool? isActive = null;
+            string? detail = null;
+
+            if (providerKind == AiProviderKind.Ollama && ollamaRuntimeSnapshot is not null)
+            {
+                isAvailable = ollamaRuntimeSnapshot.State != OllamaRuntimeState.Unavailable;
+                isActive = isConfigured && ollamaRuntimeSnapshot.IsRunning;
+                detail = ollamaRuntimeSnapshot.Message;
+            }
+
+            states.Add(new EngineRuntimeState(engineId, isAvailable, isConfigured, isActive, detail));
+        }
+
+        return states;
+    }
+
+    private static IReadOnlyList<EngineDescriptor> BuildDescriptors() =>
+    [
+        new EngineDescriptor(
+            KnownEngineIds.WhisperSpeechToText,
+            "Whisper (reconocimiento de voz local)",
+            EngineCategory.SpeechToText,
+            IsLocal: true,
+            MinimumRequirement: new EngineRequirement(
+                "Procesar audio con el modelo Whisper Base en CPU.",
+                EngineCostLevel.Moderate, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Moderate),
+            RecommendedRequirement: new EngineRequirement(
+                "Kohana solo ofrece el modelo Whisper Base; no existe un nivel superior configurable.",
+                EngineCostLevel.Moderate, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Moderate),
+            Capabilities: ["Transcripción de voz a texto en español", "Modelo Whisper Base fijo"],
+            Limitations: ["Ejecuta siempre en CPU: no se comprobó ni se usa GPU", "No se puede elegir un modelo distinto todavía"],
+            AllowsRuntimeSelection: false,
+            RequiresRestart: true,
+            RequiresDownload: true,
+            IncludedWithKohana: true),
+
+        new EngineDescriptor(
+            KnownEngineIds.VoskWakeWord,
+            "Vosk (palabra de activación local)",
+            EngineCategory.WakeWord,
+            IsLocal: true,
+            MinimumRequirement: new EngineRequirement(
+                "Detectar la palabra de activación con el modelo Vosk pequeño en español.",
+                EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
+            RecommendedRequirement: new EngineRequirement(
+                "Kohana solo ofrece este modelo pequeño en español.",
+                EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
+            Capabilities: ["Detección de palabra de activación en español"],
+            Limitations: ["Solo reconoce español", "No se puede elegir un modelo distinto todavía"],
+            AllowsRuntimeSelection: false,
+            RequiresRestart: true,
+            RequiresDownload: false,
+            IncludedWithKohana: true),
+
+        new EngineDescriptor(
+            KnownEngineIds.WindowsSapiTextToSpeech,
+            "Síntesis de voz de Windows (SAPI)",
+            EngineCategory.TextToSpeech,
+            IsLocal: true,
+            MinimumRequirement: new EngineRequirement(
+                "Sintetizar voz con las voces instaladas en Windows.",
+                EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
+            RecommendedRequirement: new EngineRequirement(
+                "Igual que el mínimo: SAPI no tiene niveles de calidad configurables desde Kohana.",
+                EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
+            Capabilities: ["Síntesis de voz usando las voces instaladas en Windows"],
+            Limitations: ["No expone cuál voz eligió ni si está hablando en este momento"],
+            AllowsRuntimeSelection: false,
+            RequiresRestart: true,
+            RequiresDownload: false,
+            IncludedWithKohana: true),
+
+        new EngineDescriptor(
+            KnownEngineIds.OpenAiLanguageModel,
+            "OpenAI (remoto)",
+            EngineCategory.LocalLanguageModel,
+            IsLocal: false,
+            MinimumRequirement: new EngineRequirement(
+                "Solo se necesita conexión a internet: el cómputo ocurre en el servidor remoto.",
+                EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
+            RecommendedRequirement: new EngineRequirement(
+                "Igual que el mínimo.",
+                EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
+            Capabilities: ["Modelos de OpenAI accesibles por API"],
+            Limitations: ["Requiere clave de API", "Envía datos a un servicio externo"],
+            AllowsRuntimeSelection: true,
+            RequiresRestart: false,
+            RequiresDownload: false,
+            IncludedWithKohana: true),
+
+        new EngineDescriptor(
+            KnownEngineIds.OllamaLanguageModel,
+            "Ollama (modelo de lenguaje local)",
+            EngineCategory.LocalLanguageModel,
+            IsLocal: true,
+            MinimumRequirement: new EngineRequirement(
+                "Ejecutar un modelo de lenguaje pequeño localmente.",
+                EngineCostLevel.Moderate, EngineCostLevel.High, EngineCostLevel.Unknown, EngineCostLevel.Moderate),
+            RecommendedRequirement: new EngineRequirement(
+                "Ejecutar modelos más grandes con mejor calidad de respuesta.",
+                EngineCostLevel.High, EngineCostLevel.High, EngineCostLevel.Unknown, EngineCostLevel.High),
+            Capabilities: ["Modelos de lenguaje ejecutados localmente", "Puede administrarlo Kohana o apuntar a una instalación externa"],
+            Limitations: ["El uso de GPU depende de la instalación del usuario y no se puede comprobar desde Kohana", "El modelo debe descargarse por separado"],
+            AllowsRuntimeSelection: true,
+            RequiresRestart: false,
+            RequiresDownload: true,
+            IncludedWithKohana: true),
+
+        new EngineDescriptor(
+            KnownEngineIds.LmStudioLanguageModel,
+            "LM Studio (modelo de lenguaje local)",
+            EngineCategory.LocalLanguageModel,
+            IsLocal: true,
+            MinimumRequirement: new EngineRequirement(
+                "Ejecutar un modelo de lenguaje pequeño localmente a través de LM Studio.",
+                EngineCostLevel.Moderate, EngineCostLevel.High, EngineCostLevel.Unknown, EngineCostLevel.Moderate),
+            RecommendedRequirement: new EngineRequirement(
+                "Ejecutar modelos más grandes con mejor calidad de respuesta.",
+                EngineCostLevel.High, EngineCostLevel.High, EngineCostLevel.Unknown, EngineCostLevel.High),
+            Capabilities: ["Modelos de lenguaje ejecutados localmente a través de LM Studio"],
+            Limitations: ["Requiere que LM Studio esté instalado y en ejecución por separado", "El uso de GPU depende de la instalación del usuario"],
+            AllowsRuntimeSelection: true,
+            RequiresRestart: false,
+            RequiresDownload: true,
+            IncludedWithKohana: false),
+
+        new EngineDescriptor(
+            KnownEngineIds.OpenAiCompatibleLanguageModel,
+            "Servidor compatible con OpenAI",
+            EngineCategory.LocalLanguageModel,
+            IsLocal: null,
+            MinimumRequirement: new EngineRequirement(
+                "El costo local de Kohana es bajo; el servidor configurado asume el resto.",
+                EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Unknown, EngineCostLevel.Low),
+            RecommendedRequirement: new EngineRequirement(
+                "Igual que el mínimo.",
+                EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Unknown, EngineCostLevel.Low),
+            Capabilities: ["Cualquier servidor que implemente la API compatible con OpenAI"],
+            Limitations: ["La capacidad real depende completamente del servidor configurado por el usuario"],
+            AllowsRuntimeSelection: true,
+            RequiresRestart: false,
+            RequiresDownload: false,
+            IncludedWithKohana: true)
+    ];
+}
