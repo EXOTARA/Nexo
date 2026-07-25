@@ -80,6 +80,21 @@
                       Checked="AnimationsCheckBox_Changed"
                       Unchecked="AnimationsCheckBox_Changed" />
 
+            <WrapPanel Margin="0,14,0,0">
+                <Button x:Name="ResetAppearanceButton"
+                        Content="Restaurar apariencia"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="ResetAppearanceButton_Click"
+                        ToolTip="Devuelve posición, ancho, transparencia, acento y animaciones a sus valores originales"
+                        AutomationProperties.Name="Restaurar apariencia"
+                        AutomationProperties.HelpText="Solo afecta a la apariencia. No borra tareas, rutinas, historial ni la configuración de voz, IA o motores." />
+            </WrapPanel>
+            <TextBlock x:Name="ResetAppearanceHintText"
+                       Margin="0,8,0,0"
+                       Text="Solo cambia la apariencia. Tus tareas, rutinas y la configuración de voz, IA y motores no se tocan."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <TextBlock Margin="0,20,0,9" Text="Integración con Windows" FontWeight="SemiBold" />
             <CheckBox x:Name="StartWithWindowsCheckBox"
                       Margin="0,0,0,8"

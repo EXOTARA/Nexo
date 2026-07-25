@@ -543,6 +543,29 @@ public partial class MainWindow : Window
 
         _settingsView.OnboardingRequested += async (_, _) =>
             await ShowOnboardingAsync();
+
+        // Diseño D2 — restaurar apariencia. Solo se reaplican las preferencias visuales; las
+        // funcionales (tareas, rutinas, voz, IA, motores, integración con Windows) ni se leen ni
+        // se escriben aquí, que es justo lo que hace segura esta acción.
+        _settingsView.ResetAppearanceRequested += (_, _) =>
+        {
+            _preferences.ResetVisualPreferences();
+
+            Width = _preferences.Width;
+            PositionWindow();
+            _peekWindow.HideImmediately();
+            ApplyShellOpacity();
+            ApplyAccent(_preferences.AccentColor);
+            SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
+            UpdateNavigationState(_currentDestination);
+
+            // Refresca los controles de Personalizar para que reflejen los valores restaurados.
+            _settingsView.ApplyPreferences(_preferences);
+
+            SavePreferences();
+            _assistantView.AddKohanaMessage(
+                "Apariencia restaurada. Tus tareas, rutinas y la configuración de voz, IA y motores no se tocaron.");
+        };
     }
 
     private void ShowModelManager()
