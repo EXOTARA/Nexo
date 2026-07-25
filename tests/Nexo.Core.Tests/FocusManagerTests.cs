@@ -142,6 +142,134 @@ public sealed class FocusManagerTests
         Assert.Equal(TimeSpan.FromMinutes(30), snapshot.Remaining);
     }
 
+    // ---------- Diseño D3: Finish ----------
+
+    [Fact]
+    public void Finish_RecordsElapsedTime_NotTheFullPlannedDuration()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        var result = manager.Finish(ReferenceNow.AddMinutes(10));
+
+        Assert.True(result.Success);
+        Assert.Null(store.State.ActiveTimer);
+        var entry = Assert.Single(store.State.History);
+        Assert.Equal(TimeSpan.FromMinutes(10), entry.Duration);
+    }
+
+    [Fact]
+    public void Cancel_NeverAddsHistory_UnlikeFinish()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        manager.Cancel();
+
+        Assert.Empty(store.State.History);
+    }
+
+    [Fact]
+    public void Finish_WhilePaused_UsesThePausedRemainingTime()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+        manager.Pause(ReferenceNow.AddMinutes(12));
+
+        var result = manager.Finish(ReferenceNow.AddMinutes(20));
+
+        Assert.True(result.Success);
+        var entry = Assert.Single(store.State.History);
+        Assert.Equal(TimeSpan.FromMinutes(12), entry.Duration);
+    }
+
+    [Fact]
+    public void Finish_WithNoElapsedTime_BehavesLikeCancel_NoEmptyHistoryEntry()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        var result = manager.Finish(ReferenceNow);
+
+        Assert.True(result.Success);
+        Assert.Null(store.State.ActiveTimer);
+        Assert.Empty(store.State.History);
+    }
+
+    [Fact]
+    public void Finish_WithoutAnActiveTimer_Fails()
+    {
+        var manager = CreateManager();
+
+        var result = manager.Finish(ReferenceNow);
+
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public void Finish_PreservesTheAssociatedTaskInHistory()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        var taskId = Guid.NewGuid();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow, taskId);
+
+        manager.Finish(ReferenceNow.AddMinutes(5));
+
+        Assert.Equal(taskId, store.State.History.Single().TaskId);
+    }
+
+    // ---------- Diseño D3: asociación con una tarea ----------
+
+    [Fact]
+    public void Start_WithoutATaskId_LeavesTaskIdNull()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+
+        manager.Start(TimeSpan.FromMinutes(25), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        Assert.Null(store.State.ActiveTimer?.TaskId);
+    }
+
+    [Fact]
+    public void Start_WithATaskId_PersistsIt()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        var taskId = Guid.NewGuid();
+
+        manager.Start(TimeSpan.FromMinutes(25), "Enfoque", FocusSessionKind.Focus, ReferenceNow, taskId);
+
+        Assert.Equal(taskId, store.State.ActiveTimer?.TaskId);
+    }
+
+    [Fact]
+    public void CollectCompletion_PreservesTheAssociatedTaskInHistory()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        var taskId = Guid.NewGuid();
+        manager.Start(TimeSpan.FromMinutes(1), "Enfoque", FocusSessionKind.Focus, ReferenceNow, taskId);
+
+        var completion = manager.CollectCompletion(ReferenceNow.AddMinutes(1));
+
+        Assert.Equal(taskId, completion?.TaskId);
+        Assert.Equal(taskId, store.State.History.Single().TaskId);
+    }
+
     private static FocusManager CreateManager()
     {
         var manager = new FocusManager(new MemoryFocusStore());
