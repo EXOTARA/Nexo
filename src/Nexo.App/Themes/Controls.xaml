@@ -167,17 +167,33 @@
         <Setter Property="Height" Value="{DynamicResource NavigationIconSize}" />
         <Setter Property="Stretch" Value="Uniform" />
         <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-        <Setter Property="StrokeThickness" Value="1.65" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource NavigationIconStrokeThickness}" />
         <Setter Property="StrokeStartLineCap" Value="Round" />
         <Setter Property="StrokeEndLineCap" Value="Round" />
         <Setter Property="StrokeLineJoin" Value="Round" />
     </Style>
 
-    <Style x:Key="SakuraNavigationIconFilledStyle"
+    <!--
+        Diseño D2.0 (corrección) — el estado seleccionado se expresa con un trazo MÁS GRUESO,
+        nunca con relleno.
+
+        Antes, esta variante ponía StrokeThickness=0 + Fill. Los iconos de Brand.xaml son
+        geometrías de LÍNEA (trazos abiertos: la casa de Inicio, el ecualizador de Sistema, los
+        deslizadores de Personalizar), no siluetas cerradas rellenables. Rellenarlas producía dos
+        fallos medidos con render real (ver el informe de D2): los contornos cerrados se volvían
+        bloques sólidos — Sistema 95.6 % y Hoy 93.2 % de cobertura de tinta frente a ~11 % en
+        estado normal — y los trazos de detalle interiores, al no encerrar área, desaparecían;
+        Personalizar, que son solo segmentos, se quedaba en 0 % (icono invisible).
+
+        Mantener el trazo preserva la silueta exacta del icono no seleccionado, que es el
+        requisito de aceptación, y el grosor sigue siendo una señal de estado independiente del
+        color (junto con el indicador, la superficie elevada y el peso del texto), así que el
+        estado activo sigue sin depender solo del color.
+    -->
+    <Style x:Key="SakuraNavigationIconSelectedStyle"
            TargetType="Path"
            BasedOn="{StaticResource SakuraNavigationIconStyle}">
-        <Setter Property="StrokeThickness" Value="0" />
-        <Setter Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource NavigationIconStrokeThicknessSelected}" />
     </Style>
 
     <Style x:Key="SakuraNavigationItemStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">

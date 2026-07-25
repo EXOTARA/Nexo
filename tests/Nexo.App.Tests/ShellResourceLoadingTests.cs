@@ -25,7 +25,8 @@ namespace Nexo.App.Tests;
 /// mecanismo compartido real (aplicación de tema, mutación de recursos, layout de un control con
 /// los estilos Sakura, e inserción de cada vista real en un host) sin mover lógica de negocio.
 /// </summary>
-public sealed class ShellResourceLoadingTests : IClassFixture<StaWpfFixture>
+[Collection(StaWpfCollection.Name)]
+public sealed class ShellResourceLoadingTests
 {
     private readonly StaWpfFixture _fixture;
 

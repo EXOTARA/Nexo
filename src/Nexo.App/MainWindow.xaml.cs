@@ -3501,8 +3501,12 @@ public partial class MainWindow : Window
     /// <summary>
     /// Diseño D1 (Sakura Shell): el estado seleccionado nunca depende solo del color. Cada
     /// entrada combina superficie elevada (fondo), indicador tipo "tallo" a la izquierda,
-    /// ícono relleno en vez de solo trazo, y texto con más peso — la misma combinación que se
+    /// ícono con trazo más grueso, y texto con más peso — la misma combinación que se
     /// verifica en <c>AdaptiveEngineUiInvariantTests</c>-equivalentes de este sprint.
+    ///
+    /// Diseño D2.0: la cuarta señal era "ícono relleno en vez de solo trazo", pero rellenar
+    /// geometrías de línea las convertía en bloques sólidos (y hacía desaparecer las que solo
+    /// tienen segmentos). Ahora es el grosor del trazo, que preserva la silueta.
     /// </summary>
     private void UpdateNavigationState(string destination)
     {
@@ -3536,7 +3540,7 @@ public partial class MainWindow : Window
             : (Brush)FindResource("BrushTextSecondary");
 
         indicator.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
-        icon.Style = (Style)FindResource(selected ? "SakuraNavigationIconFilledStyle" : "SakuraNavigationIconStyle");
+        icon.Style = (Style)FindResource(selected ? "SakuraNavigationIconSelectedStyle" : "SakuraNavigationIconStyle");
         label.FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal;
     }
 
