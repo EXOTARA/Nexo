@@ -15,6 +15,7 @@ using Nexo.App.Automation;
 using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
@@ -76,6 +77,8 @@ public partial class MainWindow : Window
     private readonly IScreenCaptureService _screenCaptureService;
     private readonly VoiceCoordinator _voiceCoordinator;
     private readonly IHardwareCapabilityService _hardwareCapabilityService;
+    private readonly IAdaptiveEngineRegistry _adaptiveEngineRegistry;
+    private OllamaRuntimeSnapshot? _latestOllamaRuntimeSnapshot;
     private readonly SemaphoreSlim _aiGate = new(1, 1);
 
     // Serializa las DECISIONES del Resource Governor (pausar/reanudar wake word según el
@@ -147,7 +150,8 @@ public partial class MainWindow : Window
         IAudioMixerService? audioMixerService = null,
         IScreenCaptureService? screenCaptureService = null,
         VoiceCoordinator? voiceCoordinator = null,
-        IHardwareCapabilityService? hardwareCapabilityService = null)
+        IHardwareCapabilityService? hardwareCapabilityService = null,
+        IAdaptiveEngineRegistry? adaptiveEngineRegistry = null)
     {
         InitializeComponent();
         _commandPaletteWindow = new CommandPaletteWindow();
@@ -162,6 +166,7 @@ public partial class MainWindow : Window
         _screenCaptureService = screenCaptureService ?? throw new ArgumentNullException(nameof(screenCaptureService));
         _voiceCoordinator = voiceCoordinator ?? throw new ArgumentNullException(nameof(voiceCoordinator));
         _hardwareCapabilityService = hardwareCapabilityService ?? throw new ArgumentNullException(nameof(hardwareCapabilityService));
+        _adaptiveEngineRegistry = adaptiveEngineRegistry ?? throw new ArgumentNullException(nameof(adaptiveEngineRegistry));
 
         _startHidden = startHidden;
         _managedOllamaSupervisor = managedOllamaSupervisor;
@@ -370,6 +375,7 @@ public partial class MainWindow : Window
             _preferences.WakeWordEnabled = enabled;
             SavePreferences();
             _ = ApplyWakeWordPreferenceAsync(showCapsule: true);
+            RefreshAdaptiveEnginePlan();
         };
 
         _settingsView.WakeWordPhraseChanged += phrase =>
@@ -412,6 +418,7 @@ public partial class MainWindow : Window
             UpdateAiProviderStatus();
             SavePreferences();
             ConfigureManagedOllamaSupervisor();
+            RefreshAdaptiveEnginePlan();
         };
 
         _settingsView.AiBaseUrlChanged += baseUrl =>
@@ -470,6 +477,13 @@ public partial class MainWindow : Window
         {
             _preferences.ProtectVisionWhenBusy = enabled;
             SavePreferences();
+        };
+
+        _settingsView.HardwarePerformanceModeChanged += mode =>
+        {
+            _preferences.HardwarePerformanceMode = mode;
+            SavePreferences();
+            RefreshAdaptiveEnginePlan();
         };
 
         _settingsView.StartWithWindowsChanged += enabled =>
@@ -564,7 +578,8 @@ public partial class MainWindow : Window
             _voiceCoordinator.IsWakeWordListening,
             trayActive: true,
             _startupService.IsEnabled(),
-            _hardwareCapabilityService)
+            _hardwareCapabilityService,
+            _adaptiveEngineRegistry)
         {
             Owner = this
         };
@@ -944,10 +959,14 @@ public partial class MainWindow : Window
     public void UpdateManagedAiRuntimeState(OllamaRuntimeSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        _latestOllamaRuntimeSnapshot = snapshot;
+
         if (_isClosed)
         {
             return;
         }
+
+        RefreshAdaptiveEnginePlan();
 
         if (snapshot.IsRunning)
         {
@@ -3776,6 +3795,7 @@ public partial class MainWindow : Window
             }
 
             _systemView.UpdateHardwareCapability(profile);
+            RefreshAdaptiveEnginePlan();
         }
         catch (OperationCanceledException)
         {
@@ -3787,8 +3807,30 @@ public partial class MainWindow : Window
             if (!_isClosed)
             {
                 _systemView.UpdateHardwareCapability(_hardwareCapabilityService.GetCachedProfile());
+                RefreshAdaptiveEnginePlan();
             }
         }
+    }
+
+    private void RefreshAdaptiveEnginePlan()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        var hardwareProfile = _hardwareCapabilityService.GetCachedProfile();
+        var descriptors = _adaptiveEngineRegistry.GetDescriptors();
+        var runtimeStates = _adaptiveEngineRegistry.CaptureRuntimeStates(_preferences, _latestOllamaRuntimeSnapshot);
+
+        var plan = AdaptiveEnginePolicy.Evaluate(
+            hardwareProfile,
+            _preferences.HardwarePerformanceMode,
+            descriptors,
+            runtimeStates,
+            DateTimeOffset.Now);
+
+        _systemView.UpdateAdaptiveEnginePlan(plan, descriptors);
     }
 
     private async Task<ResourceGovernorDecision> EnsureFreshResourceDecisionAsync()

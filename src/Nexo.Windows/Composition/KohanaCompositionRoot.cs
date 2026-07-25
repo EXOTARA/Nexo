@@ -1,10 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using Nexo.Core.Ai;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Audio;
 using Nexo.Core.Hardware;
 using Nexo.Core.Vision;
 using Nexo.Core.Voice;
 using Nexo.Windows.Ai;
+using Nexo.Windows.AdaptiveEngine;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Hardware;
 using Nexo.Windows.Vision;
@@ -50,6 +52,14 @@ public sealed class KohanaCompositionRoot : IDisposable
     /// </summary>
     public VoiceCoordinator VoiceCoordinator { get; }
 
+    /// <summary>
+    /// Catálogo de motores reales de Kohana y su estado observable, usado por
+    /// <see cref="Nexo.Core.AdaptiveEngine.AdaptiveEnginePolicy"/> para producir recomendaciones.
+    /// Depende de <see cref="Voice.VoiceCoordinator"/> únicamente para leer su estado ya expuesto
+    /// (listo/escuchando), sin alterar su comportamiento ni su ciclo de vida.
+    /// </summary>
+    public IAdaptiveEngineRegistry AdaptiveEngineRegistry { get; }
+
     public KohanaCompositionRoot()
     {
         // Orden de construcción de los seis servicios de interfaz
@@ -63,6 +73,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         var screenCaptureService = new WindowsScreenCaptureService();
         var hardwareCapabilityService = new WindowsHardwareCapabilityService();
         var voiceCoordinator = new VoiceCoordinator(voiceInputService, voiceOutputService, wakeWordService);
+        var adaptiveEngineRegistry = new WindowsAdaptiveEngineRegistry(voiceCoordinator);
 
         var services = new ServiceCollection();
 
@@ -78,6 +89,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         services.AddSingleton<IScreenCaptureService>(screenCaptureService);
         services.AddSingleton<IHardwareCapabilityService>(hardwareCapabilityService);
         services.AddSingleton(voiceCoordinator);
+        services.AddSingleton<IAdaptiveEngineRegistry>(adaptiveEngineRegistry);
 
         Provider = services.BuildServiceProvider();
 
@@ -91,6 +103,7 @@ public sealed class KohanaCompositionRoot : IDisposable
         ScreenCaptureService = Provider.GetRequiredService<IScreenCaptureService>();
         HardwareCapabilityService = Provider.GetRequiredService<IHardwareCapabilityService>();
         VoiceCoordinator = Provider.GetRequiredService<VoiceCoordinator>();
+        AdaptiveEngineRegistry = Provider.GetRequiredService<IAdaptiveEngineRegistry>();
     }
 
     public void Dispose()

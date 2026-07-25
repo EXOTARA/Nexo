@@ -1,7 +1,9 @@
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
 using Nexo.Core.Resources;
@@ -10,9 +12,12 @@ namespace Nexo.App.Views;
 
 public partial class SystemView : UserControl
 {
+    private readonly ObservableCollection<AdaptiveEnginePlanRow> _adaptiveEnginePlanRows = [];
+
     public SystemView()
     {
         InitializeComponent();
+        AdaptiveEnginePlanItemsControl.ItemsSource = _adaptiveEnginePlanRows;
     }
 
     public event EventHandler? RestartVoiceRequested;
@@ -147,6 +152,82 @@ public partial class SystemView : UserControl
             ? "Datos desconocidos: " + string.Join(" · ", profile.MissingData.Select(reason => reason.Message))
             : string.Empty;
     }
+
+    public void UpdateAdaptiveEnginePlan(AdaptiveEnginePlan plan, IReadOnlyList<EngineDescriptor> descriptors)
+    {
+        AdaptiveEnginePlanModeText.Text = DescribeMode(plan.Mode);
+        AdaptiveEnginePlanSummaryText.Text = plan.Summary;
+        AdaptiveEnginePlanConfidenceText.Text = plan.GeneralWarnings.Count > 0
+            ? string.Join(" ", plan.GeneralWarnings)
+            : "La información de hardware es suficiente para esta recomendación.";
+
+        _adaptiveEnginePlanRows.Clear();
+        foreach (var recommendation in plan.Recommendations)
+        {
+            _adaptiveEnginePlanRows.Add(BuildAdaptiveEnginePlanRow(recommendation, descriptors));
+        }
+    }
+
+    private static AdaptiveEnginePlanRow BuildAdaptiveEnginePlanRow(
+        EngineRecommendation recommendation,
+        IReadOnlyList<EngineDescriptor> descriptors)
+    {
+        var configuredLine = recommendation.ConfiguredEngineId is { } configuredId
+            ? $"Configurado: {ResolveDisplayName(configuredId, descriptors)}"
+            : "Configurado: ninguno";
+
+        var activeLine = recommendation.ActiveEngineId is { } activeId
+            ? $"Activo: {ResolveDisplayName(activeId, descriptors)}"
+            : "Activo: desconocido";
+
+        var recommendedLine = recommendation.RecommendedEngineId is { } recommendedId
+            ? $"Recomendado: {ResolveDisplayName(recommendedId, descriptors)}"
+            : "Recomendado: ninguna opción compatible con el hardware detectado";
+
+        var reasonText = string.Join(" ", recommendation.Reasons);
+        var warningText = string.Join(" ", recommendation.Warnings);
+
+        return new AdaptiveEnginePlanRow(
+            DescribeCategory(recommendation.Category),
+            configuredLine,
+            activeLine,
+            recommendedLine,
+            reasonText,
+            warningText,
+            WarningVisibility: warningText.Length > 0 ? Visibility.Visible : Visibility.Collapsed,
+            RecommendationOnlyVisibility: recommendation.IsRecommendationOnly ? Visibility.Visible : Visibility.Collapsed);
+    }
+
+    private static string ResolveDisplayName(EngineIdentifier id, IReadOnlyList<EngineDescriptor> descriptors) =>
+        descriptors.FirstOrDefault(d => d.Id == id)?.DisplayName ?? id.Value;
+
+    private static string DescribeMode(HardwarePerformanceMode mode) => mode switch
+    {
+        HardwarePerformanceMode.Automatic => "Automático",
+        HardwarePerformanceMode.Eco => "Ahorro",
+        HardwarePerformanceMode.Balanced => "Equilibrado",
+        HardwarePerformanceMode.Maximum => "Máximo",
+        _ => "Automático"
+    };
+
+    private static string DescribeCategory(EngineCategory category) => category switch
+    {
+        EngineCategory.SpeechToText => "Reconocimiento de voz",
+        EngineCategory.WakeWord => "Palabra de activación",
+        EngineCategory.TextToSpeech => "Síntesis de voz",
+        EngineCategory.LocalLanguageModel => "Modelo de lenguaje",
+        _ => category.ToString()
+    };
+
+    private sealed record AdaptiveEnginePlanRow(
+        string CategoryLabel,
+        string ConfiguredLine,
+        string ActiveLine,
+        string RecommendedLine,
+        string ReasonText,
+        string WarningText,
+        Visibility WarningVisibility,
+        Visibility RecommendationOnlyVisibility);
 
     private void RestartVoiceButton_Click(object sender, RoutedEventArgs e) =>
         RestartVoiceRequested?.Invoke(this, EventArgs.Empty);

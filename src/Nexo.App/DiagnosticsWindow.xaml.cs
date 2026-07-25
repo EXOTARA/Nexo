@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Diagnostics;
 using Nexo.Core.Hardware;
 using Nexo.Core.Settings;
@@ -23,6 +24,7 @@ public partial class DiagnosticsWindow : Window
     private readonly bool _trayActive;
     private readonly bool _startupEnabled;
     private readonly IHardwareCapabilityService _hardwareCapabilityService;
+    private readonly IAdaptiveEngineRegistry _adaptiveEngineRegistry;
     private readonly NexoDiagnosticService _diagnosticService = new();
     private readonly ObservableCollection<DiagnosticItemRow> _items = [];
     private readonly CancellationTokenSource _lifetimeCancellation = new();
@@ -36,7 +38,8 @@ public partial class DiagnosticsWindow : Window
         bool wakeWordListening,
         bool trayActive,
         bool startupEnabled,
-        IHardwareCapabilityService hardwareCapabilityService)
+        IHardwareCapabilityService hardwareCapabilityService,
+        IAdaptiveEngineRegistry adaptiveEngineRegistry)
     {
         InitializeComponent();
         _preferences = preferences;
@@ -48,6 +51,8 @@ public partial class DiagnosticsWindow : Window
         _startupEnabled = startupEnabled;
         _hardwareCapabilityService = hardwareCapabilityService
             ?? throw new ArgumentNullException(nameof(hardwareCapabilityService));
+        _adaptiveEngineRegistry = adaptiveEngineRegistry
+            ?? throw new ArgumentNullException(nameof(adaptiveEngineRegistry));
         ItemsControl.ItemsSource = _items;
     }
 
@@ -81,6 +86,7 @@ public partial class DiagnosticsWindow : Window
             }
 
             AddHardwareCapabilityRows();
+            AddAdaptiveEngineRows();
 
             var warnings = _snapshot.Items.Count(item =>
                 item.Status is DiagnosticStatus.Warning or DiagnosticStatus.Unavailable);
@@ -158,6 +164,66 @@ public partial class DiagnosticsWindow : Window
     }
 
     private static string FormatNumber(int? value) => value?.ToString() ?? "desconocido";
+
+    private void AddAdaptiveEngineRows()
+    {
+        var hardwareProfile = _hardwareCapabilityService.GetCachedProfile();
+        var descriptors = _adaptiveEngineRegistry.GetDescriptors();
+        var runtimeStates = _adaptiveEngineRegistry.CaptureRuntimeStates(_preferences, ollamaRuntimeSnapshot: null);
+        var plan = AdaptiveEnginePolicy.Evaluate(
+            hardwareProfile,
+            _preferences.HardwarePerformanceMode,
+            descriptors,
+            runtimeStates,
+            DateTimeOffset.Now);
+
+        _items.Add(new DiagnosticItemRow(
+            "Plan adaptativo",
+            $"Modo: {plan.Mode} · Nivel de hardware: {plan.Tier} · Confianza: {plan.Confidence} · " +
+            $"Calculado: {plan.EvaluatedAt:g}",
+            ResolveStatusBrush(DiagnosticStatus.Information)));
+
+        var stateById = runtimeStates.ToDictionary(s => s.EngineId);
+        foreach (var descriptor in descriptors)
+        {
+            var state = stateById.TryGetValue(descriptor.Id, out var found) ? found : null;
+            var available = DescribeTriState(state?.IsAvailable);
+            var configured = DescribeTriState(state?.IsConfigured);
+            var active = DescribeTriState(state?.IsActive);
+            var requirement = descriptor.MinimumRequirement;
+
+            _items.Add(new DiagnosticItemRow(
+                $"Motor: {descriptor.DisplayName}",
+                $"Categoría: {descriptor.Category} · Local: {DescribeTriState(descriptor.IsLocal)} · " +
+                $"Disponible: {available} · Configurado: {configured} · Activo: {active} · " +
+                $"Costo mínimo — CPU: {requirement.CpuCost}, RAM: {requirement.RamCost}, GPU: {requirement.GpuCost}, energía: {requirement.EnergyCost}",
+                ResolveStatusBrush(DiagnosticStatus.Information)));
+        }
+
+        foreach (var recommendation in plan.Recommendations)
+        {
+            var recommendedName = recommendation.RecommendedEngineId is { } recommendedId
+                ? descriptors.First(d => d.Id == recommendedId).DisplayName
+                : "ninguna opción compatible";
+            var reasons = string.Join(" ", recommendation.Reasons);
+            var warnings = string.Join(" ", recommendation.Warnings);
+            var detail = warnings.Length > 0
+                ? $"Recomendado: {recommendedName}. {reasons} {warnings}"
+                : $"Recomendado: {recommendedName}. {reasons}";
+
+            _items.Add(new DiagnosticItemRow(
+                $"Recomendación: {descriptors.FirstOrDefault(d => d.Category == recommendation.Category)?.Category.ToString() ?? recommendation.Category.ToString()}",
+                detail,
+                ResolveStatusBrush(warnings.Length > 0 ? DiagnosticStatus.Warning : DiagnosticStatus.Information)));
+        }
+    }
+
+    private static string DescribeTriState(bool? value) => value switch
+    {
+        true => "sí",
+        false => "no",
+        null => "desconocido"
+    };
 
     private void CopyButton_Click(object sender, RoutedEventArgs e)
     {

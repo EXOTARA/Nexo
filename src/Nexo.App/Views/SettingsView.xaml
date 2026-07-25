@@ -366,6 +366,68 @@
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
+            <TextBlock Margin="0,20,0,9"
+                       Text="Modo de rendimiento"
+                       FontWeight="SemiBold" />
+            <TextBlock Margin="0,0,0,10"
+                       Text="Ajusta qué recomienda Kohana para voz, palabra de activación y modelos de lenguaje según el hardware detectado. Cambiar el modo no reemplaza motores, no descarga modelos ni reinicia servicios: solo actualiza la recomendación."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+            <StackPanel>
+                <RadioButton x:Name="PerformanceModeAutomaticRadioButton"
+                             GroupName="HardwarePerformanceMode"
+                             Tag="Automatic"
+                             Checked="HardwarePerformanceModeRadioButton_Checked"
+                             AutomationProperties.Name="Modo de rendimiento: Automático">
+                    <StackPanel Margin="0,0,0,10">
+                        <TextBlock Text="Automático" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,2,0,0"
+                                   Text="Kohana adapta sus recomendaciones al hardware detectado."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="PerformanceModeEcoRadioButton"
+                             GroupName="HardwarePerformanceMode"
+                             Tag="Eco"
+                             Checked="HardwarePerformanceModeRadioButton_Checked"
+                             AutomationProperties.Name="Modo de rendimiento: Ahorro">
+                    <StackPanel Margin="0,0,0,10">
+                        <TextBlock Text="Ahorro" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,2,0,0"
+                                   Text="Prioriza menor consumo de CPU, memoria y batería."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="PerformanceModeBalancedRadioButton"
+                             GroupName="HardwarePerformanceMode"
+                             Tag="Balanced"
+                             Checked="HardwarePerformanceModeRadioButton_Checked"
+                             AutomationProperties.Name="Modo de rendimiento: Equilibrado">
+                    <StackPanel Margin="0,0,0,10">
+                        <TextBlock Text="Equilibrado" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,2,0,0"
+                                   Text="Busca buena velocidad y calidad sin usar recursos excesivos."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="PerformanceModeMaximumRadioButton"
+                             GroupName="HardwarePerformanceMode"
+                             Tag="Maximum"
+                             Checked="HardwarePerformanceModeRadioButton_Checked"
+                             AutomationProperties.Name="Modo de rendimiento: Máximo">
+                    <StackPanel>
+                        <TextBlock Text="Máximo" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,2,0,0"
+                                   Text="Prioriza calidad cuando el hardware y los motores disponibles lo permiten."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                </RadioButton>
+            </StackPanel>
+
             <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
             <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
                       Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />

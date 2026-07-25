@@ -59,7 +59,8 @@ public partial class App : System.Windows.Application
             _compositionRoot.AudioMixerService,
             _compositionRoot.ScreenCaptureService,
             _compositionRoot.VoiceCoordinator,
-            _compositionRoot.HardwareCapabilityService);
+            _compositionRoot.HardwareCapabilityService,
+            _compositionRoot.AdaptiveEngineRegistry);
         MainWindow = mainWindow;
 
         _singleInstance.ActivationRequested += (_, _) =>
