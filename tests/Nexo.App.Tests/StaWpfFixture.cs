@@ -6,10 +6,16 @@ namespace Nexo.App.Tests;
 
 /// <summary>
 /// Un único hilo STA con un <see cref="Application"/> y las hojas de estilo reales de Kohana
-/// cargadas una sola vez, compartido por toda la clase de pruebas que lo use. WPF exige que
+/// cargadas una sola vez, compartido por TODAS las clases de prueba que lo usen. WPF exige que
 /// <see cref="Application"/> sea un singleton por proceso, así que crear una instancia nueva por
 /// prueba lanzaría "Application already exists" en la segunda prueba — de ahí el fixture
 /// compartido en vez de un hilo por método de prueba.
+///
+/// Se expone mediante <see cref="StaWpfCollection"/> (fixture de colección) y no
+/// <c>IClassFixture</c>: con IClassFixture xUnit crea una instancia POR CLASE, de modo que la
+/// segunda clase de pruebas que lo usara volvería a construir un <see cref="Application"/> y
+/// fallaría. La colección también serializa esas clases en un solo hilo, que es justo lo que
+/// necesita un Dispatcher STA compartido.
 /// </summary>
 public sealed class StaWpfFixture : IDisposable
 {
@@ -143,4 +149,16 @@ public sealed class StaWpfFixture : IDisposable
             ExceptionDispatchInfo.Capture(pendingDispatcherException).Throw();
         }
     }
+}
+
+/// <summary>
+/// Colección de pruebas que comparten el único <see cref="Application"/> WPF del proceso.
+/// Toda clase de pruebas que necesite WPF real debe marcarse con
+/// <c>[Collection(StaWpfCollection.Name)]</c> y recibir <see cref="StaWpfFixture"/> por
+/// constructor.
+/// </summary>
+[CollectionDefinition(Name)]
+public sealed class StaWpfCollection : ICollectionFixture<StaWpfFixture>
+{
+    public const string Name = "STA WPF";
 }

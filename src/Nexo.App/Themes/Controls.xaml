@@ -167,17 +167,33 @@
         <Setter Property="Height" Value="{DynamicResource NavigationIconSize}" />
         <Setter Property="Stretch" Value="Uniform" />
         <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-        <Setter Property="StrokeThickness" Value="1.65" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource NavigationIconStrokeThickness}" />
         <Setter Property="StrokeStartLineCap" Value="Round" />
         <Setter Property="StrokeEndLineCap" Value="Round" />
         <Setter Property="StrokeLineJoin" Value="Round" />
     </Style>
 
-    <Style x:Key="SakuraNavigationIconFilledStyle"
+    <!--
+        Diseño D2.0 (corrección) — el estado seleccionado se expresa con un trazo MÁS GRUESO,
+        nunca con relleno.
+
+        Antes, esta variante ponía StrokeThickness=0 + Fill. Los iconos de Brand.xaml son
+        geometrías de LÍNEA (trazos abiertos: la casa de Inicio, el ecualizador de Sistema, los
+        deslizadores de Personalizar), no siluetas cerradas rellenables. Rellenarlas producía dos
+        fallos medidos con render real (ver el informe de D2): los contornos cerrados se volvían
+        bloques sólidos — Sistema 95.6 % y Hoy 93.2 % de cobertura de tinta frente a ~11 % en
+        estado normal — y los trazos de detalle interiores, al no encerrar área, desaparecían;
+        Personalizar, que son solo segmentos, se quedaba en 0 % (icono invisible).
+
+        Mantener el trazo preserva la silueta exacta del icono no seleccionado, que es el
+        requisito de aceptación, y el grosor sigue siendo una señal de estado independiente del
+        color (junto con el indicador, la superficie elevada y el peso del texto), así que el
+        estado activo sigue sin depender solo del color.
+    -->
+    <Style x:Key="SakuraNavigationIconSelectedStyle"
            TargetType="Path"
            BasedOn="{StaticResource SakuraNavigationIconStyle}">
-        <Setter Property="StrokeThickness" Value="0" />
-        <Setter Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource NavigationIconStrokeThicknessSelected}" />
     </Style>
 
     <Style x:Key="SakuraNavigationItemStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
@@ -580,4 +596,171 @@
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontSize" Value="13" />
     </Style>
+
+    <!--
+        ================================================================================
+        Diseño D2 — componentes compartidos de workspace.
+
+        Patrones que se repetían copiados entre las nueve vistas (tarjetas pulsables,
+        métricas, chips de estado, estados vacíos y de error, barras de herramientas,
+        separadores). Se centralizan aquí para que una vista nueva no tenga que reinventar
+        —ni desviarse de— el lenguaje visual del shell.
+
+        Todas las referencias entre diccionarios usan DynamicResource, nunca StaticResource:
+        una referencia StaticResource entre archivos distintos fue exactamente la causa del
+        crash de navegación de D1.1.
+        ================================================================================
+    -->
+
+    <Style x:Key="WorkspaceSectionTitleStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,0,0,9" />
+    </Style>
+
+    <Style x:Key="WorkspaceSectionSubtitleStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="LineHeight" Value="18" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <!--
+        Tarjeta pulsable. Es un Button y no un Border con MouseDown para que funcione con
+        teclado (Enter y Espacio), aparezca en el orden de tabulación y exponga su nombre
+        accesible sin trabajo extra en cada vista.
+    -->
+    <Style x:Key="WorkspaceInteractiveCardStyle" TargetType="Button">
+        <Setter Property="Background" Value="{DynamicResource BrushSurfaceRaised}" />
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="14" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="CardSurface"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource RadiusMedium}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="CardSurface" Property="Background" Value="{DynamicResource BrushSurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="CardSurface" Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="CardSurface" Property="Opacity" Value="0.72" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="CardSurface" Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="WorkspaceMetricValueStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="WorkspaceMetricLabelStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextTertiary}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+
+    <!--
+        Chip de estado. El color por sí solo no comunica el estado (requisito de
+        accesibilidad): el chip siempre lleva texto, y el color solo lo refuerza.
+    -->
+    <Style x:Key="WorkspaceStatusChipStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource BrushSurfaceRaised}" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="WorkspaceStatusChipTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
+        <Setter Property="FontSize" Value="11" />
+    </Style>
+
+    <Style x:Key="WorkspaceEmptyStateTitleStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="WorkspaceEmptyStateDetailStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextTertiary}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Margin" Value="0,6,0,0" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <!--
+        Estado de error recuperable. Se muestra dentro del workspace, nunca como diálogo
+        modal: un fallo debe informar y dejar seguir usando Kohana.
+    -->
+    <Style x:Key="WorkspaceErrorStateStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource BrushSurfaceRaised}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushError}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="13" />
+    </Style>
+
+    <Style x:Key="WorkspaceErrorStateTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="WorkspaceUnavailableStateStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource BrushSurfaceRaised}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+        <Setter Property="Padding" Value="13" />
+    </Style>
+
+    <Style x:Key="WorkspaceLoadingTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextTertiary}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="WorkspaceToolbarStyle" TargetType="StackPanel">
+        <Setter Property="Orientation" Value="Horizontal" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <Style x:Key="WorkspaceDividerStyle" TargetType="Border">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource BrushBorder}" />
+        <Setter Property="Margin" Value="0,14" />
+    </Style>
+
+    <Style x:Key="WorkspaceSearchBoxStyle" TargetType="TextBox" BasedOn="{StaticResource CompactTextBoxStyle}">
+        <Setter Property="Height" Value="36" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
 </ResourceDictionary>

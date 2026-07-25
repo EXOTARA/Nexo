@@ -49,7 +49,10 @@ public sealed class SakuraShellStructureTests
 
         string[] controlStyleKeys =
         [
-            "SakuraNavigationIconStyle", "SakuraNavigationIconFilledStyle", "SakuraNavigationItemStyle",
+            // Diseño D2.0: SakuraNavigationIconFilledStyle se renombró a
+            // SakuraNavigationIconSelectedStyle al dejar de rellenar el icono (el relleno
+            // convertía las geometrías de línea en bloques sólidos).
+            "SakuraNavigationIconStyle", "SakuraNavigationIconSelectedStyle", "SakuraNavigationItemStyle",
             "SakuraSidebarToggleStyle", "SakuraPageTitleStyle", "SakuraPageSubtitleStyle", "SakuraShellCardStyle"
         ];
         Assert.All(controlStyleKeys, key => Assert.Contains($"x:Key=\"{key}\"", controls, StringComparison.Ordinal));
@@ -176,7 +179,8 @@ public sealed class SakuraShellStructureTests
             "private void UpdateWorkspaceHeader(");
 
         // Color (Background/Foreground) es una de varias señales, nunca la única: el indicador,
-        // el ícono relleno y el peso de la etiqueta también cambian con la selección.
+        // el grosor de trazo del ícono (D2.0; antes era relleno) y el peso de la etiqueta
+        // también cambian con la selección.
         Assert.Contains("button.Background = selected", body, StringComparison.Ordinal);
         Assert.Contains("indicator.Visibility = selected", body, StringComparison.Ordinal);
         Assert.Contains("icon.Style = ", body, StringComparison.Ordinal);

@@ -419,13 +419,33 @@
                                     CornerRadius="5"
                                     ToolTip="Kohana está activa"
                                     AutomationProperties.Name="Kohana está activa" />
+                            <Button x:Name="CommandCenterButton"
+                                    Width="42"
+                                    Height="42"
+                                    Margin="0,0,4,0"
+                                    Padding="0"
+                                    Style="{StaticResource HeaderCommandButtonStyle}"
+                                    Click="CommandCenterButton_Click"
+                                    ToolTip="Centro de comandos · Ctrl + K"
+                                    AutomationProperties.Name="Abrir centro de comandos"
+                                    AutomationProperties.HelpText="Ejecuta acciones de Kohana sin usar el ratón. Atajo: Ctrl + K.">
+                                <Grid Width="19" Height="19">
+                                    <Path Data="{StaticResource IconKohanaPlus}"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource BrushAccent}"
+                                          StrokeThickness="1.75"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round" />
+                                </Grid>
+                            </Button>
                             <Button x:Name="CommandPaletteButton"
                                     Width="42"
                                     Height="42"
                                     Padding="0"
                                     Style="{StaticResource HeaderCommandButtonStyle}"
                                     Click="CommandPaletteButton_Click"
-                                    ToolTip="Abrir comandos · Ctrl + Espacio"
+                                    ToolTip="Preguntar a Kohana · Ctrl + Espacio"
                                     AutomationProperties.Name="Abrir paleta de comandos">
                                 <Grid Width="19" Height="19">
                                     <Path Data="{StaticResource IconCommandPalette}"

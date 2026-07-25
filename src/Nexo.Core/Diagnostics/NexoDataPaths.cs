@@ -69,6 +69,13 @@ public static class NexoDataPaths
     public static string ResourceGovernorLog =>
         Path.Combine(LogsDirectory, "resource-governor.log");
 
+    /// <summary>
+    /// Fallos de comandos del Sakura Command Center (Diseño D2). Guarda el detalle técnico que la
+    /// notificación no modal no muestra: tipo, mensaje, excepción interna y stack trace.
+    /// </summary>
+    public static string CommandCenterLog =>
+        Path.Combine(LogsDirectory, "command-center.log");
+
     public static string VoiceCaptureLog =>
         Path.Combine(LogsDirectory, "voice-capture.log");
 

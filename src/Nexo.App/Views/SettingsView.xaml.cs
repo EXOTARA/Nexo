@@ -46,6 +46,13 @@ public partial class SettingsView : UserControl
     public event EventHandler? DiagnosticsRequested;
     public event EventHandler? OnboardingRequested;
 
+    /// <summary>
+    /// Diseño D2 — restaurar solo la apariencia (posición, ancho, transparencia, acento,
+    /// animaciones y barra lateral). Deliberadamente NO toca tareas, rutinas, historial ni la
+    /// configuración de voz, IA, motores o integración con Windows.
+    /// </summary>
+    public event EventHandler? ResetAppearanceRequested;
+
     public SettingsView()
     {
         InitializeComponent();
@@ -481,6 +488,9 @@ public partial class SettingsView : UserControl
 
     private void OnboardingButton_Click(object sender, RoutedEventArgs e) =>
         OnboardingRequested?.Invoke(this, EventArgs.Empty);
+
+    private void ResetAppearanceButton_Click(object sender, RoutedEventArgs e) =>
+        ResetAppearanceRequested?.Invoke(this, EventArgs.Empty);
 
     private static AiProviderKind ParseAiProvider(string providerTag)
     {

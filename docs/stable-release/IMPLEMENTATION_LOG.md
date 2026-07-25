@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D1 + D1.1 — Sakura Shell v1 APROBADO (smoke test manual confirmado)**, listo para integrar en `release/kohana-1.0-rc` |
-| **Siguiente fase** | Diseño D2 — Sakura Command Center. Primer defecto asignado: iconos de navegación seleccionados pierden su silueta (ver "Defecto visual abierto" más abajo) |
-| **Rama** | `release/kohana-1.0-rc` en `d795f8f`; trabajo aprobado de D1+D1.1 en `design/sakura-shell-v1` (`6e50945`) |
+| **Fase actual** | **Diseño D2 — Sakura Command Center APROBADO (smoke test manual confirmado)**, listo para integrar en `release/kohana-1.0-rc` |
+| **Siguiente fase** | Diseño D3 — rediseño funcional de las nueve vistas sobre los componentes compartidos de D2 (**no iniciado**) |
+| **Rama** | `release/kohana-1.0-rc` en `0e8cef4` (D1 + D1.1 integrados y aprobados); trabajo aprobado de D2 en `design/sakura-command-center-v2` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-25 |
-| **Bloqueador activo** | Ninguno. Defecto visual conocido de iconos seleccionados: **no bloqueante** (sin crash), asignado a D2 |
+| **Bloqueador activo** | Ninguno |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1864,3 +1864,101 @@ corregido:
 
 Este defecto no invalida la aprobación funcional de D1.1: el usuario aprobó explícitamente la
 corrección del crash y autorizó la integración conociendo este defecto visual pendiente.
+
+---
+
+## Diseño D2 — Sakura Command Center
+
+**Rama:** `design/sakura-command-center-v2`, creada desde `release/kohana-1.0-rc` **ya integrada**
+con D1 + D1.1 aprobados (`0e8cef4`). El desarrollo de D2 no ocurre en release.
+
+**D2.0 — corrección del defecto de iconos seleccionados (primera tarea del sprint).**
+`SakuraNavigationIconFilledStyle` aplicaba `Fill` + `StrokeThickness="0"` sobre geometrías que son
+trazos abiertos, no siluetas rellenables. Medido renderizando con `RenderTargetBitmap`: la cobertura
+de tinta pasaba de ~11 % en estado normal a 95.6 % (Sistema), 93.2 % (Hoy) y 79.7 % (Asistente) —
+bloques sólidos— y a 0 % en Personalizar, que desaparecía por completo. Corregido expresando el
+estado seleccionado con **grosor de trazo** (`SakuraNavigationIconSelectedStyle`, grosores
+tokenizados en `Spacing.xaml`); tras la corrección todos quedan entre 5.9 % y 16.5 %, visibles y con
+la misma silueta. El estado activo sigue sin depender solo del color: se sustituye una señal no
+cromática por otra.
+
+**Sakura Command Center.** Registro de comandos real en `Nexo.Core/Commands/CommandCenter/`
+(descriptor con Id estable, disponibilidad evaluada en el momento y ejecución asíncrona que nunca
+lanza hacia la UI; registro con Ids únicos; búsqueda que normaliza acentos y prioriza título). La
+ventana (Ctrl + K, más un botón visible en el encabezado) solo busca, muestra y traslada teclado.
+Convive con la paleta de prompts de IA en Ctrl + Espacio en vez de fusionarse: son cosas distintas.
+Ctrl + K es window-level, no `RegisterHotKey`, para no quitarle el atajo a todo el sistema;
+`Alt + A`, `Alt + Shift + A`, `Ctrl + Espacio` y `Ctrl + Shift + Espacio` siguen intactos.
+
+**Componentes compartidos de workspace** en `Themes/Controls.xaml` (tarjeta pulsable, métrica, chip
+de estado, estados vacío/no disponible/error/carga, barra de herramientas, separador, campo de
+búsqueda). Ningún diccionario nuevo; solo `DynamicResource` entre archivos, nunca `StaticResource`
+—la causa del crash de D1.1—.
+
+**Persistencia.** No se creó almacén nuevo: `JsonSettingsStore` ya cumplía los requisitos. Se añadió
+`ShellPreferences.ResetVisualPreferences()` para "Restaurar apariencia", que devuelve solo lo visual
+y conserva tareas, rutinas, voz, IA, motores, integración con Windows y onboarding. Sus propias
+pruebas detectaron un defecto antes de entregar: llamar a `Normalize()` arrastraba la escalera de
+migración y reasignaba valores funcionales.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 666 superadas
+  Nexo.Windows.Tests.dll → 164 superadas
+  Nexo.App.Tests.dll     →  71 superadas
+Total: 901 pruebas (804 previas + 97 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 5 veces adicionales sin variación ni flakiness.
+```
+
+**Limitaciones declaradas.** La **validación interactiva y las capturas no se realizaron**: hay una
+instancia de Kohana del usuario en ejecución (PID 9696, el build de D1.1 de su propio smoke manual)
+y el mutex de instancia única es de sesión, no de ruta, así que cualquier segundo lanzamiento cede y
+termina. No se cerró ni se alteró esa instancia, y no se fabricó ninguna captura. Detalle en
+`artifacts\design-d2\interactive-validation-blocked.txt`.
+
+**El rediseño funcional de las nueve vistas (Inicio, Asistente, Hoy, Enfoque, Rutinas, Audio,
+Captura) NO se hizo** — es la desviación principal del sprint y queda como trabajo de D3, sobre los
+componentes compartidos que D2 deja definidos y probados.
+
+**Diseño D2 pendiente de smoke test manual del usuario. No se declara aprobado.** Informe completo
+en `artifacts\Kohana-Design-D2-Sakura-Command-Center-Informe.md`.
+
+> **Nota posterior (2026-07-25):** el estado descrito arriba corresponde al momento en que se
+> escribió, antes del smoke test manual del usuario. La aprobación se registra en el checkpoint
+> siguiente; este texto se conserva sin reescribir para no falsear el historial.
+
+---
+
+### Checkpoint manual — Diseño D2 Sakura Command Center aprobado (2026-07-25)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del build D2.
+
+**Validación manual confirmada por el usuario (todo correcto):**
+
+- Kohana inicia correctamente.
+- Las nueve secciones abren sin crash.
+- **Los iconos seleccionados conservan correctamente su forma** — el defecto de D2.0 queda
+  resuelto.
+- La barra lateral expandida y compacta funciona.
+- **Ctrl + K abre el Sakura Command Center.**
+- La búsqueda, flechas, Enter y Escape funcionan.
+- La navegación mediante comandos funciona.
+- Engine Registry y las recomendaciones del motor aparecen correctamente.
+- Las preferencias visuales funcionan.
+- No se detectaron cierres, congelamientos, textos cortados ni problemas visibles.
+- El usuario **autoriza integrar el trabajo aprobado en `release/kohana-1.0-rc`**.
+
+**Estado formal:**
+
+- **Diseño D2 APROBADO por el usuario para integración.**
+- Ya **no está pendiente de smoke manual**.
+- La validación interactiva automatizada que había quedado bloqueada (instancia del usuario
+  retenía el mutex de instancia única) se completó después de la aprobación, con capturas reales
+  de una instancia propia de esta validación — ver
+  `artifacts\design-d2\interactive-validation-after-user-approval.txt`.
+
+Detalle completo de la integración en `release/kohana-1.0-rc` en
+`artifacts\Kohana-Design-D2.1-Approval-And-Integration-Informe.md`.

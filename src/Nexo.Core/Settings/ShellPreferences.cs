@@ -270,4 +270,35 @@ public sealed class ShellPreferences
             HardwarePerformanceMode = HardwarePerformanceMode.Automatic;
         }
     }
+
+    /// <summary>
+    /// Diseño D2 — devuelve a sus valores por defecto **solo** las preferencias visuales del
+    /// shell: posición, ancho, opacidad, color de acento, animaciones y estado de la barra
+    /// lateral.
+    ///
+    /// Todo lo demás se conserva intacto a propósito. Restaurar la apariencia no debe borrar
+    /// tareas, rutinas, historial, ni la configuración de voz, IA, motores, integración con
+    /// Windows o vista rápida: son datos y ajustes funcionales que el usuario configuró aparte y
+    /// que no tienen nada que ver con cómo se ve Kohana. Esa separación es justamente lo que hace
+    /// segura la acción "restaurar valores por defecto" de Personalizar.
+    /// </summary>
+    public void ResetVisualPreferences()
+    {
+        var defaults = new ShellPreferences();
+
+        Position = defaults.Position;
+        Width = defaults.Width;
+        Opacity = defaults.Opacity;
+        AccentColor = defaults.AccentColor;
+        AnimationsEnabled = defaults.AnimationsEnabled;
+        SideRailExpanded = defaults.SideRailExpanded;
+
+        // Deliberadamente NO se llama a Normalize(): esa función arrastra la escalera de
+        // migración por SchemaVersion, y con una versión antigua reasignaría valores
+        // funcionales (proveedor de IA, palabra de activación, límites de conversación…). Es
+        // decir, restaurar la apariencia podría borrar configuración que el usuario no pidió
+        // tocar — justo lo que esta acción debe garantizar que no pasa. Los valores que se
+        // acaban de asignar vienen de los propios valores por defecto, así que ya son válidos y
+        // no necesitan normalizarse.
+    }
 }
