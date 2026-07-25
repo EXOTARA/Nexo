@@ -1,4 +1,5 @@
 using Nexo.Core.Ai;
+using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Voice;
 using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
 using WakeSensitivity = Nexo.Core.Voice.WakeWordSensitivity;
@@ -87,6 +88,8 @@ public sealed class ShellPreferences
     public bool PauseWakeWordInGameMode { get; set; } = true;
 
     public bool ProtectVisionWhenBusy { get; set; } = true;
+
+    public HardwarePerformanceMode HardwarePerformanceMode { get; set; } = HardwarePerformanceMode.Automatic;
 
     public void Normalize()
     {
@@ -205,6 +208,14 @@ public sealed class ShellPreferences
             SchemaVersion = 16;
         }
 
+        if (SchemaVersion < 17)
+        {
+            // Los archivos anteriores a la Fase 2.2 no conocen el modo de rendimiento
+            // adaptativo; Automatic es el valor neutro que no cambia ningún motor.
+            HardwarePerformanceMode = HardwarePerformanceMode.Automatic;
+            SchemaVersion = 17;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -252,6 +263,11 @@ public sealed class ShellPreferences
         if (string.IsNullOrWhiteSpace(AccentColor))
         {
             AccentColor = "#E98AAF";
+        }
+
+        if (!Enum.IsDefined(HardwarePerformanceMode))
+        {
+            HardwarePerformanceMode = HardwarePerformanceMode.Automatic;
         }
     }
 }

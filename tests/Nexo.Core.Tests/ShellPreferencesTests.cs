@@ -46,7 +46,7 @@ public sealed class ShellPreferencesTests
         preferences.Normalize();
 
         Assert.Equal(700, preferences.Width);
-        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.Equal(17, preferences.SchemaVersion);
     }
 
 
@@ -117,7 +117,7 @@ public void Normalize_ClampsConversationMessageLimit()
 
         preferences.Normalize();
 
-        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.Equal(17, preferences.SchemaVersion);
         Assert.True(preferences.ResourceGovernorEnabled);
         Assert.True(preferences.PauseWakeWordInGameMode);
         Assert.True(preferences.ProtectVisionWhenBusy);
@@ -135,12 +135,71 @@ public void Normalize_ClampsConversationMessageLimit()
 
         preferences.Normalize();
 
-        Assert.Equal(16, preferences.SchemaVersion);
+        Assert.Equal(17, preferences.SchemaVersion);
         Assert.False(preferences.SideRailExpanded);
         Assert.Equal(
             Nexo.Core.Voice.WakeWordSensitivity.Balanced,
             preferences.WakeWordSensitivity);
     }
 
+    [Fact]
+    public void Default_HardwarePerformanceModeIsAutomatic()
+    {
+        var preferences = new ShellPreferences();
+
+        Assert.Equal(
+            Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Automatic,
+            preferences.HardwarePerformanceMode);
+    }
+
+    [Fact]
+    public void Normalize_MigratesLegacyFileWithoutHardwarePerformanceMode()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 16
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(17, preferences.SchemaVersion);
+        Assert.Equal(
+            Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Automatic,
+            preferences.HardwarePerformanceMode);
+    }
+
+    [Fact]
+    public void Normalize_InvalidHardwarePerformanceMode_FallsBackToAutomatic()
+    {
+        var preferences = new ShellPreferences
+        {
+            HardwarePerformanceMode = (Nexo.Core.AdaptiveEngine.HardwarePerformanceMode)99
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(
+            Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Automatic,
+            preferences.HardwarePerformanceMode);
+    }
+
+    [Theory]
+    [InlineData(Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Automatic)]
+    [InlineData(Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Eco)]
+    [InlineData(Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Balanced)]
+    [InlineData(Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Maximum)]
+    public void Normalize_PreservesAnExplicitlyChosenValidMode(
+        Nexo.Core.AdaptiveEngine.HardwarePerformanceMode mode)
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 17,
+            HardwarePerformanceMode = mode
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(mode, preferences.HardwarePerformanceMode);
+    }
 }
 
