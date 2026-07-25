@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Diseño D1.1 (hotfix de navegación): a diferencia de Nexo.Windows.Tests (que evita UseWPF a
+    propósito para mantenerse rápido y sin dependencias de UI), este proyecto SÍ carga WPF y
+    referencia Nexo.App directamente. Existe únicamente para reproducir clases de error que un
+    análisis de texto de XAML no puede detectar — como la resolución real de recursos en tiempo
+    de ejecución que causó el crash de D1 — ejecutando WPF de verdad (Application, Resource
+    lookup, layout) en un hilo STA. No sustituye a SakuraShellStructureTests; lo complementa.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Nexo.App\Nexo.App.csproj" />
+    <ProjectReference Include="..\..\src\Nexo.Core\Nexo.Core.csproj" />
+    <ProjectReference Include="..\..\src\Nexo.Windows\Nexo.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

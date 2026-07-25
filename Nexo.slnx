@@ -5,6 +5,7 @@
     <Project Path="src/Nexo.Windows/Nexo.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Nexo.App.Tests/Nexo.App.Tests.csproj" />
     <Project Path="tests/Nexo.Core.Tests/Nexo.Core.Tests.csproj" />
     <Project Path="tests/Nexo.Windows.Tests/Nexo.Windows.Tests.csproj" />
   </Folder>
