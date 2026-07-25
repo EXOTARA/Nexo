@@ -1724,3 +1724,84 @@ exige explícitamente este sprint (no se afirma aprobación estética).
 **Revisión visual humana pendiente.** Este sprint no debe darse por cerrado hasta que el usuario
 revise visualmente el resultado. Detalle completo, capturas (si existen) y pasos sugeridos en
 `artifacts\Kohana-Design-D1-Sakura-Shell-Informe.md`.
+
+## Diseño D1.1 — Hotfix de crash al navegar
+
+**Motivo:** el usuario probó el ZIP de Diseño D1
+(`Kohana-0.9.5-beta-design-d1-sakura-shell-smoke-win-x64.zip`) y reportó un bloqueo total: Kohana
+arranca bien en Inicio, pero se cierra de inmediato al seleccionar cualquiera de las otras ocho
+secciones. Diseño D1 quedó NO aprobado por este defecto.
+
+**Causa raíz (confirmada por evidencia, no por suposición):** el registro de eventos de Windows
+provisto por el usuario (`artifacts\Kohana-D1-Navigation-Crash-EventLog.txt`, entrada ".NET
+Runtime" Id 1026) contiene el stack trace administrado completo: un
+`System.Windows.Markup.XamlParseException` — "No se puede encontrar el recurso con el nombre
+'ColorAccentBorder'" — lanzado desde `Border.ArrangeOverride` durante el primer layout de un
+control recién insertado. `BrushFocusRing` (junto con `BrushTextMuted` y `BrushError`, con el mismo
+patrón) vivía en `Themes/Brushes.xaml` referenciando por `StaticResource` una clave `Color*`
+definida en `Themes/Colors.xaml`, un archivo distinto — una referencia cruzada entre diccionarios
+que WPF solo resuelve de forma fiable cuando ambas claves están en el mismo archivo. Antes de
+Diseño D1 nada consumía `BrushFocusRing`, así que el fallo quedó latente; el primer consumidor real
+fue el disparador `IsKeyboardFocused` de `SakuraNavigationItemStyle`/`SakuraSidebarToggleStyle`
+introducido en D1, que lo expuso en cuanto el usuario navegaba y el control recién insertado en el
+árbol visual recibía el foco — exactamente lo que ocurre en cada cambio de sección.
+
+**Por qué las 24 pruebas de Diseño D1 no lo detectaron:** `DesignSystemResourceTests` verifica que
+las claves de recurso existan *textualmente* en algún archivo de tema (regex/`XDocument`, sin cargar
+WPF); nunca ejecuta la resolución real de recursos en tiempo de ejecución, así que esta clase de
+error era estructuralmente invisible para ese tipo de prueba.
+
+**Corrección:** se movieron `BrushTextMuted`, `BrushError` y `BrushFocusRing` a `Colors.xaml`, junto
+a los `Color*` que referencian, para que la resolución sea siempre dentro del mismo archivo.
+`Brushes.xaml` se conserva vacío (con comentario) en vez de eliminarse, porque `ThemeResources.xaml`
+y `DesignSystemResourceTests` esperan que exista en el orden de fusión. No se tocó ninguna lógica de
+navegación, animación, `VoiceCoordinator` ni `AdaptiveEnginePolicy`.
+
+**Pruebas nuevas — `Nexo.App.Tests` (proyecto `UseWPF=true`, nuevo):** las pruebas estructurales de
+D1 no ejecutan WPF real, así que no podían servir de regresión para este tipo de fallo. Se añadió un
+proyecto de pruebas WPF en un hilo STA (`StaWpfFixture`) que reproduce el mecanismo exacto del
+crash: muta `Application.Current.Resources` igual que `ApplyAccent`, fuerza el foco de teclado sobre
+un botón con `SakuraNavigationItemStyle`/`SakuraSidebarToggleStyle` (11 pruebas en total, incluye
+las 9 vistas reales de producción insertadas y con layout forzado en un host, con fakes mínimos para
+`TaskManager`/`FocusManager`/`RoutineManager`/`IAudioMixerService`). Durante el desarrollo de estas
+pruebas, una excepción sin observar dentro de un manejador `async void` (`AudioView.Loaded`) colgó
+el fixture compartido indefinidamente; se corrigió instalando un manejador de
+`DispatcherUnhandledException` en `StaWpfFixture` que captura y relanza esa clase de excepción de
+forma determinista en vez de dejar que cuelgue el hilo STA — detalle completo en el informe.
+
+**Validación interactiva real:** se publicó el build corregido
+(`artifacts\Kohana-0.9.5-beta-design-d1.1-navigation-hotfix-smoke-win-x64`) y se ejecutó de verdad
+mediante automatización de UI (System.Windows.Automation), no solo pruebas de compilación: las
+nueve secciones en secuencia, vuelta a Inicio, barra lateral colapsada/expandida, ráfaga de clics
+rápidos entre secciones distintas, clics repetidos sobre la sección activa, navegación por teclado
+(Enter/Espacio), y ocultar/reabrir (cierre a bandeja + segundo lanzamiento reactivando la misma
+instancia vía `SingleInstanceCoordinator`). Kohana permaneció abierto y responsivo en todo momento.
+Evidencia completa en `artifacts\design-d1.1\`.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 629 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 164 superadas, 0 con error, 0 omitidas
+  Nexo.App.Tests.dll     →  11 superadas, 0 con error, 0 omitidas (proyecto nuevo)
+Total: 804 pruebas (793 previas + 11 nuevas de Diseño D1.1), 0 fallidas, 0 warnings.
+Suite completa repetida 5 veces adicionales sin variación (0 fallidas, sin señales de flakiness).
+```
+
+**Regresión (breve, sin tocar voz/motor adaptativo):** el diff de la corrección toca únicamente
+`Themes/Brushes.xaml` y `Themes/Colors.xaml` — cero líneas en `VoiceCoordinator`,
+`AdaptiveEnginePolicy`, motores, atajos globales o `SingleInstanceCoordinator` — por lo que esos
+sistemas no pueden haber regresado estructuralmente. La captura real de la sección Sistema tomada
+durante la validación interactiva (`shell-sistema-after.png`) confirma en vivo que el estado de voz,
+el Hardware Capability Profile (nivel "Acelerado", CPU/RAM/GPU detectados) y el plan del motor
+adaptativo (modo Automático, recomendación de Whisper) siguen renderizando con datos reales. Ocultar
+a la bandeja, reabrir vía instancia única y el mutex de instancia única se validaron en vivo en el
+paso 8 de la validación interactiva (ver arriba). El menú "Salir completamente" de la bandeja del
+sistema (`TrayIconController`) no se re-verificó con automatización de UI por la fragilidad de
+simular clics sobre coordenadas de la bandeja; ese camino no fue tocado por este hotfix.
+
+**Diseño D1.1 corrige el bloqueo de navegación de Diseño D1. Diseño D1 sigue sin promoverse a
+release; Diseño D2 no ha comenzado.** Informe completo en
+`artifacts\Kohana-Design-D1.1-Navigation-Hotfix-Informe.md`.

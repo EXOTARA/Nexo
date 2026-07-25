@@ -4,6 +4,11 @@
 > (barra lateral, marca, navegación, encabezado, superficie de contenido) sobre la Design System
 > Foundation 0.1 ya existente. No rediseña el contenido profundo de cada pantalla — eso es de
 > sprints posteriores.
+>
+> **Diseño D1.1 (hotfix):** el build de este sprint tenía un defecto bloqueante — crash inmediato
+> al navegar a cualquier sección distinta de Inicio. Corregido sin cambios visuales; ver
+> "Hotfix D1.1 — crash de navegación" más abajo y
+> `artifacts\Kohana-Design-D1.1-Navigation-Hotfix-Informe.md` para el detalle completo.
 
 ## Dirección visual: Sakura Nocturna
 
@@ -73,6 +78,28 @@ hover, opacidad reducida en pressed/disabled, y ahora `BrushFocusRing` (en vez d
 para el borde de foco por teclado — el token existía en la Fundación 0.1 pero no se consumía en
 ningún control todavía. El estado seleccionado (ver "Principios") es independiente de estos
 cuatro y se aplica desde `ApplyNavigationItemState` en el code-behind.
+
+## Hotfix D1.1 — crash de navegación
+
+El build de este sprint se cerraba de inmediato al seleccionar cualquier sección distinta de
+Inicio — bloqueante total, reportado por el usuario tras probar el ZIP de Diseño D1. La causa no
+era la transición ni el `ContentControl` de navegación: `BrushFocusRing` (mencionado arriba, en
+"Estados") vivía en `Themes/Brushes.xaml` referenciando por `StaticResource` la clave
+`ColorAccentBorder`, definida en `Themes/Colors.xaml` — un archivo distinto. Esa referencia cruzada
+entre diccionarios de tema es frágil en WPF: solo se resuelve de forma fiable cuando ambas claves
+están en el mismo archivo. `BrushFocusRing` existía desde la Fundación 0.1 sin ningún consumidor
+real (ver nota original más abajo), así que el fallo quedó latente hasta que este mismo sprint lo
+conectó al disparador `IsKeyboardFocused` de `SakuraNavigationItemStyle`/`SakuraSidebarToggleStyle`
+— el primer consumidor real, expuesto en cuanto un control recién insertado en el árbol visual
+recibía el foco, es decir, en cada cambio de sección.
+
+Corrección (Diseño D1.1): `BrushFocusRing` (junto con `BrushTextMuted` y `BrushError`, con el mismo
+patrón de referencia cruzada) se movieron a `Colors.xaml`, junto a los `Color*` que referencian, de
+forma que la resolución sea siempre dentro del mismo archivo. Ningún cambio visual: el mismo color,
+el mismo token, el mismo consumidor — solo cambió en qué archivo vive la definición. Detalle de
+causa raíz, evidencia (stack trace del registro de eventos de Windows) y pruebas de regresión WPF
+reales añadidas en `docs/stable-release/IMPLEMENTATION_LOG.md` (sección "Diseño D1.1") y en
+`artifacts\Kohana-Design-D1.1-Navigation-Hotfix-Informe.md`.
 
 ## Movimiento
 
