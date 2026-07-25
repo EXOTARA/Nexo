@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D1 — Sakura Shell v1 implementado** en `design/sakura-shell-v1`, pendiente de revisión visual humana |
-| **Siguiente fase** | Diseño D2 (por definir, ver `docs/design/SAKURA_SHELL_V1.md` §"Plan del sprint D2") — **no iniciado** |
-| **Rama** | `release/kohana-1.0-rc` en `d795f8f` intacta; trabajo de D1 vive en `design/sakura-shell-v1` |
+| **Fase actual** | **Diseño D1 + D1.1 — Sakura Shell v1 APROBADO (smoke test manual confirmado)**, listo para integrar en `release/kohana-1.0-rc` |
+| **Siguiente fase** | Diseño D2 — Sakura Command Center. Primer defecto asignado: iconos de navegación seleccionados pierden su silueta (ver "Defecto visual abierto" más abajo) |
+| **Rama** | `release/kohana-1.0-rc` en `d795f8f`; trabajo aprobado de D1+D1.1 en `design/sakura-shell-v1` (`6e50945`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-25 |
-| **Bloqueador activo** | Ninguno en código. Revisión visual humana de D1 pendiente del usuario |
+| **Bloqueador activo** | Ninguno. Defecto visual conocido de iconos seleccionados: **no bloqueante** (sin crash), asignado a D2 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1805,3 +1805,62 @@ simular clics sobre coordenadas de la bandeja; ese camino no fue tocado por este
 **Diseño D1.1 corrige el bloqueo de navegación de Diseño D1. Diseño D1 sigue sin promoverse a
 release; Diseño D2 no ha comenzado.** Informe completo en
 `artifacts\Kohana-Design-D1.1-Navigation-Hotfix-Informe.md`.
+
+> **Nota posterior (2026-07-25):** el estado descrito en el párrafo anterior corresponde al momento
+> en que se escribió, antes del smoke test manual del usuario. La aprobación y la integración
+> posteriores se registran en el checkpoint siguiente; este texto se conserva sin reescribir para
+> no falsear el historial.
+
+---
+
+### Checkpoint manual — Diseño D1 + D1.1 Sakura Shell aprobado (2026-07-25)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del build corregido de Diseño D1.1.
+
+| Campo | Valor |
+|---|---|
+| **Build probado** | `Kohana-0.9.5-beta-design-d1.1-navigation-hotfix-smoke-win-x64.zip` |
+| **SHA-256** | `909e5758d3959245b7ca7df615e58ad917d3795a5b69a20c397f5ec1430206d8` |
+| **Commit aprobado** | `6e50945` (`docs: record design D1.1 navigation hotfix`) |
+| **Pruebas verificadas en el preflight** | 804 (629 Core + 164 Windows + 11 App), 0 fallidas, 0 omitidas, 0 warnings |
+
+**Validación manual confirmada por el usuario (todo correcto):**
+
+- Kohana inicia correctamente.
+- Inicio se renderiza correctamente.
+- Se puede seleccionar el resto de las secciones.
+- **No ocurre ningún crash al navegar** — el defecto bloqueante de Diseño D1 queda resuelto.
+- Las configuraciones recomendadas procedentes del Engine Registry aparecen correctamente.
+- La información del motor recomendado/configurado se presenta en la aplicación.
+- El usuario considera correcta la prueba funcional de D1.1.
+- El usuario **autoriza integrar el trabajo aprobado en `release/kohana-1.0-rc`**.
+
+**Estado formal:**
+
+- **Diseño D1 + D1.1 APROBADO por el usuario e integrado en `release/kohana-1.0-rc`** mediante
+  merge explícito `--no-ff` (no squash, no rebase, no cherry-pick), conservando la trazabilidad de
+  los ocho commits de D1 y los tres de D1.1.
+- La rama `design/sakura-shell-v1` se conserva (no se elimina).
+- El hotfix D1.1 **ya no está pendiente de smoke manual**.
+
+#### Defecto visual abierto — iconos de navegación seleccionados (asignado a Diseño D2)
+
+Durante el mismo smoke manual el usuario observó un **defecto visual nuevo**, distinto del crash ya
+corregido:
+
+- Al seleccionar casi cualquier sección de la barra lateral, el contenedor obtiene correctamente su
+  fondo/acento rosa, pero **el icono interior deja de conservar su forma de línea reconocible**.
+- El glifo aparece como un pequeño bloque o cuadrado sólido magenta, dentro del cual apenas queda
+  visible una marca pequeña.
+- Ocurre en casi todos los elementos de navegación; el icono **no** seleccionado sí conserva una
+  silueta clara.
+
+**Clasificación:**
+
+- **No produce crash.** No bloquea la navegación ni ninguna funcionalidad.
+- **No es comportamiento intencional** — es un defecto real y debe corregirse.
+- Queda **abierto como primer defecto de Diseño D2** (tarea D2.0), antes de cualquier otro trabajo
+  de ese sprint.
+
+Este defecto no invalida la aprobación funcional de D1.1: el usuario aprobó explícitamente la
+corrección del crash y autorizó la integración conociendo este defecto visual pendiente.

@@ -9,6 +9,11 @@
 > al navegar a cualquier sección distinta de Inicio. Corregido sin cambios visuales; ver
 > "Hotfix D1.1 — crash de navegación" más abajo y
 > `artifacts\Kohana-Design-D1.1-Navigation-Hotfix-Informe.md` para el detalle completo.
+>
+> **Estado (2026-07-25): APROBADO por el usuario e integrado en `release/kohana-1.0-rc`.** El smoke
+> test manual confirmó arranque correcto, navegación por las nueve secciones sin crash y Engine
+> Registry mostrando correctamente el motor recomendado/configurado. Queda **un defecto visual
+> abierto** en los iconos seleccionados de navegación (ver más abajo), asignado a Diseño D2.
 
 ## Dirección visual: Sakura Nocturna
 
@@ -168,6 +173,27 @@ principales preservados) sigue cubriendo estas adiciones sin cambios en esa prue
   (68/194 px) para minimizar el riesgo de recorte de texto o desalineación; no se verificó
   exhaustivamente en escalado de texto 125/150/200% más allá de que los estilos usan `FontSize`
   en unidades independientes del dispositivo (comportamiento heredado, no nuevo de este sprint).
+
+## Defecto visual abierto — iconos de navegación seleccionados
+
+Detectado por el usuario durante el smoke manual de D1.1 (2026-07-25), **posterior** a la
+implementación de este sprint y distinto del crash ya corregido:
+
+Al seleccionar casi cualquier sección, el contenedor recibe correctamente su fondo/acento rosa, pero
+el icono interior **pierde su silueta de línea reconocible** y aparece como un pequeño bloque o
+cuadrado sólido magenta, con apenas una marca visible dentro. El icono no seleccionado sí conserva
+una silueta clara. No produce crash ni impide navegar.
+
+Este sprint introdujo `SakuraNavigationIconStyle` y `SakuraNavigationIconFilledStyle` junto con el
+cambio de "solo trazo → relleno" como una de las cuatro señales del estado activo (ver "Principios"
+arriba). La intención era que el icono activo se rellenara **conservando su forma**; el resultado
+observado no cumple ese requisito. **No es comportamiento intencional.**
+
+Queda abierto como **primer defecto de Diseño D2** (tarea D2.0). El requisito de aceptación es que
+el icono seleccionado conserve la misma identidad visual que el no seleccionado: puede cambiar
+color, grosor o variante outline/filled, pero debe seguir siendo inequívocamente reconocible,
+centrado, de tamaño consistente, sin recorte, y sin alterar el tamaño del botón ni la posición del
+texto. Detalle y corrección en `docs/design/SAKURA_COMMAND_CENTER_V2.md`.
 
 ## Plan del sprint D2 (sugerido, no iniciado)
 
