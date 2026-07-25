@@ -123,6 +123,33 @@ public sealed class TaskManager
         }
     }
 
+    /// <summary>
+    /// Diseño D3: devuelve una tarea completada a pendiente. Simétrico a <see cref="Complete"/> —
+    /// limpia <see cref="NexoTask.CompletedAt"/> en vez de asignarlo. No reactiva un recordatorio
+    /// ya entregado por sí sola: si la fecha de vencimiento sigue en el futuro y el recordatorio
+    /// estaba activo, se deja para que la persona decida si quiere que vuelva a avisar.
+    /// </summary>
+    public TaskOperationResult Reopen(Guid id)
+    {
+        lock (_sync)
+        {
+            var task = _tasks.FirstOrDefault(candidate => candidate.Id == id);
+            if (task is null)
+            {
+                return TaskOperationResult.Failed("La tarea ya no existe.");
+            }
+
+            if (task.IsCompleted)
+            {
+                task.CompletedAt = null;
+                task.UpdatedAt = DateTimeOffset.Now;
+                SaveLocked();
+            }
+
+            return TaskOperationResult.Completed($"Reabriste: {task.Title}.", task.Copy());
+        }
+    }
+
     public TaskOperationResult CompleteMatching(string query)
     {
         lock (_sync)
