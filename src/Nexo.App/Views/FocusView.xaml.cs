@@ -25,7 +25,7 @@ public partial class FocusView : UserControl
     /// <summary>
     /// Diseño D3 — el usuario pidió marcar como completada la tarea que estaba asociada a la
     /// sesión que acaba de terminar o finalizarse. Nunca se dispara sola: siempre en respuesta a
-    /// pulsar "Marcar como completada" en <see cref="TaskCompletionPromptBorder"/>.
+    /// pulsar "Marcar como completada" en <see cref="SessionCompletionNoticeBorder"/>.
     /// </summary>
     public event EventHandler<TaskFocusRequestedEventArgs>? CompleteAssociatedTaskRequested;
 
@@ -118,41 +118,75 @@ public partial class FocusView : UserControl
     }
 
     /// <summary>
-    /// Diseño D3 — muestra la sugerencia (no automática) de completar la tarea asociada a una
-    /// sesión que acaba de terminar, ya sea de forma natural o por "Finalizar".
+    /// Diseño D3.1 — aviso no modal de fin de sesión, para toda finalización real (natural o por
+    /// "Finalizar"), con tarea asociada o sin ella. Nunca se muestra para Cancelar (que no deja
+    /// historial). Nunca completa la tarea sola: solo ofrece hacerlo.
     /// </summary>
-    public void ShowTaskCompletionPrompt(Guid taskId, string taskTitle)
+    public void ShowSessionCompletionNotice(FocusCompletion completion)
     {
-        _pendingCompletionTaskId = taskId;
-        _pendingCompletionTaskTitle = taskTitle;
-        TaskCompletionPromptText.Text = $"Terminaste tu sesión enfocado en «{taskTitle}». ¿Marcarla como completada?";
-        TaskCompletionPromptBorder.Visibility = Visibility.Visible;
+        ArgumentNullException.ThrowIfNull(completion);
+
+        var durationText = FormatSessionDuration(completion.Duration);
+        var isBreak = completion.Kind == FocusSessionKind.Break;
+
+        _pendingCompletionTaskId = null;
+        _pendingCompletionTaskTitle = string.Empty;
+        var taskTitle = completion.TaskId is { } taskId ? _resolveTaskTitle?.Invoke(taskId) : null;
+
+        if (!isBreak && completion.TaskId is { } id && !string.IsNullOrWhiteSpace(taskTitle))
+        {
+            _pendingCompletionTaskId = id;
+            _pendingCompletionTaskTitle = taskTitle;
+        }
+
+        SessionCompletionTitleText.Text = isBreak ? "Descanso terminado" : "Sesión completada";
+        SessionCompletionDetailText.Text = _pendingCompletionTaskId is not null
+            ? $"Enfocándote en «{_pendingCompletionTaskTitle}» · {durationText}."
+            : $"{completion.Label} · {durationText}.";
+        CompleteAssociatedTaskButton.Visibility = _pendingCompletionTaskId is not null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SessionCompletionNoticeBorder.Visibility = Visibility.Visible;
     }
 
     private Guid? _pendingCompletionTaskId;
     private string _pendingCompletionTaskTitle = string.Empty;
 
-    private void DismissTaskCompletionButton_Click(object sender, RoutedEventArgs e) =>
-        HideTaskCompletionPrompt();
+    private void DismissSessionCompletionButton_Click(object sender, RoutedEventArgs e) =>
+        HideSessionCompletionNotice();
+
+    private void StartAnotherSessionButton_Click(object sender, RoutedEventArgs e)
+    {
+        HideSessionCompletionNotice();
+        FocusPrimaryControl();
+    }
 
     private void CompleteAssociatedTaskButton_Click(object sender, RoutedEventArgs e)
     {
         if (_pendingCompletionTaskId is not { } taskId)
         {
-            HideTaskCompletionPrompt();
+            HideSessionCompletionNotice();
             return;
         }
 
         var title = _pendingCompletionTaskTitle;
-        HideTaskCompletionPrompt();
+        HideSessionCompletionNotice();
         CompleteAssociatedTaskRequested?.Invoke(this, new TaskFocusRequestedEventArgs(taskId, title));
     }
 
-    private void HideTaskCompletionPrompt()
+    private void HideSessionCompletionNotice()
     {
         _pendingCompletionTaskId = null;
         _pendingCompletionTaskTitle = string.Empty;
-        TaskCompletionPromptBorder.Visibility = Visibility.Collapsed;
+        SessionCompletionNoticeBorder.Visibility = Visibility.Collapsed;
+    }
+
+    private static string FormatSessionDuration(TimeSpan duration)
+    {
+        var totalMinutes = Math.Max(1, (int)Math.Round(duration.TotalMinutes, MidpointRounding.AwayFromZero));
+        return totalMinutes < 60
+            ? $"{totalMinutes} min"
+            : $"{totalMinutes / 60} h {totalMinutes % 60:D2} min";
     }
 
     private void PresetButton_Click(object sender, RoutedEventArgs e)
@@ -200,21 +234,15 @@ public partial class FocusView : UserControl
     private void FinishButton_Click(object sender, RoutedEventArgs e)
     {
         var now = DateTimeOffset.Now;
-        // Se lee el TaskId ANTES de finalizar: Finish() limpia el temporizador activo, así que
-        // después ya no habría forma de saber a qué tarea pertenecía.
-        var timer = _focusManager.GetSnapshot(now).ActiveTimer;
-        var taskId = timer?.TaskId;
-
+        // Diseño D3.1: FocusOperationResult.Completion ya trae la tarea asociada (capturada antes
+        // de que Finish() limpie el temporizador activo), así que no hace falta leer el timer por
+        // separado antes de llamar.
         var result = _focusManager.Finish(now);
         Apply(result);
 
-        if (result.Success && taskId is { } id)
+        if (result.Success && result.Completion is { } completion)
         {
-            var title = _resolveTaskTitle?.Invoke(id);
-            if (!string.IsNullOrWhiteSpace(title))
-            {
-                ShowTaskCompletionPrompt(id, title);
-            }
+            ShowSessionCompletionNotice(completion);
         }
     }
 
@@ -222,7 +250,7 @@ public partial class FocusView : UserControl
     {
         // Cancelar descarta la sesión sin registrarla: no tiene sentido ofrecer completar la
         // tarea asociada a algo que ni siquiera queda en el historial.
-        HideTaskCompletionPrompt();
+        HideSessionCompletionNotice();
         Apply(_focusManager.Cancel());
     }
 

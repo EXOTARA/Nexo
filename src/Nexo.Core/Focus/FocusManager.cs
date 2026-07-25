@@ -204,9 +204,21 @@ public sealed class FocusManager
             TrimHistoryLocked(now);
             SaveLocked();
 
+            // Diseño D3.1: se expone la misma FocusCompletion que ya usa CollectCompletion, para
+            // que quien llame a Finish() pueda mostrar un aviso de finalización (duración real,
+            // tarea asociada) sin tener que volver a leer el timer antes de llamar — Finish() ya
+            // lo limpió.
+            var completion = new FocusCompletion(
+                historyEntry.Label,
+                historyEntry.Kind,
+                historyEntry.Duration,
+                historyEntry.CompletedAt,
+                historyEntry.TaskId);
+
             return FocusOperationResult.Completed(
                 $"Finalizaste {timer.Label.ToLowerInvariant()} antes de tiempo. " +
-                $"Se registraron {FormatDuration(elapsed)}.");
+                $"Se registraron {FormatDuration(elapsed)}.",
+                completion: completion);
         }
     }
 

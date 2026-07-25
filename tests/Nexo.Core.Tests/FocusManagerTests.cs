@@ -228,6 +228,45 @@ public sealed class FocusManagerTests
         Assert.Equal(taskId, store.State.History.Single().TaskId);
     }
 
+    // ---------- Diseño D3.1: FocusOperationResult.Completion para el aviso de fin de sesión ----------
+
+    [Fact]
+    public void Finish_WithElapsedTime_ReturnsACompletionWithTheRealDuration()
+    {
+        var manager = CreateManager();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        var result = manager.Finish(ReferenceNow.AddMinutes(12));
+
+        Assert.NotNull(result.Completion);
+        Assert.Equal(TimeSpan.FromMinutes(12), result.Completion!.Duration);
+        Assert.Equal("Enfoque", result.Completion.Label);
+        Assert.Null(result.Completion.TaskId);
+    }
+
+    [Fact]
+    public void Finish_WithAnAssociatedTask_IncludesItInTheCompletion()
+    {
+        var manager = CreateManager();
+        var taskId = Guid.NewGuid();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow, taskId);
+
+        var result = manager.Finish(ReferenceNow.AddMinutes(5));
+
+        Assert.Equal(taskId, result.Completion?.TaskId);
+    }
+
+    [Fact]
+    public void Finish_WithNoElapsedTime_ReturnsNoCompletion()
+    {
+        var manager = CreateManager();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        var result = manager.Finish(ReferenceNow);
+
+        Assert.Null(result.Completion);
+    }
+
     // ---------- Diseño D3: asociación con una tarea ----------
 
     [Fact]

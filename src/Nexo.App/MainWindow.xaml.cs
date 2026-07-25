@@ -1109,14 +1109,13 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Diseño D3 — misma lógica que <c>FocusView.FinishButton_Click</c>, para el comando
-    /// "focus.finish" del Command Center: se lee el TaskId ANTES de finalizar (Finish() limpia el
-    /// temporizador activo) para poder ofrecer, después, marcar esa tarea como completada.
+    /// "focus.finish" del Command Center y para el mini temporizador global. Diseño D3.1:
+    /// FocusOperationResult.Completion ya trae la tarea asociada, así que no hace falta leer el
+    /// timer por separado antes de llamar a Finish().
     /// </summary>
     private CommandExecutionResult FinishActiveFocusSession()
     {
         var now = DateTimeOffset.Now;
-        var taskId = _focusManager.GetSnapshot(now).ActiveTimer?.TaskId;
-
         var result = _focusManager.Finish(now);
         _focusView.Refresh(now);
         RefreshHomeView();
@@ -1126,13 +1125,9 @@ public partial class MainWindow : Window
             return CommandExecutionResult.Failure(result.Message);
         }
 
-        if (taskId is { } id)
+        if (result.Completion is { } completion)
         {
-            var title = _taskManager.GetAll().FirstOrDefault(task => task.Id == id)?.Title;
-            if (!string.IsNullOrWhiteSpace(title))
-            {
-                _focusView.ShowTaskCompletionPrompt(id, title);
-            }
+            _focusView.ShowSessionCompletionNotice(completion);
         }
 
         return CommandExecutionResult.Success(result.Message);
@@ -3314,17 +3309,12 @@ public partial class MainWindow : Window
             _preferences.PlayNotificationSounds);
         SpeakVoiceResult(detail);
 
-        // Diseño D3: la finalización natural (se agotó el tiempo) también puede tener una tarea
-        // asociada. Igual que en "Finalizar" manual, nunca se completa sola: solo se ofrece.
-        if (completion.TaskId is { } completedTaskId)
-        {
-            var taskTitle = _taskManager.GetAll()
-                .FirstOrDefault(task => task.Id == completedTaskId)?.Title;
-            if (!string.IsNullOrWhiteSpace(taskTitle))
-            {
-                _focusView.ShowTaskCompletionPrompt(completedTaskId, taskTitle);
-            }
-        }
+        // Diseño D3.1: el aviso no modal de fin de sesión se muestra para toda finalización
+        // natural, con tarea asociada o sin ella — no solo cuando hay una tarea que ofrecer
+        // completar. El capsule/tray de arriba es un aviso ambiental transitorio (se ve desde
+        // cualquier sección); este otro vive en Enfoque con las acciones reales (completar tarea,
+        // iniciar otra sesión, cerrar).
+        _focusView.ShowSessionCompletionNotice(completion);
     }
 
     private Task ExecuteFocusCommandAsync(FocusCommand command)

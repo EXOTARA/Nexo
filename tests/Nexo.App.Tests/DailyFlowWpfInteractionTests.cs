@@ -228,35 +228,36 @@ public sealed class DailyFlowWpfInteractionTests
     }
 
     [Fact]
-    public void FocusView_CompletionPrompt_DismissHidesItWithoutCompletingAnything()
+    public void FocusView_CompletionNotice_DismissHidesItWithoutCompletingAnything()
     {
         _fixture.Invoke(() =>
         {
             var manager = new FocusManager(new FakeFocusStore());
             manager.Load();
-            var view = new FocusView(manager);
+            var taskId = Guid.NewGuid();
+            var view = new FocusView(manager, _ => "Tarea pendiente");
             using var host = CreateOffscreenHost(view);
             host.Show();
             host.UpdateLayout();
 
-            var taskId = Guid.NewGuid();
-            view.ShowTaskCompletionPrompt(taskId, "Tarea pendiente");
+            view.ShowSessionCompletionNotice(new FocusCompletion(
+                "Sesión de enfoque", FocusSessionKind.Focus, TimeSpan.FromMinutes(25), ReferenceNow, taskId));
             host.UpdateLayout();
 
-            var promptBorder = (FrameworkElement)view.FindName("TaskCompletionPromptBorder")!;
-            Assert.Equal(Visibility.Visible, promptBorder.Visibility);
+            var noticeBorder = (FrameworkElement)view.FindName("SessionCompletionNoticeBorder")!;
+            Assert.Equal(Visibility.Visible, noticeBorder.Visibility);
 
-            var dismissButton = FindButtonByAutomationName(view, "Descartar sugerencia de completar tarea");
+            var dismissButton = FindButtonByAutomationName(view, "Cerrar aviso de sesión completada");
             Assert.NotNull(dismissButton);
             dismissButton!.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             host.UpdateLayout();
 
-            Assert.Equal(Visibility.Collapsed, promptBorder.Visibility);
+            Assert.Equal(Visibility.Collapsed, noticeBorder.Visibility);
         });
     }
 
     [Fact]
-    public void FocusView_CompletionPrompt_CompleteButton_RaisesTheRequestWithoutActingOnItsOwn()
+    public void FocusView_CompletionNotice_CompleteButton_RaisesTheRequestWithoutActingOnItsOwn()
     {
         // La vista nunca completa la tarea por su cuenta: solo pide, quien construya la vista
         // decide qué hacer (aquí, MainWindow llama a TaskManager.Complete).
@@ -264,13 +265,14 @@ public sealed class DailyFlowWpfInteractionTests
         {
             var manager = new FocusManager(new FakeFocusStore());
             manager.Load();
-            var view = new FocusView(manager);
+            var taskId = Guid.NewGuid();
+            var view = new FocusView(manager, _ => "Escribir el informe");
             using var host = CreateOffscreenHost(view);
             host.Show();
             host.UpdateLayout();
 
-            var taskId = Guid.NewGuid();
-            view.ShowTaskCompletionPrompt(taskId, "Escribir el informe");
+            view.ShowSessionCompletionNotice(new FocusCompletion(
+                "Sesión de enfoque", FocusSessionKind.Focus, TimeSpan.FromMinutes(25), ReferenceNow, taskId));
             host.UpdateLayout();
 
             TaskFocusRequestedEventArgs? received = null;
@@ -282,6 +284,33 @@ public sealed class DailyFlowWpfInteractionTests
 
             Assert.NotNull(received);
             Assert.Equal(taskId, received!.TaskId);
+        });
+    }
+
+    [Fact]
+    public void FocusView_CompletionNotice_WithoutTask_HidesCompleteButtonButStillOffersStartAnother()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            var view = new FocusView(manager);
+            using var host = CreateOffscreenHost(view);
+            host.Show();
+            host.UpdateLayout();
+
+            view.ShowSessionCompletionNotice(new FocusCompletion(
+                "Sesión de enfoque", FocusSessionKind.Focus, TimeSpan.FromMinutes(10), ReferenceNow));
+            host.UpdateLayout();
+
+            var noticeBorder = (FrameworkElement)view.FindName("SessionCompletionNoticeBorder")!;
+            Assert.Equal(Visibility.Visible, noticeBorder.Visibility);
+
+            var completeButton = (FrameworkElement)view.FindName("CompleteAssociatedTaskButton")!;
+            Assert.Equal(Visibility.Collapsed, completeButton.Visibility);
+
+            var startAnotherButton = FindButtonByAutomationName(view, "Iniciar otra sesión de enfoque");
+            Assert.NotNull(startAnotherButton);
         });
     }
 
