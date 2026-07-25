@@ -19,6 +19,7 @@ using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
+using Nexo.Core.Commands.CommandCenter;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
@@ -110,6 +111,12 @@ public partial class MainWindow : Window
     private readonly PeekWindow _peekWindow = new();
     private readonly CapsuleWindow _capsuleWindow = new();
     private readonly CommandPaletteWindow _commandPaletteWindow;
+
+    /// <summary>
+    /// Diseño D2 — Sakura Command Center. Se crea la primera vez que se abre (Ctrl + K o el botón
+    /// del encabezado) para no alargar el arranque con una ventana que puede no usarse.
+    /// </summary>
+    private CommandCenterWindow? _commandCenterWindow;
     private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
     private readonly bool _startHidden;
@@ -722,6 +729,229 @@ public partial class MainWindow : Window
         _commandPaletteWindow.ShowPalette(_preferences.AnimationsEnabled);
     }
 
+    private void CommandCenterButton_Click(object sender, RoutedEventArgs e)
+    {
+        ShowCommandCenter();
+    }
+
+    /// <summary>
+    /// Diseño D2 — abre el Sakura Command Center (Ctrl + K). Se crea de forma perezosa la primera
+    /// vez: construir la ventana y el registro en el arranque solo retrasaría el inicio de Kohana
+    /// para una función que puede no usarse en toda la sesión.
+    /// </summary>
+    private void ShowCommandCenter()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        if (_commandCenterWindow is null)
+        {
+            _commandCenterWindow = new CommandCenterWindow(BuildCommandRegistry());
+            _commandCenterWindow.CommandFailed += CommandCenterWindow_CommandFailed;
+        }
+
+        _commandCenterWindow.ShowFor(this, Keyboard.FocusedElement);
+    }
+
+    private void CommandCenterWindow_CommandFailed(object? sender, CommandCenterFailureEventArgs e)
+    {
+        // Un comando fallido no cierra Kohana ni se informa como éxito: se avisa en la
+        // conversación (no modal) y el detalle técnico va al diagnóstico.
+        _assistantView.AddKohanaMessage(e.Result.Message ?? "No se pudo completar la acción.");
+
+        if (e.Result.Error is { } error)
+        {
+            WriteCommandCenterLog(e.Command.Id, error);
+        }
+    }
+
+    /// <summary>
+    /// Registra el fallo de un comando conservando tipo, mensaje, excepción interna y stack trace,
+    /// como exige el encargo. Sigue el mismo patrón que el resto de registros de Kohana: escribir
+    /// un log nunca puede afectar al funcionamiento de la aplicación.
+    /// </summary>
+    private static void WriteCommandCenterLog(string commandId, Exception error)
+    {
+        try
+        {
+            Directory.CreateDirectory(Nexo.Core.Diagnostics.NexoDataPaths.LogsDirectory);
+            File.AppendAllText(
+                Nexo.Core.Diagnostics.NexoDataPaths.CommandCenterLog,
+                $"{DateTimeOffset.Now:O} | comando '{commandId}' | " +
+                $"{error.GetType().FullName}: {error.Message}{Environment.NewLine}" +
+                $"{error}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch (IOException)
+        {
+            // El registro no debe afectar el funcionamiento de Kohana.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // El registro no debe afectar el funcionamiento de Kohana.
+        }
+    }
+
+    /// <summary>
+    /// Construye el registro de comandos enlazando cada uno a un servicio real ya existente.
+    /// No se inventa ninguna acción: solo se exponen cosas que el shell ya sabe hacer.
+    /// </summary>
+    private KohanaCommandRegistry BuildCommandRegistry()
+    {
+        var registry = new KohanaCommandRegistry();
+
+        registry.RegisterRange(BuildNavigationCommands());
+
+        registry.Register(new KohanaCommandDescriptor(
+            "shell.sidebar.toggle",
+            "Alternar barra lateral",
+            "Expande o contrae la navegación lateral.",
+            KohanaCommandCategory.Shell,
+            _ =>
+            {
+                SetSideRailExpanded(!_sideRailExpanded, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["barra", "lateral", "sidebar", "contraer", "expandir", "navegación"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.start",
+            "Iniciar sesión de enfoque",
+            "Abre Enfoque para comenzar una sesión.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["enfoque", "concentración", "pomodoro", "sesión"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("Ya hay una sesión de enfoque en curso.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.cancel",
+            "Finalizar sesión de enfoque",
+            "Cancela la sesión de enfoque en curso.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                var result = _focusManager.Cancel();
+                _focusView.Refresh(DateTimeOffset.Now);
+                return Task.FromResult(result.Success
+                    ? CommandExecutionResult.Success(result.Message)
+                    : CommandExecutionResult.Failure(result.Message));
+            },
+            keywords: ["enfoque", "cancelar", "terminar", "detener"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "tasks.create",
+            "Crear una tarea",
+            "Abre Hoy para añadir una tarea nueva.",
+            KohanaCommandCategory.Tasks,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Tasks, animate: _preferences.AnimationsEnabled);
+                _tasksView.OpenNewEditor();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["tarea", "pendiente", "nueva", "añadir", "hoy"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "audio.mute",
+            "Silenciar audio",
+            "Silencia el volumen maestro del equipo.",
+            KohanaCommandCategory.Audio,
+            _ => Task.FromResult(ApplyMasterMute(muted: true)),
+            keywords: ["audio", "silenciar", "mute", "volumen"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "audio.unmute",
+            "Restaurar audio",
+            "Quita el silencio del volumen maestro.",
+            KohanaCommandCategory.Audio,
+            _ => Task.FromResult(ApplyMasterMute(muted: false)),
+            keywords: ["audio", "restaurar", "activar", "volumen", "sonido"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "voice.settings",
+            "Abrir configuración de voz",
+            "Va a Personalizar, donde vive la configuración de voz.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Settings, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["voz", "micrófono", "whisper", "wake word", "dictado"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "engine.settings",
+            "Ir a configuración del motor",
+            "Muestra en Sistema los motores registrados, el recomendado y el configurado.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.System, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["motor", "engine", "registry", "adaptativo", "recomendado", "rendimiento"]));
+
+        return registry;
+    }
+
+    private CommandExecutionResult ApplyMasterMute(bool muted)
+    {
+        var result = _audioMixerService.SetMasterMuted(muted);
+        if (!result.Succeeded)
+        {
+            return CommandExecutionResult.Failure(result.Detail);
+        }
+
+        // Refresca la vista de Audio para que el estado mostrado no quede desfasado respecto al
+        // cambio que se acaba de aplicar. La Task se observa dentro de RefreshAsync.
+        _ = _audioView.RefreshAsync(force: true);
+        return CommandExecutionResult.Success(result.Title);
+    }
+
+    private IEnumerable<KohanaCommandDescriptor> BuildNavigationCommands()
+    {
+        // Un comando por destino conocido: la lista sale de ShellNavigationPolicy, así que no
+        // puede desincronizarse de la navegación real del shell.
+        (string Destination, string Title, string[] Keywords)[] destinations =
+        [
+            (ShellNavigationPolicy.Home, "Ir a Inicio", ["inicio", "home", "principal"]),
+            (ShellNavigationPolicy.Assistant, "Ir a Asistente", ["asistente", "chat", "conversación"]),
+            (ShellNavigationPolicy.Tasks, "Ir a Hoy", ["hoy", "tareas", "pendientes"]),
+            (ShellNavigationPolicy.Focus, "Ir a Enfoque", ["enfoque", "concentración"]),
+            (ShellNavigationPolicy.Routines, "Ir a Rutinas", ["rutinas", "automatización"]),
+            (ShellNavigationPolicy.Audio, "Ir a Audio", ["audio", "volumen", "sonido"]),
+            (ShellNavigationPolicy.Capture, "Ir a Captura", ["captura", "pantalla", "screenshot"]),
+            (ShellNavigationPolicy.System, "Ir a Sistema", ["sistema", "estado", "diagnóstico", "hardware"]),
+            (ShellNavigationPolicy.Settings, "Ir a Personalizar", ["personalizar", "configuración", "ajustes", "preferencias"])
+        ];
+
+        foreach (var (destination, title, keywords) in destinations)
+        {
+            var target = destination;
+            yield return new KohanaCommandDescriptor(
+                $"navigate.{target.ToLowerInvariant()}",
+                title,
+                "Abre esta sección de Kohana.",
+                KohanaCommandCategory.Navigation,
+                _ =>
+                {
+                    NavigateTo(target, animate: _preferences.AnimationsEnabled);
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: keywords);
+        }
+    }
+
     private async void CommandPaletteWindow_PromptSubmitted(
         object? sender,
         CommandPalettePromptEventArgs e)
@@ -1190,6 +1420,17 @@ public partial class MainWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Diseño D2: Ctrl + K abre el Sakura Command Center. Se enlaza a la ventana, no con
+        // RegisterHotKey, porque sus acciones operan sobre el shell ya visible; capturar Ctrl + K
+        // en todo el sistema se lo quitaría a cualquier otra aplicación. Alt + A, Alt + Shift + A,
+        // Ctrl + Espacio y Ctrl + Shift + Espacio siguen siendo globales y no se tocan.
+        if (e.Key == Key.K && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            ShowCommandCenter();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.Escape)
         {
             return;
