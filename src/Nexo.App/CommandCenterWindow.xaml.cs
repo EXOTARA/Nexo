@@ -18,7 +18,7 @@ namespace Nexo.App;
 /// </summary>
 public partial class CommandCenterWindow : Window
 {
-    private readonly KohanaCommandRegistry _registry;
+    private KohanaCommandRegistry _registry;
     private IReadOnlyList<CommandCenterRow> _rows = [];
 
     /// <summary>
@@ -32,6 +32,18 @@ public partial class CommandCenterWindow : Window
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
         InitializeComponent();
+    }
+
+    /// <summary>
+    /// Diseño D3 — reemplaza el registro antes de mostrar la ventana. Algunos comandos son
+    /// dinámicos por naturaleza (uno por rutina habilitada): reconstruir el registro cada vez que
+    /// se abre, en vez de congelarlo la primera vez, evita que la paleta muestre rutinas que ya se
+    /// renombraron, se deshabilitaron o se eliminaron.
+    /// </summary>
+    public void UpdateCommands(KohanaCommandRegistry registry)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+        _registry = registry;
     }
 
     /// <summary>Se dispara cuando un comando termina en fallo, para que el shell pueda registrarlo.</summary>

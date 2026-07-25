@@ -790,6 +790,13 @@ public partial class MainWindow : Window
             _commandCenterWindow = new CommandCenterWindow(BuildCommandRegistry());
             _commandCenterWindow.CommandFailed += CommandCenterWindow_CommandFailed;
         }
+        else
+        {
+            // Diseño D3: algunos comandos son dinámicos (uno por rutina habilitada) — se
+            // reconstruye el registro en cada apertura para que nunca muestre una rutina ya
+            // renombrada, deshabilitada o eliminada desde la última vez.
+            _commandCenterWindow.UpdateCommands(BuildCommandRegistry());
+        }
 
         _commandCenterWindow.ShowFor(this, Keyboard.FocusedElement);
     }
@@ -871,8 +878,8 @@ public partial class MainWindow : Window
 
         registry.Register(new KohanaCommandDescriptor(
             "focus.cancel",
-            "Finalizar sesión de enfoque",
-            "Cancela la sesión de enfoque en curso.",
+            "Cancelar sesión de enfoque",
+            "Descarta la sesión en curso sin registrarla en el historial.",
             KohanaCommandCategory.Focus,
             _ =>
             {
@@ -882,7 +889,54 @@ public partial class MainWindow : Window
                     ? CommandExecutionResult.Success(result.Message)
                     : CommandExecutionResult.Failure(result.Message));
             },
-            keywords: ["enfoque", "cancelar", "terminar", "detener"],
+            keywords: ["enfoque", "cancelar", "descartar", "detener"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.pause",
+            "Pausar sesión de enfoque",
+            "Pausa la sesión en curso, conservando el tiempo restante.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                var result = _focusManager.Pause(DateTimeOffset.Now);
+                _focusView.Refresh(DateTimeOffset.Now);
+                return Task.FromResult(result.Success
+                    ? CommandExecutionResult.Success(result.Message)
+                    : CommandExecutionResult.Failure(result.Message));
+            },
+            keywords: ["enfoque", "pausar", "detener"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is { Status: FocusTimerStatus.Running }
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque en curso para pausar.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.resume",
+            "Continuar sesión de enfoque",
+            "Reanuda la sesión pausada.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                var result = _focusManager.Resume(DateTimeOffset.Now);
+                _focusView.Refresh(DateTimeOffset.Now);
+                return Task.FromResult(result.Success
+                    ? CommandExecutionResult.Success(result.Message)
+                    : CommandExecutionResult.Failure(result.Message));
+            },
+            keywords: ["enfoque", "continuar", "reanudar", "resumir"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is { Status: FocusTimerStatus.Paused }
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque en pausa.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.finish",
+            "Finalizar sesión de enfoque",
+            "Termina la sesión ahora y cuenta el tiempo ya transcurrido, a diferencia de Cancelar.",
+            KohanaCommandCategory.Focus,
+            _ => Task.FromResult(FinishActiveFocusSession()),
+            keywords: ["enfoque", "finalizar", "terminar", "completar"],
             availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
                 ? KohanaCommandAvailability.Available
                 : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
@@ -940,7 +994,84 @@ public partial class MainWindow : Window
             },
             keywords: ["motor", "engine", "registry", "adaptativo", "recomendado", "rendimiento"]));
 
+        registry.RegisterRange(BuildRoutineExecutionCommands());
+
         return registry;
+    }
+
+    /// <summary>
+    /// Diseño D3 — un comando por cada rutina, no un único comando genérico "ejecutar rutina": así
+    /// cada una aparece por su propio nombre en la búsqueda y su disponibilidad refleja si esa
+    /// rutina en concreto está habilitada. El registro se reconstruye cada vez que se abre el
+    /// Command Center (ver ShowCommandCenter), así que esta lista nunca queda desactualizada.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildRoutineExecutionCommands()
+    {
+        foreach (var routine in _routineManager.GetAll())
+        {
+            var routineId = routine.Id;
+            var routineName = routine.Name;
+            yield return new KohanaCommandDescriptor(
+                $"routine.execute.{routineId}",
+                $"Ejecutar {routineName}",
+                $"Ejecuta la rutina «{routineName}».",
+                KohanaCommandCategory.System,
+                async _ =>
+                {
+                    var current = _routineManager.GetAll().FirstOrDefault(candidate => candidate.Id == routineId);
+                    if (current is null)
+                    {
+                        return CommandExecutionResult.Failure($"La rutina «{routineName}» ya no existe.");
+                    }
+
+                    await RunRoutineAsync(current);
+                    return CommandExecutionResult.Success();
+                },
+                keywords: ["rutina", "routine", "ejecutar", routineName],
+                availability: () =>
+                {
+                    var current = _routineManager.GetAll().FirstOrDefault(candidate => candidate.Id == routineId);
+                    if (current is null)
+                    {
+                        return KohanaCommandAvailability.Unavailable("Esta rutina ya no existe.");
+                    }
+
+                    return current.IsEnabled
+                        ? KohanaCommandAvailability.Available
+                        : KohanaCommandAvailability.Unavailable($"La rutina «{routineName}» está desactivada.");
+                });
+        }
+    }
+
+    /// <summary>
+    /// Diseño D3 — misma lógica que <c>FocusView.FinishButton_Click</c>, para el comando
+    /// "focus.finish" del Command Center: se lee el TaskId ANTES de finalizar (Finish() limpia el
+    /// temporizador activo) para poder ofrecer, después, marcar esa tarea como completada.
+    /// </summary>
+    private CommandExecutionResult FinishActiveFocusSession()
+    {
+        var now = DateTimeOffset.Now;
+        var taskId = _focusManager.GetSnapshot(now).ActiveTimer?.TaskId;
+
+        var result = _focusManager.Finish(now);
+        _focusView.Refresh(now);
+        RefreshHomeView();
+
+        if (!result.Success)
+        {
+            return CommandExecutionResult.Failure(result.Message);
+        }
+
+        if (taskId is { } id)
+        {
+            var title = _taskManager.GetAll().FirstOrDefault(task => task.Id == id)?.Title;
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                _focusView.ShowTaskCompletionPrompt(id, title);
+            }
+        }
+
+        return CommandExecutionResult.Success(result.Message);
     }
 
     private CommandExecutionResult ApplyMasterMute(bool muted)
