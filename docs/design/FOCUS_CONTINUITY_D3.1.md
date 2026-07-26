@@ -55,3 +55,14 @@ la finalización natural como `Finish`, con una sola aparición por sesión.
 
 Sin Always On Top, sin widget de escritorio, sin segundo timer, sin cambios a
 `SingleInstanceCoordinator`, sin tocar Asistente/Audio/Captura/Sistema/voz.
+
+## 7. Aprobación (Diseño D3.2)
+
+**Fecha:** 2026-07-25. **Estado:** smoke manual aprobado por el usuario.
+
+El usuario confirmó el refresco inmediato al regresar a Enfoque, el mini temporizador global
+avanzando al cambiar de sección, la pausa estable, la reactivación correcta desde bandeja, e
+historial/resumen/presets funcionando, sin crash ni regresiones visibles, y autorizó integrar este
+diseño en `release/kohana-1.0-rc`. Ver la sección de aprobación en
+`Kohana-Design-D3.1-Focus-Continuity-Informe.md` para el detalle completo. Integrado mediante
+`merge: integrate approved Focus Continuity D3.1`.

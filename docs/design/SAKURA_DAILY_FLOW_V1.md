@@ -151,3 +151,13 @@ avanzado que el que ya existe.
 7. `docs: record Sakura Daily Flow D3 implementation` — informe final.
 
 Cada commit compila y pasa la suite completa antes de crearse.
+
+## 12. Aprobación (Diseño D3.2)
+
+**Fecha:** 2026-07-25. **Estado:** smoke manual aprobado por el usuario.
+
+El usuario confirmó Inicio, Hoy y el CRUD de tareas, la asociación tarea↔enfoque,
+pausar/continuar/finalizar/cancelar, Rutinas y Command Center, sin crash, pérdida de datos ni
+timers duplicados, y autorizó integrar este diseño en `release/kohana-1.0-rc`. Ver la sección de
+aprobación en `Kohana-Design-D3-Sakura-Daily-Flow-Informe.md` para el detalle completo. Integrado
+mediante `merge: integrate approved Sakura Daily Flow D3`.
