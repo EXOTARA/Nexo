@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D3 — Sakura Daily Flow v1 implementado** en `design/daily-flow-v1`, pendiente de smoke test manual |
-| **Siguiente fase** | Diseño D4 (por definir) — **no iniciado** |
-| **Rama** | `release/kohana-1.0-rc` en `e2dce83` (D1 + D1.1 + D2 integrados y aprobados); trabajo de D3 vive en `design/daily-flow-v1` |
+| **Fase actual** | **Diseño D3.2 — Approved Release, Validation Sandbox & Roadmap** en curso: D3 y D3.1 **aprobados por el usuario** e integrándose en `release/kohana-1.0-rc` dentro de este mismo sprint |
+| **Siguiente fase** | Diseño D4 — Ambient Interaction Foundation (planeado en el roadmap, **no iniciado**) |
+| **Rama** | `release/kohana-1.0-rc` — D3 (`design/daily-flow-v1`, `0e45615`) y D3.1 (`design/focus-continuity-v1`) se integran vía `merge --no-ff` en Diseño D3.2 |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-25 |
-| **Bloqueador activo** | Ninguno en código. Validación interactiva de D3 completada sin bloqueos; smoke manual de D3 pendiente del usuario |
+| **Bloqueador activo** | Ninguno. D3 y D3.1 aprobados por el usuario (ver secciones de aprobación más abajo); integración a release en curso dentro de Diseño D3.2 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2019,3 +2019,68 @@ todo momento. 10 capturas reales en `artifacts\design-d3\screenshots\`.
 
 **Diseño D3 pendiente de smoke test manual del usuario. No se declara aprobado.** Informe completo
 en `artifacts\Kohana-Design-D3-Sakura-Daily-Flow-Informe.md`.
+
+> **Aprobación (Diseño D3.2, 2026-07-25):** el usuario probó D3 y confirmó Inicio, Hoy, el CRUD de
+> tareas, la asociación tarea↔enfoque, pausar/continuar/finalizar/cancelar, Rutinas y Command
+> Center funcionando, sin crash ni pérdida de datos. **Diseño D3 queda aprobado** e integrado en
+> `release/kohana-1.0-rc` vía `merge: integrate approved Sakura Daily Flow D3`.
+
+## Diseño D3.1 — Focus Continuity & Daily Flow Polish
+
+**Rama:** `design/focus-continuity-v1`, creada desde `design/daily-flow-v1` (`0e45615`) — D3
+confirmado por el usuario como probado y funcionando en ese momento, pero todavía no aprobado ni
+integrado.
+
+**Defecto corregido:** el reloj visual de Enfoque podía conservar temporalmente un valor anterior
+al cambiar de sección y regresar, corrigiéndose solo en el siguiente tick del `DispatcherTimer` de
+fondo (hasta 999 ms de retraso). Causa raíz: `MainWindow.NavigateTo` solo forzaba un refresco
+inmediato para el destino `"Home"`; para cualquier otro destino (incluido `"Focus"`) el texto
+visible esperaba al siguiente tick. Corregido reemplazando esa condición exclusiva por una llamada
+incondicional a `CheckFocusTimer()` (el mismo patrón que ya usaba `HandleSystemResume()`), aplicada
+también a `ShowFromBackground()`. Sin segundo `DispatcherTimer`, sin recrear `FocusView`, sin
+guardar el contador cada segundo.
+
+**Arquitectura nueva:** `FocusDisplayState`/`FocusDisplayStateBuilder` (Nexo.App/DailyFlow) — única
+fuente pura del reloj/estado/etiqueta/comandos disponibles, usada ahora por FocusView, el nuevo
+mini temporizador global y la tarjeta de Enfoque en Inicio (antes cada una calculaba por su
+cuenta). `FocusMiniTimer` (control WPF) + `FocusContinuityCoordinator` (sin timer propio, se
+refresca desde el mismo tick existente) — mini temporizador visible en el encabezado del shell en
+cualquier sección salvo la propia Enfoque, sin botón de Cancelar de un clic. `FocusManager.
+GetHistory()` + `FocusHistorySummaryBuilder` — actividad reciente y tarea con más tiempo hoy, solo
+cuando es honestamente calculable, sin rachas ni puntajes inventados. `FocusOperationResult.
+Completion` — aviso de fin de sesión generalizado a toda finalización real (natural o manual, con
+tarea o sin ella), nunca para Cancelar.
+
+**Command Center:** `focus.open` + `focus.start.15/25/45` (inicio real por preset, antes solo
+navegaba) + `focus.history`; Cancelar/Pausar/Continuar ahora refrescan también el mini temporizador
+y la tarjeta de Inicio de inmediato.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 696 superadas
+  Nexo.Windows.Tests.dll → 164 superadas
+  Nexo.App.Tests.dll     → 148 superadas
+Total: 1008 pruebas (960 previas + 48 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 3 veces adicionales sin variación ni flakiness.
+```
+
+**Validación interactiva:** recorrido de 25 pasos con `System.Windows.Automation` contra el
+publicado real: iniciar sesión asociada a una tarea → confirmar reloj → mini temporizador visible y
+avanzando en Inicio y Hoy → pausar (estable) → continuar → regresar a Enfoque con valor correcto de
+inmediato → ocultar a bandeja y reactivar por segundo lanzamiento (cede, valor correcto de
+inmediato) → finalizar desde el mini temporizador → aviso de finalización con tarea asociada →
+completarla → Command Center (presets visibles y disponibles) → iniciar 25 min → sidebar compacta →
+cancelar (confirmado que no queda en el historial). Kohana permaneció responsivo en todo momento.
+10 capturas reales en `artifacts\design-d3.1\screenshots\`.
+
+**Diseño D3.1 pendiente de smoke test manual del usuario. No se declara aprobado.** Informe
+completo en `artifacts\Kohana-Design-D3.1-Focus-Continuity-Informe.md`.
+
+> **Aprobación (Diseño D3.2, 2026-07-25):** el usuario probó D3.1 y confirmó el refresco inmediato
+> al regresar a Enfoque, el mini temporizador avanzando al cambiar de sección, la pausa estable, la
+> reactivación correcta desde bandeja, e historial/resumen/presets funcionando, sin crash ni
+> regresiones. **Diseño D3.1 queda aprobado** e integrado en `release/kohana-1.0-rc` vía
+> `merge: integrate approved Focus Continuity D3.1`.

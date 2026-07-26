@@ -128,8 +128,10 @@ public sealed class DailyFlowSummaryBuilderTests
         var model = DailyFlowSummaryBuilder.BuildHomeDashboard(
             CreateTaskManager(), focusManager, [], false, ReferenceNow.AddMinutes(5));
 
-        Assert.Equal("20 min", model.FocusValue);
+        Assert.Equal("20:00", model.FocusValue);
         Assert.Equal("Sesión de enfoque", model.FocusDetail);
+        Assert.True(model.FocusHasActiveSession);
+        Assert.False(model.FocusIsPaused);
     }
 
     [Fact]
@@ -143,6 +145,8 @@ public sealed class DailyFlowSummaryBuilderTests
             CreateTaskManager(), focusManager, [], false, ReferenceNow.AddMinutes(5));
 
         Assert.Contains("pausa", model.FocusDetail, StringComparison.OrdinalIgnoreCase);
+        Assert.True(model.FocusHasActiveSession);
+        Assert.True(model.FocusIsPaused);
     }
 
     // ---------- Rutinas ----------

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using Nexo.App.DailyFlow;
 using Nexo.App.Views;
 using Nexo.Core.Automation;
 using Nexo.Core.Focus;
@@ -228,35 +229,36 @@ public sealed class DailyFlowWpfInteractionTests
     }
 
     [Fact]
-    public void FocusView_CompletionPrompt_DismissHidesItWithoutCompletingAnything()
+    public void FocusView_CompletionNotice_DismissHidesItWithoutCompletingAnything()
     {
         _fixture.Invoke(() =>
         {
             var manager = new FocusManager(new FakeFocusStore());
             manager.Load();
-            var view = new FocusView(manager);
+            var taskId = Guid.NewGuid();
+            var view = new FocusView(manager, _ => "Tarea pendiente");
             using var host = CreateOffscreenHost(view);
             host.Show();
             host.UpdateLayout();
 
-            var taskId = Guid.NewGuid();
-            view.ShowTaskCompletionPrompt(taskId, "Tarea pendiente");
+            view.ShowSessionCompletionNotice(new FocusCompletion(
+                "Sesión de enfoque", FocusSessionKind.Focus, TimeSpan.FromMinutes(25), ReferenceNow, taskId));
             host.UpdateLayout();
 
-            var promptBorder = (FrameworkElement)view.FindName("TaskCompletionPromptBorder")!;
-            Assert.Equal(Visibility.Visible, promptBorder.Visibility);
+            var noticeBorder = (FrameworkElement)view.FindName("SessionCompletionNoticeBorder")!;
+            Assert.Equal(Visibility.Visible, noticeBorder.Visibility);
 
-            var dismissButton = FindButtonByAutomationName(view, "Descartar sugerencia de completar tarea");
+            var dismissButton = FindButtonByAutomationName(view, "Cerrar aviso de sesión completada");
             Assert.NotNull(dismissButton);
             dismissButton!.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
             host.UpdateLayout();
 
-            Assert.Equal(Visibility.Collapsed, promptBorder.Visibility);
+            Assert.Equal(Visibility.Collapsed, noticeBorder.Visibility);
         });
     }
 
     [Fact]
-    public void FocusView_CompletionPrompt_CompleteButton_RaisesTheRequestWithoutActingOnItsOwn()
+    public void FocusView_CompletionNotice_CompleteButton_RaisesTheRequestWithoutActingOnItsOwn()
     {
         // La vista nunca completa la tarea por su cuenta: solo pide, quien construya la vista
         // decide qué hacer (aquí, MainWindow llama a TaskManager.Complete).
@@ -264,13 +266,14 @@ public sealed class DailyFlowWpfInteractionTests
         {
             var manager = new FocusManager(new FakeFocusStore());
             manager.Load();
-            var view = new FocusView(manager);
+            var taskId = Guid.NewGuid();
+            var view = new FocusView(manager, _ => "Escribir el informe");
             using var host = CreateOffscreenHost(view);
             host.Show();
             host.UpdateLayout();
 
-            var taskId = Guid.NewGuid();
-            view.ShowTaskCompletionPrompt(taskId, "Escribir el informe");
+            view.ShowSessionCompletionNotice(new FocusCompletion(
+                "Sesión de enfoque", FocusSessionKind.Focus, TimeSpan.FromMinutes(25), ReferenceNow, taskId));
             host.UpdateLayout();
 
             TaskFocusRequestedEventArgs? received = null;
@@ -284,6 +287,477 @@ public sealed class DailyFlowWpfInteractionTests
             Assert.Equal(taskId, received!.TaskId);
         });
     }
+
+    [Fact]
+    public void FocusView_CompletionNotice_WithoutTask_HidesCompleteButtonButStillOffersStartAnother()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            var view = new FocusView(manager);
+            using var host = CreateOffscreenHost(view);
+            host.Show();
+            host.UpdateLayout();
+
+            view.ShowSessionCompletionNotice(new FocusCompletion(
+                "Sesión de enfoque", FocusSessionKind.Focus, TimeSpan.FromMinutes(10), ReferenceNow));
+            host.UpdateLayout();
+
+            var noticeBorder = (FrameworkElement)view.FindName("SessionCompletionNoticeBorder")!;
+            Assert.Equal(Visibility.Visible, noticeBorder.Visibility);
+
+            var completeButton = (FrameworkElement)view.FindName("CompleteAssociatedTaskButton")!;
+            Assert.Equal(Visibility.Collapsed, completeButton.Visibility);
+
+            var startAnotherButton = FindButtonByAutomationName(view, "Iniciar otra sesión de enfoque");
+            Assert.NotNull(startAnotherButton);
+        });
+    }
+
+    // ---------- Enfoque: historial y resumen ----------
+
+    [Fact]
+    public void FocusView_WithoutAnyHistory_ShowsAnHonestEmptyState()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            var view = new FocusView(manager);
+            using var host = CreateOffscreenHost(view);
+            host.Show();
+            host.UpdateLayout();
+
+            var emptyText = (FrameworkElement)view.FindName("RecentSessionsEmptyText")!;
+            var topTaskText = (FrameworkElement)view.FindName("TopTaskText")!;
+            Assert.Equal(Visibility.Visible, emptyText.Visibility);
+            Assert.Equal(Visibility.Collapsed, topTaskText.Visibility);
+        });
+    }
+
+    [Fact]
+    public void FocusView_AfterFinishing_ShowsTheSessionInRecentActivity()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            manager.Start(TimeSpan.FromMinutes(30), "Sesión de enfoque", FocusSessionKind.Focus, ReferenceNow);
+            var view = new FocusView(manager);
+            using var host = CreateOffscreenHost(view);
+            host.Show();
+            host.UpdateLayout();
+
+            InvokeButtonByName(view, "FinishButton");
+            host.UpdateLayout();
+
+            var emptyText = (FrameworkElement)view.FindName("RecentSessionsEmptyText")!;
+            Assert.Equal(Visibility.Collapsed, emptyText.Visibility);
+
+            var items = (ItemsControl)view.FindName("RecentSessionsItemsControl")!;
+            Assert.Single((System.Collections.IEnumerable)items.ItemsSource);
+        });
+    }
+
+    [Fact]
+    public void FocusView_CancelledSessions_NeverAppearInRecentActivity()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            manager.Start(TimeSpan.FromMinutes(30), "Sesión de enfoque", FocusSessionKind.Focus, ReferenceNow);
+            var view = new FocusView(manager);
+            using var host = CreateOffscreenHost(view);
+            host.Show();
+            host.UpdateLayout();
+
+            InvokeButtonByName(view, "CancelButton");
+            host.UpdateLayout();
+
+            var emptyText = (FrameworkElement)view.FindName("RecentSessionsEmptyText")!;
+            Assert.Equal(Visibility.Visible, emptyText.Visibility);
+        });
+    }
+
+    [Fact]
+    public void FocusView_WithATaskFocusedTodayForAWhile_ShowsItAsTheTopTask()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            var taskId = Guid.NewGuid();
+            manager.Start(TimeSpan.FromMinutes(30), "Sesión de enfoque", FocusSessionKind.Focus, ReferenceNow, taskId);
+            var view = new FocusView(manager, id => id == taskId ? "Escribir el informe" : null);
+            using var host = CreateOffscreenHost(view);
+            host.Show();
+            host.UpdateLayout();
+
+            InvokeButtonByName(view, "FinishButton");
+            host.UpdateLayout();
+
+            var topTaskText = (TextBlock)view.FindName("TopTaskText")!;
+            Assert.Equal(Visibility.Visible, topTaskText.Visibility);
+            Assert.Contains("Escribir el informe", topTaskText.Text);
+        });
+    }
+
+    // ---------- Enfoque: mini temporizador global ----------
+
+    [Fact]
+    public void FocusMiniTimer_Apply_NoSession_CollapsesTheControl()
+    {
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+            host.UpdateLayout();
+
+            control.Apply(NoSessionState());
+            host.UpdateLayout();
+
+            Assert.Equal(Visibility.Collapsed, control.Visibility);
+        });
+    }
+
+    [Fact]
+    public void FocusMiniTimer_Apply_ActiveSession_ShowsClockAndLabelAndIsVisible()
+    {
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+            host.UpdateLayout();
+
+            control.Apply(SessionState(isPaused: false, label: "Escribir el informe", clockText: "12:34"));
+            host.UpdateLayout();
+
+            Assert.Equal(Visibility.Visible, control.Visibility);
+            var labelText = (TextBlock)control.FindName("LabelText")!;
+            var clockText = (TextBlock)control.FindName("ClockText")!;
+            var pausedBadge = (FrameworkElement)control.FindName("PausedBadge")!;
+            Assert.Equal("Escribir el informe", labelText.Text);
+            Assert.Equal("12:34", clockText.Text);
+            Assert.Equal(Visibility.Collapsed, pausedBadge.Visibility);
+        });
+    }
+
+    [Fact]
+    public void FocusMiniTimer_Apply_PausedSession_ShowsThePausedBadge()
+    {
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+            host.UpdateLayout();
+
+            control.Apply(SessionState(isPaused: true, label: "Enfoque", clockText: "05:00"));
+            host.UpdateLayout();
+
+            var pausedBadge = (FrameworkElement)control.FindName("PausedBadge")!;
+            Assert.Equal(Visibility.Visible, pausedBadge.Visibility);
+        });
+    }
+
+    [Fact]
+    public void FocusMiniTimer_OpenButton_RaisesOpenRequested()
+    {
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+            host.UpdateLayout();
+            control.Apply(SessionState(isPaused: false, label: "Enfoque", clockText: "10:00"));
+            host.UpdateLayout();
+
+            var raised = false;
+            control.OpenRequested += (_, _) => raised = true;
+            InvokeButtonByName(control, "OpenButton");
+
+            Assert.True(raised);
+        });
+    }
+
+    [Fact]
+    public void FocusMiniTimer_PauseResumeButton_RaisesPauseWhenRunning()
+    {
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+            host.UpdateLayout();
+            control.Apply(SessionState(isPaused: false, label: "Enfoque", clockText: "10:00"));
+            host.UpdateLayout();
+
+            var pauseRaised = false;
+            var resumeRaised = false;
+            control.PauseRequested += (_, _) => pauseRaised = true;
+            control.ResumeRequested += (_, _) => resumeRaised = true;
+            InvokeButtonByName(control, "PauseResumeButton");
+
+            Assert.True(pauseRaised);
+            Assert.False(resumeRaised);
+        });
+    }
+
+    [Fact]
+    public void FocusMiniTimer_PauseResumeButton_RaisesResumeWhenPaused()
+    {
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+            host.UpdateLayout();
+            control.Apply(SessionState(isPaused: true, label: "Enfoque", clockText: "10:00"));
+            host.UpdateLayout();
+
+            var pauseRaised = false;
+            var resumeRaised = false;
+            control.PauseRequested += (_, _) => pauseRaised = true;
+            control.ResumeRequested += (_, _) => resumeRaised = true;
+            InvokeButtonByName(control, "PauseResumeButton");
+
+            Assert.True(resumeRaised);
+            Assert.False(pauseRaised);
+        });
+    }
+
+    [Fact]
+    public void FocusMiniTimer_FinishButton_RaisesFinishRequested()
+    {
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+            host.UpdateLayout();
+            control.Apply(SessionState(isPaused: false, label: "Enfoque", clockText: "10:00"));
+            host.UpdateLayout();
+
+            var raised = false;
+            control.FinishRequested += (_, _) => raised = true;
+            InvokeButtonByName(control, "FinishButton");
+
+            Assert.True(raised);
+        });
+    }
+
+    [Fact]
+    public void FocusMiniTimer_NeverExposesAOneClickCancelControl()
+    {
+        // Diseño D3.1: Cancelar no debe ser una acción de un solo clic en el mini temporizador. La
+        // forma más simple de garantizarlo es que el control ni siquiera tenga un botón para eso;
+        // Cancelar sigue disponible en FocusView y el Command Center.
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+            host.UpdateLayout();
+            control.Apply(SessionState(isPaused: false, label: "Enfoque", clockText: "10:00"));
+            host.UpdateLayout();
+
+            var hasCancelButton = FindDescendants<Button>(control).Any(button =>
+                (AutomationProperties.GetName(button)?.Contains("ancelar", StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (button.Content as string)?.Contains("ancelar", StringComparison.OrdinalIgnoreCase) == true);
+
+            Assert.False(hasCancelButton);
+        });
+    }
+
+    [Fact]
+    public void FocusMiniTimer_SurvivesMeasureArrangeUpdateLayout_WithoutThrowing()
+    {
+        _fixture.Invoke(() =>
+        {
+            var control = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(control);
+            host.Show();
+
+            control.Apply(SessionState(isPaused: false, label: "Enfoque", clockText: "10:00"));
+            control.Measure(new Size(300, 60));
+            control.Arrange(new Rect(0, 0, 300, 60));
+            host.UpdateLayout();
+
+            Assert.True(control.IsMeasureValid);
+            Assert.True(control.IsArrangeValid);
+        });
+    }
+
+    [Fact]
+    public void FocusContinuityCoordinator_Refresh_NoSession_CollapsesTheMiniTimer()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            var miniTimer = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(miniTimer);
+            host.Show();
+            host.UpdateLayout();
+
+            var coordinator = new FocusContinuityCoordinator(manager, miniTimer, _ => null, () => { });
+            coordinator.Refresh(ReferenceNow);
+            host.UpdateLayout();
+
+            Assert.Equal(Visibility.Collapsed, miniTimer.Visibility);
+        });
+    }
+
+    [Fact]
+    public void FocusContinuityCoordinator_Refresh_ActiveSession_ShowsTheRealRemainingClock()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            manager.Start(TimeSpan.FromMinutes(25), "Sesión de enfoque", FocusSessionKind.Focus, ReferenceNow);
+            var miniTimer = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(miniTimer);
+            host.Show();
+            host.UpdateLayout();
+
+            var coordinator = new FocusContinuityCoordinator(manager, miniTimer, _ => null, () => { });
+            coordinator.Refresh(ReferenceNow.AddMinutes(5));
+            host.UpdateLayout();
+
+            Assert.Equal(Visibility.Visible, miniTimer.Visibility);
+            var clockText = (TextBlock)miniTimer.FindName("ClockText")!;
+            Assert.Equal("20:00", clockText.Text);
+        });
+    }
+
+    [Fact]
+    public void FocusContinuityCoordinator_PauseRequestedFromTheControl_PausesTheRealFocusManager()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            manager.Start(TimeSpan.FromMinutes(25), "Sesión de enfoque", FocusSessionKind.Focus, ReferenceNow);
+            var miniTimer = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(miniTimer);
+            host.Show();
+            host.UpdateLayout();
+            var coordinator = new FocusContinuityCoordinator(manager, miniTimer, _ => null, () => { });
+            coordinator.Refresh(ReferenceNow);
+            host.UpdateLayout();
+
+            InvokeButtonByName(miniTimer, "PauseResumeButton");
+
+            Assert.Equal(FocusTimerStatus.Paused, manager.GetSnapshot(ReferenceNow).ActiveTimer?.Status);
+        });
+    }
+
+    [Fact]
+    public void FocusContinuityCoordinator_ResumeRequestedFromTheControl_ResumesTheRealFocusManager()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            manager.Start(TimeSpan.FromMinutes(25), "Sesión de enfoque", FocusSessionKind.Focus, ReferenceNow);
+            manager.Pause(ReferenceNow);
+            var miniTimer = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(miniTimer);
+            host.Show();
+            host.UpdateLayout();
+            var coordinator = new FocusContinuityCoordinator(manager, miniTimer, _ => null, () => { });
+            coordinator.Refresh(ReferenceNow);
+            host.UpdateLayout();
+
+            InvokeButtonByName(miniTimer, "PauseResumeButton");
+
+            Assert.Equal(FocusTimerStatus.Running, manager.GetSnapshot(ReferenceNow).ActiveTimer?.Status);
+        });
+    }
+
+    [Fact]
+    public void FocusContinuityCoordinator_OpenRequestedFromTheControl_InvokesTheOpenFocusCallback()
+    {
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            manager.Start(TimeSpan.FromMinutes(25), "Sesión de enfoque", FocusSessionKind.Focus, ReferenceNow);
+            var miniTimer = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(miniTimer);
+            host.Show();
+            host.UpdateLayout();
+            var openRequested = false;
+            var coordinator = new FocusContinuityCoordinator(manager, miniTimer, _ => null, () => openRequested = true);
+            coordinator.Refresh(ReferenceNow);
+            host.UpdateLayout();
+
+            InvokeButtonByName(miniTimer, "OpenButton");
+
+            Assert.True(openRequested);
+        });
+    }
+
+    [Fact]
+    public void FocusContinuityCoordinator_FinishRequestedFromTheControl_BubblesTheEvent_WithoutFinishingItself()
+    {
+        // El coordinador no decide cómo finalizar (eso implica capturar la tarea asociada y
+        // ofrecer completarla, lógica que ya vive en MainWindow.FinishActiveFocusSession): solo
+        // reenvía la intención de quien construya el mini temporizador.
+        _fixture.Invoke(() =>
+        {
+            var manager = new FocusManager(new FakeFocusStore());
+            manager.Load();
+            manager.Start(TimeSpan.FromMinutes(25), "Sesión de enfoque", FocusSessionKind.Focus, ReferenceNow);
+            var miniTimer = new FocusMiniTimer();
+            using var host = CreateOffscreenHost(miniTimer);
+            host.Show();
+            host.UpdateLayout();
+            var coordinator = new FocusContinuityCoordinator(manager, miniTimer, _ => null, () => { });
+            coordinator.Refresh(ReferenceNow);
+            host.UpdateLayout();
+
+            var finishRequested = false;
+            coordinator.FinishRequested += (_, _) => finishRequested = true;
+            InvokeButtonByName(miniTimer, "FinishButton");
+
+            Assert.True(finishRequested);
+            Assert.NotNull(manager.GetSnapshot(ReferenceNow).ActiveTimer);
+        });
+    }
+
+    private static FocusDisplayState NoSessionState() => new(
+        HasSession: false,
+        IsPaused: false,
+        ClockText: "00:00",
+        StatusText: "No hay una sesión de enfoque activa",
+        AssociatedLabel: null,
+        ProgressPercent: 0,
+        CanPause: false,
+        CanResume: false,
+        CanFinish: false,
+        CanStart: true,
+        FocusMinutesToday: 0,
+        CompletedSessionsToday: 0);
+
+    private static FocusDisplayState SessionState(bool isPaused, string label, string clockText) => new(
+        HasSession: true,
+        IsPaused: isPaused,
+        ClockText: clockText,
+        StatusText: isPaused ? "En pausa" : "En curso",
+        AssociatedLabel: label,
+        ProgressPercent: 25,
+        CanPause: !isPaused,
+        CanResume: isPaused,
+        CanFinish: true,
+        CanStart: false,
+        FocusMinutesToday: 0,
+        CompletedSessionsToday: 0);
 
     // ---------- Rutinas ----------
 
@@ -371,7 +845,7 @@ public sealed class DailyFlowWpfInteractionTests
 
             view.Refresh(new HomeDashboardViewModel(
                 "Buenos días", "hoy", "0", "Todavía no tienes tareas para hoy",
-                "—", "No hay una sesión de enfoque activa",
+                "—", "No hay una sesión de enfoque activa", false, false,
                 "2", "2 disponibles",
                 "Lista para analizar", "detalle"));
             host.UpdateLayout();

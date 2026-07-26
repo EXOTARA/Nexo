@@ -1,5 +1,7 @@
+using System.IO;
 using System.Windows;
 using Nexo.App.WindowsIntegration;
+using Nexo.Core.Diagnostics;
 using Nexo.Core.WindowsIntegration;
 using Nexo.Windows.Composition;
 using Nexo.Windows.Settings;
@@ -20,8 +22,36 @@ public partial class App : System.Windows.Application
 
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-        // La migración es conservadora: copia datos de Nexo a Kohana sin borrar
-        // ni sobrescribir la carpeta anterior. Un fallo no impide abrir la app.
+        // Diseño D3.2 — cuando KOHANA_DATA_ROOT (u otro override explícito) está activo, se dejan
+        // dos rastros honestos: un archivo dedicado bajo la propia raíz aislada (nunca en el
+        // perfil real) y la salida de depuración, sin exponer la ruta a quien no la pidió (no hay
+        // selector de esto en la UI normal). No se declara "aislado" solo porque la variable
+        // exista: DescribeActiveRoot ya normaliza valores vacíos o inválidos a "sin override".
+        if (NexoDataPaths.IsUsingOverrideRoot)
+        {
+            var (root, source) = NexoDataPaths.DescribeActiveRoot();
+            System.Diagnostics.Debug.WriteLine(
+                $"[Kohana] Perfil de validación activo — raíz: {root} (origen: {source})");
+            try
+            {
+                Directory.CreateDirectory(NexoDataPaths.LogsDirectory);
+                File.AppendAllText(
+                    Path.Combine(NexoDataPaths.LogsDirectory, "data-root.log"),
+                    $"{DateTimeOffset.Now:O} Perfil de validación activo — raíz: {root} " +
+                    $"(origen: {source}){Environment.NewLine}");
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException)
+            {
+                // Dejar constancia es una cortesía de diagnóstico, no un requisito para arrancar.
+            }
+        }
+
+        // La migración es conservadora: copia datos de Nexo a Kohana sin borrar ni sobrescribir
+        // la carpeta anterior. Un fallo no impide abrir la app. Cuando hay un perfil de
+        // validación activo, NexoDataPaths.LegacyRootDirectory ya colapsa a la misma raíz que
+        // RootDirectory, así que el propio guard de origen==destino de MigrateIfNeeded evita leer
+        // o copiar los datos reales del usuario hacia el perfil aislado.
         try
         {
             LegacyDataMigrator.MigrateIfNeeded();

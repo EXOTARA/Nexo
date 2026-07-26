@@ -125,6 +125,14 @@ public partial class MainWindow : Window
     /// reemplazar los manejadores existentes.
     /// </summary>
     private readonly DailyFlowEventHub _dailyFlowHub = new();
+
+    /// <summary>
+    /// Diseño D3.1 — conecta el mini temporizador global del encabezado con FocusManager y la
+    /// navegación, sin acumular esa lógica en MainWindow. Se construye en el constructor porque
+    /// el mini temporizador es parte fija del shell (a diferencia del Command Center, que se crea
+    /// de forma perezosa).
+    /// </summary>
+    private readonly FocusContinuityCoordinator _focusContinuity;
     private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
     private readonly bool _startHidden;
@@ -203,6 +211,13 @@ public partial class MainWindow : Window
             taskId => _taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title);
         _routinesView = new RoutinesView(_routineManager);
         _audioView = new AudioView(_audioMixerService);
+
+        _focusContinuity = new FocusContinuityCoordinator(
+            _focusManager,
+            FocusMiniTimerControl,
+            taskId => _taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title,
+            () => NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled));
+        _focusContinuity.FinishRequested += (_, _) => FinishActiveFocusSession();
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
             [ShellNavigationPolicy.Home] = _homeView,
@@ -249,6 +264,8 @@ public partial class MainWindow : Window
         _homeView.ContextRequested += HomeView_ContextRequested;
         _homeView.NewTaskRequested += HomeView_NewTaskRequested;
         _homeView.StartFocusRequested += HomeView_StartFocusRequested;
+        _homeView.PauseFocusRequested += (_, _) => { _focusManager.Pause(DateTimeOffset.Now); CheckFocusTimer(); };
+        _homeView.ResumeFocusRequested += (_, _) => { _focusManager.Resume(DateTimeOffset.Now); CheckFocusTimer(); };
         _homeView.CommandCenterRequested += (_, _) => ShowCommandCenter();
         _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
         _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
@@ -862,19 +879,18 @@ public partial class MainWindow : Window
             keywords: ["barra", "lateral", "sidebar", "contraer", "expandir", "navegación"]));
 
         registry.Register(new KohanaCommandDescriptor(
-            "focus.start",
-            "Iniciar sesión de enfoque",
-            "Abre Enfoque para comenzar una sesión.",
+            "focus.open",
+            "Abrir Enfoque",
+            "Va a la sección de Enfoque.",
             KohanaCommandCategory.Focus,
             _ =>
             {
                 NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
                 return Task.FromResult(CommandExecutionResult.Success());
             },
-            keywords: ["enfoque", "concentración", "pomodoro", "sesión"],
-            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is null
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("Ya hay una sesión de enfoque en curso.")));
+            keywords: ["enfoque", "concentración", "pomodoro", "sesión", "abrir"]));
+
+        registry.RegisterRange(BuildFocusStartCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "focus.cancel",
@@ -884,7 +900,7 @@ public partial class MainWindow : Window
             _ =>
             {
                 var result = _focusManager.Cancel();
-                _focusView.Refresh(DateTimeOffset.Now);
+                CheckFocusTimer();
                 return Task.FromResult(result.Success
                     ? CommandExecutionResult.Success(result.Message)
                     : CommandExecutionResult.Failure(result.Message));
@@ -902,7 +918,7 @@ public partial class MainWindow : Window
             _ =>
             {
                 var result = _focusManager.Pause(DateTimeOffset.Now);
-                _focusView.Refresh(DateTimeOffset.Now);
+                CheckFocusTimer();
                 return Task.FromResult(result.Success
                     ? CommandExecutionResult.Success(result.Message)
                     : CommandExecutionResult.Failure(result.Message));
@@ -920,7 +936,7 @@ public partial class MainWindow : Window
             _ =>
             {
                 var result = _focusManager.Resume(DateTimeOffset.Now);
-                _focusView.Refresh(DateTimeOffset.Now);
+                CheckFocusTimer();
                 return Task.FromResult(result.Success
                     ? CommandExecutionResult.Success(result.Message)
                     : CommandExecutionResult.Failure(result.Message));
@@ -940,6 +956,18 @@ public partial class MainWindow : Window
             availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
                 ? KohanaCommandAvailability.Available
                 : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.history",
+            "Mostrar historial de enfoque",
+            "Abre Enfoque, donde están las últimas sesiones y el resumen del día.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["enfoque", "historial", "actividad", "resumen", "sesiones"]));
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -1000,6 +1028,42 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Diseño D3.1 — un comando por cada preset de duración, solo disponible cuando no hay ya una
+    /// sesión de enfoque en curso: nunca deben aparecer dos comandos de "iniciar" e "finalizar/
+    /// pausar" incompatibles a la vez como disponibles. Cada uno reusa
+    /// <see cref="FocusView.StartPreset"/> (no llama a FocusManager.Start directamente) para no
+    /// perder una tarea pendiente de asociar si el usuario ya venía de "Enfocarme" en una tarea.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
+    {
+        (int Minutes, string Id)[] presets =
+        [
+            (15, "focus.start.15"),
+            (25, "focus.start.25"),
+            (45, "focus.start.45")
+        ];
+
+        foreach (var (minutes, id) in presets)
+        {
+            yield return new KohanaCommandDescriptor(
+                id,
+                $"Iniciar enfoque · {minutes} min",
+                $"Comienza una sesión de enfoque de {minutes} minutos.",
+                KohanaCommandCategory.Focus,
+                _ =>
+                {
+                    _focusView.StartPreset(TimeSpan.FromMinutes(minutes));
+                    CheckFocusTimer();
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: ["enfoque", "iniciar", "concentración", "pomodoro", minutes.ToString(CultureInfo.InvariantCulture)],
+                availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is null
+                    ? KohanaCommandAvailability.Available
+                    : KohanaCommandAvailability.Unavailable("Ya hay una sesión de enfoque en curso."));
+        }
+    }
+
+    /// <summary>
     /// Diseño D3 — un comando por cada rutina, no un único comando genérico "ejecutar rutina": así
     /// cada una aparece por su propio nombre en la búsqueda y su disponibilidad refleja si esa
     /// rutina en concreto está habilitada. El registro se reconstruye cada vez que se abre el
@@ -1045,14 +1109,13 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Diseño D3 — misma lógica que <c>FocusView.FinishButton_Click</c>, para el comando
-    /// "focus.finish" del Command Center: se lee el TaskId ANTES de finalizar (Finish() limpia el
-    /// temporizador activo) para poder ofrecer, después, marcar esa tarea como completada.
+    /// "focus.finish" del Command Center y para el mini temporizador global. Diseño D3.1:
+    /// FocusOperationResult.Completion ya trae la tarea asociada, así que no hace falta leer el
+    /// timer por separado antes de llamar a Finish().
     /// </summary>
     private CommandExecutionResult FinishActiveFocusSession()
     {
         var now = DateTimeOffset.Now;
-        var taskId = _focusManager.GetSnapshot(now).ActiveTimer?.TaskId;
-
         var result = _focusManager.Finish(now);
         _focusView.Refresh(now);
         RefreshHomeView();
@@ -1062,13 +1125,9 @@ public partial class MainWindow : Window
             return CommandExecutionResult.Failure(result.Message);
         }
 
-        if (taskId is { } id)
+        if (result.Completion is { } completion)
         {
-            var title = _taskManager.GetAll().FirstOrDefault(task => task.Id == id)?.Title;
-            if (!string.IsNullOrWhiteSpace(title))
-            {
-                _focusView.ShowTaskCompletionPrompt(id, title);
-            }
+            _focusView.ShowSessionCompletionNotice(completion);
         }
 
         return CommandExecutionResult.Success(result.Message);
@@ -1374,6 +1433,13 @@ public partial class MainWindow : Window
 
         RememberForegroundWindow();
         ShowAnimated();
+
+        // Diseño D3.1: mientras Kohana estaba oculto en la bandeja, _focusTickTimer siguió
+        // corriendo (nunca se detiene salvo al cerrar), así que el dominio está al día — pero el
+        // reloj visible de Enfoque (y el resumen de Inicio) no se refrescan solos hasta el
+        // siguiente tick de hasta un segundo. Se sincroniza de inmediato al reactivar, igual que
+        // ya hace HandleSystemResume() al volver de suspensión.
+        CheckFocusTimer();
     }
 
     private void ConfigureManagedOllamaSupervisor()
@@ -3207,6 +3273,15 @@ public partial class MainWindow : Window
         var completion = _focusManager.CollectCompletion(now);
         _focusView.Refresh(now);
         RefreshHomeView();
+        _focusContinuity.Refresh(now);
+
+        // El mini temporizador no se muestra dentro de la propia sección Enfoque: mostraría el
+        // mismo estado dos veces en la misma pantalla.
+        if (_currentDestination.Equals(ShellNavigationPolicy.Focus, StringComparison.OrdinalIgnoreCase))
+        {
+            FocusMiniTimerControl.Visibility = Visibility.Collapsed;
+        }
+
         _dailyFlowHub.RaiseFocusChanged();
 
         if (completion is null)
@@ -3234,17 +3309,12 @@ public partial class MainWindow : Window
             _preferences.PlayNotificationSounds);
         SpeakVoiceResult(detail);
 
-        // Diseño D3: la finalización natural (se agotó el tiempo) también puede tener una tarea
-        // asociada. Igual que en "Finalizar" manual, nunca se completa sola: solo se ofrece.
-        if (completion.TaskId is { } completedTaskId)
-        {
-            var taskTitle = _taskManager.GetAll()
-                .FirstOrDefault(task => task.Id == completedTaskId)?.Title;
-            if (!string.IsNullOrWhiteSpace(taskTitle))
-            {
-                _focusView.ShowTaskCompletionPrompt(completedTaskId, taskTitle);
-            }
-        }
+        // Diseño D3.1: el aviso no modal de fin de sesión se muestra para toda finalización
+        // natural, con tarea asociada o sin ella — no solo cuando hay una tarea que ofrecer
+        // completar. El capsule/tray de arriba es un aviso ambiental transitorio (se ve desde
+        // cualquier sección); este otro vive en Enfoque con las acciones reales (completar tarea,
+        // iniciar otra sesión, cerrar).
+        _focusView.ShowSessionCompletionNotice(completion);
     }
 
     private Task ExecuteFocusCommandAsync(FocusCommand command)
@@ -3917,10 +3987,15 @@ public partial class MainWindow : Window
         UpdateNavigationState(destination);
         UpdateWorkspaceHeader(destination);
 
-        if (destination.Equals("Home", StringComparison.OrdinalIgnoreCase))
-        {
-            RefreshHomeView();
-        }
+        // Diseño D3.1: el temporizador de Enfoque sigue corriendo cada segundo en segundo plano
+        // (_focusTickTimer) sin importar qué sección esté activa, así que el dominio nunca se
+        // atrasa. Pero antes, solo Inicio forzaba un refresco inmediato de sus propios controles
+        // al navegar — Enfoque no lo hacía, así que su reloj visible podía quedarse hasta un
+        // segundo desactualizado hasta el siguiente tick programado. Se llama al mismo punto
+        // central que ya usa HandleSystemResume() (reanudar desde suspensión) para no duplicar
+        // esta condición por cada uno de los nueve destinos: siempre sincroniza tanto Enfoque
+        // como Inicio, sin crear un timer nuevo ni cambiar la fuente de verdad (los timestamps).
+        CheckFocusTimer();
 
         if (!animate || !ShellAnimationsAllowed)
         {

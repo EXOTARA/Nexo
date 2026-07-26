@@ -228,6 +228,45 @@ public sealed class FocusManagerTests
         Assert.Equal(taskId, store.State.History.Single().TaskId);
     }
 
+    // ---------- Diseño D3.1: FocusOperationResult.Completion para el aviso de fin de sesión ----------
+
+    [Fact]
+    public void Finish_WithElapsedTime_ReturnsACompletionWithTheRealDuration()
+    {
+        var manager = CreateManager();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        var result = manager.Finish(ReferenceNow.AddMinutes(12));
+
+        Assert.NotNull(result.Completion);
+        Assert.Equal(TimeSpan.FromMinutes(12), result.Completion!.Duration);
+        Assert.Equal("Enfoque", result.Completion.Label);
+        Assert.Null(result.Completion.TaskId);
+    }
+
+    [Fact]
+    public void Finish_WithAnAssociatedTask_IncludesItInTheCompletion()
+    {
+        var manager = CreateManager();
+        var taskId = Guid.NewGuid();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow, taskId);
+
+        var result = manager.Finish(ReferenceNow.AddMinutes(5));
+
+        Assert.Equal(taskId, result.Completion?.TaskId);
+    }
+
+    [Fact]
+    public void Finish_WithNoElapsedTime_ReturnsNoCompletion()
+    {
+        var manager = CreateManager();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        var result = manager.Finish(ReferenceNow);
+
+        Assert.Null(result.Completion);
+    }
+
     // ---------- Diseño D3: asociación con una tarea ----------
 
     [Fact]
@@ -268,6 +307,61 @@ public sealed class FocusManagerTests
 
         Assert.Equal(taskId, completion?.TaskId);
         Assert.Equal(taskId, store.State.History.Single().TaskId);
+    }
+
+    // ---------- Diseño D3.1: historial expuesto para el resumen de actividad reciente ----------
+
+    [Fact]
+    public void GetHistory_OnFreshManager_ReturnsEmpty()
+    {
+        var manager = CreateManager();
+
+        Assert.Empty(manager.GetHistory());
+    }
+
+    [Fact]
+    public void GetHistory_ReturnsRecordedSessionsWithRealDuration()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+        manager.Finish(ReferenceNow.AddMinutes(12));
+
+        var history = manager.GetHistory();
+
+        var entry = Assert.Single(history);
+        Assert.Equal("Enfoque", entry.Label);
+        Assert.Equal(TimeSpan.FromMinutes(12), entry.Duration);
+    }
+
+    [Fact]
+    public void GetHistory_DoesNotExposeTheInternalListInstance()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(10), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+        manager.Finish(ReferenceNow.AddMinutes(5));
+
+        var first = manager.GetHistory();
+        var second = manager.GetHistory();
+
+        Assert.NotSame(first, second);
+        Assert.Equal(first.Single().Id, second.Single().Id);
+    }
+
+    [Fact]
+    public void GetHistory_NeverContainsCancelledSessions()
+    {
+        var store = new MemoryFocusStore();
+        var manager = new FocusManager(store);
+        manager.Load();
+        manager.Start(TimeSpan.FromMinutes(30), "Enfoque", FocusSessionKind.Focus, ReferenceNow);
+
+        manager.Cancel();
+
+        Assert.Empty(manager.GetHistory());
     }
 
     private static FocusManager CreateManager()

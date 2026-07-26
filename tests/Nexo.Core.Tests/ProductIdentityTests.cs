@@ -3,6 +3,11 @@ using Nexo.Core.Diagnostics;
 
 namespace Nexo.Core.Tests;
 
+// Diseño D3.2 — comparte colección con NexoDataPathsTests: esa clase muta el override global de
+// NexoDataPaths (limpiándolo antes/después de cada prueba), y esta clase asume que no hay ningún
+// override activo. Sin este agrupamiento, xUnit podría ejecutarlas en paralelo y esta prueba
+// podría leer una raíz de validación a mitad de otra prueba.
+[Collection(NexoDataPathsCollection.Name)]
 public sealed class ProductIdentityTests
 {
     [Fact]

@@ -42,7 +42,8 @@ public static class DailyFlowSummaryBuilder
         var greetingDetail = $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Kohana está listo";
 
         var (taskValue, taskDetail) = BuildTaskSummary(taskManager, now, localNow);
-        var (focusValue, focusDetail) = BuildFocusSummary(focusManager, now);
+        var (focusValue, focusDetail, focusHasSession, focusIsPaused) =
+            BuildFocusSummary(taskManager, focusManager, now);
         var (routineValue, routineDetail) = BuildRoutineSummary(routines);
 
         var contextTitle = hasRememberedExternalWindow
@@ -59,6 +60,8 @@ public static class DailyFlowSummaryBuilder
             taskDetail,
             focusValue,
             focusDetail,
+            focusHasSession,
+            focusIsPaused,
             routineValue,
             routineDetail,
             contextTitle,
@@ -99,29 +102,38 @@ public static class DailyFlowSummaryBuilder
         return (value, detail);
     }
 
-    private static (string Value, string Detail) BuildFocusSummary(FocusManager focusManager, DateTimeOffset now)
+    /// <summary>
+    /// Diseño D3.1 — delega en <see cref="FocusDisplayStateBuilder"/>, la misma fuente que ya
+    /// alimenta Enfoque y el mini temporizador global, para no mantener tres cálculos distintos
+    /// del mismo reloj.
+    /// </summary>
+    private static (string Value, string Detail, bool HasSession, bool IsPaused) BuildFocusSummary(
+        TaskManager taskManager,
+        FocusManager focusManager,
+        DateTimeOffset now)
     {
-        var focus = focusManager.GetSnapshot(now);
+        var state = FocusDisplayStateBuilder.Build(
+            focusManager,
+            now,
+            taskId => taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title);
 
-        if (focus.ActiveTimer is { } timer)
+        if (state.HasSession)
         {
-            var minutes = Math.Max(0, (int)Math.Ceiling(focus.Remaining.TotalMinutes));
-            var value = $"{minutes} min";
-            var detail = timer.Status == FocusTimerStatus.Paused
-                ? $"{timer.Label} · en pausa"
-                : timer.Label;
-            return (value, detail);
+            var detail = state.IsPaused
+                ? $"{state.AssociatedLabel} · en pausa"
+                : state.AssociatedLabel ?? "Sesión de enfoque";
+            return (state.ClockText, detail, true, state.IsPaused);
         }
 
         // Diseño D3: sin sesión activa no se muestra una duración sugerida (un "25 min" fijo se
         // leía como una medición). Se muestra el tiempo acumulado hoy si existe, o un estado vacío
         // honesto si no.
-        if (focus.FocusMinutesToday > 0)
+        if (state.FocusMinutesToday > 0)
         {
-            return ($"{focus.FocusMinutesToday} min", "Enfocados hoy");
+            return ($"{state.FocusMinutesToday} min", "Enfocados hoy", false, false);
         }
 
-        return ("—", "No hay una sesión de enfoque activa");
+        return ("—", "No hay una sesión de enfoque activa", false, false);
     }
 
     private static (string Value, string Detail) BuildRoutineSummary(IReadOnlyList<RoutineDefinition> routines)
