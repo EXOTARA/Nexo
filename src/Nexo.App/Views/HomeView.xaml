@@ -59,6 +59,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Margin="2,0,2,20">
@@ -104,6 +105,7 @@
                         Margin="0,0,6,0"
                         MinHeight="152"
                         Style="{StaticResource BentoCardButtonStyle}"
+                        AutomationProperties.Name="Pendientes. Ir a Hoy"
                         Click="TasksCard_Click">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -153,6 +155,7 @@
                         Margin="6,0,0,0"
                         MinHeight="152"
                         Style="{StaticResource BentoCardButtonStyle}"
+                        AutomationProperties.Name="Enfoque. Ir a Enfoque"
                         Click="FocusCard_Click">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -200,19 +203,79 @@
                 </Button>
             </Grid>
 
-            <Button Grid.Row="2"
-                    Margin="0,0,0,12"
-                    MinHeight="142"
-                    Style="{StaticResource BentoCardButtonStyle}"
-                    Click="ContextCard_Click">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <Grid Grid.Row="2" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
+                <Button Grid.Column="0"
+                        Margin="0,0,6,0"
+                        MinHeight="120"
+                        Style="{StaticResource BentoCardButtonStyle}"
+                        AutomationProperties.Name="Rutinas. Ir a Rutinas"
+                        Click="RoutinesCard_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource BentoIconSurfaceStyle}">
+                                <Path Width="19"
+                                      Height="19"
+                                      Stretch="Uniform"
+                                      Stroke="{DynamicResource BrushAccent}"
+                                      StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Data="M3.5,2.5 C6,0.3 9.6,0.4 12,2.8 L13.4,4.2 M13.4,4.2 L13.4,1 M13.4,4.2 L10.2,4.2 M11,15 C8.5,17.2 4.9,17.1 2.5,14.7 L1.1,13.3 M1.1,13.3 L1.1,16.5 M1.1,13.3 L4.3,13.3" />
+                            </Border>
+                            <TextBlock Grid.Column="1"
+                                       Margin="11,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="Rutinas"
+                                       FontSize="14"
+                                       FontWeight="SemiBold" />
+                        </Grid>
+                        <TextBlock Grid.Row="1"
+                                   x:Name="RoutineCountText"
+                                   Margin="0,14,0,0"
+                                   Text="0"
+                                   FontSize="26"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="2"
+                                   x:Name="RoutineDetailText"
+                                   Margin="0,6,0,0"
+                                   Text="No hay rutinas configuradas"
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+                </Button>
+
+                <Button Grid.Column="1"
+                        Margin="6,0,0,0"
+                        MinHeight="120"
+                        Style="{StaticResource BentoCardButtonStyle}"
+                        AutomationProperties.Name="Mirar ahora. Contexto visual de la ventana activa"
+                        Click="ContextCard_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                             <Border Style="{StaticResource BentoIconSurfaceStyle}">
                                 <Path Width="19"
                                       Height="19"
@@ -221,49 +284,50 @@
                                       StrokeThickness="1.8"
                                       Data="M2.5,4 L17.5,4 L17.5,15 L2.5,15 Z M6.5,18 L13.5,18" />
                             </Border>
-                            <StackPanel Margin="12,1,0,0">
-                                <TextBlock Text="Mirar ahora"
-                                           FontSize="15"
-                                           FontWeight="SemiBold" />
-                                <TextBlock Text="Contexto visual de la ventana activa"
-                                           Margin="0,4,0,0"
-                                           Foreground="{DynamicResource BrushTextSecondary}"
-                                           FontSize="12.5" />
-                            </StackPanel>
-                        </StackPanel>
-                        <TextBlock x:Name="ContextTitleText"
-                                   Margin="0,18,0,0"
+                            <TextBlock Grid.Column="1"
+                                       Margin="11,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="Mirar ahora"
+                                       FontSize="14"
+                                       FontWeight="SemiBold" />
+                        </Grid>
+                        <TextBlock Grid.Row="1"
+                                   x:Name="ContextTitleText"
+                                   Margin="0,14,0,0"
                                    Text="Ctrl + Shift + Espacio"
-                                   FontSize="18"
-                                   FontWeight="SemiBold" />
-                        <TextBlock x:Name="ContextDetailText"
-                                   Margin="0,5,0,0"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Grid.Row="2"
+                                   x:Name="ContextDetailText"
+                                   Margin="0,6,0,0"
                                    Text="Se procesa en memoria y se elimina automáticamente."
                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="12.5"
+                                   FontSize="12"
                                    TextWrapping="Wrap" />
-                    </StackPanel>
+                    </Grid>
+                </Button>
+            </Grid>
 
-                    <Border Grid.Column="1"
-                            Width="38"
-                            Height="38"
-                            Margin="18,0,0,0"
-                            VerticalAlignment="Center"
-                            Background="{DynamicResource BrushSurfaceRaised}"
-                            CornerRadius="13">
-                        <Path Width="15"
-                              Height="15"
-                              Stretch="Uniform"
-                              Stroke="{DynamicResource BrushTextPrimary}"
-                              StrokeThickness="2"
-                              StrokeStartLineCap="Round"
-                              StrokeEndLineCap="Round"
-                              Data="M4,10 L16,10 M11,5 L16,10 L11,15" />
-                    </Border>
-                </Grid>
-            </Button>
+            <UniformGrid Grid.Row="3" Columns="3" Margin="0,0,0,12">
+                <Button Content="Nueva tarea"
+                        Margin="0,0,4,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        AutomationProperties.Name="Nueva tarea"
+                        Click="NewTaskQuickAction_Click" />
+                <Button Content="Iniciar enfoque"
+                        Margin="4,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        AutomationProperties.Name="Iniciar enfoque"
+                        Click="StartFocusQuickAction_Click" />
+                <Button Content="Comandos · Ctrl + K"
+                        Margin="4,0,0,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        AutomationProperties.Name="Abrir centro de comandos"
+                        Click="CommandCenterQuickAction_Click" />
+            </UniformGrid>
 
-            <Border Grid.Row="3"
+            <Border Grid.Row="4"
                     Padding="17"
                     Background="#A8121822"
                     BorderBrush="#26FFFFFF"

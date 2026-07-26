@@ -21,6 +21,14 @@ public partial class TasksView : UserControl
 
     public event EventHandler? TasksChanged;
 
+    /// <summary>
+    /// Diseño D3 — el usuario pulsó "Enfocarme" sobre una tarea pendiente. Hoy no inicia la
+    /// sesión por sí misma: le pasa el identificador y el título a quien la construya (MainWindow,
+    /// que ya tiene tanto <c>TaskManager</c> como <c>FocusManager</c>) para no duplicar la
+    /// dependencia de enfoque dentro de esta vista.
+    /// </summary>
+    public event EventHandler<TaskFocusRequestedEventArgs>? FocusRequested;
+
     public void Refresh()
     {
         var now = DateTimeOffset.Now;
@@ -220,9 +228,57 @@ public partial class TasksView : UserControl
             return;
         }
 
+        var task = _taskManager.GetAll().FirstOrDefault(candidate => candidate.Id == id);
+        if (task is null)
+        {
+            return;
+        }
+
+        // Diseño D3: eliminar ya no borra sin preguntar. El foco por defecto de MessageBox.Show
+        // (mismo patrón que RoutinesView.DeleteRoutineButton_Click) cae en el primer botón —
+        // aquí "No", no "Sí" — así que Enter accidental no confirma una eliminación destructiva.
+        var confirmation = MessageBox.Show(
+            $"¿Eliminar «{task.Title}»? Esta acción no se puede deshacer.",
+            "Eliminar tarea",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.No);
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
         _taskManager.Delete(id);
         Refresh();
         TasksChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ReopenTaskButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetTaskId(sender, out var id))
+        {
+            return;
+        }
+
+        _taskManager.Reopen(id);
+        Refresh();
+        TasksChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void FocusTaskButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetTaskId(sender, out var id))
+        {
+            return;
+        }
+
+        var task = _taskManager.GetAll().FirstOrDefault(candidate => candidate.Id == id);
+        if (task is null)
+        {
+            return;
+        }
+
+        FocusRequested?.Invoke(this, new TaskFocusRequestedEventArgs(task.Id, task.Title));
     }
 
     private bool TryGetDueAt(out DateTimeOffset? dueAt, out string error)
@@ -284,6 +340,11 @@ public partial class TasksView : UserControl
                 _ => "NORMAL"
             },
             string.IsNullOrWhiteSpace(task.Notes) ? Visibility.Collapsed : Visibility.Visible,
+            task.IsCompleted ? Visibility.Collapsed : Visibility.Visible,
+            // Diseño D3: reabrir y "Enfocarme" solo tienen sentido sobre una tarea pendiente —
+            // una tarea ya completada no necesita volver a enfocarse, y una pendiente no necesita
+            // reabrirse.
+            task.IsCompleted ? Visibility.Visible : Visibility.Collapsed,
             task.IsCompleted ? Visibility.Collapsed : Visibility.Visible,
             task.IsCompleted ? TextDecorations.Strikethrough : null);
     }
@@ -364,5 +425,14 @@ public partial class TasksView : UserControl
         string PriorityLabel,
         Visibility NotesVisibility,
         Visibility CompleteVisibility,
+        Visibility ReopenVisibility,
+        Visibility FocusVisibility,
         TextDecorationCollection? TextDecorations);
+}
+
+public sealed class TaskFocusRequestedEventArgs(Guid taskId, string taskTitle) : EventArgs
+{
+    public Guid TaskId { get; } = taskId;
+
+    public string TaskTitle { get; } = taskTitle;
 }

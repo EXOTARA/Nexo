@@ -35,6 +35,20 @@
                 Style="{StaticResource SubtleCardStyle}"
                 Margin="0,0,0,12">
             <StackPanel>
+                <Border x:Name="AssociatedTaskBadge"
+                        Margin="0,0,0,8"
+                        Padding="9,5"
+                        HorizontalAlignment="Center"
+                        Background="{DynamicResource BrushAccentSoft}"
+                        BorderBrush="{DynamicResource BrushAccentBorder}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="AssociatedTaskText"
+                               Text=""
+                               FontSize="11.5"
+                               Foreground="{DynamicResource BrushTextSecondary}" />
+                </Border>
                 <TextBlock x:Name="TimerLabelText"
                            Text="Sin sesión activa"
                            HorizontalAlignment="Center"
@@ -58,23 +72,64 @@
                            Text="Elige una duración para comenzar."
                            TextAlignment="Center"
                            Style="{StaticResource MutedTextStyle}" />
-                <UniformGrid Margin="0,12,0,0" Columns="3">
+                <UniformGrid Margin="0,12,0,0" Columns="4">
                     <Button x:Name="PauseButton"
                             Content="Pausar"
-                            Margin="0,0,4,0"
+                            Margin="0,0,3,0"
                             Style="{StaticResource SecondaryButtonStyle}"
+                            AutomationProperties.Name="Pausar sesión de enfoque"
                             Click="PauseButton_Click" />
                     <Button x:Name="ResumeButton"
                             Content="Continuar"
-                            Margin="2,0"
+                            Margin="3,0"
                             Style="{StaticResource SecondaryButtonStyle}"
+                            AutomationProperties.Name="Continuar sesión de enfoque"
                             Click="ResumeButton_Click" />
+                    <Button x:Name="FinishButton"
+                            Content="Finalizar"
+                            Margin="3,0"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            ToolTip="Termina ahora y cuenta el tiempo transcurrido"
+                            AutomationProperties.Name="Finalizar sesión de enfoque"
+                            AutomationProperties.HelpText="Termina la sesión ahora mismo y registra el tiempo ya transcurrido. Distinto de Cancelar, que descarta la sesión sin guardarla."
+                            Click="FinishButton_Click" />
                     <Button x:Name="CancelButton"
                             Content="Cancelar"
-                            Margin="4,0,0,0"
+                            Margin="3,0,0,0"
                             Style="{StaticResource SecondaryButtonStyle}"
+                            ToolTip="Descarta la sesión sin registrarla"
+                            AutomationProperties.Name="Cancelar sesión de enfoque"
                             Click="CancelButton_Click" />
                 </UniformGrid>
+
+                <Border x:Name="TaskCompletionPromptBorder"
+                        Margin="0,12,0,0"
+                        Padding="11"
+                        Background="{DynamicResource BrushSurfaceRaised}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1"
+                        CornerRadius="{DynamicResource RadiusMedium}"
+                        Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="TaskCompletionPromptText"
+                                   Text=""
+                                   TextWrapping="Wrap"
+                                   FontSize="12.5" />
+                        <StackPanel Margin="0,8,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Descartar"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="11,6"
+                                    AutomationProperties.Name="Descartar sugerencia de completar tarea"
+                                    Click="DismissTaskCompletionButton_Click" />
+                            <Button Content="Marcar como completada"
+                                    Margin="7,0,0,0"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Padding="11,6"
+                                    AutomationProperties.Name="Marcar tarea asociada como completada"
+                                    Click="CompleteAssociatedTaskButton_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 

@@ -107,6 +107,64 @@ public sealed class TaskManagerTests
         Assert.Contains("vencida", summary.ToLowerInvariant());
     }
 
+    // ---------- Diseño D3: Reopen ----------
+
+    [Fact]
+    public void Reopen_ClearsCompletedAt()
+    {
+        var store = new MemoryTaskStore([new NexoTask { Title = "Tarea" }]);
+        var manager = new TaskManager(store);
+        manager.Load();
+        var id = manager.GetAll().Single().Id;
+        manager.Complete(id);
+
+        var result = manager.Reopen(id);
+
+        Assert.True(result.Success);
+        var task = manager.GetAll().Single();
+        Assert.False(task.IsCompleted);
+        Assert.Null(task.CompletedAt);
+    }
+
+    [Fact]
+    public void Reopen_PersistsTheChange()
+    {
+        var store = new MemoryTaskStore([new NexoTask { Title = "Tarea" }]);
+        var manager = new TaskManager(store);
+        manager.Load();
+        var id = manager.GetAll().Single().Id;
+        manager.Complete(id);
+
+        manager.Reopen(id);
+
+        Assert.False(store.Tasks.Single().IsCompleted);
+    }
+
+    [Fact]
+    public void Reopen_OnAlreadyPendingTask_IsANoOpNotAFailure()
+    {
+        var store = new MemoryTaskStore([new NexoTask { Title = "Tarea" }]);
+        var manager = new TaskManager(store);
+        manager.Load();
+        var id = manager.GetAll().Single().Id;
+
+        var result = manager.Reopen(id);
+
+        Assert.True(result.Success);
+        Assert.False(manager.GetAll().Single().IsCompleted);
+    }
+
+    [Fact]
+    public void Reopen_OnMissingTask_Fails()
+    {
+        var manager = new TaskManager(new MemoryTaskStore());
+        manager.Load();
+
+        var result = manager.Reopen(Guid.NewGuid());
+
+        Assert.False(result.Success);
+    }
+
     private sealed class MemoryTaskStore : ITaskStore
     {
         public MemoryTaskStore(IEnumerable<NexoTask>? tasks = null)
