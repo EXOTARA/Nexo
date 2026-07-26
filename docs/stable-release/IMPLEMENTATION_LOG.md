@@ -2084,3 +2084,59 @@ completo en `artifacts\Kohana-Design-D3.1-Focus-Continuity-Informe.md`.
 > reactivación correcta desde bandeja, e historial/resumen/presets funcionando, sin crash ni
 > regresiones. **Diseño D3.1 queda aprobado** e integrado en `release/kohana-1.0-rc` vía
 > `merge: integrate approved Focus Continuity D3.1`.
+
+## Diseño D3.2 — Approved Release, Validation Sandbox & Product Technology Roadmap
+
+**Alcance:** registrar la aprobación de D3 y D3.1 (ver secciones anteriores), integrarlos en
+`release/kohana-1.0-rc`, aislar los datos de futuras validaciones interactivas del perfil real del
+usuario, y formalizar la visión de producto, el roadmap tecnológico, la arquitectura de capacidades
+y el modelo de confianza de Kohana. Kohana Lens, Flow, Sakura Pills, optimización adaptativa y
+Computer Use quedan diseñados y planeados en este sprint, **no** implementados.
+
+**Validation Data Sandbox:** `NexoDataPaths.RootDirectory` (`src/Nexo.Core/Diagnostics/
+NexoDataPaths.cs`) resuelve ahora, en orden, un override explícito de proceso, la variable de
+entorno `KOHANA_DATA_ROOT`, o la ruta de producción real sin cambios — todos los stores ya
+derivaban de esa única propiedad, así que ningún store necesitó tocarse individualmente. 28 pruebas
+nuevas (`NexoDataPathsTests`, `ValidationProfileIsolationTests`) cubren precedencia, rutas
+inválidas, y aislamiento entre perfiles. `scripts/New-KohanaValidationProfile.ps1` crea perfiles
+aislados bajo `artifacts/validation-profiles/` y lanza Kohana con la variable fijada solo para el
+proceso hijo.
+
+**Integración:** `merge: integrate approved Sakura Daily Flow D3` seguido de
+`merge: integrate approved Focus Continuity D3.1`, ambos `--no-ff`, sin conflictos. Release pasó de
+`e2dce83` a `72afa54`.
+
+**Build y pruebas (Release), tras los merges:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 715 superadas
+  Nexo.Windows.Tests.dll → 173 superadas
+  Nexo.App.Tests.dll     → 148 superadas
+Total: 1036 pruebas (1008 previas + 28 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 3 veces adicionales tras los commits de documentación, sin flakiness.
+```
+
+**Validación del perfil aislado:** contra el checkpoint publicado, con un perfil de validación
+real: tarea identificable creada, sesión de enfoque de 1 minuto iniciada y finalizada, acento
+visual cambiado — los tres cambios verificados dentro del perfil aislado. Snapshot SHA-256 de los
+12 archivos de `%LocalAppData%\Kohana` idéntico antes y después: 0 diferencias, aislamiento
+confirmado con evidencia real, no fabricada.
+
+**Documentación de producto:** `docs/product/KOHANA_PRODUCT_VISION.md`,
+`docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md` (fases 0–9, solo la Fase 0 marcada implementada),
+`docs/architecture/KOHANA_CAPABILITY_ARCHITECTURE.md` (12 capas con diagrama Mermaid),
+`docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md`, `docs/roadmap/KOHANA_CAPABILITY_MATRIX.md`.
+Próximo sprint grande recomendado: **D4 — Ambient Interaction Foundation**.
+
+**Publicación:** `artifacts\Kohana-0.9.8-beta-d3-approved-checkpoint-win-x64\`, comprimido en
+`Kohana-0.9.8-beta-d3-approved-checkpoint-win-x64.zip` (92 138 182 bytes), SHA-256
+`82863a97436064b3ee6a7a8063ec180e62c139e35956b03631d1c1380e39b5d8`.
+
+**Diseños D3 y D3.1 quedan aprobados por el usuario e integrados en `release/kohana-1.0-rc`.**
+Diseño D3.2 (aislamiento, documentación de producto y roadmap) no se declara aprobado en nombre del
+usuario — es trabajo de infraestructura y documentación, pendiente de que el usuario lo revise si
+así lo decide. Informe completo en
+`artifacts\Kohana-Design-D3.2-Release-And-Roadmap-Informe.md`. No se hizo push, no se abrió PR, no
+se hizo merge a `main`.
