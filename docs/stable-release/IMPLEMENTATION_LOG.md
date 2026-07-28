@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D4 — Ambient Interaction Foundation, APROBADO** (D4.1 + D4.2 + D4.4 probados y validados manualmente por el usuario, integrados en `release/kohana-1.0-rc` vía `merge: integrate approved Ambient Interaction Foundation D4`, `7ce4635`) |
-| **Siguiente fase** | Sin decidir todavía — candidatos: Fase 2 (Kohana Lens) o cerrar más pulido de Fase 1 (auditoría completa, etc.) |
-| **Rama** | `release/kohana-1.0-rc` — D4 se integró vía `merge --no-ff` desde `design/ambient-interaction-v1` |
+| **Fase actual** | **Diseño D5 — Kohana Lens** en curso: D5.1 (migración de TFM) y D5.2 (servicio de OCR real) implementados y probados en `design/kohana-lens-v1`; no integrado a `release/kohana-1.0-rc` todavía |
+| **Siguiente fase** | D5.3+ — UI Automation, consentimiento visible ("Mirando"), redacción, integración con `IAiChatService`, resaltado visual, los tres modos (soporte/estudio/desarrollo) |
+| **Rama** | `design/kohana-lens-v1`, creada desde `release/kohana-1.0-rc` (`f279e18`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-28 |
-| **Bloqueador activo** | Ninguno. D4 aprobado por el usuario en dos pruebas manuales (D4.1/D4.2 tras las correcciones, y D4.4) e integrado a release |
+| **Bloqueador activo** | Ninguno. D5.1/D5.2 son solo captura + OCR — sin acción, sin envío externo, sin UI todavía — pendiente de más sprints antes de cualquier validación de usuario |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2289,3 +2289,60 @@ commit se trajo también a `design/ambient-interaction-v1` por merge, para no ar
 **No se hizo push a `release/kohana-1.0-rc` con el merge de D4, ni se abrió PR ni se hizo merge a
 `main`.** (El hotfix de zona horaria sí se empujó y mergeó a `main` por separado, ver arriba — es
 un cambio independiente de D4, ya integrado antes de este merge.)
+
+---
+
+## Diseño D5 — Kohana Lens (en curso)
+
+**Rama:** `design/kohana-lens-v1`, creada desde `release/kohana-1.0-rc` (`f279e18`, D4 ya integrado).
+Implementa el comienzo de la Fase 2 del roadmap tecnológico
+(`docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md`), siguiendo el orden sugerido por ese mismo documento:
+"Lens: captura y OCR" primero, "Lens: guía visual y modos" después (todavía no iniciado).
+
+### D5.1 — Migración de TFM a `net10.0-windows10.0.26100.0`
+
+Ejecuta la decisión ya tomada en `ADR 0003`: el TFM `net10.0-windows` no da acceso a WinRT, lo que
+bloqueaba `Windows.Media.Ocr`. Se cambió `Nexo.Windows`, `Nexo.App` y sus dos proyectos de pruebas;
+`Nexo.Core` permanece en `net10.0` puro, sin cambios, tal como exige el mismo ADR. Cambio de TFM
+puro, sin ningún cambio de comportamiento: compiló sin tocar código, la suite completa siguió en
+verde, y un arranque manual de `Kohana.exe` recompilado confirmó que la app sigue iniciando con
+normalidad en esta máquina (Windows 11 Pro build 26200, ya cumple el nuevo mínimo de 26100+).
+
+### D5.2 — Servicio de OCR real sobre `Windows.Media.Ocr`
+
+`IOcrService`/`OcrResult`/`OcrTextLine` en `Nexo.Core.Vision` + `WindowsOcrService` en
+`Nexo.Windows.Vision`, desbloqueado por D5.1. Recibe los mismos bytes PNG que ya produce
+`IScreenCaptureService` y devuelve el texto completo más una caja delimitadora por línea (unión de
+las cajas de cada palabra — suficiente para un resaltado visual futuro sin necesitar precisión por
+palabra todavía). Nativo de Windows: sin modelo que descargar, sin dependencia nueva, tal como
+anticipaba el ADR. Falla honestamente (`IsSuccess = false` con un `Detail` explicativo) cuando el
+equipo no tiene ningún paquete de idioma de reconocimiento instalado (función opcional de Windows,
+no garantizada en toda instalación) — no se asume que el motor exista, se comprueba.
+
+**Verificación real, no simulada:** se probó contra el motor real de Windows (no un doble):
+renderizar una imagen con el texto "KOHANA KANBAN" y confirmar que se reconoce exactamente —
+verificado manualmente con una salida de depuración temporal (`FullText=KOHANA KANBAN`) antes de
+quitarla, para no dejar la prueba dependiendo de una intuición sobre qué rama del código se
+ejecutó.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 737 superadas
+  Nexo.Windows.Tests.dll → 181 superadas
+  Nexo.App.Tests.dll     → 162 superadas
+Total: 1080 pruebas (1078 previas + 2 nuevas — el resto son de D4), 0 fallidas, 0 omitidas,
+0 warnings. Suite completa repetida 3 veces sin flakiness.
+```
+
+**Pendiente (siguiente sprint, "Lens: guía visual y modos"):** UI Automation de la ventana activa,
+pantalla de consentimiento/autorización visible (estado "Mirando" del modelo de confianza — todavía
+sin indicador propio, exigido por `docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md`), redacción de
+contenido sensible antes de enviar cualquier cosa a un proveedor externo, integración con
+`IAiChatService` para explicar lo observado, resaltado visual sobre pantalla, y los tres modos
+(soporte/estudio/desarrollo). **No implementado todavía — D5.1 y D5.2 son solo captura + OCR, sin
+ninguna acción ni envío externo.**
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
