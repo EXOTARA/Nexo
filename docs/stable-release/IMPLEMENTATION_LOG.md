@@ -2227,14 +2227,25 @@ arranca sin excepciones con los nuevos campos/servicios cableados en el construc
 Automation en cada intento, sin crash del proceso.
 
 **Pendiente, no bloqueante:**
-- Historial de solicitudes: `AmbientRequestManager.GetHistory()` ya persiste y expone las
-  solicitudes archivadas (usado internamente para el archivado automático), pero todavía no hay una
-  superficie visible en la UI que lo muestre al usuario — a diferencia de Enfoque, que sí tiene una
-  vista de historial dedicada. Se deja para un sprint de pulido posterior, sin bloquear D4.1/D4.2.
 - Auditoría: las entradas de historial (`AmbientRequestHistoryEntry`, con `CanUndo`/`Undone`) ya
   registran qué pasó y cuándo, cumpliendo un "audit básico" honesto para esta fase — el Audit Log
   completo orientado al usuario (capa 11 de `KOHANA_CAPABILITY_ARCHITECTURE.md`) sigue siendo
   trabajo de la Fase 7, no se adelanta aquí.
+
+### D4.4 — Historial de solicitudes visible
+
+`AmbientRequestManager.GetHistory()` ya persistía las solicitudes archivadas desde D4.1 (usado
+internamente para el archivado automático), pero no había ninguna superficie visible. Se agregó:
+`AmbientRequestHistoryItem`/`AmbientRequestHistorySummaryBuilder` (función pura, más reciente
+primero, honesta — una solicitud fallida muestra su mensaje de error, nunca un resultado
+inventado), `AmbientHistoryWindow` (ventana normal, activable, a diferencia del pill) con un botón
+"Deshacer" por entrada cuando su resultado declaró `CanUndo` y todavía no se deshizo — cierra el
+hueco donde Deshacer solo funcionaba sobre la solicitud visible en el momento, nunca sobre el
+historial. Nuevo comando del Command Center `ambient.history` ("Ver historial de solicitudes
+ambientales").
+
+8 pruebas nuevas, 1078 en total, 0 fallidas, 0 warnings, suite repetida 3 veces sin flakiness.
+Pendiente de smoke test manual del usuario, igual que D4.1/D4.2.
 
 ### Smoke test manual del usuario (2026-07-28) y correcciones
 

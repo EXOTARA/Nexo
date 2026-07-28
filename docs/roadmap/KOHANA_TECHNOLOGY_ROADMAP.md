@@ -241,9 +241,9 @@ Sprint grande recomendado inmediatamente después de Diseño D3.2. Implementa la
 **Explícitamente fuera de alcance para D4:** Lens completa (Fase 2), Flow (Fase 3) y Computer Use
 (Fase 7) — D4 sienta las bases ambientales; esas tres fases se construyen encima, no dentro de D4.
 
-**Estado real (actualizado tras D4.1 + D4.2):** Sakura Pill Host, ventanas no activables, ciclo de
-vida de solicitud, resultado corto/expandible, cancelar, deshacer, primitivas de permisos, Context
-Snapshot e integración inicial con el Command Center ya están implementados y probados — ver
-`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D4". Pendiente: una superficie de UI
-para el historial de solicitudes (los datos ya se persisten), y la validación interactiva manual
-antes de integrar a `release/kohana-1.0-rc`.
+**Estado real (actualizado tras D4.1 + D4.2 + D4.4):** Sakura Pill Host, ventanas no activables,
+ciclo de vida de solicitud, resultado corto/expandible, cancelar, deshacer (tanto en la solicitud
+visible como en el historial), primitivas de permisos, Context Snapshot, historial de solicitudes
+visible e integración inicial con el Command Center ya están implementados y probados — ver
+`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D4". Pendiente: validación interactiva
+manual completa del usuario antes de integrar a `release/kohana-1.0-rc`.
