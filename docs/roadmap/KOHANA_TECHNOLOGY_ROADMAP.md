@@ -29,9 +29,9 @@
 
 ## Fase 1 — Ambient Interaction Foundation
 
-**Estado: Parcial** (D4.1 + D4.2 implementados en `design/ambient-interaction-v1`, sin integrar a
-`release/kohana-1.0-rc` y pendientes de validación interactiva manual — ver
-`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D4").
+**Estado: Implementada** (Diseño D4 — D4.1 + D4.2 + D4.4 —, validado manualmente por el usuario e
+integrado en `release/kohana-1.0-rc` — ver `docs/stable-release/IMPLEMENTATION_LOG.md`, sección
+"Diseño D4").
 
 - Objetivo: que Kohana pueda responder brevemente sin que el usuario tenga que abrir ni enfocar la
   ventana principal.
@@ -244,6 +244,6 @@ Sprint grande recomendado inmediatamente después de Diseño D3.2. Implementa la
 **Estado real (actualizado tras D4.1 + D4.2 + D4.4):** Sakura Pill Host, ventanas no activables,
 ciclo de vida de solicitud, resultado corto/expandible, cancelar, deshacer (tanto en la solicitud
 visible como en el historial), primitivas de permisos, Context Snapshot, historial de solicitudes
-visible e integración inicial con el Command Center ya están implementados y probados — ver
-`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D4". Pendiente: validación interactiva
-manual completa del usuario antes de integrar a `release/kohana-1.0-rc`.
+visible e integración inicial con el Command Center están implementados, probados, validados
+manualmente por el usuario e integrados en `release/kohana-1.0-rc` — ver
+`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D4".

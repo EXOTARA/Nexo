@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D4 — Ambient Interaction Foundation** (D4.1 y D4.2 implementados, probados y validados manualmente por el usuario en `design/ambient-interaction-v1`, incluidas dos correcciones post smoke test; no integrado a `release/kohana-1.0-rc` todavía) |
-| **Siguiente fase** | Historial de solicitudes visible en UI, pulido restante, y luego integración a release |
-| **Rama** | `design/ambient-interaction-v1`, creada desde `release/kohana-1.0-rc` (`5885249`) |
+| **Fase actual** | **Diseño D4 — Ambient Interaction Foundation, APROBADO** (D4.1 + D4.2 + D4.4 probados y validados manualmente por el usuario, integrados en `release/kohana-1.0-rc` vía `merge: integrate approved Ambient Interaction Foundation D4`, `7ce4635`) |
+| **Siguiente fase** | Sin decidir todavía — candidatos: Fase 2 (Kohana Lens) o cerrar más pulido de Fase 1 (auditoría completa, etc.) |
+| **Rama** | `release/kohana-1.0-rc` — D4 se integró vía `merge --no-ff` desde `design/ambient-interaction-v1` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-28 |
-| **Bloqueador activo** | Ninguno. El usuario probó D4.1/D4.2 manualmente, encontró dos defectos (pill sin auto-descarte, Context Snapshot obsoleto tras cambiar de ventana) ya corregidos, y confirmó "se ve bien" en la segunda prueba |
+| **Bloqueador activo** | Ninguno. D4 aprobado por el usuario en dos pruebas manuales (D4.1/D4.2 tras las correcciones, y D4.4) e integrado a release |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2278,10 +2278,14 @@ UTC-6 pero fallaba en los runners de GitHub Actions (UTC). Corregido en `release
 commit se trajo también a `design/ambient-interaction-v1` por merge, para no arrastrar el bug.
 
 > **Confirmación del usuario:** tras las dos correcciones del pill, el usuario volvió a probarlo y
-> confirmó "se ve bien". D4.1 y D4.2 quedan validados interactivamente por el usuario — sigue sin
-> declararse "aprobado e integrado a release" en el sentido formal de D1-D3.2 (eso llega cuando se
-> cierre el resto de D4: historial visible y el resto de pulido pendiente arriba).
+> confirmó "se ve bien". D4.1 y D4.2 quedan validados interactivamente por el usuario.
 
-**No se hizo push, no se abrió PR, no se hizo merge de `design/ambient-interaction-v1` a
-`release/kohana-1.0-rc` ni a `main`.** (El hotfix de zona horaria sí se empujó y mergeó a `main` por
-separado, ver arriba — es un cambio independiente de D4.)
+> **Aprobación (2026-07-28):** el usuario probó también D4.4 (historial de solicitudes) y confirmó
+> de nuevo "se ve bien". **Diseño D4 (D4.1 + D4.2 + D4.4) queda aprobado por el usuario** e
+> integrado en `release/kohana-1.0-rc` vía `merge: integrate approved Ambient Interaction
+> Foundation D4` (`7ce4635`). Build Release 0 warnings, 1078 pruebas, 0 fallidas, suite repetida 3
+> veces sin flakiness tras el merge.
+
+**No se hizo push a `release/kohana-1.0-rc` con el merge de D4, ni se abrió PR ni se hizo merge a
+`main`.** (El hotfix de zona horaria sí se empujó y mergeó a `main` por separado, ver arriba — es
+un cambio independiente de D4, ya integrado antes de este merge.)
