@@ -106,6 +106,15 @@ public partial class MainWindow : Window
     private readonly JsonAmbientRequestHistoryStore _ambientRequestStore = new();
     private readonly AmbientRequestManager _ambientRequestManager;
     private readonly WindowsAmbientContextProvider _ambientContextProvider = new();
+
+    /// <summary>
+    /// Diseño D4 (corrección post smoke test manual) — fuente propia y en tiempo real de "última
+    /// ventana ajena en primer plano" para el Context Snapshot ambiental. Deliberadamente
+    /// independiente de <see cref="_lastExternalWindowHandle"/> (mecanismo existente de Vision/
+    /// Peek, que solo se actualiza en puntos concretos como <see cref="RememberForegroundWindow"/>
+    /// y no ante un Alt+Tab normal) para no alterar ese comportamiento ya probado.
+    /// </summary>
+    private readonly ForegroundWindowTracker _ambientForegroundTracker = new();
     private readonly SakuraPillWindow _sakuraPillWindow = new();
     private readonly HomeView _homeView = new();
     private readonly AssistantView _assistantView = new();
@@ -1382,6 +1391,7 @@ public partial class MainWindow : Window
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
         _sakuraPillWindow.Close();
+        _ambientForegroundTracker.Dispose();
         _commandPaletteWindow.Close();
         // MainWindow desuscribe los eventos de wake word (a través del coordinador) y cancela
         // el token de vida, pero NO libera los tres motores de voz: su propiedad y Dispose
@@ -3385,15 +3395,16 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Diseño D4 — comando inicial del Command Center para el Sakura Pill Host: captura un
-    /// Context Snapshot real de la última ventana externa recordada (<see cref="_lastExternalWindowHandle"/>,
-    /// ya usado por Vision) y recorre el ciclo completo Escuchando → Pensando → Resultado/Error.
-    /// No hay procesamiento de IA todavía (eso llega con Lens/Flow, Fases 2-3): el "resultado" es
-    /// honesto sobre lo que puede observar hoy — título y proceso de la ventana activa.
+    /// Context Snapshot real de la última ventana externa en primer plano
+    /// (<see cref="_ambientForegroundTracker"/>, actualizado en tiempo real) y recorre el ciclo
+    /// completo Escuchando → Pensando → Resultado/Error. No hay procesamiento de IA todavía (eso
+    /// llega con Lens/Flow, Fases 2-3): el "resultado" es honesto sobre lo que puede observar hoy —
+    /// título y proceso de la ventana activa.
     /// </summary>
     private async Task<CommandExecutionResult> ExecuteAmbientContextPeekAsync()
     {
         var now = DateTimeOffset.Now;
-        var context = _ambientContextProvider.Capture(_lastExternalWindowHandle);
+        var context = _ambientContextProvider.Capture(_ambientForegroundTracker.LastExternalWindowHandle);
         var beginResult = _ambientRequestManager.Begin("¿Qué ventana tengo activa?", context, now);
         if (!beginResult.Success)
         {

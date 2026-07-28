@@ -3,7 +3,9 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using Nexo.App.Ambient;
+using Nexo.Core.Ambient;
 
 namespace Nexo.App;
 
@@ -13,14 +15,35 @@ public partial class SakuraPillWindow : Window
     private const int WsExNoActivate = 0x08000000;
     private const int WsExToolWindow = 0x00000080;
 
+    /// <summary>
+    /// Diseño D4 (corrección post smoke test manual, 2026-07-28) — cuánto se muestra un resultado
+    /// u error antes de descartarse solo. El usuario reportó que el pill se quedaba abierto de
+    /// forma indefinida: a diferencia de <c>CapsuleWindow</c> (aviso transitorio con auto-descarte
+    /// desde D1), esta primera versión de D4 nunca tuvo temporizador propio.
+    /// </summary>
+    private static readonly TimeSpan AutoDismissDelay = TimeSpan.FromSeconds(8);
+
+    private readonly DispatcherTimer _autoDismissTimer;
     private bool _canCancel;
     private bool _canDismiss;
     private bool _isExpanded;
     private Guid? _expandedForRequestId;
+    private Guid? _autoDismissForRequestId;
+    private AmbientRequestStatus? _autoDismissForStatus;
 
     public SakuraPillWindow()
     {
         InitializeComponent();
+
+        _autoDismissTimer = new DispatcherTimer { Interval = AutoDismissDelay };
+        _autoDismissTimer.Tick += (_, _) =>
+        {
+            _autoDismissTimer.Stop();
+            if (_canDismiss)
+            {
+                DismissRequested?.Invoke(this, EventArgs.Empty);
+            }
+        };
     }
 
     public event EventHandler? CancelRequested;
@@ -46,6 +69,9 @@ public partial class SakuraPillWindow : Window
 
         if (!state.IsVisible)
         {
+            _autoDismissTimer.Stop();
+            _autoDismissForRequestId = null;
+            _autoDismissForStatus = null;
             Hide();
             return;
         }
@@ -95,6 +121,24 @@ public partial class SakuraPillWindow : Window
             : $"{state.StatusText}. {state.ErrorMessage}";
         AutomationProperties.SetName(PillBorder, description);
 
+        if (!state.CanDismiss)
+        {
+            // Escuchando/Pensando: nunca se autodescarta un ciclo en curso.
+            _autoDismissTimer.Stop();
+            _autoDismissForRequestId = null;
+            _autoDismissForStatus = null;
+        }
+        else if (state.RequestId != _autoDismissForRequestId || state.Status != _autoDismissForStatus)
+        {
+            // Resultado/Error nuevo (o recién alcanzable): arranca el auto-descarte desde cero.
+            // Si ya se estaba contando para el mismo estado, no se reinicia — así un refresco
+            // redundante no extiende el tiempo de vida indefinidamente.
+            _autoDismissForRequestId = state.RequestId;
+            _autoDismissForStatus = state.Status;
+            _autoDismissTimer.Stop();
+            _autoDismissTimer.Start();
+        }
+
         if (!IsVisible)
         {
             PositionWindow();
@@ -117,7 +161,11 @@ public partial class SakuraPillWindow : Window
                 Tag = action.Id
             };
             AutomationProperties.SetName(button, action.Label);
-            button.Click += (_, _) => QuickActionRequested?.Invoke(this, action.Id);
+            button.Click += (_, _) =>
+            {
+                RestartAutoDismissIfDismissible();
+                QuickActionRequested?.Invoke(this, action.Id);
+            };
             QuickActionsPanel.Children.Add(button);
         }
 
@@ -148,6 +196,21 @@ public partial class SakuraPillWindow : Window
         _isExpanded = !_isExpanded;
         ExpandedTextBlock.Visibility = _isExpanded ? Visibility.Visible : Visibility.Collapsed;
         ExpandToggleButton.Content = _isExpanded ? "Contraer" : "Expandir";
+        RestartAutoDismissIfDismissible();
+    }
+
+    /// <summary>
+    /// Diseño D4 (corrección post smoke test) — interactuar con un resultado ya visible (expandir,
+    /// una acción rápida) le da al usuario una ventana completa nueva antes del auto-descarte, en
+    /// vez de dejar que el temporizador ya en curso lo cierre a mitad de la interacción.
+    /// </summary>
+    private void RestartAutoDismissIfDismissible()
+    {
+        if (_canDismiss)
+        {
+            _autoDismissTimer.Stop();
+            _autoDismissTimer.Start();
+        }
     }
 
     private void UndoButton_Click(object sender, RoutedEventArgs e) =>
