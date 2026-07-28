@@ -11,11 +11,13 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using Nexo.App.Ambient;
 using Nexo.App.Automation;
 using Nexo.App.DailyFlow;
 using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
+using Nexo.Core.Ambient;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Automation;
 using Nexo.Core.Audio;
@@ -31,6 +33,7 @@ using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
 using Nexo.Core.Vision;
 using Nexo.Windows.Ai;
+using Nexo.Windows.Ambient;
 using Nexo.Windows.Automation;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
@@ -100,6 +103,10 @@ public partial class MainWindow : Window
     private readonly JsonRoutineStore _routineStore = new();
     private readonly RoutineManager _routineManager;
     private readonly RoutineRunner _routineRunner;
+    private readonly JsonAmbientRequestHistoryStore _ambientRequestStore = new();
+    private readonly AmbientRequestManager _ambientRequestManager;
+    private readonly WindowsAmbientContextProvider _ambientContextProvider = new();
+    private readonly SakuraPillWindow _sakuraPillWindow = new();
     private readonly HomeView _homeView = new();
     private readonly AssistantView _assistantView = new();
     private readonly TasksView _tasksView;
@@ -133,6 +140,13 @@ public partial class MainWindow : Window
     /// de forma perezosa).
     /// </summary>
     private readonly FocusContinuityCoordinator _focusContinuity;
+
+    /// <summary>
+    /// Diseño D4 — conecta <see cref="AmbientRequestManager"/> con el Sakura Pill Host
+    /// (<see cref="_sakuraPillWindow"/>), igual que <see cref="_focusContinuity"/> conecta
+    /// <c>FocusManager</c> con el mini temporizador.
+    /// </summary>
+    private readonly SakuraPillCoordinator _ambientCoordinator;
     private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
     private readonly bool _startHidden;
@@ -205,6 +219,8 @@ public partial class MainWindow : Window
             _audioMixerService,
             _focusManager,
             _taskManager));
+        _ambientRequestManager = new AmbientRequestManager(_ambientRequestStore);
+        _ambientRequestManager.Load();
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
             _focusManager,
@@ -218,6 +234,10 @@ public partial class MainWindow : Window
             taskId => _taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title,
             () => NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled));
         _focusContinuity.FinishRequested += (_, _) => FinishActiveFocusSession();
+
+        _ambientCoordinator = new SakuraPillCoordinator(_ambientRequestManager, _sakuraPillWindow);
+        _ambientCoordinator.QuickActionInvoked += AmbientCoordinator_QuickActionInvoked;
+
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
             [ShellNavigationPolicy.Home] = _homeView,
@@ -970,6 +990,18 @@ public partial class MainWindow : Window
             keywords: ["enfoque", "historial", "actividad", "resumen", "sesiones"]));
 
         registry.Register(new KohanaCommandDescriptor(
+            "ambient.contextPeek",
+            "¿Qué ventana tengo activa?",
+            "Muestra en el Sakura Pill Host el título y el proceso de la última ventana externa " +
+            "que tuviste activa, sin robarle el foco.",
+            KohanaCommandCategory.Ambient,
+            _ => ExecuteAmbientContextPeekAsync(),
+            keywords: ["ventana", "activa", "contexto", "ambiental", "pill", "sakura"],
+            availability: () => _ambientRequestManager.GetSnapshot(recentCount: 0).ActiveRequest is null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso.")));
+
+        registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
             "Crear una tarea",
             "Abre Hoy para añadir una tarea nueva.",
@@ -1336,6 +1368,7 @@ public partial class MainWindow : Window
         _visualContextExpiryTimer.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
+        _sakuraPillWindow.Hide();
 
         if (_preferences.SaveConversationHistory)
         {
@@ -1348,6 +1381,7 @@ public partial class MainWindow : Window
         _wakeWordTestCancellation = null;
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
+        _sakuraPillWindow.Close();
         _commandPaletteWindow.Close();
         // MainWindow desuscribe los eventos de wake word (a través del coordinador) y cancela
         // el token de vida, pero NO libera los tres motores de voz: su propiedad y Dispose
@@ -3315,6 +3349,85 @@ public partial class MainWindow : Window
         // cualquier sección); este otro vive en Enfoque con las acciones reales (completar tarea,
         // iniciar otra sesión, cerrar).
         _focusView.ShowSessionCompletionNotice(completion);
+    }
+
+    /// <summary>
+    /// Diseño D4 — punto único de refresco del Sakura Pill Host, igual que
+    /// <see cref="CheckFocusTimer"/> lo es para el mini temporizador. Se llama después de cualquier
+    /// mutación de <see cref="_ambientRequestManager"/> (comandos del Command Center, botones de la
+    /// propia ventana a través de <see cref="_ambientCoordinator"/>).
+    /// </summary>
+    private void CheckAmbientRequest() => _ambientCoordinator.Refresh();
+
+    private void AmbientCoordinator_QuickActionInvoked(object? sender, string actionId)
+    {
+        if (!string.Equals(actionId, "copy", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var text = _ambientRequestManager.GetSnapshot(recentCount: 0).ActiveRequest?.Result?.ShortText;
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(text);
+        }
+        catch (Exception exception) when (
+            exception is COMException or ExternalException)
+        {
+            // El portapapeles puede estar bloqueado por otro proceso; no es un fallo de Kohana.
+        }
+    }
+
+    /// <summary>
+    /// Diseño D4 — comando inicial del Command Center para el Sakura Pill Host: captura un
+    /// Context Snapshot real de la última ventana externa recordada (<see cref="_lastExternalWindowHandle"/>,
+    /// ya usado por Vision) y recorre el ciclo completo Escuchando → Pensando → Resultado/Error.
+    /// No hay procesamiento de IA todavía (eso llega con Lens/Flow, Fases 2-3): el "resultado" es
+    /// honesto sobre lo que puede observar hoy — título y proceso de la ventana activa.
+    /// </summary>
+    private async Task<CommandExecutionResult> ExecuteAmbientContextPeekAsync()
+    {
+        var now = DateTimeOffset.Now;
+        var context = _ambientContextProvider.Capture(_lastExternalWindowHandle);
+        var beginResult = _ambientRequestManager.Begin("¿Qué ventana tengo activa?", context, now);
+        if (!beginResult.Success)
+        {
+            return CommandExecutionResult.Failure(beginResult.Message);
+        }
+
+        CheckAmbientRequest();
+        _ambientRequestManager.BeginThinking(DateTimeOffset.Now);
+        CheckAmbientRequest();
+
+        await Task.Delay(TimeSpan.FromMilliseconds(450));
+
+        if (context is null || string.IsNullOrWhiteSpace(context.WindowTitle))
+        {
+            var message = context is { IsSensitive: true }
+                ? "Esa ventana está marcada como sensible; Kohana no expone su título."
+                : "No pude identificar una ventana activa distinta de Kohana.";
+            _ambientRequestManager.Fail(message, DateTimeOffset.Now);
+        }
+        else
+        {
+            var shortText = string.IsNullOrWhiteSpace(context.ProcessName)
+                ? context.WindowTitle
+                : $"{context.WindowTitle} — {context.ProcessName}";
+            var result = new AmbientRequestResult(
+                shortText,
+                $"Proceso: {context.ProcessName}\nTítulo completo: {context.WindowTitle}",
+                [new AmbientQuickAction("copy", "Copiar", AmbientAutonomyLevel.Ver)],
+                CanUndo: false);
+            _ambientRequestManager.CompleteWithResult(result, DateTimeOffset.Now);
+        }
+
+        CheckAmbientRequest();
+        return CommandExecutionResult.Success();
     }
 
     private Task ExecuteFocusCommandAsync(FocusCommand command)
