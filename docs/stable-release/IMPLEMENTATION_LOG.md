@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D4 — Ambient Interaction Foundation** (D4.1 y D4.2 implementados y probados en `design/ambient-interaction-v1`; no integrado a `release/kohana-1.0-rc` todavía) |
-| **Siguiente fase** | D4.3/D4.4 — historial visible, pulido, validación interactiva manual, y luego integración a release |
+| **Fase actual** | **Diseño D4 — Ambient Interaction Foundation** (D4.1 y D4.2 implementados, probados y validados manualmente por el usuario en `design/ambient-interaction-v1`, incluidas dos correcciones post smoke test; no integrado a `release/kohana-1.0-rc` todavía) |
+| **Siguiente fase** | Historial de solicitudes visible en UI, pulido restante, y luego integración a release |
 | **Rama** | `design/ambient-interaction-v1`, creada desde `release/kohana-1.0-rc` (`5885249`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-28 |
-| **Bloqueador activo** | Ninguno bloqueante. Pendiente: validación interactiva manual de D4 (ver sección Diseño D4 — el intento automatizado con System.Windows.Automation no pudo completarse en el entorno sandbox de esta sesión) antes de declararlo aprobado e integrarlo a release |
+| **Bloqueador activo** | Ninguno. El usuario probó D4.1/D4.2 manualmente, encontró dos defectos (pill sin auto-descarte, Context Snapshot obsoleto tras cambiar de ventana) ya corregidos, y confirmó "se ve bien" en la segunda prueba |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2235,6 +2235,42 @@ Automation en cada intento, sin crash del proceso.
   registran qué pasó y cuándo, cumpliendo un "audit básico" honesto para esta fase — el Audit Log
   completo orientado al usuario (capa 11 de `KOHANA_CAPABILITY_ARCHITECTURE.md`) sigue siendo
   trabajo de la Fase 7, no se adelanta aquí.
-- Validación interactiva manual del usuario (smoke test), siguiendo el mismo patrón que D1-D3.2.
 
-**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+### Smoke test manual del usuario (2026-07-28) y correcciones
+
+El usuario probó D4.1/D4.2 manualmente (la validación interactiva que no se pudo completar por
+automatización, ver arriba) y encontró dos defectos reales:
+
+1. **El pill nunca se cerraba solo** — no tenía temporizador propio, a diferencia de
+   `CapsuleWindow`. Corregido con un `DispatcherTimer` de auto-descarte de 8 segundos en
+   `SakuraPillWindow`, que dispara `DismissRequested` (pasa por el manager, no un `Hide()` suelto,
+   para no dejar el estado interno inconsistente) y se reinicia si el usuario interactúa
+   (expandir, una acción rápida) para no cortarlo a media lectura.
+2. **Volver a ejecutar el comando tras cambiar de ventana seguía mostrando la ventana anterior** —
+   causa raíz: reutilizaba `MainWindow._lastExternalWindowHandle`, que solo se actualiza en puntos
+   concretos ya existentes para Vision/Peek (`RememberForegroundWindow()`), nunca con un Alt+Tab
+   normal ni al abrir el Command Center (que solo puede abrirse con Kohana ya enfocada). Corregido
+   con `ForegroundWindowTracker` (`Nexo.Windows/Ambient/`), un listener propio de
+   `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` que mantiene el último handle ajeno al proceso
+   actualizado en tiempo real, sin tocar el mecanismo existente de Vision.
+
+2 pruebas nuevas, 1070 en total, 0 fallidas, 0 warnings, suite repetida 3 veces sin flakiness.
+
+**Aparte, en la misma sesión:** el usuario reportó de paso que el CI de GitHub estaba en rojo en
+`main` (PR #26 ya mergeado). Se rastreó a un bug de zona horaria no relacionado con D4:
+`DailyFlowSummaryBuilder` calculaba el saludo con `now.LocalDateTime.Hour` (reinterpreta el
+`DateTimeOffset` de entrada en la zona horaria de la máquina que ejecuta el código) en vez de
+`now.Hour` (la hora ya fijada en el propio valor, sin reconversión) — pasaba en un equipo en
+UTC-6 pero fallaba en los runners de GitHub Actions (UTC). Corregido en `release/kohana-1.0-rc`
+(`ea351ac`), empujado, y traído a `main` vía
+[PR #27](https://github.com/EXOTARA/Nexo/pull/27) (mergeado, CI en verde confirmado). El mismo
+commit se trajo también a `design/ambient-interaction-v1` por merge, para no arrastrar el bug.
+
+> **Confirmación del usuario:** tras las dos correcciones del pill, el usuario volvió a probarlo y
+> confirmó "se ve bien". D4.1 y D4.2 quedan validados interactivamente por el usuario — sigue sin
+> declararse "aprobado e integrado a release" en el sentido formal de D1-D3.2 (eso llega cuando se
+> cierre el resto de D4: historial visible y el resto de pulido pendiente arriba).
+
+**No se hizo push, no se abrió PR, no se hizo merge de `design/ambient-interaction-v1` a
+`release/kohana-1.0-rc` ni a `main`.** (El hotfix de zona horaria sí se empujó y mergeó a `main` por
+separado, ver arriba — es un cambio independiente de D4.)
