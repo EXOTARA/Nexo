@@ -55,11 +55,12 @@ integrado en `release/kohana-1.0-rc` — ver `docs/stable-release/IMPLEMENTATION
 
 ## Fase 2 — Kohana Lens
 
-**Estado: Parcial** (D5.1 migración de TFM + D5.2 servicio de OCR real implementados y probados en
-`design/kohana-lens-v1`, sin integrar a `release/kohana-1.0-rc` — ver
-`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D5". Falta todo lo demás: UI
-Automation, consentimiento visible, redacción, integración con IA, resaltado visual, los tres
-modos).
+**Estado: Parcial** (D5.1-D5.6 implementados y probados en `design/kohana-lens-v1`: TFM, OCR real,
+UI Automation, redacción de texto e imagen, indicador "Mirando", y los tres modos
+—soporte/estudio/desarrollo— funcionando de punta a punta sobre la ventana activa, integrados con
+la IA. Sin integrar a `release/kohana-1.0-rc` todavía — ver
+`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D5". Falta solo el resaltado visual
+sobre pantalla (D5.7) y la validación manual del usuario).
 
 - Objetivo: que Kohana pueda observar y explicar lo que hay en pantalla (con autorización), no
   actuar sobre ello todavía.

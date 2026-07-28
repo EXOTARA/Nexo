@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D5 — Kohana Lens** en curso: D5.1 (migración de TFM) y D5.2 (servicio de OCR real) implementados y probados en `design/kohana-lens-v1`; no integrado a `release/kohana-1.0-rc` todavía |
-| **Siguiente fase** | D5.3+ — UI Automation, consentimiento visible ("Mirando"), redacción, integración con `IAiChatService`, resaltado visual, los tres modos (soporte/estudio/desarrollo) |
+| **Fase actual** | **Diseño D5 — Kohana Lens** en curso: D5.1-D5.6 implementados y probados en `design/kohana-lens-v1` — los tres modos funcionan de punta a punta sobre la ventana activa; no integrado a `release/kohana-1.0-rc` todavía |
+| **Siguiente fase** | D5.7 — resaltado visual sobre pantalla (única pieza restante del criterio de terminado de la Fase 2), luego validación manual del usuario e integración a release |
 | **Rama** | `design/kohana-lens-v1`, creada desde `release/kohana-1.0-rc` (`f279e18`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-28 |
-| **Bloqueador activo** | Ninguno. D5.1/D5.2 son solo captura + OCR — sin acción, sin envío externo, sin UI todavía — pendiente de más sprints antes de cualquier validación de usuario |
+| **Bloqueador activo** | Ninguno. Falta el resaltado visual (D5.7) y la validación manual del usuario antes de declarar D5 aprobado |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2337,12 +2337,93 @@ Total: 1080 pruebas (1078 previas + 2 nuevas — el resto son de D4), 0 fallidas
 0 warnings. Suite completa repetida 3 veces sin flakiness.
 ```
 
-**Pendiente (siguiente sprint, "Lens: guía visual y modos"):** UI Automation de la ventana activa,
-pantalla de consentimiento/autorización visible (estado "Mirando" del modelo de confianza — todavía
-sin indicador propio, exigido por `docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md`), redacción de
-contenido sensible antes de enviar cualquier cosa a un proveedor externo, integración con
-`IAiChatService` para explicar lo observado, resaltado visual sobre pantalla, y los tres modos
-(soporte/estudio/desarrollo). **No implementado todavía — D5.1 y D5.2 son solo captura + OCR, sin
-ninguna acción ni envío externo.**
+### D5.3 — Lectura de UI Automation (solo lectura)
+
+`IUiAutomationReader`/`UiAutomationElement`/`UiAutomationSnapshot` en `Nexo.Core.Vision` +
+`WindowsUiAutomationReader` en `Nexo.Windows.Vision`, primer uso en código de producción de UI
+Automation sobre una ventana ajena (hasta ahora solo existía en arneses de prueba y como
+`AutomationProperties` de los propios controles de Kohana). Complementa el OCR: donde el OCR ve
+píxeles, esto ve la estructura semántica que la propia aplicación observada expone — solo lectura,
+ninguna acción sobre la ventana leída. Recorrido acotado a propósito (`TreeWalker.ControlViewWalker`,
+máximo 300 elementos, profundidad máxima 6): el árbol de una app ajena (un navegador, un IDE) puede
+tener miles de nodos, y esto es contexto para Lens, no un inventario exhaustivo. Requirió una
+`FrameworkReference` a `Microsoft.WindowsDesktop.App` en `Nexo.Windows` (sin `UseWPF`) — NuGet marcó
+como redundantes dos `PackageReference` (`System.Diagnostics.PerformanceCounter`,
+`System.Drawing.Common`) ya cubiertos por ese framework compartido, y se quitaron. Probado contra
+una ventana WPF real (no un doble): un botón con nombre conocido aparece con límites válidos.
+
+### D5.4 — Redacción de contenido sensible (texto e imagen)
+
+`VisionPrivacyPolicy` ya excluía ventanas completas por proceso/título, pero una ventana que pasa
+esa exclusión puede mostrar igual un dato sensible puntual (una contraseña escrita en un campo, un
+número de tarjeta en un formulario) — el riesgo que el propio roadmap documentaba sin resolver
+("requiere exclusiones y redacción antes de cualquier envío a un proveedor externo").
+`SensitiveContentRedactor` (`Nexo.Core.Vision`) redacta solo el fragmento sensible, no la línea
+completa: campos etiquetados como contraseña, números de tarjeta (candidato detectado y confirmado
+con suma de Luhn real, para no marcar cualquier secuencia larga de dígitos), SSN, y tokens de
+secretos (prefijos conocidos como `sk-`/`ghp_`/`AKIA` más una heurística genérica para tokens sin
+prefijo que mezclan mayúsculas, minúsculas y dígitos). Sesgado a favor de redactar de más: un falso
+positivo es una molestia menor, un secreto real sin redactar es una fuga.
+
+**Extensión — redacción también en los píxeles:** redactar el texto no oculta la imagen: los mismos
+píxeles sensibles seguirían viajando intactos dentro del `AiImageAttachment`. `ImageRedactor`
+(`Nexo.Windows.Vision`) tapa con un rectángulo sólido (no difuminado — un desenfoque a veces se
+puede revertir, un rectángulo negro no) las regiones que
+`SensitiveContentRedactor.FindSensitiveLines` marcó como sensibles, usando las cajas delimitadoras
+reales que ya devuelve el OCR. Verificado de punta a punta contra el motor real: renderizar
+"Password: hunter2secreto", confirmar que el OCR lo lee, redactar la imagen, y volver a correr OCR
+sobre la imagen ya redactada confirmando que el secreto desaparece mientras la línea vecina sigue
+siendo legible.
+
+### D5.5/D5.6 — Los tres modos, el indicador "Mirando" y la integración completa con la IA
+
+Antes de conectar todo, se investigó cuánto del flujo "capturar pantalla → mandarla a la IA" ya
+existía, para no duplicarlo: `AiImageAttachment`/`AiChatRequest.Images`/`AiRequestMode` y ambos
+adaptadores de proveedor (Ollama nativo y compatible con OpenAI) **ya enviaban imágenes de punta a
+punta** desde antes de este sprint — Lens no necesitó construir nada de eso, solo decidir cuándo
+adquirir una imagen y qué hacer con el análisis.
+
+`LensMode` (Soporte/Estudio/Desarrollo) + `LensContext`/`LensContextBuilder` (`Nexo.Core.Vision`,
+función pura) arman, a partir del OCR y los elementos de UI Automation YA redactados, la pregunta
+por defecto y el contexto de cada modo. Cada modo se traduce al `AiRequestMode` ya existente en vez
+de inventar uno paralelo: Desarrollo siempre `VisionTechnicalDiagnostic`, Estudio siempre
+`VisionGeneral`, Soporte decidido por `VisionIntentPolicy` a partir del texto de OCR (igual que ya
+decidía para el chat normal).
+
+Tres comandos nuevos del Command Center —`lens.soporte`, `lens.estudio`, `lens.desarrollo`— siguiendo
+el mismo patrón que los presets de Enfoque (`focus.start.15/25/45`). Cada uno: captura la ventana
+activa (usando `ForegroundWindowTracker` de D4, no el `_lastExternalWindowHandle` propio de Vision
+—ese solo se actualiza en puntos concretos y hubiera quedado obsoleto para un disparo desde el
+Command Center, el mismo problema que D4 ya tuvo y corrigió—), corre OCR y UI Automation, redacta
+ambos (texto e imagen), arma el contexto del modo, y pregunta a la IA. **El resultado se muestra en
+el mismo Sakura Pill Host de D4** (`AmbientRequestManager`) — Lens es, en esencia, otra fuente de
+solicitudes ambientales, no una superficie nueva que construir.
+
+**Indicador "Mirando":** el modelo de confianza exige que este estado tenga su propio indicador
+visible (`docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md`) — antes de este sprint no existía nada
+persistente, solo un aviso transitorio. Se agregó `LensIndicator` en el encabezado del shell (junto
+al indicador existente de palabra de activación), visible mientras dura la captura y el análisis,
+oculto el resto del tiempo.
+
+**Build y pruebas (Release), acumulado D5.1-D5.6:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 768 superadas
+  Nexo.Windows.Tests.dll → 183 superadas
+  Nexo.App.Tests.dll     → 164 superadas
+Total: 1115 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado con un arranque manual que la app sigue iniciando con normalidad con los campos y el XAML
+nuevos ya cableados.
+
+**Pendiente (D5.7, siguiente):** resaltado visual sobre pantalla ("guía visual" del criterio de
+terminado de la Fase 2) — una ventana de superposición no activable (mismo patrón
+`WS_EX_NOACTIVATE`/`WS_EX_TOOLWINDOW` que `CapsuleWindow`/`SakuraPillWindow`) que dibuje recuadros
+sobre las regiones de OCR/UI Automation relevantes. Con D5.1-D5.6, los tres modos **ya funcionan**
+de punta a punta sobre la ventana activa — lo único que falta del criterio de terminado de la Fase 2
+es el resaltado visual.
 
 **No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
