@@ -9,7 +9,7 @@
     lookup, layout) en un hilo STA. No sustituye a SakuraShellStructureTests; lo complementa.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
