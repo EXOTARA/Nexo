@@ -1,6 +1,8 @@
+using Nexo.Core.Ambient;
 using Nexo.Core.Diagnostics;
 using Nexo.Core.Focus;
 using Nexo.Core.Tasks;
+using Nexo.Windows.Ambient;
 using Nexo.Windows.Automation;
 using Nexo.Windows.Focus;
 using Nexo.Windows.Settings;
@@ -100,7 +102,19 @@ public sealed class ValidationProfileIsolationTests : IDisposable
     }
 
     [Fact]
-    public void AllFourStores_WithNoExplicitPath_ShareTheSameOverriddenRoot()
+    public void JsonAmbientRequestHistoryStore_WithNoExplicitPath_WritesUnderTheOverriddenRoot()
+    {
+        var root = UseNewIsolatedRoot();
+        var manager = new AmbientRequestManager(new JsonAmbientRequestHistoryStore());
+        manager.Load();
+
+        manager.Begin("solicitud de perfil aislado", context: null, DateTimeOffset.Now);
+
+        Assert.True(File.Exists(Path.Combine(root, "ambient-requests.json")));
+    }
+
+    [Fact]
+    public void AllStores_WithNoExplicitPath_ShareTheSameOverriddenRoot()
     {
         var root = UseNewIsolatedRoot();
 
@@ -117,10 +131,15 @@ public sealed class ValidationProfileIsolationTests : IDisposable
         var settingsStore = new JsonSettingsStore();
         settingsStore.Save(settingsStore.Load());
 
+        var ambientManager = new AmbientRequestManager(new JsonAmbientRequestHistoryStore());
+        ambientManager.Load();
+        ambientManager.Begin("solicitud", context: null, DateTimeOffset.Now);
+
         Assert.True(File.Exists(Path.Combine(root, "tasks.json")));
         Assert.True(File.Exists(Path.Combine(root, "focus.json")));
         Assert.True(File.Exists(Path.Combine(root, "routines.json")));
         Assert.True(File.Exists(Path.Combine(root, "settings.json")));
+        Assert.True(File.Exists(Path.Combine(root, "ambient-requests.json")));
     }
 
     [Fact]
