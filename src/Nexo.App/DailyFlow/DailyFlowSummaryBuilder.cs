@@ -32,7 +32,14 @@ public static class DailyFlowSummaryBuilder
         var localNow = now.LocalDateTime;
         var culture = new CultureInfo("es-MX");
 
-        var greeting = localNow.Hour switch
+        // Corrección (2026-07-28): el saludo debe depender de la hora que trae `now` (su propio
+        // Offset), no de convertirla a la zona horaria de la máquina que ejecuta el código. Usar
+        // `localNow.Hour` reinterpretaba el DateTimeOffset de entrada en la zona horaria local del
+        // proceso, así que la misma prueba con hora fija (p. ej. 07:00 con offset -6) daba un
+        // saludo distinto según el huso horario del equipo — es justo lo que rompía la ejecución
+        // en GitHub Actions (runners en UTC) mientras pasaba en un equipo en zona -6. `now.Hour`
+        // es la hora ya fijada en el propio valor, sin reconversión.
+        var greeting = now.Hour switch
         {
             < 6 => "Buenas noches",
             < 12 => "Buenos días",
