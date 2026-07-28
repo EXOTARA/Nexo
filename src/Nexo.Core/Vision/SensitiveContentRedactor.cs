@@ -56,6 +56,20 @@ public static class SensitiveContentRedactor
         return result;
     }
 
+    /// <summary>
+    /// Diseño D5.4 (extensión) — devuelve las líneas ORIGINALES (sin redactar, para conservar su
+    /// posición real en la imagen) que contienen contenido sensible. Pensado para que quien tenga
+    /// la captura de pantalla original pueda tapar esas regiones en la propia imagen antes de
+    /// enviarla a cualquier proveedor de IA — redactar el texto no oculta los píxeles.
+    /// </summary>
+    public static IReadOnlyList<OcrTextLine> FindSensitiveLines(OcrResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return result.IsSuccess
+            ? result.Lines.Where(line => ContainsSensitiveContent(line.Text)).ToArray()
+            : [];
+    }
+
     /// <summary>Redacta el texto reconocido por OCR, línea por línea.</summary>
     public static OcrResult Redact(OcrResult result)
     {
