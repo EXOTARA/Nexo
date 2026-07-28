@@ -18,6 +18,7 @@ using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
 using Nexo.Core.Ambient;
+using Nexo.Core.Assistant;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Automation;
 using Nexo.Core.Audio;
@@ -115,6 +116,10 @@ public partial class MainWindow : Window
     /// y no ante un Alt+Tab normal) para no alterar ese comportamiento ya probado.
     /// </summary>
     private readonly ForegroundWindowTracker _ambientForegroundTracker = new();
+
+    /// <summary>Diseño D5 (Fase 2 — Kohana Lens) — OCR y lectura de UI Automation, ambos sin estado.</summary>
+    private readonly WindowsOcrService _lensOcrService = new();
+    private readonly WindowsUiAutomationReader _lensUiAutomationReader = new();
     private readonly SakuraPillWindow _sakuraPillWindow = new();
     private readonly HomeView _homeView = new();
     private readonly AssistantView _assistantView = new();
@@ -1029,6 +1034,8 @@ public partial class MainWindow : Window
             },
             keywords: ["ambiental", "historial", "solicitudes", "pill", "sakura"]));
 
+        registry.RegisterRange(BuildLensCommands());
+
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
             "Crear una tarea",
@@ -1094,6 +1101,41 @@ public partial class MainWindow : Window
     /// <see cref="FocusView.StartPreset"/> (no llama a FocusManager.Start directamente) para no
     /// perder una tarea pendiente de asociar si el usuario ya venía de "Enfocarme" en una tarea.
     /// </summary>
+    /// <summary>
+    /// Diseño D5.6 (Fase 2 — Kohana Lens) — un comando por modo, no un único comando genérico con
+    /// un selector: así cada modo aparece por su propio nombre en la búsqueda, igual que los
+    /// presets de Enfoque (<see cref="BuildFocusStartCommands"/>).
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildLensCommands()
+    {
+        (LensMode Mode, string Id, string Title, string Description, string[] Keywords)[] presets =
+        [
+            (LensMode.Soporte, "lens.soporte", "Kohana Lens · Soporte",
+                "Observa la ventana activa y explica qué problema hay y cómo resolverlo.",
+                ["lens", "soporte", "ayuda", "problema", "observar", "mirando"]),
+            (LensMode.Estudio, "lens.estudio", "Kohana Lens · Estudio",
+                "Observa la ventana activa y explica qué es y cómo funciona, paso a paso.",
+                ["lens", "estudio", "aprender", "explicar", "observar", "mirando"]),
+            (LensMode.Desarrollo, "lens.desarrollo", "Kohana Lens · Desarrollo",
+                "Observa la ventana activa y analiza el código o error visible.",
+                ["lens", "desarrollo", "codigo", "error", "diagnostico", "observar", "mirando"])
+        ];
+
+        foreach (var (mode, id, title, description, keywords) in presets)
+        {
+            yield return new KohanaCommandDescriptor(
+                id,
+                title,
+                description,
+                KohanaCommandCategory.Capture,
+                _ => ExecuteLensAsync(mode),
+                keywords: keywords,
+                availability: () => _ambientRequestManager.GetSnapshot(recentCount: 0).ActiveRequest is null
+                    ? KohanaCommandAvailability.Available
+                    : KohanaCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso."));
+        }
+    }
+
     private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
     {
         (int Minutes, string Id)[] presets =
@@ -3460,6 +3502,125 @@ public partial class MainWindow : Window
         CheckAmbientRequest();
         return CommandExecutionResult.Success();
     }
+
+    /// <summary>
+    /// Diseño D5.5/D5.6 (Fase 2 — Kohana Lens) — captura la ventana activa, la procesa con OCR y
+    /// UI Automation (ambos redactados de contenido sensible antes de usarse en cualquier lugar,
+    /// incluida la propia imagen — ver <see cref="SensitiveContentRedactor"/>/<see cref="ImageRedactor"/>),
+    /// arma el contexto del modo elegido y pregunta a la IA. El resultado se muestra en el mismo
+    /// Sakura Pill Host de D4 — Lens es, en esencia, otra fuente de solicitudes ambientales, no una
+    /// superficie nueva. El indicador "Mirando" (<see cref="LensIndicator"/>) permanece visible
+    /// mientras dura la captura y el análisis, nunca más — el modelo de confianza exige que ese
+    /// paso sea siempre visible, nunca silencioso.
+    /// </summary>
+    private async Task<CommandExecutionResult> ExecuteLensAsync(LensMode mode)
+    {
+        var now = DateTimeOffset.Now;
+        var context = _ambientContextProvider.Capture(_ambientForegroundTracker.LastExternalWindowHandle);
+
+        var beginResult = _ambientRequestManager.Begin(
+            $"Kohana Lens — {LensModeLabel(mode)}", context, now);
+        if (!beginResult.Success)
+        {
+            return CommandExecutionResult.Failure(beginResult.Message);
+        }
+
+        CheckAmbientRequest();
+        _ambientRequestManager.BeginThinking(DateTimeOffset.Now);
+        CheckAmbientRequest();
+
+        LensIndicator.Visibility = Visibility.Visible;
+        try
+        {
+            var windowHandle = _ambientForegroundTracker.LastExternalWindowHandle;
+            if (context is null || context.IsSensitive || windowHandle == 0)
+            {
+                var message = context is { IsSensitive: true }
+                    ? "Esa ventana está marcada como sensible; Kohana Lens no la observa."
+                    : "No pude identificar una ventana activa distinta de Kohana.";
+                _ambientRequestManager.Fail(message, DateTimeOffset.Now);
+                return CommandExecutionResult.Success();
+            }
+
+            var target = new VisionCaptureTarget(
+                $"window:{windowHandle}",
+                windowHandle,
+                context.WindowTitle ?? "Ventana activa",
+                context.ProcessName ?? string.Empty,
+                VisionCaptureKind.Window,
+                0, 0, 0, 0);
+
+            var captureResult = await _screenCaptureService.CaptureAsync(target);
+            if (!captureResult.IsSuccess || captureResult.PngBytes is null)
+            {
+                _ambientRequestManager.Fail(
+                    $"No pude capturar la ventana: {captureResult.Detail}", DateTimeOffset.Now);
+                return CommandExecutionResult.Success();
+            }
+
+            var ocrResult = await _lensOcrService.RecognizeAsync(captureResult.PngBytes);
+            var uiaSnapshot = _lensUiAutomationReader.Read(windowHandle);
+
+            var redactedOcr = SensitiveContentRedactor.Redact(ocrResult);
+            var redactedElements = SensitiveContentRedactor.Redact(uiaSnapshot.Elements);
+            var sensitiveLines = SensitiveContentRedactor.FindSensitiveLines(ocrResult);
+            var imageBytes = ImageRedactor.RedactRegions(captureResult.PngBytes, sensitiveLines);
+
+            var lensContext = LensContextBuilder.Build(
+                mode,
+                context.WindowTitle ?? captureResult.Title,
+                redactedOcr,
+                redactedElements);
+
+            var image = AiImageAttachment.FromBytes(imageBytes);
+            var messages = new[]
+            {
+                new ConversationMessage(ConversationRole.User, lensContext.Prompt, DateTimeOffset.Now)
+            };
+
+            var aiRequest = new AiChatRequest(
+                messages,
+                NexoAiInstructions.Default,
+                lensContext.SystemContext,
+                [image],
+                lensContext.RequestMode);
+
+            var aiResult = await _aiChatService.SendAsync(BuildAiConfiguration(), aiRequest);
+
+            if (!aiResult.IsSuccess)
+            {
+                _ambientRequestManager.Fail(
+                    string.IsNullOrWhiteSpace(aiResult.Detail)
+                        ? "No pude analizar la ventana activa."
+                        : aiResult.Detail,
+                    DateTimeOffset.Now);
+            }
+            else
+            {
+                var result = new AmbientRequestResult(
+                    SummarizeForCapsule(aiResult.Text),
+                    aiResult.Text,
+                    [],
+                    CanUndo: false);
+                _ambientRequestManager.CompleteWithResult(result, DateTimeOffset.Now);
+            }
+        }
+        finally
+        {
+            LensIndicator.Visibility = Visibility.Collapsed;
+        }
+
+        CheckAmbientRequest();
+        return CommandExecutionResult.Success();
+    }
+
+    private static string LensModeLabel(LensMode mode) => mode switch
+    {
+        LensMode.Soporte => "modo soporte",
+        LensMode.Estudio => "modo estudio",
+        LensMode.Desarrollo => "modo desarrollo",
+        _ => mode.ToString()
+    };
 
     /// <summary>
     /// Diseño D4.4 — abre (o refresca, si ya estaba abierto) el historial de solicitudes
