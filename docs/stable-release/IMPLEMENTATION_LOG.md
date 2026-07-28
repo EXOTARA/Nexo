@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D3.2 — Approved Release, Validation Sandbox & Roadmap** en curso: D3 y D3.1 **aprobados por el usuario** e integrándose en `release/kohana-1.0-rc` dentro de este mismo sprint |
-| **Siguiente fase** | Diseño D4 — Ambient Interaction Foundation (planeado en el roadmap, **no iniciado**) |
-| **Rama** | `release/kohana-1.0-rc` — D3 (`design/daily-flow-v1`, `0e45615`) y D3.1 (`design/focus-continuity-v1`) se integran vía `merge --no-ff` en Diseño D3.2 |
+| **Fase actual** | **Diseño D4 — Ambient Interaction Foundation** (D4.1 y D4.2 implementados, probados y validados manualmente por el usuario en `design/ambient-interaction-v1`, incluidas dos correcciones post smoke test; no integrado a `release/kohana-1.0-rc` todavía) |
+| **Siguiente fase** | Historial de solicitudes visible en UI, pulido restante, y luego integración a release |
+| **Rama** | `design/ambient-interaction-v1`, creada desde `release/kohana-1.0-rc` (`5885249`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
-| **Última actualización** | 2026-07-25 |
-| **Bloqueador activo** | Ninguno. D3 y D3.1 aprobados por el usuario (ver secciones de aprobación más abajo); integración a release en curso dentro de Diseño D3.2 |
+| **Última actualización** | 2026-07-28 |
+| **Bloqueador activo** | Ninguno. El usuario probó D4.1/D4.2 manualmente, encontró dos defectos (pill sin auto-descarte, Context Snapshot obsoleto tras cambiar de ventana) ya corregidos, y confirmó "se ve bien" en la segunda prueba |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2140,3 +2140,148 @@ usuario — es trabajo de infraestructura y documentación, pendiente de que el 
 así lo decide. Informe completo en
 `artifacts\Kohana-Design-D3.2-Release-And-Roadmap-Informe.md`. No se hizo push, no se abrió PR, no
 se hizo merge a `main`.
+
+---
+
+## Diseño D4 — Ambient Interaction Foundation (D4.1 + D4.2)
+
+**Rama:** `design/ambient-interaction-v1`, creada desde `release/kohana-1.0-rc` (`5885249`, ya con
+D3.2 integrado). Implementa el comienzo de la Fase 1 del roadmap tecnológico
+(`docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md`), sprint sugerido D4 en esa misma sección.
+
+**Alcance de esta sesión:** dos pasos compilables y probados por separado, siguiendo la misma
+disciplina de la Fase 1 de `STABLE_RELEASE_PLAN.md` (paso pequeño → compila → pruebas → commit).
+
+### D4.1 — Modelo de dominio y almacenamiento
+
+`Nexo.Core/Ambient/` — ciclo de vida puro de una solicitud ambiental (`AmbientRequestStatus`:
+Escuchando/Pensando/Resultado/Cancelada/Error), `AmbientRequestManager` (misma forma que
+`FocusManager`: `Begin/BeginThinking/CompleteWithResult/Fail/Cancel/Dismiss/Undo`, con archivado
+automático al historial al iniciar una solicitud nueva sobre una anterior ya terminal),
+`AmbientPermissionPolicy` (primitivas de permiso — niveles Ver/Guiar/Proponer del modelo de
+confianza, `IsAllowed` falla cerrado ante cualquier nivel no reconocido explícitamente, para no
+escalar autonomía en silencio si una fase futura añade niveles de ejecución al mismo enum sin
+revisar esta política). `JsonAmbientRequestHistoryStore` en `Nexo.Windows/Ambient/` sigue el mismo
+patrón atómico (`.tmp` + `File.Move`) y de preservación de archivo corrupto que `JsonFocusStore`.
+Nueva ruta `NexoDataPaths.AmbientRequests` (`ambient-requests.json`).
+
+23 pruebas nuevas (`AmbientRequestManagerTests`, `AmbientPermissionPolicyTests`), más una prueba y
+un renombrado (`AllFourStores` → `AllStores`) en `ValidationProfileIsolationTests` para cubrir el
+nuevo store bajo un perfil de validación aislado. 1059 pruebas totales, 0 fallidas, 0 warnings,
+suite repetida 3 veces sin flakiness.
+
+### D4.2 — Sakura Pill Host, Context Snapshot y disparador en el Command Center
+
+`SakuraPillWindow` (`Nexo.App`) — ventana no activable: mismo mecanismo que `CapsuleWindow`
+(`WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW` en `OnSourceInitialized`), pero a diferencia de esta (un
+aviso transitorio que se autodescarta) admite interacción real — cancelar, descartar, deshacer,
+hasta dos acciones rápidas por resultado, expandir/contraer — sin activarse ni robar el foco de la
+ventana con la que el usuario esté trabajando. `AmbientRequestDisplayState`/`AmbientRequestDisplay-
+StateBuilder` (`Nexo.App/Ambient/`) son función pura, sin WPF, mismo rol que `FocusDisplayState`/
+`FocusDisplayStateBuilder` tienen para Enfoque. `SakuraPillCoordinator` cablea la ventana con el
+manager, mismo rol que `FocusContinuityCoordinator`; `MainWindow.CheckAmbientRequest()` es el punto
+único de refresco, llamado tras cada mutación, igual que `CheckFocusTimer()`.
+
+**Context Snapshot real:** `IAmbientContextProvider`/`WindowsAmbientContextProvider` leen título y
+proceso de un handle de ventana nativo (reutilizando `VisionPrivacyPolicy.IsSensitive` para no
+exponer ventanas marcadas como sensibles), alimentados por `_lastExternalWindowHandle` — el mismo
+campo que Vision ya usa para "la última ventana externa antes de que Kohana tomara el foco" — sin
+inventar una segunda ruta de captura. Es deliberadamente más ligero que
+`WindowsScreenCaptureService` (no enumera todas las ventanas, no captura píxeles): D4 nunca observa
+contenido de pantalla, solo metadatos.
+
+**Command Center:** nuevo comando `ambient.contextPeek` ("¿Qué ventana tengo activa?", categoría
+`KohanaCommandCategory.Ambient` nueva) recorre el ciclo real Escuchando → Pensando →
+Resultado/Error contra el Context Snapshot capturado; sin ningún procesamiento de IA todavía (eso
+es Lens/Flow, Fases 2-3 del roadmap) — el resultado es honesto sobre lo que Kohana puede observar
+hoy (título/proceso), incluida una acción rápida "Copiar" que copia el resultado al portapapeles.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 737 superadas
+  Nexo.Windows.Tests.dll → 176 superadas
+  Nexo.App.Tests.dll     → 155 superadas
+Total: 1068 pruebas (1059 previas + 9 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 3 veces adicionales sin variación ni flakiness.
+```
+
+**Validación interactiva — intento honesto, no completado:** se escribió
+`artifacts\design-d4.2\validate-ambient-pill.ps1` (no versionado, gitignored junto con el resto de
+`artifacts/`) para automatizar, vía `System.Windows.Automation`, un perfil de validación aislado
+(`KOHANA_DATA_ROOT` propio) que abriera el Command Center, buscara "ventana", ejecutara el comando
+nuevo y verificara que el pill aparece sin robar el foco. **No se logró completar de forma
+fiable en el entorno sandbox de esta sesión**: `SetForegroundWindow` y `GetForegroundWindow`
+confirmaban que `MainWindow` tenía foco real en el momento del clic sintético
+(`SetCursorPos`/`mouse_event`), pero la ventana del Command Center nunca apareció de forma
+consistente en el árbol de UI Automation tras el clic — ni con `InvokePattern.Invoke()` ni con un
+clic de mouse sintetizado sobre las coordenadas reales del botón. No se determinó con certeza si es
+una limitación de inyección de entrada de este entorno concreto (posible sesión sin escritorio
+interactivo real) u otra causa; no se investigó más allá de lo documentado aquí para no seguir
+gastando tiempo en un problema de entorno ajeno al código de esta sesión. **No se declara D4
+validado end-to-end de forma interactiva.** Lo que sí queda verificado con evidencia real: Kohana
+arranca sin excepciones con los nuevos campos/servicios cableados en el constructor de
+`MainWindow` (una clase de más de 4700 líneas) — `MainWindow` se localizó correctamente vía UI
+Automation en cada intento, sin crash del proceso.
+
+**Pendiente, no bloqueante:**
+- Auditoría: las entradas de historial (`AmbientRequestHistoryEntry`, con `CanUndo`/`Undone`) ya
+  registran qué pasó y cuándo, cumpliendo un "audit básico" honesto para esta fase — el Audit Log
+  completo orientado al usuario (capa 11 de `KOHANA_CAPABILITY_ARCHITECTURE.md`) sigue siendo
+  trabajo de la Fase 7, no se adelanta aquí.
+
+### D4.4 — Historial de solicitudes visible
+
+`AmbientRequestManager.GetHistory()` ya persistía las solicitudes archivadas desde D4.1 (usado
+internamente para el archivado automático), pero no había ninguna superficie visible. Se agregó:
+`AmbientRequestHistoryItem`/`AmbientRequestHistorySummaryBuilder` (función pura, más reciente
+primero, honesta — una solicitud fallida muestra su mensaje de error, nunca un resultado
+inventado), `AmbientHistoryWindow` (ventana normal, activable, a diferencia del pill) con un botón
+"Deshacer" por entrada cuando su resultado declaró `CanUndo` y todavía no se deshizo — cierra el
+hueco donde Deshacer solo funcionaba sobre la solicitud visible en el momento, nunca sobre el
+historial. Nuevo comando del Command Center `ambient.history` ("Ver historial de solicitudes
+ambientales").
+
+8 pruebas nuevas, 1078 en total, 0 fallidas, 0 warnings, suite repetida 3 veces sin flakiness.
+Pendiente de smoke test manual del usuario, igual que D4.1/D4.2.
+
+### Smoke test manual del usuario (2026-07-28) y correcciones
+
+El usuario probó D4.1/D4.2 manualmente (la validación interactiva que no se pudo completar por
+automatización, ver arriba) y encontró dos defectos reales:
+
+1. **El pill nunca se cerraba solo** — no tenía temporizador propio, a diferencia de
+   `CapsuleWindow`. Corregido con un `DispatcherTimer` de auto-descarte de 8 segundos en
+   `SakuraPillWindow`, que dispara `DismissRequested` (pasa por el manager, no un `Hide()` suelto,
+   para no dejar el estado interno inconsistente) y se reinicia si el usuario interactúa
+   (expandir, una acción rápida) para no cortarlo a media lectura.
+2. **Volver a ejecutar el comando tras cambiar de ventana seguía mostrando la ventana anterior** —
+   causa raíz: reutilizaba `MainWindow._lastExternalWindowHandle`, que solo se actualiza en puntos
+   concretos ya existentes para Vision/Peek (`RememberForegroundWindow()`), nunca con un Alt+Tab
+   normal ni al abrir el Command Center (que solo puede abrirse con Kohana ya enfocada). Corregido
+   con `ForegroundWindowTracker` (`Nexo.Windows/Ambient/`), un listener propio de
+   `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` que mantiene el último handle ajeno al proceso
+   actualizado en tiempo real, sin tocar el mecanismo existente de Vision.
+
+2 pruebas nuevas, 1070 en total, 0 fallidas, 0 warnings, suite repetida 3 veces sin flakiness.
+
+**Aparte, en la misma sesión:** el usuario reportó de paso que el CI de GitHub estaba en rojo en
+`main` (PR #26 ya mergeado). Se rastreó a un bug de zona horaria no relacionado con D4:
+`DailyFlowSummaryBuilder` calculaba el saludo con `now.LocalDateTime.Hour` (reinterpreta el
+`DateTimeOffset` de entrada en la zona horaria de la máquina que ejecuta el código) en vez de
+`now.Hour` (la hora ya fijada en el propio valor, sin reconversión) — pasaba en un equipo en
+UTC-6 pero fallaba en los runners de GitHub Actions (UTC). Corregido en `release/kohana-1.0-rc`
+(`ea351ac`), empujado, y traído a `main` vía
+[PR #27](https://github.com/EXOTARA/Nexo/pull/27) (mergeado, CI en verde confirmado). El mismo
+commit se trajo también a `design/ambient-interaction-v1` por merge, para no arrastrar el bug.
+
+> **Confirmación del usuario:** tras las dos correcciones del pill, el usuario volvió a probarlo y
+> confirmó "se ve bien". D4.1 y D4.2 quedan validados interactivamente por el usuario — sigue sin
+> declararse "aprobado e integrado a release" en el sentido formal de D1-D3.2 (eso llega cuando se
+> cierre el resto de D4: historial visible y el resto de pulido pendiente arriba).
+
+**No se hizo push, no se abrió PR, no se hizo merge de `design/ambient-interaction-v1` a
+`release/kohana-1.0-rc` ni a `main`.** (El hotfix de zona horaria sí se empujó y mergeó a `main` por
+separado, ver arriba — es un cambio independiente de D4.)
