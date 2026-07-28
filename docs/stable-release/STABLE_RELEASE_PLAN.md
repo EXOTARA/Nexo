@@ -126,3 +126,55 @@ Pruebas completas, instalador, portable, notas de versión, SHA-256, lista exact
 
 Si una versión verdaderamente estable no cabe de forma responsable, **no se entrega una falsa 1.0**.
 Se entrega RC + lista exacta de bloqueadores + plan de cierre. Ver `KNOWN_LIMITATIONS.md`.
+
+## Adenda — sesión de planificación de roadmap (2026-07-28)
+
+El propietario del producto pidió que el agente asuma el rol de líder técnico del proyecto:
+decide tecnologías, investiga alternativas y ejecuta, sin pedirle a él decisiones de
+implementación (solo de producto/visión). Registrado en detalle en la memoria del agente; resumen
+aquí para que quede también en el repositorio.
+
+**Proceso:** Kanban continuo, sin fechas fijas. Horizonte inicial de 3-6 meses tratado como
+aspiración, no límite — se prefirió **alcance completo** (todas las fases de este documento, no un
+subconjunto) sobre recortar para caber en una fecha. Autonomía: el propietario aprueba fases
+grandes; el agente decide los detalles de implementación sin pausar a confirmar cada uno.
+Checkpoints portables solo en hitos, no en cada subfase.
+
+**Cambios/precisiones de alcance por fase, sobre lo ya escrito arriba:**
+
+- **Fase 2:** la detección de hardware debe ser real (nunca asumir GPU integrada o dedicada; medir
+  y adaptar). Se añade **"Optimizar dispositivo"**: asesor opt-in y reversible de ajustes de
+  rendimiento de Windows (apps de arranque, efectos visuales, plan de energía), con lista
+  transparente de qué cambia y por qué, usando solo APIs Win32 documentadas para no disparar falsos
+  positivos de antivirus.
+- **Fase 3:** además de los candidatos ya listados, evaluar concretamente **openWakeWord**
+  (sustituto de Vosk basado en ONNX), **Piper TTS** (sustituto de SAPI5, sin binding .NET maduro
+  todavía — medir antes de asumir) y **Silero VAD vía `VadSharp`** (sustituto de la heurística
+  manual de fin de turno en `WindowsVoiceInputService`). Idiomas: plan real (no solo aspiracional)
+  de cubrir español mexicano **e inglés**, cada frase calibrada por separado como ya exige ADR 0004.
+- **Fase 5:** todas las categorías de acción importan por igual, pero red/internet e instalación de
+  software merecen fricción/escrutinio extra en el modelo de permisos.
+- **Fase 6:** decisión de tecnología de memoria (delegada al agente): archivos locales
+  estructurados siguiendo el mismo patrón que `JsonTaskStore`/`JsonFocusStore`/`JsonRoutineStore`,
+  cifrado en reposo con DPAPI de Windows (sin gestión de contraseña), búsqueda literal primero
+  (ya exigido por este documento, no cambia). Recordar por igual: preferencias, contexto de
+  conversación y hábitos de uso — las tres, opt-in.
+- **Fase 8:** Tareas/Enfoque/Rutinas se conserva, pero el valor diferenciador reconocido es la
+  automatización por voz con permisos aplicados (Rutinas), no la lista de tareas plana — al pulir
+  esta fase, bajarle peso visual a lo segundo. Contribuciones de terceros: cerradas por ahora,
+  revisar más adelante.
+- **Fase 9:** revisar cuánta información de sistema expone la vista de diagnóstico (posible
+  exceso de detalle sensible) — no bloqueante, revisar cuando se retome esta fase.
+- **Fase 10:** ruta de firma sin costo — el repositorio (`EXOTARA/Nexo`) ya es público; falta
+  únicamente el archivo `LICENSE` (MIT, ya decidido en `PRODUCT_VISION` §C) para aplicar a
+  **SignPath Foundation** (firma gratuita para proyectos open source calificados). Con firma,
+  se habilita auto-actualización real con **Velopack**, cumpliendo la condición que
+  `PRODUCT_VISION` §I ya exigía ("automática solo cuando existan firma y rollback probado"). Se
+  añade **Microsoft Store (MSIX)** como canal adicional a la distribución directa ya decidida; la
+  build de Store puede tener menos capacidades por sandboxing si queda claramente marcado ante el
+  usuario.
+- **Nueva, sin fase numerada:** rediseño de interfaz (dirección visual tipo Apple — píldoras para
+  respuestas, volumen, acciones) sobre el shell Hub/Peek/Capsule ya existente. Se hace después de
+  cubrir las carencias funcionales, no antes.
+- **Sostenibilidad:** el producto sigue siendo 100% gratuito, sin muro de pago ni funciones
+  bloqueadas. Único añadido: enlace opcional de apoyo (GitHub Sponsors/Ko-fi) en Ajustes/Acerca de.
