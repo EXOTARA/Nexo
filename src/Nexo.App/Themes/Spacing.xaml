@@ -22,4 +22,26 @@
     <CornerRadius x:Key="RadiusMedium">12</CornerRadius>
     <CornerRadius x:Key="RadiusLarge">13</CornerRadius>
     <CornerRadius x:Key="RadiusPill">20</CornerRadius>
+    <CornerRadius x:Key="RadiusShell">24</CornerRadius>
+
+    <!--
+        Sakura Shell v1 (Diseño D1) — dimensiones de la barra lateral, tokenizadas a partir de
+        los valores literales que ya usaba el shell (68/194 colapsado/expandido) para no alterar
+        el layout existente al migrarlos.
+    -->
+    <sys:Double x:Key="SidebarWidthCollapsed">68</sys:Double>
+    <sys:Double x:Key="SidebarWidthExpanded">194</sys:Double>
+    <sys:Double x:Key="SidebarButtonWidthCollapsed">52</sys:Double>
+    <sys:Double x:Key="SidebarButtonWidthExpanded">178</sys:Double>
+    <sys:Double x:Key="NavigationIconSize">21</sys:Double>
+    <sys:Double x:Key="NavigationIndicatorWidth">3</sys:Double>
+
+    <!--
+        Diseño D2.0: los iconos de navegación son geometrías de línea (trazos abiertos), no
+        siluetas rellenables. El estado seleccionado se distingue por GROSOR de trazo, no por
+        relleno — rellenarlas las convertía en bloques sólidos. Ver Controls.xaml
+        (SakuraNavigationIconSelectedStyle) y docs/design/SAKURA_COMMAND_CENTER_V2.md.
+    -->
+    <sys:Double x:Key="NavigationIconStrokeThickness">1.65</sys:Double>
+    <sys:Double x:Key="NavigationIconStrokeThicknessSelected">2.4</sys:Double>
 </ResourceDictionary>

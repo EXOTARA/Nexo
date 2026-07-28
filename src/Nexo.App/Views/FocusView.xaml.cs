@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using Nexo.App.DailyFlow;
 using Nexo.Core.Focus;
 
 namespace Nexo.App.Views;
@@ -8,15 +9,25 @@ namespace Nexo.App.Views;
 public partial class FocusView : UserControl
 {
     private readonly FocusManager _focusManager;
+    private readonly Func<Guid, string?>? _resolveTaskTitle;
+    private Guid? _pendingAssociatedTaskId;
 
-    public FocusView(FocusManager focusManager)
+    public FocusView(FocusManager focusManager, Func<Guid, string?>? resolveTaskTitle = null)
     {
         _focusManager = focusManager;
+        _resolveTaskTitle = resolveTaskTitle;
         InitializeComponent();
         Refresh(DateTimeOffset.Now);
     }
 
     public event EventHandler? FocusChanged;
+
+    /// <summary>
+    /// Diseño D3 — el usuario pidió marcar como completada la tarea que estaba asociada a la
+    /// sesión que acaba de terminar o finalizarse. Nunca se dispara sola: siempre en respuesta a
+    /// pulsar "Marcar como completada" en <see cref="SessionCompletionNoticeBorder"/>.
+    /// </summary>
+    public event EventHandler<TaskFocusRequestedEventArgs>? CompleteAssociatedTaskRequested;
 
     public void Refresh(DateTimeOffset now)
     {
@@ -27,6 +38,8 @@ public partial class FocusView : UserControl
             (snapshot.CompletedSessionsToday == 1 ? "sesión" : "sesiones");
         TodayMinutesText.Text = $"{snapshot.FocusMinutesToday} min";
 
+        RefreshHistory(now);
+
         if (timer is null)
         {
             TimerStateText.Text = "LISTO";
@@ -36,7 +49,9 @@ public partial class FocusView : UserControl
             TimerProgressBar.Value = 0;
             PauseButton.IsEnabled = false;
             ResumeButton.IsEnabled = false;
+            FinishButton.IsEnabled = false;
             CancelButton.IsEnabled = false;
+            AssociatedTaskBadge.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -57,7 +72,22 @@ public partial class FocusView : UserControl
         TimerProgressBar.Value = progress;
         PauseButton.IsEnabled = timer.Status == FocusTimerStatus.Running;
         ResumeButton.IsEnabled = timer.Status == FocusTimerStatus.Paused;
+        FinishButton.IsEnabled = true;
         CancelButton.IsEnabled = true;
+
+        // La tarea asociada se resuelve por Id cada vez (no se guarda el título en el timer):
+        // así, si Kohana se reinicia a mitad de una sesión asociada, el título mostrado sigue
+        // siendo el actual de la tarea, no uno congelado del momento en que empezó.
+        var taskTitle = timer.TaskId.HasValue ? _resolveTaskTitle?.Invoke(timer.TaskId.Value) : null;
+        if (!string.IsNullOrWhiteSpace(taskTitle))
+        {
+            AssociatedTaskText.Text = $"Enfocándote en: {taskTitle}";
+            AssociatedTaskBadge.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            AssociatedTaskBadge.Visibility = Visibility.Collapsed;
+        }
     }
 
     public void FocusPrimaryControl()
@@ -66,6 +96,97 @@ public partial class FocusView : UserControl
         {
             CustomMinutesTextBox.Focus();
         }
+    }
+
+    /// <summary>
+    /// Diseño D3.1 — inicia un preset de enfoque desde fuera de la vista (Command Center). Reusa
+    /// el mismo <see cref="Start"/> privado que los botones de "Inicio rápido", así una tarea
+    /// pendiente de asociar (ver <see cref="PrepareTaskAssociation"/>) no se pierde solo porque el
+    /// usuario haya iniciado la sesión desde Ctrl + K en vez de tocar un botón.
+    /// </summary>
+    public void StartPreset(TimeSpan duration) => Start(duration, FocusSessionKind.Focus);
+
+    /// <summary>
+    /// Diseño D3 — llamado antes de navegar aquí desde "Enfocarme" en Hoy. La siguiente sesión que
+    /// se inicie (preset o duración personalizada) queda asociada a esta tarea; no inicia nada por
+    /// sí solo.
+    /// </summary>
+    public void PrepareTaskAssociation(Guid taskId, string taskTitle)
+    {
+        _pendingAssociatedTaskId = taskId;
+        ActionStatusText.Text = $"Elige una duración para enfocarte en «{taskTitle}».";
+    }
+
+    /// <summary>
+    /// Diseño D3.1 — aviso no modal de fin de sesión, para toda finalización real (natural o por
+    /// "Finalizar"), con tarea asociada o sin ella. Nunca se muestra para Cancelar (que no deja
+    /// historial). Nunca completa la tarea sola: solo ofrece hacerlo.
+    /// </summary>
+    public void ShowSessionCompletionNotice(FocusCompletion completion)
+    {
+        ArgumentNullException.ThrowIfNull(completion);
+
+        var durationText = FormatSessionDuration(completion.Duration);
+        var isBreak = completion.Kind == FocusSessionKind.Break;
+
+        _pendingCompletionTaskId = null;
+        _pendingCompletionTaskTitle = string.Empty;
+        var taskTitle = completion.TaskId is { } taskId ? _resolveTaskTitle?.Invoke(taskId) : null;
+
+        if (!isBreak && completion.TaskId is { } id && !string.IsNullOrWhiteSpace(taskTitle))
+        {
+            _pendingCompletionTaskId = id;
+            _pendingCompletionTaskTitle = taskTitle;
+        }
+
+        SessionCompletionTitleText.Text = isBreak ? "Descanso terminado" : "Sesión completada";
+        SessionCompletionDetailText.Text = _pendingCompletionTaskId is not null
+            ? $"Enfocándote en «{_pendingCompletionTaskTitle}» · {durationText}."
+            : $"{completion.Label} · {durationText}.";
+        CompleteAssociatedTaskButton.Visibility = _pendingCompletionTaskId is not null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        SessionCompletionNoticeBorder.Visibility = Visibility.Visible;
+    }
+
+    private Guid? _pendingCompletionTaskId;
+    private string _pendingCompletionTaskTitle = string.Empty;
+
+    private void DismissSessionCompletionButton_Click(object sender, RoutedEventArgs e) =>
+        HideSessionCompletionNotice();
+
+    private void StartAnotherSessionButton_Click(object sender, RoutedEventArgs e)
+    {
+        HideSessionCompletionNotice();
+        FocusPrimaryControl();
+    }
+
+    private void CompleteAssociatedTaskButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingCompletionTaskId is not { } taskId)
+        {
+            HideSessionCompletionNotice();
+            return;
+        }
+
+        var title = _pendingCompletionTaskTitle;
+        HideSessionCompletionNotice();
+        CompleteAssociatedTaskRequested?.Invoke(this, new TaskFocusRequestedEventArgs(taskId, title));
+    }
+
+    private void HideSessionCompletionNotice()
+    {
+        _pendingCompletionTaskId = null;
+        _pendingCompletionTaskTitle = string.Empty;
+        SessionCompletionNoticeBorder.Visibility = Visibility.Collapsed;
+    }
+
+    private static string FormatSessionDuration(TimeSpan duration)
+    {
+        var totalMinutes = Math.Max(1, (int)Math.Round(duration.TotalMinutes, MidpointRounding.AwayFromZero));
+        return totalMinutes < 60
+            ? $"{totalMinutes} min"
+            : $"{totalMinutes / 60} h {totalMinutes % 60:D2} min";
     }
 
     private void PresetButton_Click(object sender, RoutedEventArgs e)
@@ -110,8 +231,28 @@ public partial class FocusView : UserControl
     private void ResumeButton_Click(object sender, RoutedEventArgs e) =>
         Apply(_focusManager.Resume(DateTimeOffset.Now));
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e) =>
+    private void FinishButton_Click(object sender, RoutedEventArgs e)
+    {
+        var now = DateTimeOffset.Now;
+        // Diseño D3.1: FocusOperationResult.Completion ya trae la tarea asociada (capturada antes
+        // de que Finish() limpie el temporizador activo), así que no hace falta leer el timer por
+        // separado antes de llamar.
+        var result = _focusManager.Finish(now);
+        Apply(result);
+
+        if (result.Success && result.Completion is { } completion)
+        {
+            ShowSessionCompletionNotice(completion);
+        }
+    }
+
+    private void CancelButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Cancelar descarta la sesión sin registrarla: no tiene sentido ofrecer completar la
+        // tarea asociada a algo que ni siquiera queda en el historial.
+        HideSessionCompletionNotice();
         Apply(_focusManager.Cancel());
+    }
 
     private void Start(TimeSpan duration, FocusSessionKind kind)
     {
@@ -122,11 +263,15 @@ public partial class FocusView : UserControl
             _ => "Temporizador"
         };
 
+        var taskId = _pendingAssociatedTaskId;
+        _pendingAssociatedTaskId = null;
+
         Apply(_focusManager.Start(
             duration,
             label,
             kind,
-            DateTimeOffset.Now));
+            DateTimeOffset.Now,
+            taskId));
     }
 
     private void Apply(FocusOperationResult result)
@@ -143,4 +288,38 @@ public partial class FocusView : UserControl
             ? $"{totalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}"
             : $"{(int)remaining.TotalMinutes:D2}:{remaining.Seconds:D2}";
     }
+
+    /// <summary>
+    /// Diseño D3.1 — resumen real de actividad reciente, usando solo el historial que
+    /// <see cref="FocusManager"/> ya guarda (nada inventado: sin rachas ni puntajes).
+    /// </summary>
+    private void RefreshHistory(DateTimeOffset now)
+    {
+        var history = _focusManager.GetHistory();
+        var summary = FocusHistorySummaryBuilder.Build(history, now, _resolveTaskTitle);
+
+        if (summary.HasTopTask)
+        {
+            TopTaskText.Text = $"Tarea con más tiempo hoy: {summary.TopTaskLabel} " +
+                $"({summary.TopTaskMinutesToday} min)";
+            TopTaskText.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            TopTaskText.Visibility = Visibility.Collapsed;
+        }
+
+        var recentItems = summary.RecentSessions
+            .Select(session => new RecentSessionItem(
+                session.TaskTitle is null ? session.Label : $"{session.Label} · {session.TaskTitle}",
+                session.TimestampText,
+                session.DurationText))
+            .ToArray();
+        RecentSessionsItemsControl.ItemsSource = recentItems;
+        RecentSessionsEmptyText.Visibility = recentItems.Length == 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private sealed record RecentSessionItem(string TitleText, string SubtitleText, string DurationText);
 }

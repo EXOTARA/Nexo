@@ -4,4 +4,5 @@ public sealed record FocusCompletion(
     string Label,
     FocusSessionKind Kind,
     TimeSpan Duration,
-    DateTimeOffset CompletedAt);
+    DateTimeOffset CompletedAt,
+    Guid? TaskId = null);

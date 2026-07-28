@@ -14,8 +14,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel>
-                <TextBlock Text="Enfoque" Style="{StaticResource SectionTitleStyle}" />
+            <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Temporizadores y sesiones privadas en tu equipo."
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>
@@ -36,6 +35,20 @@
                 Style="{StaticResource SubtleCardStyle}"
                 Margin="0,0,0,12">
             <StackPanel>
+                <Border x:Name="AssociatedTaskBadge"
+                        Margin="0,0,0,8"
+                        Padding="9,5"
+                        HorizontalAlignment="Center"
+                        Background="{DynamicResource BrushAccentSoft}"
+                        BorderBrush="{DynamicResource BrushAccentBorder}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="AssociatedTaskText"
+                               Text=""
+                               FontSize="11.5"
+                               Foreground="{DynamicResource BrushTextSecondary}" />
+                </Border>
                 <TextBlock x:Name="TimerLabelText"
                            Text="Sin sesión activa"
                            HorizontalAlignment="Center"
@@ -59,23 +72,83 @@
                            Text="Elige una duración para comenzar."
                            TextAlignment="Center"
                            Style="{StaticResource MutedTextStyle}" />
-                <UniformGrid Margin="0,12,0,0" Columns="3">
+                <UniformGrid Margin="0,12,0,0" Columns="4">
                     <Button x:Name="PauseButton"
                             Content="Pausar"
-                            Margin="0,0,4,0"
+                            Margin="0,0,3,0"
                             Style="{StaticResource SecondaryButtonStyle}"
+                            AutomationProperties.Name="Pausar sesión de enfoque"
                             Click="PauseButton_Click" />
                     <Button x:Name="ResumeButton"
                             Content="Continuar"
-                            Margin="2,0"
+                            Margin="3,0"
                             Style="{StaticResource SecondaryButtonStyle}"
+                            AutomationProperties.Name="Continuar sesión de enfoque"
                             Click="ResumeButton_Click" />
+                    <Button x:Name="FinishButton"
+                            Content="Finalizar"
+                            Margin="3,0"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            ToolTip="Termina ahora y cuenta el tiempo transcurrido"
+                            AutomationProperties.Name="Finalizar sesión de enfoque"
+                            AutomationProperties.HelpText="Termina la sesión ahora mismo y registra el tiempo ya transcurrido. Distinto de Cancelar, que descarta la sesión sin guardarla."
+                            Click="FinishButton_Click" />
                     <Button x:Name="CancelButton"
                             Content="Cancelar"
-                            Margin="4,0,0,0"
+                            Margin="3,0,0,0"
                             Style="{StaticResource SecondaryButtonStyle}"
+                            ToolTip="Descarta la sesión sin registrarla"
+                            AutomationProperties.Name="Cancelar sesión de enfoque"
                             Click="CancelButton_Click" />
                 </UniformGrid>
+
+                <!--
+                    Diseño D3.1 — aviso no modal de fin de sesión. Aparece para toda finalización
+                    real (natural o manual, con tarea asociada o sin ella): nunca para Cancelar,
+                    que descarta sin dejar rastro (ver FocusManager.Cancel/Finish).
+                -->
+                <Border x:Name="SessionCompletionNoticeBorder"
+                        Margin="0,12,0,0"
+                        Padding="11"
+                        Background="{DynamicResource BrushSurfaceRaised}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1"
+                        CornerRadius="{DynamicResource RadiusMedium}"
+                        Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock x:Name="SessionCompletionTitleText"
+                                   Text=""
+                                   FontWeight="SemiBold"
+                                   FontSize="13" />
+                        <TextBlock x:Name="SessionCompletionDetailText"
+                                   Margin="0,4,0,0"
+                                   Text=""
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <StackPanel Margin="0,10,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Cerrar"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="11,6"
+                                    AutomationProperties.Name="Cerrar aviso de sesión completada"
+                                    Click="DismissSessionCompletionButton_Click" />
+                            <Button x:Name="StartAnotherSessionButton"
+                                    Content="Iniciar otra sesión"
+                                    Margin="7,0,0,0"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Padding="11,6"
+                                    AutomationProperties.Name="Iniciar otra sesión de enfoque"
+                                    Click="StartAnotherSessionButton_Click" />
+                            <Button x:Name="CompleteAssociatedTaskButton"
+                                    Content="Marcar como completada"
+                                    Margin="7,0,0,0"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Padding="11,6"
+                                    Visibility="Collapsed"
+                                    AutomationProperties.Name="Marcar tarea asociada como completada"
+                                    Click="CompleteAssociatedTaskButton_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 
@@ -111,8 +184,54 @@
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
-                <TextBlock Text="Inicio rápido"
+                <TextBlock x:Name="TopTaskText"
+                           Margin="0,0,0,10"
+                           Text=""
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed"
+                           Style="{StaticResource MutedTextStyle}" />
+
+                <TextBlock Text="Actividad reciente"
                            Margin="0,0,0,8"
+                           FontWeight="SemiBold" />
+                <ItemsControl x:Name="RecentSessionsItemsControl">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,6"
+                                    Padding="9,7"
+                                    Style="{StaticResource SubtleCardStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TitleText}"
+                                                   FontSize="12.5"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding SubtitleText}"
+                                                   Margin="0,2,0,0"
+                                                   Style="{StaticResource MutedTextStyle}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding DurationText}"
+                                               Margin="10,0,0,0"
+                                               VerticalAlignment="Center"
+                                               FontSize="12.5"
+                                               FontWeight="SemiBold" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock x:Name="RecentSessionsEmptyText"
+                           Text="Aún no hay sesiones de enfoque registradas."
+                           Margin="0,0,0,4"
+                           Style="{StaticResource MutedTextStyle}" />
+
+                <TextBlock Text="Inicio rápido"
+                           Margin="0,16,0,8"
                            FontWeight="SemiBold" />
                 <UniformGrid Columns="2">
                     <Button Content="Enfoque · 25 min"

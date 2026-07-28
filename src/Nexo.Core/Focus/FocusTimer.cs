@@ -20,6 +20,14 @@ public sealed class FocusTimer
 
     public FocusTimerStatus Status { get; set; } = FocusTimerStatus.Running;
 
+    /// <summary>
+    /// Diseño D3: tarea asociada a esta sesión, cuando se inició desde "Enfocarme" en Hoy.
+    /// Anulable y opcional a propósito — la mayoría de sesiones no tienen una tarea asociada, y un
+    /// archivo de enfoque anterior a D3 simplemente lo deserializa como <c>null</c>. Es solo
+    /// informativo: si la tarea se edita o elimina después, la sesión sigue siendo válida.
+    /// </summary>
+    public Guid? TaskId { get; set; }
+
     public TimeSpan GetRemaining(DateTimeOffset now)
     {
         if (Status == FocusTimerStatus.Paused)
@@ -48,6 +56,7 @@ public sealed class FocusTimer
         EndsAt = EndsAt,
         Duration = Duration,
         PausedRemaining = PausedRemaining,
-        Status = Status
+        Status = Status,
+        TaskId = TaskId
     };
 }

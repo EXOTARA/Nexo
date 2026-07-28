@@ -48,7 +48,8 @@ public sealed class FocusManager
         TimeSpan duration,
         string? label,
         FocusSessionKind kind,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        Guid? taskId = null)
     {
         if (duration < MinimumDuration || duration > MaximumDuration)
         {
@@ -76,7 +77,8 @@ public sealed class FocusManager
                 EndsAt = now.Add(duration),
                 Duration = duration,
                 PausedRemaining = duration,
-                Status = FocusTimerStatus.Running
+                Status = FocusTimerStatus.Running,
+                TaskId = taskId
             };
 
             _state.ActiveTimer = timer;
@@ -158,6 +160,68 @@ public sealed class FocusManager
         }
     }
 
+    /// <summary>
+    /// Diseño D3: termina la sesión activa ANTES de que se agote su duración, contando el tiempo
+    /// realmente transcurrido como completado. Distinto de <see cref="Cancel"/> (que descarta la
+    /// sesión sin dejar rastro) y de la finalización pasiva de <see cref="CollectCompletion"/>
+    /// (que solo detecta cuándo el tiempo ya se agotó): esta es la acción que el usuario dispara a
+    /// propósito para decir "terminé antes, pero cuenta esto".
+    /// </summary>
+    public FocusOperationResult Finish(DateTimeOffset now)
+    {
+        lock (_sync)
+        {
+            var timer = _state.ActiveTimer;
+            if (timer is null)
+            {
+                return FocusOperationResult.Failed("No hay un temporizador activo.");
+            }
+
+            var elapsed = timer.Duration - timer.GetRemaining(now);
+            if (elapsed <= TimeSpan.Zero)
+            {
+                // Nada transcurrido todavía: no hay nada útil que registrar en el historial, así
+                // que equivale a cancelar.
+                _state.ActiveTimer = null;
+                SaveLocked();
+                return FocusOperationResult.Completed(
+                    $"Finalicé {timer.Label.ToLowerInvariant()}.");
+            }
+
+            var historyEntry = new FocusHistoryEntry
+            {
+                Id = timer.Id,
+                Label = timer.Label,
+                Kind = timer.Kind,
+                StartedAt = timer.StartedAt,
+                CompletedAt = now,
+                Duration = elapsed,
+                TaskId = timer.TaskId
+            };
+
+            _state.History.Add(historyEntry);
+            _state.ActiveTimer = null;
+            TrimHistoryLocked(now);
+            SaveLocked();
+
+            // Diseño D3.1: se expone la misma FocusCompletion que ya usa CollectCompletion, para
+            // que quien llame a Finish() pueda mostrar un aviso de finalización (duración real,
+            // tarea asociada) sin tener que volver a leer el timer antes de llamar — Finish() ya
+            // lo limpió.
+            var completion = new FocusCompletion(
+                historyEntry.Label,
+                historyEntry.Kind,
+                historyEntry.Duration,
+                historyEntry.CompletedAt,
+                historyEntry.TaskId);
+
+            return FocusOperationResult.Completed(
+                $"Finalizaste {timer.Label.ToLowerInvariant()} antes de tiempo. " +
+                $"Se registraron {FormatDuration(elapsed)}.",
+                completion: completion);
+        }
+    }
+
     public FocusCompletion? CollectCompletion(DateTimeOffset now)
     {
         lock (_sync)
@@ -179,7 +243,8 @@ public sealed class FocusManager
                 Kind = timer.Kind,
                 StartedAt = timer.StartedAt,
                 CompletedAt = completedAt,
-                Duration = timer.Duration
+                Duration = timer.Duration,
+                TaskId = timer.TaskId
             };
 
             _state.History.Add(historyEntry);
@@ -191,7 +256,20 @@ public sealed class FocusManager
                 historyEntry.Label,
                 historyEntry.Kind,
                 historyEntry.Duration,
-                historyEntry.CompletedAt);
+                historyEntry.CompletedAt,
+                historyEntry.TaskId);
+        }
+    }
+
+    /// <summary>
+    /// Diseño D3.1 — copia de solo lectura del historial real, para que Nexo.App construya un
+    /// resumen de actividad reciente sin poder mutar el estado interno de <see cref="FocusManager"/>.
+    /// </summary>
+    public IReadOnlyList<FocusHistoryEntry> GetHistory()
+    {
+        lock (_sync)
+        {
+            return _state.History.Select(entry => entry.Copy()).ToList();
         }
     }
 

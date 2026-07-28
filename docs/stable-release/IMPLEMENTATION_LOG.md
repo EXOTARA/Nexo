@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Fase 2.2 — Adaptive Engine Registry v1 APROBADA (smoke test manual confirmado)**, promovida por fast-forward a `release/kohana-1.0-rc` |
-| **Siguiente fase** | Sprint de diseño visual de Kohana — **no iniciado**. Selección automática real de motores todavía no implementada |
-| **Rama** | `release/kohana-1.0-rc` en `79bf2e0` (promovida por fast-forward desde `phase2/adaptive-engine-registry-v1`) |
+| **Fase actual** | **Diseño D3.2 — Approved Release, Validation Sandbox & Roadmap** en curso: D3 y D3.1 **aprobados por el usuario** e integrándose en `release/kohana-1.0-rc` dentro de este mismo sprint |
+| **Siguiente fase** | Diseño D4 — Ambient Interaction Foundation (planeado en el roadmap, **no iniciado**) |
+| **Rama** | `release/kohana-1.0-rc` — D3 (`design/daily-flow-v1`, `0e45615`) y D3.1 (`design/focus-continuity-v1`) se integran vía `merge --no-ff` en Diseño D3.2 |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
-| **Última actualización** | 2026-07-24 |
-| **Bloqueador activo** | Ninguno |
+| **Última actualización** | 2026-07-25 |
+| **Bloqueador activo** | Ninguno. D3 y D3.1 aprobados por el usuario (ver secciones de aprobación más abajo); integración a release en curso dentro de Diseño D3.2 |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -1635,3 +1635,508 @@ rebase ni cherry-pick) desde `phase2/adaptive-engine-registry-v1`, quedando en `
 
 La rama `phase2/adaptive-engine-registry-v1` se conserva (no se elimina). Este checkpoint solo
 actualiza la documentación; no cambia código de producción ni pruebas.
+
+---
+
+### Diseño D1 — Sakura Shell, navegación y lenguaje visual (2026-07-25)
+
+Primer sprint que produce un cambio visual evidente en Kohana. Hasta ahora la apariencia se había
+preservado deliberadamente (Design System Foundation 0.1 era solo infraestructura de tokens). Este
+sprint rediseña el marco principal — barra lateral, marca, navegación, encabezado, superficie de
+contenido, estados y transiciones — sin tocar el contenido profundo de cada pantalla ni ninguna
+función (voz, IA, modos de rendimiento, hardware, persistencia, hotkeys, bandeja, instancia única).
+
+**Dirección visual — "Sakura Nocturna":** grafito oscuro, superficies elevadas, acento Sakura
+apagado usado solo donde comunica algo (nunca como fondo dominante), geometría sobria y coherente,
+nada de efectos pesados ni pétalos decorativos sin función.
+
+**Cambios visibles principales:**
+
+- Se eliminaron las dos elipses decorativas con `BlurEffect` y el degradado interno redundante del
+  `ShellBorder` — ninguna comunicaba estado, ambas costaban composición GPU. El borde del shell
+  pasó de un degradado de tres colores a un borde sólido semántico con sombra sutil.
+- `MainWindow.xaml` terminó el sprint sin ningún color hexadecimal literal (verificado por
+  prueba): todos migraron a `DynamicResource` sobre tokens existentes o un único token nuevo
+  (`BrushSidebarSurface`, para diferenciar el fondo de la barra lateral del de la tarjeta de
+  contenido).
+- El estado de sección activa ahora se comunica con cuatro señales, no solo color: superficie
+  elevada, indicador vertical tipo "tallo", ícono relleno en vez de solo trazo, y etiqueta con más
+  peso de fuente.
+- El foco de teclado usa el token semántico `BrushFocusRing` (existía desde la Fundación 0.1, sin
+  consumidores hasta ahora) en vez de reutilizar `BrushAccent`.
+- Las transiciones existentes (cambio de sección, expandir/contraer barra lateral) ahora usan
+  tokens de movimiento (`MotionFast`/`MotionBase`/`MotionEaseOut`) en vez de literales, y respetan
+  `SystemParameters.ClientAreaAnimation` además de la preferencia propia de Kohana.
+- Se quitó el título de página duplicado que ocho de las nueve vistas renderizaban internamente
+  (TasksView, FocusView, RoutinesView, AudioView, CaptureView, SystemView, SettingsView,
+  AssistantView), ahora que el encabezado centralizado del shell es la única fuente del título.
+  Subtítulos, estados dinámicos y botones de acción de cada vista quedaron intactos.
+
+**Navegación:** las nueve entradas y su orden funcional no cambiaron (verificado por prueba contra
+`ShellNavigationPolicy.KnownDestinations`); tampoco cambiaron rutas, comandos ni nombres
+funcionales. Solo se rediseñaron los estilos visuales, ahora reutilizables en
+`Themes/Controls.xaml` (`SakuraNavigationItemStyle`, `SakuraNavigationIconStyle`/
+`SakuraNavigationIconFilledStyle`, `SakuraSidebarToggleStyle`) en vez de vivir localmente dentro de
+`MainWindow.xaml`.
+
+**Recursos nuevos:** `ColorSidebarSurface`/`BrushSidebarSurface` (Colors.xaml); `RadiusShell`,
+`SidebarWidthCollapsed/Expanded`, `SidebarButtonWidthCollapsed/Expanded`, `NavigationIconSize`,
+`NavigationIndicatorWidth` (Spacing.xaml); `SakuraNavigationIconStyle`,
+`SakuraNavigationIconFilledStyle`, `SakuraNavigationItemStyle`, `SakuraSidebarToggleStyle`,
+`SakuraPageTitleStyle`, `SakuraPageSubtitleStyle`, `SakuraShellCardStyle` (Controls.xaml). Ningún
+diccionario de tema nuevo — todo se agregó a los 8 archivos existentes, así que
+`DesignSystemResourceTests` (merge order, unicidad de claves, referencias válidas) sigue
+cubriéndolos sin modificar esa prueba.
+
+**No rediseñado en este sprint:** contenido interno de las 8 vistas (solo se quitó el título
+duplicado), el símbolo floral completo (`KohanaFlowerMarkStyle`, ya existía, sigue sin usarse),
+iconografía floral distintiva por módulo, modo claro/alto contraste, arrastre de ventana, icono de
+instalador. Detalle completo, principios y plan de D2 en `docs/design/SAKURA_SHELL_V1.md`.
+
+**Pruebas nuevas:** 24 en `SakuraShellStructureTests` — tokens/estilos nuevos existen, cero colores
+hexadecimales literales en `MainWindow.xaml`, las nueve entradas de navegación y su orden funcional
+se preservan, cada control de navegación tiene nombre accesible y tooltip, el estado activo cambia
+más que solo color, el foco es visible vía `BrushFocusRing`, las animaciones del shell consultan
+`SystemParameters.ClientAreaAnimation` y nunca exceden 300 ms ni usan `RepeatBehavior`, el mecanismo
+de `ContentControl` de navegación sigue intacto, ningún método visual construye un servicio de
+producción, y `VoiceCoordinator`/`AdaptiveEnginePolicy`/la ausencia de `PackageReference` en
+`Nexo.Core`/la ausencia de `IServiceProvider` en `MainWindow` permanecen sin tocar.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 629 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 164 superadas, 0 con error, 0 omitidas
+Total: 793 pruebas (769 previas + 24 nuevas de Diseño D1), 0 fallidas, 0 warnings.
+```
+
+**Limitación del smoke test automatizado:** al momento de esta validación seguía activa la sesión
+de smoke test manual de Fase 2.2 del usuario (`Kohana.exe` corriendo desde
+`artifacts\Kohana-0.9.5-beta-phase2.2-...\`). El mutex de instancia única de Kohana es de ámbito de
+sesión, no de ruta de ejecutable, así que cualquier lanzamiento de prueba durante ese período habría
+señalizado esa instancia y terminado de inmediato sin cargar el build nuevo. No se interrumpió esa
+sesión; la validación automatizada de este sprint se apoya en el build limpio y la suite completa en
+verde como señal de confianza, con el smoke test visual interactivo pendiente del usuario, como
+exige explícitamente este sprint (no se afirma aprobación estética).
+
+**Revisión visual humana pendiente.** Este sprint no debe darse por cerrado hasta que el usuario
+revise visualmente el resultado. Detalle completo, capturas (si existen) y pasos sugeridos en
+`artifacts\Kohana-Design-D1-Sakura-Shell-Informe.md`.
+
+## Diseño D1.1 — Hotfix de crash al navegar
+
+**Motivo:** el usuario probó el ZIP de Diseño D1
+(`Kohana-0.9.5-beta-design-d1-sakura-shell-smoke-win-x64.zip`) y reportó un bloqueo total: Kohana
+arranca bien en Inicio, pero se cierra de inmediato al seleccionar cualquiera de las otras ocho
+secciones. Diseño D1 quedó NO aprobado por este defecto.
+
+**Causa raíz (confirmada por evidencia, no por suposición):** el registro de eventos de Windows
+provisto por el usuario (`artifacts\Kohana-D1-Navigation-Crash-EventLog.txt`, entrada ".NET
+Runtime" Id 1026) contiene el stack trace administrado completo: un
+`System.Windows.Markup.XamlParseException` — "No se puede encontrar el recurso con el nombre
+'ColorAccentBorder'" — lanzado desde `Border.ArrangeOverride` durante el primer layout de un
+control recién insertado. `BrushFocusRing` (junto con `BrushTextMuted` y `BrushError`, con el mismo
+patrón) vivía en `Themes/Brushes.xaml` referenciando por `StaticResource` una clave `Color*`
+definida en `Themes/Colors.xaml`, un archivo distinto — una referencia cruzada entre diccionarios
+que WPF solo resuelve de forma fiable cuando ambas claves están en el mismo archivo. Antes de
+Diseño D1 nada consumía `BrushFocusRing`, así que el fallo quedó latente; el primer consumidor real
+fue el disparador `IsKeyboardFocused` de `SakuraNavigationItemStyle`/`SakuraSidebarToggleStyle`
+introducido en D1, que lo expuso en cuanto el usuario navegaba y el control recién insertado en el
+árbol visual recibía el foco — exactamente lo que ocurre en cada cambio de sección.
+
+**Por qué las 24 pruebas de Diseño D1 no lo detectaron:** `DesignSystemResourceTests` verifica que
+las claves de recurso existan *textualmente* en algún archivo de tema (regex/`XDocument`, sin cargar
+WPF); nunca ejecuta la resolución real de recursos en tiempo de ejecución, así que esta clase de
+error era estructuralmente invisible para ese tipo de prueba.
+
+**Corrección:** se movieron `BrushTextMuted`, `BrushError` y `BrushFocusRing` a `Colors.xaml`, junto
+a los `Color*` que referencian, para que la resolución sea siempre dentro del mismo archivo.
+`Brushes.xaml` se conserva vacío (con comentario) en vez de eliminarse, porque `ThemeResources.xaml`
+y `DesignSystemResourceTests` esperan que exista en el orden de fusión. No se tocó ninguna lógica de
+navegación, animación, `VoiceCoordinator` ni `AdaptiveEnginePolicy`.
+
+**Pruebas nuevas — `Nexo.App.Tests` (proyecto `UseWPF=true`, nuevo):** las pruebas estructurales de
+D1 no ejecutan WPF real, así que no podían servir de regresión para este tipo de fallo. Se añadió un
+proyecto de pruebas WPF en un hilo STA (`StaWpfFixture`) que reproduce el mecanismo exacto del
+crash: muta `Application.Current.Resources` igual que `ApplyAccent`, fuerza el foco de teclado sobre
+un botón con `SakuraNavigationItemStyle`/`SakuraSidebarToggleStyle` (11 pruebas en total, incluye
+las 9 vistas reales de producción insertadas y con layout forzado en un host, con fakes mínimos para
+`TaskManager`/`FocusManager`/`RoutineManager`/`IAudioMixerService`). Durante el desarrollo de estas
+pruebas, una excepción sin observar dentro de un manejador `async void` (`AudioView.Loaded`) colgó
+el fixture compartido indefinidamente; se corrigió instalando un manejador de
+`DispatcherUnhandledException` en `StaWpfFixture` que captura y relanza esa clase de excepción de
+forma determinista en vez de dejar que cuelgue el hilo STA — detalle completo en el informe.
+
+**Validación interactiva real:** se publicó el build corregido
+(`artifacts\Kohana-0.9.5-beta-design-d1.1-navigation-hotfix-smoke-win-x64`) y se ejecutó de verdad
+mediante automatización de UI (System.Windows.Automation), no solo pruebas de compilación: las
+nueve secciones en secuencia, vuelta a Inicio, barra lateral colapsada/expandida, ráfaga de clics
+rápidos entre secciones distintas, clics repetidos sobre la sección activa, navegación por teclado
+(Enter/Espacio), y ocultar/reabrir (cierre a bandeja + segundo lanzamiento reactivando la misma
+instancia vía `SingleInstanceCoordinator`). Kohana permaneció abierto y responsivo en todo momento.
+Evidencia completa en `artifacts\design-d1.1\`.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 629 superadas, 0 con error, 0 omitidas
+  Nexo.Windows.Tests.dll → 164 superadas, 0 con error, 0 omitidas
+  Nexo.App.Tests.dll     →  11 superadas, 0 con error, 0 omitidas (proyecto nuevo)
+Total: 804 pruebas (793 previas + 11 nuevas de Diseño D1.1), 0 fallidas, 0 warnings.
+Suite completa repetida 5 veces adicionales sin variación (0 fallidas, sin señales de flakiness).
+```
+
+**Regresión (breve, sin tocar voz/motor adaptativo):** el diff de la corrección toca únicamente
+`Themes/Brushes.xaml` y `Themes/Colors.xaml` — cero líneas en `VoiceCoordinator`,
+`AdaptiveEnginePolicy`, motores, atajos globales o `SingleInstanceCoordinator` — por lo que esos
+sistemas no pueden haber regresado estructuralmente. La captura real de la sección Sistema tomada
+durante la validación interactiva (`shell-sistema-after.png`) confirma en vivo que el estado de voz,
+el Hardware Capability Profile (nivel "Acelerado", CPU/RAM/GPU detectados) y el plan del motor
+adaptativo (modo Automático, recomendación de Whisper) siguen renderizando con datos reales. Ocultar
+a la bandeja, reabrir vía instancia única y el mutex de instancia única se validaron en vivo en el
+paso 8 de la validación interactiva (ver arriba). El menú "Salir completamente" de la bandeja del
+sistema (`TrayIconController`) no se re-verificó con automatización de UI por la fragilidad de
+simular clics sobre coordenadas de la bandeja; ese camino no fue tocado por este hotfix.
+
+**Diseño D1.1 corrige el bloqueo de navegación de Diseño D1. Diseño D1 sigue sin promoverse a
+release; Diseño D2 no ha comenzado.** Informe completo en
+`artifacts\Kohana-Design-D1.1-Navigation-Hotfix-Informe.md`.
+
+> **Nota posterior (2026-07-25):** el estado descrito en el párrafo anterior corresponde al momento
+> en que se escribió, antes del smoke test manual del usuario. La aprobación y la integración
+> posteriores se registran en el checkpoint siguiente; este texto se conserva sin reescribir para
+> no falsear el historial.
+
+---
+
+### Checkpoint manual — Diseño D1 + D1.1 Sakura Shell aprobado (2026-07-25)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del build corregido de Diseño D1.1.
+
+| Campo | Valor |
+|---|---|
+| **Build probado** | `Kohana-0.9.5-beta-design-d1.1-navigation-hotfix-smoke-win-x64.zip` |
+| **SHA-256** | `909e5758d3959245b7ca7df615e58ad917d3795a5b69a20c397f5ec1430206d8` |
+| **Commit aprobado** | `6e50945` (`docs: record design D1.1 navigation hotfix`) |
+| **Pruebas verificadas en el preflight** | 804 (629 Core + 164 Windows + 11 App), 0 fallidas, 0 omitidas, 0 warnings |
+
+**Validación manual confirmada por el usuario (todo correcto):**
+
+- Kohana inicia correctamente.
+- Inicio se renderiza correctamente.
+- Se puede seleccionar el resto de las secciones.
+- **No ocurre ningún crash al navegar** — el defecto bloqueante de Diseño D1 queda resuelto.
+- Las configuraciones recomendadas procedentes del Engine Registry aparecen correctamente.
+- La información del motor recomendado/configurado se presenta en la aplicación.
+- El usuario considera correcta la prueba funcional de D1.1.
+- El usuario **autoriza integrar el trabajo aprobado en `release/kohana-1.0-rc`**.
+
+**Estado formal:**
+
+- **Diseño D1 + D1.1 APROBADO por el usuario e integrado en `release/kohana-1.0-rc`** mediante
+  merge explícito `--no-ff` (no squash, no rebase, no cherry-pick), conservando la trazabilidad de
+  los ocho commits de D1 y los tres de D1.1.
+- La rama `design/sakura-shell-v1` se conserva (no se elimina).
+- El hotfix D1.1 **ya no está pendiente de smoke manual**.
+
+#### Defecto visual abierto — iconos de navegación seleccionados (asignado a Diseño D2)
+
+Durante el mismo smoke manual el usuario observó un **defecto visual nuevo**, distinto del crash ya
+corregido:
+
+- Al seleccionar casi cualquier sección de la barra lateral, el contenedor obtiene correctamente su
+  fondo/acento rosa, pero **el icono interior deja de conservar su forma de línea reconocible**.
+- El glifo aparece como un pequeño bloque o cuadrado sólido magenta, dentro del cual apenas queda
+  visible una marca pequeña.
+- Ocurre en casi todos los elementos de navegación; el icono **no** seleccionado sí conserva una
+  silueta clara.
+
+**Clasificación:**
+
+- **No produce crash.** No bloquea la navegación ni ninguna funcionalidad.
+- **No es comportamiento intencional** — es un defecto real y debe corregirse.
+- Queda **abierto como primer defecto de Diseño D2** (tarea D2.0), antes de cualquier otro trabajo
+  de ese sprint.
+
+Este defecto no invalida la aprobación funcional de D1.1: el usuario aprobó explícitamente la
+corrección del crash y autorizó la integración conociendo este defecto visual pendiente.
+
+---
+
+## Diseño D2 — Sakura Command Center
+
+**Rama:** `design/sakura-command-center-v2`, creada desde `release/kohana-1.0-rc` **ya integrada**
+con D1 + D1.1 aprobados (`0e8cef4`). El desarrollo de D2 no ocurre en release.
+
+**D2.0 — corrección del defecto de iconos seleccionados (primera tarea del sprint).**
+`SakuraNavigationIconFilledStyle` aplicaba `Fill` + `StrokeThickness="0"` sobre geometrías que son
+trazos abiertos, no siluetas rellenables. Medido renderizando con `RenderTargetBitmap`: la cobertura
+de tinta pasaba de ~11 % en estado normal a 95.6 % (Sistema), 93.2 % (Hoy) y 79.7 % (Asistente) —
+bloques sólidos— y a 0 % en Personalizar, que desaparecía por completo. Corregido expresando el
+estado seleccionado con **grosor de trazo** (`SakuraNavigationIconSelectedStyle`, grosores
+tokenizados en `Spacing.xaml`); tras la corrección todos quedan entre 5.9 % y 16.5 %, visibles y con
+la misma silueta. El estado activo sigue sin depender solo del color: se sustituye una señal no
+cromática por otra.
+
+**Sakura Command Center.** Registro de comandos real en `Nexo.Core/Commands/CommandCenter/`
+(descriptor con Id estable, disponibilidad evaluada en el momento y ejecución asíncrona que nunca
+lanza hacia la UI; registro con Ids únicos; búsqueda que normaliza acentos y prioriza título). La
+ventana (Ctrl + K, más un botón visible en el encabezado) solo busca, muestra y traslada teclado.
+Convive con la paleta de prompts de IA en Ctrl + Espacio en vez de fusionarse: son cosas distintas.
+Ctrl + K es window-level, no `RegisterHotKey`, para no quitarle el atajo a todo el sistema;
+`Alt + A`, `Alt + Shift + A`, `Ctrl + Espacio` y `Ctrl + Shift + Espacio` siguen intactos.
+
+**Componentes compartidos de workspace** en `Themes/Controls.xaml` (tarjeta pulsable, métrica, chip
+de estado, estados vacío/no disponible/error/carga, barra de herramientas, separador, campo de
+búsqueda). Ningún diccionario nuevo; solo `DynamicResource` entre archivos, nunca `StaticResource`
+—la causa del crash de D1.1—.
+
+**Persistencia.** No se creó almacén nuevo: `JsonSettingsStore` ya cumplía los requisitos. Se añadió
+`ShellPreferences.ResetVisualPreferences()` para "Restaurar apariencia", que devuelve solo lo visual
+y conserva tareas, rutinas, voz, IA, motores, integración con Windows y onboarding. Sus propias
+pruebas detectaron un defecto antes de entregar: llamar a `Normalize()` arrastraba la escalera de
+migración y reasignaba valores funcionales.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 666 superadas
+  Nexo.Windows.Tests.dll → 164 superadas
+  Nexo.App.Tests.dll     →  71 superadas
+Total: 901 pruebas (804 previas + 97 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 5 veces adicionales sin variación ni flakiness.
+```
+
+**Limitaciones declaradas.** La **validación interactiva y las capturas no se realizaron**: hay una
+instancia de Kohana del usuario en ejecución (PID 9696, el build de D1.1 de su propio smoke manual)
+y el mutex de instancia única es de sesión, no de ruta, así que cualquier segundo lanzamiento cede y
+termina. No se cerró ni se alteró esa instancia, y no se fabricó ninguna captura. Detalle en
+`artifacts\design-d2\interactive-validation-blocked.txt`.
+
+**El rediseño funcional de las nueve vistas (Inicio, Asistente, Hoy, Enfoque, Rutinas, Audio,
+Captura) NO se hizo** — es la desviación principal del sprint y queda como trabajo de D3, sobre los
+componentes compartidos que D2 deja definidos y probados.
+
+**Diseño D2 pendiente de smoke test manual del usuario. No se declara aprobado.** Informe completo
+en `artifacts\Kohana-Design-D2-Sakura-Command-Center-Informe.md`.
+
+> **Nota posterior (2026-07-25):** el estado descrito arriba corresponde al momento en que se
+> escribió, antes del smoke test manual del usuario. La aprobación se registra en el checkpoint
+> siguiente; este texto se conserva sin reescribir para no falsear el historial.
+
+---
+
+### Checkpoint manual — Diseño D2 Sakura Command Center aprobado (2026-07-25)
+
+El usuario ejecutó y **aprobó** manualmente el smoke test del build D2.
+
+**Validación manual confirmada por el usuario (todo correcto):**
+
+- Kohana inicia correctamente.
+- Las nueve secciones abren sin crash.
+- **Los iconos seleccionados conservan correctamente su forma** — el defecto de D2.0 queda
+  resuelto.
+- La barra lateral expandida y compacta funciona.
+- **Ctrl + K abre el Sakura Command Center.**
+- La búsqueda, flechas, Enter y Escape funcionan.
+- La navegación mediante comandos funciona.
+- Engine Registry y las recomendaciones del motor aparecen correctamente.
+- Las preferencias visuales funcionan.
+- No se detectaron cierres, congelamientos, textos cortados ni problemas visibles.
+- El usuario **autoriza integrar el trabajo aprobado en `release/kohana-1.0-rc`**.
+
+**Estado formal:**
+
+- **Diseño D2 APROBADO por el usuario para integración.**
+- Ya **no está pendiente de smoke manual**.
+- La validación interactiva automatizada que había quedado bloqueada (instancia del usuario
+  retenía el mutex de instancia única) se completó después de la aprobación, con capturas reales
+  de una instancia propia de esta validación — ver
+  `artifacts\design-d2\interactive-validation-after-user-approval.txt`.
+
+Detalle completo de la integración en `release/kohana-1.0-rc` en
+`artifacts\Kohana-Design-D2.1-Approval-And-Integration-Informe.md`.
+
+---
+
+## Diseño D3 — Sakura Daily Flow v1
+
+**Rama:** `design/daily-flow-v1`, creada desde `release/kohana-1.0-rc` ya integrada con
+D1 + D1.1 + D2 (`e2dce83`).
+
+**Hallazgo central del descubrimiento:** Inicio, Hoy, Enfoque y Rutinas ya eran mucho más
+funcionales de lo que el sprint asumía — CRUD real con persistencia en las tres, no vistas básicas
+a construir desde cero. `NexoTask` ya tenía prioridad, vencimiento y recordatorio; `FocusTimer` ya
+persistía con timestamps, no con una cuenta regresiva serializada frágil. El sprint fue de
+**conexión y cierre de huecos puntuales**, documentados en `docs/design/SAKURA_DAILY_FLOW_V1.md`.
+
+**Huecos cerrados:** `TaskManager.Reopen` (no existía); confirmación al eliminar una tarea (antes
+borraba sin preguntar); asociación tarea↔enfoque (`FocusTimer.TaskId`/`FocusHistoryEntry.TaskId`,
+anulables); `FocusManager.Finish` — termina la sesión antes de tiempo contando el tiempo real
+transcurrido, distinto de `Cancel` (descarta sin historial); última ejecución y alternar
+habilitada/deshabilitada en `RoutineManager` (`RoutineState` sube de esquema v1 a v2); tarjeta de
+Rutinas y accesos rápidos en Inicio; corrección de un valor de relleno ("25 min" fijo en la tarjeta
+de Enfoque sin ninguna sesión activa, ahora un estado vacío honesto o los minutos acumulados
+reales).
+
+**Coordinación:** `DailyFlowEventHub` (sin lógica de dominio) reenvía las señales de cambio ya
+existentes a un punto único; `DailyFlowSummaryBuilder` extrae de `MainWindow` el cálculo del
+resumen de Inicio a una función pura y comprobable sin WPF.
+
+**Command Center:** se corrigió un defecto de nombres real (`"focus.cancel"` se titulaba
+"Finalizar sesión de enfoque" pero llamaba a `Cancel()`); comandos nuevos `focus.pause/resume/
+finish` y uno dinámico "Ejecutar `<rutina>`" por cada rutina habilitada, con el registro
+reconstruido en cada apertura para no quedar desactualizado.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 689 superadas
+  Nexo.Windows.Tests.dll → 164 superadas
+  Nexo.App.Tests.dll     → 107 superadas
+Total: 960 pruebas (901 previas + 59 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 3 veces adicionales sin variación ni flakiness.
+```
+
+**Validación interactiva:** completada sin bloqueos (no había ninguna instancia de Kohana en
+ejecución). Recorrido completo con `System.Windows.Automation`: crear tarea → editar → Enfocarme →
+iniciar sesión → Inicio refleja la sesión activa → pausar → continuar → finalizar → completar tarea
+desde el aviso (nunca automático) → reabrir la tarea → Rutinas (sin ejecutar ninguna: todas tienen
+efectos reales) → Command Center → sidebar → variante de acento → ocultar y reabrir con persistencia
+confirmada leyendo `%LOCALAPPDATA%\Kohana\tasks.json` directamente. Kohana permaneció responsivo en
+todo momento. 10 capturas reales en `artifacts\design-d3\screenshots\`.
+
+**Rendimiento (una muestra, no una serie estadística):** arranque ~1.56 s, memoria en reposo
+~290 MiB, cambio de sección ~25 ms, apertura del Command Center ~394 ms.
+
+**Diseño D3 pendiente de smoke test manual del usuario. No se declara aprobado.** Informe completo
+en `artifacts\Kohana-Design-D3-Sakura-Daily-Flow-Informe.md`.
+
+> **Aprobación (Diseño D3.2, 2026-07-25):** el usuario probó D3 y confirmó Inicio, Hoy, el CRUD de
+> tareas, la asociación tarea↔enfoque, pausar/continuar/finalizar/cancelar, Rutinas y Command
+> Center funcionando, sin crash ni pérdida de datos. **Diseño D3 queda aprobado** e integrado en
+> `release/kohana-1.0-rc` vía `merge: integrate approved Sakura Daily Flow D3`.
+
+## Diseño D3.1 — Focus Continuity & Daily Flow Polish
+
+**Rama:** `design/focus-continuity-v1`, creada desde `design/daily-flow-v1` (`0e45615`) — D3
+confirmado por el usuario como probado y funcionando en ese momento, pero todavía no aprobado ni
+integrado.
+
+**Defecto corregido:** el reloj visual de Enfoque podía conservar temporalmente un valor anterior
+al cambiar de sección y regresar, corrigiéndose solo en el siguiente tick del `DispatcherTimer` de
+fondo (hasta 999 ms de retraso). Causa raíz: `MainWindow.NavigateTo` solo forzaba un refresco
+inmediato para el destino `"Home"`; para cualquier otro destino (incluido `"Focus"`) el texto
+visible esperaba al siguiente tick. Corregido reemplazando esa condición exclusiva por una llamada
+incondicional a `CheckFocusTimer()` (el mismo patrón que ya usaba `HandleSystemResume()`), aplicada
+también a `ShowFromBackground()`. Sin segundo `DispatcherTimer`, sin recrear `FocusView`, sin
+guardar el contador cada segundo.
+
+**Arquitectura nueva:** `FocusDisplayState`/`FocusDisplayStateBuilder` (Nexo.App/DailyFlow) — única
+fuente pura del reloj/estado/etiqueta/comandos disponibles, usada ahora por FocusView, el nuevo
+mini temporizador global y la tarjeta de Enfoque en Inicio (antes cada una calculaba por su
+cuenta). `FocusMiniTimer` (control WPF) + `FocusContinuityCoordinator` (sin timer propio, se
+refresca desde el mismo tick existente) — mini temporizador visible en el encabezado del shell en
+cualquier sección salvo la propia Enfoque, sin botón de Cancelar de un clic. `FocusManager.
+GetHistory()` + `FocusHistorySummaryBuilder` — actividad reciente y tarea con más tiempo hoy, solo
+cuando es honestamente calculable, sin rachas ni puntajes inventados. `FocusOperationResult.
+Completion` — aviso de fin de sesión generalizado a toda finalización real (natural o manual, con
+tarea o sin ella), nunca para Cancelar.
+
+**Command Center:** `focus.open` + `focus.start.15/25/45` (inicio real por preset, antes solo
+navegaba) + `focus.history`; Cancelar/Pausar/Continuar ahora refrescan también el mini temporizador
+y la tarjeta de Inicio de inmediato.
+
+**Build y pruebas (Release):**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 696 superadas
+  Nexo.Windows.Tests.dll → 164 superadas
+  Nexo.App.Tests.dll     → 148 superadas
+Total: 1008 pruebas (960 previas + 48 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 3 veces adicionales sin variación ni flakiness.
+```
+
+**Validación interactiva:** recorrido de 25 pasos con `System.Windows.Automation` contra el
+publicado real: iniciar sesión asociada a una tarea → confirmar reloj → mini temporizador visible y
+avanzando en Inicio y Hoy → pausar (estable) → continuar → regresar a Enfoque con valor correcto de
+inmediato → ocultar a bandeja y reactivar por segundo lanzamiento (cede, valor correcto de
+inmediato) → finalizar desde el mini temporizador → aviso de finalización con tarea asociada →
+completarla → Command Center (presets visibles y disponibles) → iniciar 25 min → sidebar compacta →
+cancelar (confirmado que no queda en el historial). Kohana permaneció responsivo en todo momento.
+10 capturas reales en `artifacts\design-d3.1\screenshots\`.
+
+**Diseño D3.1 pendiente de smoke test manual del usuario. No se declara aprobado.** Informe
+completo en `artifacts\Kohana-Design-D3.1-Focus-Continuity-Informe.md`.
+
+> **Aprobación (Diseño D3.2, 2026-07-25):** el usuario probó D3.1 y confirmó el refresco inmediato
+> al regresar a Enfoque, el mini temporizador avanzando al cambiar de sección, la pausa estable, la
+> reactivación correcta desde bandeja, e historial/resumen/presets funcionando, sin crash ni
+> regresiones. **Diseño D3.1 queda aprobado** e integrado en `release/kohana-1.0-rc` vía
+> `merge: integrate approved Focus Continuity D3.1`.
+
+## Diseño D3.2 — Approved Release, Validation Sandbox & Product Technology Roadmap
+
+**Alcance:** registrar la aprobación de D3 y D3.1 (ver secciones anteriores), integrarlos en
+`release/kohana-1.0-rc`, aislar los datos de futuras validaciones interactivas del perfil real del
+usuario, y formalizar la visión de producto, el roadmap tecnológico, la arquitectura de capacidades
+y el modelo de confianza de Kohana. Kohana Lens, Flow, Sakura Pills, optimización adaptativa y
+Computer Use quedan diseñados y planeados en este sprint, **no** implementados.
+
+**Validation Data Sandbox:** `NexoDataPaths.RootDirectory` (`src/Nexo.Core/Diagnostics/
+NexoDataPaths.cs`) resuelve ahora, en orden, un override explícito de proceso, la variable de
+entorno `KOHANA_DATA_ROOT`, o la ruta de producción real sin cambios — todos los stores ya
+derivaban de esa única propiedad, así que ningún store necesitó tocarse individualmente. 28 pruebas
+nuevas (`NexoDataPathsTests`, `ValidationProfileIsolationTests`) cubren precedencia, rutas
+inválidas, y aislamiento entre perfiles. `scripts/New-KohanaValidationProfile.ps1` crea perfiles
+aislados bajo `artifacts/validation-profiles/` y lanza Kohana con la variable fijada solo para el
+proceso hijo.
+
+**Integración:** `merge: integrate approved Sakura Daily Flow D3` seguido de
+`merge: integrate approved Focus Continuity D3.1`, ambos `--no-ff`, sin conflictos. Release pasó de
+`e2dce83` a `72afa54`.
+
+**Build y pruebas (Release), tras los merges:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 715 superadas
+  Nexo.Windows.Tests.dll → 173 superadas
+  Nexo.App.Tests.dll     → 148 superadas
+Total: 1036 pruebas (1008 previas + 28 nuevas), 0 fallidas, 0 omitidas, 0 warnings.
+Suite completa repetida 3 veces adicionales tras los commits de documentación, sin flakiness.
+```
+
+**Validación del perfil aislado:** contra el checkpoint publicado, con un perfil de validación
+real: tarea identificable creada, sesión de enfoque de 1 minuto iniciada y finalizada, acento
+visual cambiado — los tres cambios verificados dentro del perfil aislado. Snapshot SHA-256 de los
+12 archivos de `%LocalAppData%\Kohana` idéntico antes y después: 0 diferencias, aislamiento
+confirmado con evidencia real, no fabricada.
+
+**Documentación de producto:** `docs/product/KOHANA_PRODUCT_VISION.md`,
+`docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md` (fases 0–9, solo la Fase 0 marcada implementada),
+`docs/architecture/KOHANA_CAPABILITY_ARCHITECTURE.md` (12 capas con diagrama Mermaid),
+`docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md`, `docs/roadmap/KOHANA_CAPABILITY_MATRIX.md`.
+Próximo sprint grande recomendado: **D4 — Ambient Interaction Foundation**.
+
+**Publicación:** `artifacts\Kohana-0.9.8-beta-d3-approved-checkpoint-win-x64\`, comprimido en
+`Kohana-0.9.8-beta-d3-approved-checkpoint-win-x64.zip` (92 138 182 bytes), SHA-256
+`82863a97436064b3ee6a7a8063ec180e62c139e35956b03631d1c1380e39b5d8`.
+
+**Diseños D3 y D3.1 quedan aprobados por el usuario e integrados en `release/kohana-1.0-rc`.**
+Diseño D3.2 (aislamiento, documentación de producto y roadmap) no se declara aprobado en nombre del
+usuario — es trabajo de infraestructura y documentación, pendiente de que el usuario lo revise si
+así lo decide. Informe completo en
+`artifacts\Kohana-Design-D3.2-Release-And-Roadmap-Informe.md`. No se hizo push, no se abrió PR, no
+se hizo merge a `main`.

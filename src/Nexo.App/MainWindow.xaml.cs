@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Nexo.App.Automation;
+using Nexo.App.DailyFlow;
 using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
@@ -19,6 +20,7 @@ using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
+using Nexo.Core.Commands.CommandCenter;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
@@ -110,6 +112,27 @@ public partial class MainWindow : Window
     private readonly PeekWindow _peekWindow = new();
     private readonly CapsuleWindow _capsuleWindow = new();
     private readonly CommandPaletteWindow _commandPaletteWindow;
+
+    /// <summary>
+    /// Diseño D2 — Sakura Command Center. Se crea la primera vez que se abre (Ctrl + K o el botón
+    /// del encabezado) para no alargar el arranque con una ventana que puede no usarse.
+    /// </summary>
+    private CommandCenterWindow? _commandCenterWindow;
+
+    /// <summary>
+    /// Diseño D3 — ver <see cref="DailyFlowEventHub"/>. Reenvía los eventos de dominio que ya
+    /// existían (TasksChanged/FocusChanged/rutina ejecutada) a un solo punto de extensión, sin
+    /// reemplazar los manejadores existentes.
+    /// </summary>
+    private readonly DailyFlowEventHub _dailyFlowHub = new();
+
+    /// <summary>
+    /// Diseño D3.1 — conecta el mini temporizador global del encabezado con FocusManager y la
+    /// navegación, sin acumular esa lógica en MainWindow. Se construye en el constructor porque
+    /// el mini temporizador es parte fija del shell (a diferencia del Command Center, que se crea
+    /// de forma perezosa).
+    /// </summary>
+    private readonly FocusContinuityCoordinator _focusContinuity;
     private readonly TrayIconController _trayIcon;
     private readonly Dictionary<string, FrameworkElement> _views;
     private readonly bool _startHidden;
@@ -183,9 +206,18 @@ public partial class MainWindow : Window
             _focusManager,
             _taskManager));
         _tasksView = new TasksView(_taskManager);
-        _focusView = new FocusView(_focusManager);
+        _focusView = new FocusView(
+            _focusManager,
+            taskId => _taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title);
         _routinesView = new RoutinesView(_routineManager);
         _audioView = new AudioView(_audioMixerService);
+
+        _focusContinuity = new FocusContinuityCoordinator(
+            _focusManager,
+            FocusMiniTimerControl,
+            taskId => _taskManager.GetAll().FirstOrDefault(task => task.Id == taskId)?.Title,
+            () => NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled));
+        _focusContinuity.FinishRequested += (_, _) => FinishActiveFocusSession();
         _views = new Dictionary<string, FrameworkElement>(StringComparer.OrdinalIgnoreCase)
         {
             [ShellNavigationPolicy.Home] = _homeView,
@@ -212,7 +244,9 @@ public partial class MainWindow : Window
         _assistantView.VisionCaptureRequested += AssistantView_VisionCaptureRequested;
         _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
         _tasksView.TasksChanged += TasksView_TasksChanged;
+        _tasksView.FocusRequested += TasksView_FocusRequested;
         _focusView.FocusChanged += FocusView_FocusChanged;
+        _focusView.CompleteAssociatedTaskRequested += FocusView_CompleteAssociatedTaskRequested;
         _routinesView.ExecuteRequested += RoutinesView_ExecuteRequested;
         // Los eventos de wake word se suscriben a través del coordinador (paso directo al
         // servicio subyacente): MainWindow ya no necesita una referencia al servicio.
@@ -226,7 +260,13 @@ public partial class MainWindow : Window
         _homeView.CommandRequested += HomeView_CommandRequested;
         _homeView.TasksRequested += HomeView_TasksRequested;
         _homeView.FocusRequested += HomeView_FocusRequested;
+        _homeView.RoutinesRequested += HomeView_RoutinesRequested;
         _homeView.ContextRequested += HomeView_ContextRequested;
+        _homeView.NewTaskRequested += HomeView_NewTaskRequested;
+        _homeView.StartFocusRequested += HomeView_StartFocusRequested;
+        _homeView.PauseFocusRequested += (_, _) => { _focusManager.Pause(DateTimeOffset.Now); CheckFocusTimer(); };
+        _homeView.ResumeFocusRequested += (_, _) => { _focusManager.Resume(DateTimeOffset.Now); CheckFocusTimer(); };
+        _homeView.CommandCenterRequested += (_, _) => ShowCommandCenter();
         _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
         _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
         _systemView.HardwareCapabilityRefreshRequested += async (_, _) => await RefreshHardwareCapabilityAsync();
@@ -536,6 +576,29 @@ public partial class MainWindow : Window
 
         _settingsView.OnboardingRequested += async (_, _) =>
             await ShowOnboardingAsync();
+
+        // Diseño D2 — restaurar apariencia. Solo se reaplican las preferencias visuales; las
+        // funcionales (tareas, rutinas, voz, IA, motores, integración con Windows) ni se leen ni
+        // se escriben aquí, que es justo lo que hace segura esta acción.
+        _settingsView.ResetAppearanceRequested += (_, _) =>
+        {
+            _preferences.ResetVisualPreferences();
+
+            Width = _preferences.Width;
+            PositionWindow();
+            _peekWindow.HideImmediately();
+            ApplyShellOpacity();
+            ApplyAccent(_preferences.AccentColor);
+            SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
+            UpdateNavigationState(_currentDestination);
+
+            // Refresca los controles de Personalizar para que reflejen los valores restaurados.
+            _settingsView.ApplyPreferences(_preferences);
+
+            SavePreferences();
+            _assistantView.AddKohanaMessage(
+                "Apariencia restaurada. Tus tareas, rutinas y la configuración de voz, IA y motores no se tocaron.");
+        };
     }
 
     private void ShowModelManager()
@@ -612,6 +675,14 @@ public partial class MainWindow : Window
         SetSideRailExpanded(!_sideRailExpanded, animate: true, persist: true);
     }
 
+    /// <summary>
+    /// Diseño D1 (Sakura Shell): las animaciones del shell respetan tanto la preferencia propia
+    /// de Kohana como la preferencia de Windows (Configuración de accesibilidad → Efectos
+    /// visuales). Si cualquiera de las dos está desactivada, los cambios de estado se aplican
+    /// de inmediato, sin transición.
+    /// </summary>
+    private bool ShellAnimationsAllowed => _preferences.AnimationsEnabled && SystemParameters.ClientAreaAnimation;
+
     private void SetSideRailExpanded(bool expanded, bool animate, bool persist = true)
     {
         _sideRailExpanded = expanded;
@@ -625,9 +696,11 @@ public partial class MainWindow : Window
             : "Expandir navegación";
         ApplySideRailButtonLayout(expanded);
 
-        var targetWidth = expanded ? 194d : 68d;
+        var targetWidth = expanded
+            ? (double)FindResource("SidebarWidthExpanded")
+            : (double)FindResource("SidebarWidthCollapsed");
 
-        if (!animate || !_preferences.AnimationsEnabled)
+        if (!animate || !ShellAnimationsAllowed)
         {
             SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
             SideRailBorder.Width = targetWidth;
@@ -637,11 +710,11 @@ public partial class MainWindow : Window
         var currentWidth = SideRailBorder.ActualWidth > 0
             ? SideRailBorder.ActualWidth
             : SideRailBorder.Width;
-        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var easing = (CubicEase)FindResource("MotionEaseOut");
         var animation = new DoubleAnimation(
             currentWidth,
             targetWidth,
-            TimeSpan.FromMilliseconds(180))
+            (Duration)FindResource("MotionBase"))
         {
             EasingFunction = easing
         };
@@ -655,7 +728,9 @@ public partial class MainWindow : Window
 
     private void ApplySideRailButtonLayout(bool expanded)
     {
-        var buttonWidth = expanded ? 178d : 52d;
+        var buttonWidth = expanded
+            ? (double)FindResource("SidebarButtonWidthExpanded")
+            : (double)FindResource("SidebarButtonWidthCollapsed");
         SideRailContentGrid.Width = buttonWidth;
         SideRailToggleButton.Width = buttonWidth;
         SettingsNavButton.Width = buttonWidth;
@@ -710,6 +785,402 @@ public partial class MainWindow : Window
         _commandPaletteWindow.ShowPalette(_preferences.AnimationsEnabled);
     }
 
+    private void CommandCenterButton_Click(object sender, RoutedEventArgs e)
+    {
+        ShowCommandCenter();
+    }
+
+    /// <summary>
+    /// Diseño D2 — abre el Sakura Command Center (Ctrl + K). Se crea de forma perezosa la primera
+    /// vez: construir la ventana y el registro en el arranque solo retrasaría el inicio de Kohana
+    /// para una función que puede no usarse en toda la sesión.
+    /// </summary>
+    private void ShowCommandCenter()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        if (_commandCenterWindow is null)
+        {
+            _commandCenterWindow = new CommandCenterWindow(BuildCommandRegistry());
+            _commandCenterWindow.CommandFailed += CommandCenterWindow_CommandFailed;
+        }
+        else
+        {
+            // Diseño D3: algunos comandos son dinámicos (uno por rutina habilitada) — se
+            // reconstruye el registro en cada apertura para que nunca muestre una rutina ya
+            // renombrada, deshabilitada o eliminada desde la última vez.
+            _commandCenterWindow.UpdateCommands(BuildCommandRegistry());
+        }
+
+        _commandCenterWindow.ShowFor(this, Keyboard.FocusedElement);
+    }
+
+    private void CommandCenterWindow_CommandFailed(object? sender, CommandCenterFailureEventArgs e)
+    {
+        // Un comando fallido no cierra Kohana ni se informa como éxito: se avisa en la
+        // conversación (no modal) y el detalle técnico va al diagnóstico.
+        _assistantView.AddKohanaMessage(e.Result.Message ?? "No se pudo completar la acción.");
+
+        if (e.Result.Error is { } error)
+        {
+            WriteCommandCenterLog(e.Command.Id, error);
+        }
+    }
+
+    /// <summary>
+    /// Registra el fallo de un comando conservando tipo, mensaje, excepción interna y stack trace,
+    /// como exige el encargo. Sigue el mismo patrón que el resto de registros de Kohana: escribir
+    /// un log nunca puede afectar al funcionamiento de la aplicación.
+    /// </summary>
+    private static void WriteCommandCenterLog(string commandId, Exception error)
+    {
+        try
+        {
+            Directory.CreateDirectory(Nexo.Core.Diagnostics.NexoDataPaths.LogsDirectory);
+            File.AppendAllText(
+                Nexo.Core.Diagnostics.NexoDataPaths.CommandCenterLog,
+                $"{DateTimeOffset.Now:O} | comando '{commandId}' | " +
+                $"{error.GetType().FullName}: {error.Message}{Environment.NewLine}" +
+                $"{error}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch (IOException)
+        {
+            // El registro no debe afectar el funcionamiento de Kohana.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // El registro no debe afectar el funcionamiento de Kohana.
+        }
+    }
+
+    /// <summary>
+    /// Construye el registro de comandos enlazando cada uno a un servicio real ya existente.
+    /// No se inventa ninguna acción: solo se exponen cosas que el shell ya sabe hacer.
+    /// </summary>
+    private KohanaCommandRegistry BuildCommandRegistry()
+    {
+        var registry = new KohanaCommandRegistry();
+
+        registry.RegisterRange(BuildNavigationCommands());
+
+        registry.Register(new KohanaCommandDescriptor(
+            "shell.sidebar.toggle",
+            "Alternar barra lateral",
+            "Expande o contrae la navegación lateral.",
+            KohanaCommandCategory.Shell,
+            _ =>
+            {
+                SetSideRailExpanded(!_sideRailExpanded, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["barra", "lateral", "sidebar", "contraer", "expandir", "navegación"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.open",
+            "Abrir Enfoque",
+            "Va a la sección de Enfoque.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["enfoque", "concentración", "pomodoro", "sesión", "abrir"]));
+
+        registry.RegisterRange(BuildFocusStartCommands());
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.cancel",
+            "Cancelar sesión de enfoque",
+            "Descarta la sesión en curso sin registrarla en el historial.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                var result = _focusManager.Cancel();
+                CheckFocusTimer();
+                return Task.FromResult(result.Success
+                    ? CommandExecutionResult.Success(result.Message)
+                    : CommandExecutionResult.Failure(result.Message));
+            },
+            keywords: ["enfoque", "cancelar", "descartar", "detener"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.pause",
+            "Pausar sesión de enfoque",
+            "Pausa la sesión en curso, conservando el tiempo restante.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                var result = _focusManager.Pause(DateTimeOffset.Now);
+                CheckFocusTimer();
+                return Task.FromResult(result.Success
+                    ? CommandExecutionResult.Success(result.Message)
+                    : CommandExecutionResult.Failure(result.Message));
+            },
+            keywords: ["enfoque", "pausar", "detener"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is { Status: FocusTimerStatus.Running }
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque en curso para pausar.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.resume",
+            "Continuar sesión de enfoque",
+            "Reanuda la sesión pausada.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                var result = _focusManager.Resume(DateTimeOffset.Now);
+                CheckFocusTimer();
+                return Task.FromResult(result.Success
+                    ? CommandExecutionResult.Success(result.Message)
+                    : CommandExecutionResult.Failure(result.Message));
+            },
+            keywords: ["enfoque", "continuar", "reanudar", "resumir"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is { Status: FocusTimerStatus.Paused }
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque en pausa.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.finish",
+            "Finalizar sesión de enfoque",
+            "Termina la sesión ahora y cuenta el tiempo ya transcurrido, a diferencia de Cancelar.",
+            KohanaCommandCategory.Focus,
+            _ => Task.FromResult(FinishActiveFocusSession()),
+            keywords: ["enfoque", "finalizar", "terminar", "completar"],
+            availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "focus.history",
+            "Mostrar historial de enfoque",
+            "Abre Enfoque, donde están las últimas sesiones y el resumen del día.",
+            KohanaCommandCategory.Focus,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["enfoque", "historial", "actividad", "resumen", "sesiones"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "tasks.create",
+            "Crear una tarea",
+            "Abre Hoy para añadir una tarea nueva.",
+            KohanaCommandCategory.Tasks,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Tasks, animate: _preferences.AnimationsEnabled);
+                _tasksView.OpenNewEditor();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["tarea", "pendiente", "nueva", "añadir", "hoy"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "audio.mute",
+            "Silenciar audio",
+            "Silencia el volumen maestro del equipo.",
+            KohanaCommandCategory.Audio,
+            _ => Task.FromResult(ApplyMasterMute(muted: true)),
+            keywords: ["audio", "silenciar", "mute", "volumen"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "audio.unmute",
+            "Restaurar audio",
+            "Quita el silencio del volumen maestro.",
+            KohanaCommandCategory.Audio,
+            _ => Task.FromResult(ApplyMasterMute(muted: false)),
+            keywords: ["audio", "restaurar", "activar", "volumen", "sonido"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "voice.settings",
+            "Abrir configuración de voz",
+            "Va a Personalizar, donde vive la configuración de voz.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.Settings, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["voz", "micrófono", "whisper", "wake word", "dictado"]));
+
+        registry.Register(new KohanaCommandDescriptor(
+            "engine.settings",
+            "Ir a configuración del motor",
+            "Muestra en Sistema los motores registrados, el recomendado y el configurado.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                NavigateTo(ShellNavigationPolicy.System, animate: _preferences.AnimationsEnabled);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["motor", "engine", "registry", "adaptativo", "recomendado", "rendimiento"]));
+
+        registry.RegisterRange(BuildRoutineExecutionCommands());
+
+        return registry;
+    }
+
+    /// <summary>
+    /// Diseño D3.1 — un comando por cada preset de duración, solo disponible cuando no hay ya una
+    /// sesión de enfoque en curso: nunca deben aparecer dos comandos de "iniciar" e "finalizar/
+    /// pausar" incompatibles a la vez como disponibles. Cada uno reusa
+    /// <see cref="FocusView.StartPreset"/> (no llama a FocusManager.Start directamente) para no
+    /// perder una tarea pendiente de asociar si el usuario ya venía de "Enfocarme" en una tarea.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
+    {
+        (int Minutes, string Id)[] presets =
+        [
+            (15, "focus.start.15"),
+            (25, "focus.start.25"),
+            (45, "focus.start.45")
+        ];
+
+        foreach (var (minutes, id) in presets)
+        {
+            yield return new KohanaCommandDescriptor(
+                id,
+                $"Iniciar enfoque · {minutes} min",
+                $"Comienza una sesión de enfoque de {minutes} minutos.",
+                KohanaCommandCategory.Focus,
+                _ =>
+                {
+                    _focusView.StartPreset(TimeSpan.FromMinutes(minutes));
+                    CheckFocusTimer();
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: ["enfoque", "iniciar", "concentración", "pomodoro", minutes.ToString(CultureInfo.InvariantCulture)],
+                availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is null
+                    ? KohanaCommandAvailability.Available
+                    : KohanaCommandAvailability.Unavailable("Ya hay una sesión de enfoque en curso."));
+        }
+    }
+
+    /// <summary>
+    /// Diseño D3 — un comando por cada rutina, no un único comando genérico "ejecutar rutina": así
+    /// cada una aparece por su propio nombre en la búsqueda y su disponibilidad refleja si esa
+    /// rutina en concreto está habilitada. El registro se reconstruye cada vez que se abre el
+    /// Command Center (ver ShowCommandCenter), así que esta lista nunca queda desactualizada.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildRoutineExecutionCommands()
+    {
+        foreach (var routine in _routineManager.GetAll())
+        {
+            var routineId = routine.Id;
+            var routineName = routine.Name;
+            yield return new KohanaCommandDescriptor(
+                $"routine.execute.{routineId}",
+                $"Ejecutar {routineName}",
+                $"Ejecuta la rutina «{routineName}».",
+                KohanaCommandCategory.System,
+                async _ =>
+                {
+                    var current = _routineManager.GetAll().FirstOrDefault(candidate => candidate.Id == routineId);
+                    if (current is null)
+                    {
+                        return CommandExecutionResult.Failure($"La rutina «{routineName}» ya no existe.");
+                    }
+
+                    await RunRoutineAsync(current);
+                    return CommandExecutionResult.Success();
+                },
+                keywords: ["rutina", "routine", "ejecutar", routineName],
+                availability: () =>
+                {
+                    var current = _routineManager.GetAll().FirstOrDefault(candidate => candidate.Id == routineId);
+                    if (current is null)
+                    {
+                        return KohanaCommandAvailability.Unavailable("Esta rutina ya no existe.");
+                    }
+
+                    return current.IsEnabled
+                        ? KohanaCommandAvailability.Available
+                        : KohanaCommandAvailability.Unavailable($"La rutina «{routineName}» está desactivada.");
+                });
+        }
+    }
+
+    /// <summary>
+    /// Diseño D3 — misma lógica que <c>FocusView.FinishButton_Click</c>, para el comando
+    /// "focus.finish" del Command Center y para el mini temporizador global. Diseño D3.1:
+    /// FocusOperationResult.Completion ya trae la tarea asociada, así que no hace falta leer el
+    /// timer por separado antes de llamar a Finish().
+    /// </summary>
+    private CommandExecutionResult FinishActiveFocusSession()
+    {
+        var now = DateTimeOffset.Now;
+        var result = _focusManager.Finish(now);
+        _focusView.Refresh(now);
+        RefreshHomeView();
+
+        if (!result.Success)
+        {
+            return CommandExecutionResult.Failure(result.Message);
+        }
+
+        if (result.Completion is { } completion)
+        {
+            _focusView.ShowSessionCompletionNotice(completion);
+        }
+
+        return CommandExecutionResult.Success(result.Message);
+    }
+
+    private CommandExecutionResult ApplyMasterMute(bool muted)
+    {
+        var result = _audioMixerService.SetMasterMuted(muted);
+        if (!result.Succeeded)
+        {
+            return CommandExecutionResult.Failure(result.Detail);
+        }
+
+        // Refresca la vista de Audio para que el estado mostrado no quede desfasado respecto al
+        // cambio que se acaba de aplicar. La Task se observa dentro de RefreshAsync.
+        _ = _audioView.RefreshAsync(force: true);
+        return CommandExecutionResult.Success(result.Title);
+    }
+
+    private IEnumerable<KohanaCommandDescriptor> BuildNavigationCommands()
+    {
+        // Un comando por destino conocido: la lista sale de ShellNavigationPolicy, así que no
+        // puede desincronizarse de la navegación real del shell.
+        (string Destination, string Title, string[] Keywords)[] destinations =
+        [
+            (ShellNavigationPolicy.Home, "Ir a Inicio", ["inicio", "home", "principal"]),
+            (ShellNavigationPolicy.Assistant, "Ir a Asistente", ["asistente", "chat", "conversación"]),
+            (ShellNavigationPolicy.Tasks, "Ir a Hoy", ["hoy", "tareas", "pendientes"]),
+            (ShellNavigationPolicy.Focus, "Ir a Enfoque", ["enfoque", "concentración"]),
+            (ShellNavigationPolicy.Routines, "Ir a Rutinas", ["rutinas", "automatización"]),
+            (ShellNavigationPolicy.Audio, "Ir a Audio", ["audio", "volumen", "sonido"]),
+            (ShellNavigationPolicy.Capture, "Ir a Captura", ["captura", "pantalla", "screenshot"]),
+            (ShellNavigationPolicy.System, "Ir a Sistema", ["sistema", "estado", "diagnóstico", "hardware"]),
+            (ShellNavigationPolicy.Settings, "Ir a Personalizar", ["personalizar", "configuración", "ajustes", "preferencias"])
+        ];
+
+        foreach (var (destination, title, keywords) in destinations)
+        {
+            var target = destination;
+            yield return new KohanaCommandDescriptor(
+                $"navigate.{target.ToLowerInvariant()}",
+                title,
+                "Abre esta sección de Kohana.",
+                KohanaCommandCategory.Navigation,
+                _ =>
+                {
+                    NavigateTo(target, animate: _preferences.AnimationsEnabled);
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: keywords);
+        }
+    }
+
     private async void CommandPaletteWindow_PromptSubmitted(
         object? sender,
         CommandPalettePromptEventArgs e)
@@ -744,6 +1215,46 @@ public partial class MainWindow : Window
     private void HomeView_FocusRequested(object? sender, EventArgs e)
     {
         NavigateTo("Focus", animate: true);
+    }
+
+    private void HomeView_RoutinesRequested(object? sender, EventArgs e)
+    {
+        NavigateTo(ShellNavigationPolicy.Routines, animate: true);
+    }
+
+    private void HomeView_NewTaskRequested(object? sender, EventArgs e)
+    {
+        NavigateTo(ShellNavigationPolicy.Tasks, animate: true);
+        _tasksView.OpenNewEditor();
+    }
+
+    private void HomeView_StartFocusRequested(object? sender, EventArgs e)
+    {
+        NavigateTo(ShellNavigationPolicy.Focus, animate: true);
+        _focusView.FocusPrimaryControl();
+    }
+
+    /// <summary>
+    /// Diseño D3 — "Enfocarme" desde una tarea en Hoy. Prepara la asociación en FocusView (la
+    /// próxima sesión que se inicie ahí quedará asociada) y navega; no inicia la sesión por sí
+    /// solo, para que la persona elija la duración como con cualquier otra sesión.
+    /// </summary>
+    private void TasksView_FocusRequested(object? sender, TaskFocusRequestedEventArgs e)
+    {
+        _focusView.PrepareTaskAssociation(e.TaskId, e.TaskTitle);
+        NavigateTo(ShellNavigationPolicy.Focus, animate: true);
+        _focusView.FocusPrimaryControl();
+    }
+
+    /// <summary>
+    /// Diseño D3 — el usuario confirmó explícitamente que quiere marcar como completada la tarea
+    /// asociada a una sesión de enfoque que acaba de terminar. Nunca ocurre automáticamente.
+    /// </summary>
+    private void FocusView_CompleteAssociatedTaskRequested(object? sender, TaskFocusRequestedEventArgs e)
+    {
+        _taskManager.Complete(e.TaskId);
+        _tasksView.Refresh();
+        RefreshHomeView();
     }
 
     private async void HomeView_ContextRequested(object? sender, EventArgs e)
@@ -922,6 +1433,13 @@ public partial class MainWindow : Window
 
         RememberForegroundWindow();
         ShowAnimated();
+
+        // Diseño D3.1: mientras Kohana estaba oculto en la bandeja, _focusTickTimer siguió
+        // corriendo (nunca se detiene salvo al cerrar), así que el dominio está al día — pero el
+        // reloj visible de Enfoque (y el resumen de Inicio) no se refrescan solos hasta el
+        // siguiente tick de hasta un segundo. Se sincroniza de inmediato al reactivar, igual que
+        // ya hace HandleSystemResume() al volver de suspensión.
+        CheckFocusTimer();
     }
 
     private void ConfigureManagedOllamaSupervisor()
@@ -1178,6 +1696,17 @@ public partial class MainWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Diseño D2: Ctrl + K abre el Sakura Command Center. Se enlaza a la ventana, no con
+        // RegisterHotKey, porque sus acciones operan sobre el shell ya visible; capturar Ctrl + K
+        // en todo el sistema se lo quitaría a cualquier otra aplicación. Alt + A, Alt + Shift + A,
+        // Ctrl + Espacio y Ctrl + Shift + Espacio siguen siendo globales y no se tocan.
+        if (e.Key == Key.K && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            ShowCommandCenter();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.Escape)
         {
             return;
@@ -2687,11 +3216,16 @@ public partial class MainWindow : Window
                 routine,
                 approval,
                 _lifetimeCancellation.Token);
+            // Diseño D3: el runner no conoce el registro de rutinas (no le corresponde); se
+            // registra aquí, justo después, con el resultado real de la ejecución.
+            _routineManager.RecordExecution(routine.Id, report.CompletedAt, report.Succeeded);
             _assistantView.AddKohanaMessage(report.BuildSummary());
             _tasksView.Refresh();
             _focusView.Refresh(DateTimeOffset.Now);
             await _audioView.RefreshAsync(force: true);
             _routinesView.Refresh();
+            RefreshHomeView();
+            _dailyFlowHub.RaiseRoutinesChanged();
 
             _capsuleWindow.ShowMessage(
                 report.Succeeded ? CapsuleKind.Success : CapsuleKind.Warning,
@@ -2739,6 +3273,16 @@ public partial class MainWindow : Window
         var completion = _focusManager.CollectCompletion(now);
         _focusView.Refresh(now);
         RefreshHomeView();
+        _focusContinuity.Refresh(now);
+
+        // El mini temporizador no se muestra dentro de la propia sección Enfoque: mostraría el
+        // mismo estado dos veces en la misma pantalla.
+        if (_currentDestination.Equals(ShellNavigationPolicy.Focus, StringComparison.OrdinalIgnoreCase))
+        {
+            FocusMiniTimerControl.Visibility = Visibility.Collapsed;
+        }
+
+        _dailyFlowHub.RaiseFocusChanged();
 
         if (completion is null)
         {
@@ -2764,6 +3308,13 @@ public partial class MainWindow : Window
             _preferences.ShowWindowsNotifications,
             _preferences.PlayNotificationSounds);
         SpeakVoiceResult(detail);
+
+        // Diseño D3.1: el aviso no modal de fin de sesión se muestra para toda finalización
+        // natural, con tarea asociada o sin ella — no solo cuando hay una tarea que ofrecer
+        // completar. El capsule/tray de arriba es un aviso ambiental transitorio (se ve desde
+        // cualquier sección); este otro vive en Enfoque con las acciones reales (completar tarea,
+        // iniciar otra sesión, cerrar).
+        _focusView.ShowSessionCompletionNotice(completion);
     }
 
     private Task ExecuteFocusCommandAsync(FocusCommand command)
@@ -2850,6 +3401,7 @@ public partial class MainWindow : Window
     {
         CheckTaskReminders();
         RefreshHomeView();
+        _dailyFlowHub.RaiseTasksChanged();
     }
 
     private void CheckTaskReminders()
@@ -3435,12 +3987,17 @@ public partial class MainWindow : Window
         UpdateNavigationState(destination);
         UpdateWorkspaceHeader(destination);
 
-        if (destination.Equals("Home", StringComparison.OrdinalIgnoreCase))
-        {
-            RefreshHomeView();
-        }
+        // Diseño D3.1: el temporizador de Enfoque sigue corriendo cada segundo en segundo plano
+        // (_focusTickTimer) sin importar qué sección esté activa, así que el dominio nunca se
+        // atrasa. Pero antes, solo Inicio forzaba un refresco inmediato de sus propios controles
+        // al navegar — Enfoque no lo hacía, así que su reloj visible podía quedarse hasta un
+        // segundo desactualizado hasta el siguiente tick programado. Se llama al mismo punto
+        // central que ya usa HandleSystemResume() (reanudar desde suspensión) para no duplicar
+        // esta condición por cada uno de los nueve destinos: siempre sincroniza tanto Enfoque
+        // como Inicio, sin crear un timer nuevo ni cambiar la fuente de verdad (los timestamps).
+        CheckFocusTimer();
 
-        if (!animate || !_preferences.AnimationsEnabled)
+        if (!animate || !ShellAnimationsAllowed)
         {
             ModuleHost.Opacity = 1;
             ModuleHost.RenderTransform = Transform.Identity;
@@ -3452,8 +4009,8 @@ public partial class MainWindow : Window
         var transform = new TranslateTransform(14, 0);
         ModuleHost.RenderTransform = transform;
 
-        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var duration = TimeSpan.FromMilliseconds(145);
+        var easing = (CubicEase)FindResource("MotionEaseOut");
+        var duration = (Duration)FindResource("MotionFast");
 
         transform.BeginAnimation(
             TranslateTransform.XProperty,
@@ -3486,38 +4043,50 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Diseño D1 (Sakura Shell): el estado seleccionado nunca depende solo del color. Cada
+    /// entrada combina superficie elevada (fondo), indicador tipo "tallo" a la izquierda,
+    /// ícono con trazo más grueso, y texto con más peso — la misma combinación que se
+    /// verifica en <c>AdaptiveEngineUiInvariantTests</c>-equivalentes de este sprint.
+    ///
+    /// Diseño D2.0: la cuarta señal era "ícono relleno en vez de solo trazo", pero rellenar
+    /// geometrías de línea las convertía en bloques sólidos (y hacía desaparecer las que solo
+    /// tienen segmentos). Ahora es el grosor del trazo, que preserva la silueta.
+    /// </summary>
     private void UpdateNavigationState(string destination)
     {
-        var buttons = new Dictionary<string, Button>(StringComparer.OrdinalIgnoreCase)
+        var items = new (string Key, Button Button, Border Indicator, System.Windows.Shapes.Path Icon, TextBlock Label)[]
         {
-            ["Home"] = HomeNavButton,
-            ["Assistant"] = AssistantNavButton,
-            ["Tasks"] = TasksNavButton,
-            ["Focus"] = FocusNavButton,
-            ["Routines"] = RoutinesNavButton,
-            ["Audio"] = AudioNavButton,
-            ["Capture"] = CaptureNavButton,
-            ["System"] = SystemNavButton
+            ("Home", HomeNavButton, HomeNavIndicator, HomeNavIcon, HomeNavLabel),
+            ("Assistant", AssistantNavButton, AssistantNavIndicator, AssistantNavIcon, AssistantNavLabel),
+            ("Tasks", TasksNavButton, TasksNavIndicator, TasksNavIcon, TasksNavLabel),
+            ("Focus", FocusNavButton, FocusNavIndicator, FocusNavIcon, FocusNavLabel),
+            ("Routines", RoutinesNavButton, RoutinesNavIndicator, RoutinesNavIcon, RoutinesNavLabel),
+            ("Audio", AudioNavButton, AudioNavIndicator, AudioNavIcon, AudioNavLabel),
+            ("Capture", CaptureNavButton, CaptureNavIndicator, CaptureNavIcon, CaptureNavLabel),
+            ("System", SystemNavButton, SystemNavIndicator, SystemNavIcon, SystemNavLabel),
+            ("Settings", SettingsNavButton, SettingsNavIndicator, SettingsNavIcon, SettingsNavLabel)
         };
 
-        foreach (var pair in buttons)
+        foreach (var item in items)
         {
-            var selected = pair.Key.Equals(destination, StringComparison.OrdinalIgnoreCase);
-            pair.Value.Background = selected
-                ? (Brush)FindResource("BrushAccentSoft")
-                : Brushes.Transparent;
-            pair.Value.Foreground = selected
-                ? (Brush)FindResource("BrushAccent")
-                : (Brush)FindResource("BrushTextSecondary");
+            var selected = item.Key.Equals(destination, StringComparison.OrdinalIgnoreCase);
+            ApplyNavigationItemState(item.Button, item.Indicator, item.Icon, item.Label, selected);
         }
+    }
 
-        var settingsSelected = destination.Equals("Settings", StringComparison.OrdinalIgnoreCase);
-        SettingsNavButton.Background = settingsSelected
+    private void ApplyNavigationItemState(Button button, Border indicator, System.Windows.Shapes.Path icon, TextBlock label, bool selected)
+    {
+        button.Background = selected
             ? (Brush)FindResource("BrushAccentSoft")
             : Brushes.Transparent;
-        SettingsNavButton.Foreground = settingsSelected
+        button.Foreground = selected
             ? (Brush)FindResource("BrushAccent")
             : (Brush)FindResource("BrushTextSecondary");
+
+        indicator.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        icon.Style = (Style)FindResource(selected ? "SakuraNavigationIconSelectedStyle" : "SakuraNavigationIconStyle");
+        label.FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal;
     }
 
     private void UpdateWorkspaceHeader(string destination)
@@ -3542,81 +4111,16 @@ public partial class MainWindow : Window
 
     private void RefreshHomeView()
     {
-        var now = DateTimeOffset.Now;
-        var localNow = now.LocalDateTime;
-        var greeting = localNow.Hour switch
-        {
-            < 6 => "Buenas noches",
-            < 12 => "Buenos días",
-            < 19 => "Buenas tardes",
-            _ => "Buenas noches"
-        };
+        // Diseño D3: el cálculo del resumen vive en DailyFlowSummaryBuilder (Nexo.App/DailyFlow),
+        // no aquí — MainWindow solo reúne las entradas y aplica el resultado a la vista.
+        var model = DailyFlowSummaryBuilder.BuildHomeDashboard(
+            _taskManager,
+            _focusManager,
+            _routineManager.GetAll(),
+            _lastExternalWindowHandle != 0,
+            DateTimeOffset.Now);
 
-        var culture = new CultureInfo("es-MX");
-        var greetingDetail =
-            $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Kohana está listo";
-
-        var pending = _taskManager.GetAll()
-            .Where(task => !task.IsCompleted)
-            .OrderBy(task => task.DueAt ?? DateTimeOffset.MaxValue)
-            .ThenByDescending(task => task.Priority)
-            .ToArray();
-        var today = pending
-            .Where(task => task.DueAt.HasValue &&
-                           task.DueAt.Value.LocalDateTime.Date == localNow.Date)
-            .ToArray();
-        var overdue = pending.Count(task => task.IsOverdue(now));
-
-        var taskValue = today.Length > 0
-            ? today.Length.ToString(CultureInfo.InvariantCulture)
-            : overdue > 0
-                ? overdue.ToString(CultureInfo.InvariantCulture)
-                : "0";
-        var taskDetail = today.FirstOrDefault() is { } nextToday
-            ? nextToday.DueAt.HasValue
-                ? $"Siguiente: {nextToday.Title} · {nextToday.DueAt.Value:HH:mm}"
-                : $"Siguiente: {nextToday.Title}"
-            : overdue > 0
-                ? $"{overdue} vencida{(overdue == 1 ? string.Empty : "s")} necesita atención"
-                : pending.FirstOrDefault() is { } nextPending
-                    ? $"Próxima: {nextPending.Title}"
-                    : "Nada urgente por ahora";
-
-        var focus = _focusManager.GetSnapshot(now);
-        string focusValue;
-        string focusDetail;
-        if (focus.ActiveTimer is { } timer)
-        {
-            var minutes = Math.Max(0, (int)Math.Ceiling(focus.Remaining.TotalMinutes));
-            focusValue = $"{minutes} min";
-            focusDetail = timer.Status == FocusTimerStatus.Paused
-                ? $"{timer.Label} · en pausa"
-                : timer.Label;
-        }
-        else
-        {
-            focusValue = "25 min";
-            focusDetail = focus.FocusMinutesToday > 0
-                ? $"{focus.FocusMinutesToday} min completados hoy"
-                : "Listo para empezar";
-        }
-
-        var contextTitle = _lastExternalWindowHandle != 0
-            ? "Ventana activa recordada"
-            : "Lista para analizar";
-        var contextDetail = _lastExternalWindowHandle != 0
-            ? "Pulsa aquí para capturarla con tu autorización."
-            : "Abre una ventana y Kohana podrá verla cuando lo pidas.";
-
-        _homeView.Refresh(new HomeDashboardViewModel(
-            greeting,
-            greetingDetail,
-            taskValue,
-            taskDetail,
-            focusValue,
-            focusDetail,
-            contextTitle,
-            contextDetail));
+        _homeView.Refresh(model);
     }
 
     private void ApplyPreferences()
@@ -3632,7 +4136,10 @@ public partial class MainWindow : Window
 
     private void ApplyShellOpacity()
     {
-        var baseColor = (Color)ColorConverter.ConvertFromString("#0D1119");
+        // Diseño D1: usa el color de fondo real del tema (BrushBackground) en vez de un
+        // literal hexadecimal casi-duplicado, para que el shell siga una única fuente de
+        // verdad de color. El comportamiento (opacidad configurable del shell) no cambia.
+        var baseColor = ((SolidColorBrush)FindResource("BrushBackground")).Color;
         var alpha = (byte)Math.Round(_preferences.Opacity * 255);
         ShellBorder.Background = new SolidColorBrush(Color.FromArgb(
             alpha,

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Nexo.Core.Automation;
 
 namespace Nexo.App.Views;
@@ -27,12 +28,32 @@ public partial class RoutinesView : UserControl
                 routine.Name,
                 routine.TriggerPhrase,
                 routine.IsEnabled ? "ACTIVA" : "PAUSADA",
-                BuildStepSummary(routine)))
+                BuildStepSummary(routine),
+                FormatLastExecution(routine),
+                routine.LastExecutionSucceeded == false
+                    ? (Brush)FindResource("BrushWarning")
+                    : (Brush)FindResource("BrushTextTertiary"),
+                routine.IsEnabled ? "Desactivar" : "Activar",
+                $"Ejecutar {routine.Name}",
+                routine.IsEnabled ? $"Desactivar {routine.Name}" : $"Activar {routine.Name}",
+                $"Editar {routine.Name}",
+                $"Eliminar {routine.Name}"))
             .ToArray();
         RoutinesItemsControl.ItemsSource = items;
         EmptyStateText.Visibility = items.Length == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
+    }
+
+    private static string FormatLastExecution(RoutineDefinition routine)
+    {
+        if (!routine.LastExecutedAt.HasValue)
+        {
+            return "Nunca ejecutada";
+        }
+
+        var outcome = routine.LastExecutionSucceeded == false ? " · con avisos" : string.Empty;
+        return $"Última vez: {routine.LastExecutedAt.Value:ddd d MMM · HH:mm}{outcome}";
     }
 
     public void FocusPrimaryControl()
@@ -150,6 +171,23 @@ public partial class RoutinesView : UserControl
         {
             ExecuteRequested?.Invoke(this, new RoutineRequestedEventArgs(id));
         }
+    }
+
+    private void ToggleRoutineButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetId(sender, out var id))
+        {
+            return;
+        }
+
+        var routine = _routineManager.GetAll().FirstOrDefault(candidate => candidate.Id == id);
+        if (routine is null)
+        {
+            return;
+        }
+
+        _routineManager.SetEnabled(id, !routine.IsEnabled);
+        Refresh();
     }
 
     private void CancelEditorButton_Click(object sender, RoutedEventArgs e) => HideEditor();
@@ -352,7 +390,14 @@ public partial class RoutinesView : UserControl
         string Name,
         string TriggerPhrase,
         string Status,
-        string StepSummary);
+        string StepSummary,
+        string LastExecutionText,
+        Brush LastExecutionBrush,
+        string ToggleLabel,
+        string RunAutomationName,
+        string ToggleAutomationName,
+        string EditAutomationName,
+        string DeleteAutomationName);
 }
 
 public sealed class RoutineRequestedEventArgs : EventArgs

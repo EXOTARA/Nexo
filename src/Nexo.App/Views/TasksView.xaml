@@ -15,10 +15,8 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel>
-                <TextBlock Text="Hoy" Style="{StaticResource SectionTitleStyle}" />
-                <TextBlock Margin="0,4,0,0"
-                           Text="Tareas y recordatorios guardados únicamente en este equipo."
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Tareas y recordatorios guardados únicamente en este equipo."
                            TextWrapping="Wrap"
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>
@@ -26,6 +24,7 @@
                     Content="Nueva"
                     Style="{StaticResource PrimaryButtonStyle}"
                     Padding="14,8"
+                    AutomationProperties.Name="Nueva tarea"
                     Click="NewTaskButton_Click" />
         </Grid>
 
@@ -186,7 +185,29 @@
                                                 Style="{StaticResource SecondaryButtonStyle}"
                                                 Visibility="{Binding CompleteVisibility}"
                                                 ToolTip="Marcar como completada"
+                                                AutomationProperties.Name="Marcar como completada"
                                                 Click="CompleteTaskButton_Click" />
+                                        <Button Content="↺"
+                                                Width="29"
+                                                Height="27"
+                                                Padding="0"
+                                                Tag="{Binding Id}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Visibility="{Binding ReopenVisibility}"
+                                                ToolTip="Reabrir tarea"
+                                                AutomationProperties.Name="Reabrir tarea"
+                                                Click="ReopenTaskButton_Click" />
+                                        <Button Content="◎"
+                                                Width="29"
+                                                Height="27"
+                                                Margin="0,5,0,0"
+                                                Padding="0"
+                                                Tag="{Binding Id}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Visibility="{Binding FocusVisibility}"
+                                                ToolTip="Enfocarme en esta tarea"
+                                                AutomationProperties.Name="Enfocarme en esta tarea"
+                                                Click="FocusTaskButton_Click" />
                                         <Button Content="✎"
                                                 Width="29"
                                                 Height="27"
@@ -195,6 +216,7 @@
                                                 Tag="{Binding Id}"
                                                 Style="{StaticResource SecondaryButtonStyle}"
                                                 ToolTip="Editar"
+                                                AutomationProperties.Name="Editar tarea"
                                                 Click="EditTaskButton_Click" />
                                         <Button Content="×"
                                                 Width="29"
@@ -204,6 +226,7 @@
                                                 Tag="{Binding Id}"
                                                 Style="{StaticResource SecondaryButtonStyle}"
                                                 ToolTip="Eliminar"
+                                                AutomationProperties.Name="Eliminar tarea"
                                                 Click="DeleteTaskButton_Click" />
                                     </StackPanel>
                                 </Grid>

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 
 namespace Nexo.App.Views;
@@ -7,6 +8,7 @@ namespace Nexo.App.Views;
 public partial class HomeView : UserControl
 {
     private readonly ObservableCollection<HomeRecentAction> _recentActions = [];
+    private bool _focusIsPaused;
 
     public HomeView()
     {
@@ -21,7 +23,34 @@ public partial class HomeView : UserControl
 
     public event EventHandler? FocusRequested;
 
+    public event EventHandler? RoutinesRequested;
+
     public event EventHandler? ContextRequested;
+
+    /// <summary>Diseño D3 — fila de accesos rápidos: "Nueva tarea".</summary>
+    public event EventHandler? NewTaskRequested;
+
+    /// <summary>Diseño D3 — fila de accesos rápidos: "Iniciar enfoque".</summary>
+    public event EventHandler? StartFocusRequested;
+
+    /// <summary>
+    /// Diseño D3.1 — acción rápida en la tarjeta de Enfoque cuando ya hay una sesión activa:
+    /// pausarla sin salir de Inicio.
+    /// </summary>
+    public event EventHandler? PauseFocusRequested;
+
+    /// <summary>
+    /// Diseño D3.1 — acción rápida en la tarjeta de Enfoque cuando la sesión está en pausa:
+    /// continuarla sin salir de Inicio.
+    /// </summary>
+    public event EventHandler? ResumeFocusRequested;
+
+    /// <summary>
+    /// Diseño D3 — fila de accesos rápidos: abrir el Sakura Command Center (Ctrl + K). Distinto
+    /// de <see cref="CommandRequested"/>, que abre la paleta de prompts de IA (Ctrl + Espacio) —
+    /// son cosas diferentes, igual que ya lo son sus atajos.
+    /// </summary>
+    public event EventHandler? CommandCenterRequested;
 
     public void Refresh(HomeDashboardViewModel model)
     {
@@ -33,6 +62,23 @@ public partial class HomeView : UserControl
         TaskDetailText.Text = model.TaskDetail;
         FocusValueText.Text = model.FocusValue;
         FocusDetailText.Text = model.FocusDetail;
+
+        _focusIsPaused = model.FocusIsPaused;
+        if (model.FocusHasActiveSession)
+        {
+            FocusQuickActionButton.Content = _focusIsPaused ? "Continuar" : "Pausar";
+            FocusQuickActionButton.Visibility = Visibility.Visible;
+            AutomationProperties.SetName(
+                FocusQuickActionButton,
+                _focusIsPaused ? "Continuar sesión de enfoque" : "Pausar sesión de enfoque");
+        }
+        else
+        {
+            FocusQuickActionButton.Visibility = Visibility.Collapsed;
+        }
+
+        RoutineCountText.Text = model.RoutineValue;
+        RoutineDetailText.Text = model.RoutineDetail;
         ContextTitleText.Text = model.ContextTitle;
         ContextDetailText.Text = model.ContextDetail;
     }
@@ -78,8 +124,32 @@ public partial class HomeView : UserControl
     private void FocusCard_Click(object sender, RoutedEventArgs e) =>
         FocusRequested?.Invoke(this, EventArgs.Empty);
 
+    private void RoutinesCard_Click(object sender, RoutedEventArgs e) =>
+        RoutinesRequested?.Invoke(this, EventArgs.Empty);
+
     private void ContextCard_Click(object sender, RoutedEventArgs e) =>
         ContextRequested?.Invoke(this, EventArgs.Empty);
+
+    private void NewTaskQuickAction_Click(object sender, RoutedEventArgs e) =>
+        NewTaskRequested?.Invoke(this, EventArgs.Empty);
+
+    private void StartFocusQuickAction_Click(object sender, RoutedEventArgs e) =>
+        StartFocusRequested?.Invoke(this, EventArgs.Empty);
+
+    private void FocusQuickActionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_focusIsPaused)
+        {
+            ResumeFocusRequested?.Invoke(this, EventArgs.Empty);
+        }
+        else
+        {
+            PauseFocusRequested?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void CommandCenterQuickAction_Click(object sender, RoutedEventArgs e) =>
+        CommandCenterRequested?.Invoke(this, EventArgs.Empty);
 }
 
 public sealed record HomeDashboardViewModel(
@@ -89,6 +159,10 @@ public sealed record HomeDashboardViewModel(
     string TaskDetail,
     string FocusValue,
     string FocusDetail,
+    bool FocusHasActiveSession,
+    bool FocusIsPaused,
+    string RoutineValue,
+    string RoutineDetail,
     string ContextTitle,
     string ContextDetail);
 

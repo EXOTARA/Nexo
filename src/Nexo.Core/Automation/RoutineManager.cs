@@ -109,6 +109,50 @@ public sealed class RoutineManager
         }
     }
 
+    /// <summary>
+    /// Diseño D3: alterna habilitada/deshabilitada sin pasar por el editor completo — la lista de
+    /// rutinas ya muestra el estado, así que cambiarlo ahí mismo evita el rodeo de abrir, tocar un
+    /// checkbox y guardar para una acción de un solo campo.
+    /// </summary>
+    public RoutineOperationResult SetEnabled(Guid id, bool enabled)
+    {
+        lock (_sync)
+        {
+            var routine = _state.Routines.FirstOrDefault(candidate => candidate.Id == id);
+            if (routine is null)
+            {
+                return RoutineOperationResult.Failed("La rutina ya no existe.");
+            }
+
+            routine.IsEnabled = enabled;
+            SaveLocked();
+            return RoutineOperationResult.Completed(
+                enabled ? $"Activé la rutina {routine.Name}." : $"Desactivé la rutina {routine.Name}.",
+                routine.Copy());
+        }
+    }
+
+    /// <summary>
+    /// Diseño D3: registra el resultado de una ejecución ya realizada por <see cref="RoutineRunner"/>.
+    /// Se llama desde la capa de UI justo después de <c>RunAsync</c>; el runner en sí no conoce el
+    /// registro de rutinas (no le corresponde) y sigue sin cambios.
+    /// </summary>
+    public void RecordExecution(Guid id, DateTimeOffset completedAt, bool succeeded)
+    {
+        lock (_sync)
+        {
+            var routine = _state.Routines.FirstOrDefault(candidate => candidate.Id == id);
+            if (routine is null)
+            {
+                return;
+            }
+
+            routine.LastExecutedAt = completedAt;
+            routine.LastExecutionSucceeded = succeeded;
+            SaveLocked();
+        }
+    }
+
     public RoutineOperationResult Delete(Guid id)
     {
         lock (_sync)
@@ -130,7 +174,21 @@ public sealed class RoutineManager
     private static RoutineState Normalize(RoutineState? state)
     {
         state ??= new RoutineState();
-        state.SchemaVersion = 1;
+
+        if (state.SchemaVersion < 1)
+        {
+            state.SchemaVersion = 1;
+        }
+
+        if (state.SchemaVersion < 2)
+        {
+            // Diseño D3: LastExecutedAt/LastExecutionSucceeded son nuevos y anulables — un
+            // archivo v1 los deserializa como null, que ya es el valor correcto para "nunca
+            // ejecutada todavía". No hay dato que transformar; el escalón solo registra que este
+            // archivo pasó por la revisión de D3.
+            state.SchemaVersion = 2;
+        }
+
         state.Routines ??= [];
         state.Routines = state.Routines
             .Select(routine => TryNormalizeRoutine(routine, out var normalized, out _)

@@ -3,15 +3,12 @@
     <!--
         Kohana Design System — Brushes semánticos (Fundación 0.1).
 
-        Alias semánticos requeridos por la fundación que aún no existían con ese nombre. NO
-        introducen colores nuevos salvo el anillo de foco: reutilizan los Color* ya definidos en
-        Colors.xaml (que se fusiona antes que este diccionario). Así el vocabulario semántico
-        queda completo sin cambiar la paleta actual.
-
-        BrushFocusRing se define para el trabajo de accesibilidad futuro; hoy los controles siguen
-        con FocusVisualStyle nulo, así que definir el token no cambia la apariencia todavía.
+        Diseño D1.1 (hotfix): BrushTextMuted, BrushError y BrushFocusRing se movieron a
+        Colors.xaml, junto a los Color* que referencian, para eliminar una referencia
+        StaticResource entre archivos distintos que resultó frágil en tiempo de ejecución (ver el
+        comentario en Colors.xaml y docs/design/SAKURA_SHELL_V1.md). Este diccionario queda
+        reservado para futuros alias semánticos que no requieran referenciar un Color* de otro
+        archivo; se conserva vacío en vez de eliminarse porque ThemeResources.xaml y las pruebas
+        de estructura del Design System ya lo esperan como parte del orden de fusión.
     -->
-    <SolidColorBrush x:Key="BrushTextMuted" Color="{StaticResource ColorTextTertiary}" />
-    <SolidColorBrush x:Key="BrushError" Color="{StaticResource ColorDanger}" />
-    <SolidColorBrush x:Key="BrushFocusRing" Color="{StaticResource ColorAccentBorder}" />
 </ResourceDictionary>
