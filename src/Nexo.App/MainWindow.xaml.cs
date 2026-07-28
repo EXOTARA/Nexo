@@ -136,6 +136,13 @@ public partial class MainWindow : Window
     private CommandCenterWindow? _commandCenterWindow;
 
     /// <summary>
+    /// Diseño D4.4 — visor del historial de solicitudes ambientales. Igual que
+    /// <see cref="_commandCenterWindow"/>, perezoso: se crea la primera vez que se pide desde el
+    /// Command Center.
+    /// </summary>
+    private AmbientHistoryWindow? _ambientHistoryWindow;
+
+    /// <summary>
     /// Diseño D3 — ver <see cref="DailyFlowEventHub"/>. Reenvía los eventos de dominio que ya
     /// existían (TasksChanged/FocusChanged/rutina ejecutada) a un solo punto de extensión, sin
     /// reemplazar los manejadores existentes.
@@ -1011,6 +1018,18 @@ public partial class MainWindow : Window
                 : KohanaCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso.")));
 
         registry.Register(new KohanaCommandDescriptor(
+            "ambient.history",
+            "Ver historial de solicitudes ambientales",
+            "Abre el historial de solicitudes del Sakura Pill Host, con la opción de deshacer las que aplique.",
+            KohanaCommandCategory.Ambient,
+            _ =>
+            {
+                ShowAmbientHistory();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["ambiental", "historial", "solicitudes", "pill", "sakura"]));
+
+        registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
             "Crear una tarea",
             "Abre Hoy para añadir una tarea nueva.",
@@ -1391,6 +1410,7 @@ public partial class MainWindow : Window
         _lifetimeCancellation.Cancel();
         _capsuleWindow.Close();
         _sakuraPillWindow.Close();
+        _ambientHistoryWindow?.Close();
         _ambientForegroundTracker.Dispose();
         _commandPaletteWindow.Close();
         // MainWindow desuscribe los eventos de wake word (a través del coordinador) y cancela
@@ -3439,6 +3459,37 @@ public partial class MainWindow : Window
 
         CheckAmbientRequest();
         return CommandExecutionResult.Success();
+    }
+
+    /// <summary>
+    /// Diseño D4.4 — abre (o refresca, si ya estaba abierto) el historial de solicitudes
+    /// ambientales. Los datos ya existían desde D4.1 (<c>AmbientRequestManager.GetHistory()</c>,
+    /// usados internamente para el archivado automático); esta es la primera superficie visible.
+    /// </summary>
+    private void ShowAmbientHistory()
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        if (_ambientHistoryWindow is null)
+        {
+            _ambientHistoryWindow = new AmbientHistoryWindow();
+            _ambientHistoryWindow.UndoRequested += AmbientHistoryWindow_UndoRequested;
+        }
+
+        _ambientHistoryWindow.ShowFor(
+            this,
+            AmbientRequestHistorySummaryBuilder.Build(_ambientRequestManager.GetHistory()));
+    }
+
+    private void AmbientHistoryWindow_UndoRequested(object? sender, Guid requestId)
+    {
+        _ambientRequestManager.Undo(requestId, DateTimeOffset.Now);
+        CheckAmbientRequest();
+        _ambientHistoryWindow?.Apply(
+            AmbientRequestHistorySummaryBuilder.Build(_ambientRequestManager.GetHistory()));
     }
 
     private Task ExecuteFocusCommandAsync(FocusCommand command)
