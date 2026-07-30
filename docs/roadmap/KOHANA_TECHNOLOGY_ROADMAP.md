@@ -55,7 +55,13 @@ integrado en `release/kohana-1.0-rc` — ver `docs/stable-release/IMPLEMENTATION
 
 ## Fase 2 — Kohana Lens
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (D5.1-D5.7 implementados y probados en `design/kohana-lens-v1`: TFM, OCR real,
+UI Automation, redacción de texto e imagen, indicador "Mirando", los tres modos
+—soporte/estudio/desarrollo— y resaltado visual, todo funcionando de punta a punta sobre la
+ventana activa. El criterio de terminado de esta fase está cubierto en código; sin integrar a
+`release/kohana-1.0-rc` todavía — ver `docs/stable-release/IMPLEMENTATION_LOG.md`, sección
+"Diseño D5". El usuario ya probó D5.1-D5.6 manualmente ("funciona bien"); falta que pruebe D5.7
+(resaltado visual, nuevo) antes de declarar la fase aprobada e integrarla).
 
 - Objetivo: que Kohana pueda observar y explicar lo que hay en pantalla (con autorización), no
   actuar sobre ello todavía.

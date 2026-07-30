@@ -404,6 +404,27 @@
                                                    FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>
+                                <Border x:Name="LensIndicator"
+                                        Margin="8,1,0,0"
+                                        Padding="8,3"
+                                        VerticalAlignment="Center"
+                                        Background="{DynamicResource BrushAccentSoft}"
+                                        CornerRadius="9"
+                                        Visibility="Collapsed"
+                                        ToolTip="Kohana Lens está observando la ventana activa, con tu autorización."
+                                        AutomationProperties.Name="Kohana Lens está observando la ventana activa">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="7"
+                                                 Height="7"
+                                                 Margin="0,0,6,0"
+                                                 VerticalAlignment="Center"
+                                                 Fill="{DynamicResource BrushAccent}" />
+                                        <TextBlock Text="Mirando"
+                                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                             <TextBlock x:Name="WorkspaceSubtitleText"
                                        Margin="0,5,0,0"
