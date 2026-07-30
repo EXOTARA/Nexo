@@ -120,6 +120,7 @@ public partial class MainWindow : Window
     /// <summary>Diseño D5 (Fase 2 — Kohana Lens) — OCR y lectura de UI Automation, ambos sin estado.</summary>
     private readonly WindowsOcrService _lensOcrService = new();
     private readonly WindowsUiAutomationReader _lensUiAutomationReader = new();
+    private readonly LensHighlightOverlay _lensHighlightOverlay = new();
     private readonly SakuraPillWindow _sakuraPillWindow = new();
     private readonly HomeView _homeView = new();
     private readonly AssistantView _assistantView = new();
@@ -1453,6 +1454,7 @@ public partial class MainWindow : Window
         _capsuleWindow.Close();
         _sakuraPillWindow.Close();
         _ambientHistoryWindow?.Close();
+        _lensHighlightOverlay.Close();
         _ambientForegroundTracker.Dispose();
         _commandPaletteWindow.Close();
         // MainWindow desuscribe los eventos de wake word (a través del coordinador) y cancela
@@ -3603,6 +3605,7 @@ public partial class MainWindow : Window
                     [],
                     CanUndo: false);
                 _ambientRequestManager.CompleteWithResult(result, DateTimeOffset.Now);
+                ShowLensHighlights(aiResult.Text, redactedOcr, redactedElements, uiaSnapshot);
             }
         }
         finally
@@ -3612,6 +3615,34 @@ public partial class MainWindow : Window
 
         CheckAmbientRequest();
         return CommandExecutionResult.Success();
+    }
+
+    /// <summary>
+    /// Diseño D5.7 — resalta, sobre la ventana real observada, las regiones de OCR/UI Automation
+    /// que la respuesta de la IA parece mencionar (ver <see cref="LensHighlightMatcher"/> para la
+    /// heurística y sus límites). Se omite en silencio si la lectura de UI Automation falló o no
+    /// tiene límites válidos: sin ellos no hay dónde posicionar la superposición con confianza.
+    /// </summary>
+    private void ShowLensHighlights(
+        string answerText,
+        OcrResult redactedOcr,
+        IReadOnlyList<UiAutomationElement> redactedElements,
+        UiAutomationSnapshot uiaSnapshot)
+    {
+        if (!uiaSnapshot.IsSuccess || uiaSnapshot.WindowWidth <= 0 || uiaSnapshot.WindowHeight <= 0)
+        {
+            return;
+        }
+
+        var regions = LensHighlightMatcher.FindMatches(
+            answerText, redactedOcr, redactedElements, uiaSnapshot.WindowLeft, uiaSnapshot.WindowTop);
+
+        _lensHighlightOverlay.ShowHighlights(
+            uiaSnapshot.WindowLeft,
+            uiaSnapshot.WindowTop,
+            uiaSnapshot.WindowWidth,
+            uiaSnapshot.WindowHeight,
+            regions);
     }
 
     private static string LensModeLabel(LensMode mode) => mode switch

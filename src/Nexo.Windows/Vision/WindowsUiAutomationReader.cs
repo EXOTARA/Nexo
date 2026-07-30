@@ -39,6 +39,7 @@ public sealed class WindowsUiAutomationReader : IUiAutomationReader
 
         AutomationElement root;
         string windowTitle;
+        System.Windows.Rect windowBounds;
         try
         {
             root = AutomationElement.FromHandle(handle);
@@ -48,6 +49,7 @@ public sealed class WindowsUiAutomationReader : IUiAutomationReader
             }
 
             windowTitle = root.Current.Name ?? string.Empty;
+            windowBounds = root.Current.BoundingRectangle;
         }
         catch (Exception exception) when (
             exception is ElementNotAvailableException or ArgumentException or InvalidOperationException)
@@ -58,7 +60,16 @@ public sealed class WindowsUiAutomationReader : IUiAutomationReader
         var elements = new List<UiAutomationElement>();
         Walk(root, TreeWalker.ControlViewWalker, depth: 0, elements);
 
-        return UiAutomationSnapshot.Success(windowTitle, elements);
+        var hasValidBounds = !windowBounds.IsEmpty &&
+            !double.IsInfinity(windowBounds.Width) && !double.IsInfinity(windowBounds.Height);
+
+        return UiAutomationSnapshot.Success(
+            windowTitle,
+            elements,
+            hasValidBounds ? (int)Math.Round(windowBounds.Left) : 0,
+            hasValidBounds ? (int)Math.Round(windowBounds.Top) : 0,
+            hasValidBounds ? (int)Math.Round(windowBounds.Width) : 0,
+            hasValidBounds ? (int)Math.Round(windowBounds.Height) : 0);
     }
 
     private static void Walk(

@@ -49,7 +49,12 @@ public static class VisionIntentPolicy
         return AiRequestMode.VisionGeneral;
     }
 
-    private static string Normalize(string? value)
+    /// <summary>
+    /// Diseño D5.7 — se hizo público para que <c>Nexo.Core.Vision.LensHighlightMatcher</c> compare
+    /// texto con el mismo criterio (minúsculas, sin acentos) que ya usa esta clase, en vez de
+    /// duplicar la normalización.
+    /// </summary>
+    public static string Normalize(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
