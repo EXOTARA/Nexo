@@ -5,18 +5,22 @@ using Nexo.Core.Voice;
 namespace Nexo.Core.Tests.Characterization;
 
 /// <summary>
-/// Fase 1.1 — congela las migraciones de preferencias (esquema v17) y los saneamientos que
+/// Fase 1.1 — congela las migraciones de preferencias (esquema v18) y los saneamientos que
 /// <see cref="ShellPreferences.Normalize"/> aplica en cada carga.
 ///
 /// Regla de `MIGRATION_PLAN.md`: cada incremento es aditivo, con default seguro, y **nunca**
 /// borra datos del usuario.
+///
+/// La versión esperada sube a la par que el esquema real (v17 → v18 en Diseño D6, Kohana Flow):
+/// esta prueba existe para detectar un cambio de esquema NO intencionado, no para congelar un
+/// número para siempre.
 /// </summary>
 public sealed class PreferencesMigrationCharacterizationTests
 {
-    private const int CurrentSchemaVersion = 17;
+    private const int CurrentSchemaVersion = 18;
 
     [Fact]
-    public void CurrentSchemaVersion_IsSeventeen()
+    public void CurrentSchemaVersion_IsEighteen()
     {
         var preferences = new ShellPreferences();
         preferences.Normalize();
@@ -30,13 +34,48 @@ public sealed class PreferencesMigrationCharacterizationTests
     [InlineData(8)]
     [InlineData(13)]
     [InlineData(15)]
-    public void AnyOlderSchema_MigratesForwardToSeventeen(int startingVersion)
+    [InlineData(17)]
+    public void AnyOlderSchema_MigratesForwardToTheCurrentVersion(int startingVersion)
     {
         var preferences = new ShellPreferences { SchemaVersion = startingVersion };
 
         preferences.Normalize();
 
         Assert.Equal(CurrentSchemaVersion, preferences.SchemaVersion);
+    }
+
+    [Fact]
+    public void MigratingToEighteen_NeverErasesFlowListsAlreadyPresent()
+    {
+        // Misma garantía que el escalón v16 con los aliases de palabra de activación: una
+        // actualización añade valores por omisión, nunca borra lo que el usuario ya tenía.
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 17,
+            FlowDictionary = ["cojana=Kohana"],
+            FlowSnippets = ["mi correo=adler@ejemplo.com"]
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(["cojana=Kohana"], preferences.FlowDictionary);
+        Assert.Equal(["mi correo=adler@ejemplo.com"], preferences.FlowSnippets);
+    }
+
+    [Fact]
+    public void OldFileWithoutFlowLists_GetsEmptyListsInsteadOfNull()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 10,
+            FlowDictionary = null!,
+            FlowSnippets = null!
+        };
+
+        preferences.Normalize();
+
+        Assert.Empty(preferences.FlowDictionary);
+        Assert.Empty(preferences.FlowSnippets);
     }
 
     [Fact]

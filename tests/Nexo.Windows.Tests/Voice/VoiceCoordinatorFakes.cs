@@ -136,11 +136,17 @@ internal sealed class FakeVoiceInputService : IVoiceInputService
         }
     }
 
+    /// <summary>Diseño D6.3 — se registra el modo para poder afirmar que Flow pide dictado.</summary>
+    public VoiceTranscriptionMode LastTranscriptionMode { get; private set; }
+        = VoiceTranscriptionMode.Command;
+
     public Task<VoiceRecognitionResult> StopListeningAsync(
+        VoiceTranscriptionMode transcriptionMode = VoiceTranscriptionMode.Command,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         LastStopListeningToken = cancellationToken;
+        LastTranscriptionMode = transcriptionMode;
         StopListeningCallCount++;
         IsListening = false;
         _log.Add("voiceInput.stopListening");

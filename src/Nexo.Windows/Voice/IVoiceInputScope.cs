@@ -17,7 +17,9 @@ public interface IVoiceInputScope : IAsyncDisposable
 {
     Task<VoiceStartResult> StartListeningAsync(CancellationToken cancellationToken = default);
 
-    Task<VoiceRecognitionResult> StopListeningAsync(CancellationToken cancellationToken = default);
+    Task<VoiceRecognitionResult> StopListeningAsync(
+        VoiceTranscriptionMode transcriptionMode = VoiceTranscriptionMode.Command,
+        CancellationToken cancellationToken = default);
 
     Task CancelAsync();
 

@@ -16,6 +16,15 @@ namespace Nexo.Windows.Voice;
 /// </summary>
 public sealed class WhisperVoiceInputService : IVoiceInputService
 {
+    /// <summary>
+    /// Diseño D6.3 — el prompt de Whisper condiciona el estilo de la salida. El de comandos sesga
+    /// hacia frases cortas de orden; para dictar hace falta lo contrario: prosa continua y con
+    /// puntuación, que es de donde <c>SpanishDictationNormalizer</c> parte.
+    /// </summary>
+    private const string DictationPrompt =
+        "Dictado en español con puntuación y acentos correctos. Texto natural en oraciones " +
+        "completas, con comas, puntos y mayúscula al inicio de cada oración.";
+
     private const string CommandPrompt =
         "Conversación natural y órdenes para Kohana en español. Frases frecuentes: " +
         "Oye Kohana; qué es esto; qué problema es este; por qué falla; mira la pantalla; " +
@@ -293,6 +302,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
     }
 
     public async Task<VoiceRecognitionResult> StopListeningAsync(
+        VoiceTranscriptionMode transcriptionMode = VoiceTranscriptionMode.Command,
         CancellationToken cancellationToken = default)
     {
         WaveInEvent? recorder;
@@ -360,6 +370,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
                     recordingPath,
                     recordedBytes,
                     captureQuality,
+                    transcriptionMode,
                     cancellationToken);
                 AppendVoiceCaptureLog(
                     recordedBytes,
@@ -450,7 +461,8 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
                     "No escuché una orden después de activarme.");
             }
 
-            return await StopListeningAsync(cancellationToken);
+            // La ruta de palabra de activación siempre produce una ORDEN, nunca dictado.
+            return await StopListeningAsync(VoiceTranscriptionMode.Command, cancellationToken);
         }
         finally
         {
@@ -513,15 +525,17 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         string recordingPath,
         long recordedBytes,
         VoiceCaptureQuality captureQuality,
+        VoiceTranscriptionMode transcriptionMode,
         CancellationToken cancellationToken)
     {
         await _transcriptionGate.WaitAsync(cancellationToken);
         try
         {
+            var isDictation = transcriptionMode == VoiceTranscriptionMode.Dictation;
             var whisperFactory = GetOrCreateWhisperFactory();
             using var processor = whisperFactory.CreateBuilder()
                 .WithLanguage("es")
-                .WithPrompt(CommandPrompt)
+                .WithPrompt(isDictation ? DictationPrompt : CommandPrompt)
                 .Build();
             await using var audioStream = File.OpenRead(recordingPath);
 
@@ -544,19 +558,29 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
                 transcript.Append(text);
             }
 
-            var normalizedText = SpanishVoiceTranscriptNormalizer.Normalize(
-                transcript.ToString());
+            // En dictado se devuelve el texto de Whisper intacto: el normalizador de comandos
+            // quitaría acentos, mayúsculas y toda la puntuación, que es justo lo que se quiere
+            // escribir. El acondicionamiento del dictado ocurre después, en Nexo.Core.Flow.
+            var normalizedText = isDictation
+                ? transcript.ToString().Trim()
+                : SpanishVoiceTranscriptNormalizer.Normalize(transcript.ToString());
+
             if (string.IsNullOrWhiteSpace(normalizedText))
             {
                 return VoiceRecognitionResult.NoSpeech(
-                    "Whisper no encontró una orden clara. Habla un poco más cerca del micrófono.");
+                    isDictation
+                        ? "No entendí nada de lo que dictaste. Habla un poco más cerca del micrófono."
+                        : "Whisper no encontró una orden clara. Habla un poco más cerca del micrófono.");
             }
 
             var confidence = EstimateRecognitionConfidence(
                 normalizedText,
                 recordedBytes,
                 captureQuality);
-            var requiresConfirmation = confidence < 0.60;
+
+            // Dictar no admite un paso de confirmación: la persona ve el texto ya escrito y lo
+            // corrige si hace falta. Pedirle que confirme cada frase anularía el sentido de dictar.
+            var requiresConfirmation = !isDictation && confidence < 0.60;
 
             return VoiceRecognitionResult.Recognized(
                 normalizedText,

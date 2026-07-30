@@ -24,6 +24,7 @@ using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Commands.CommandCenter;
+using Nexo.Core.Flow;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
@@ -38,6 +39,7 @@ using Nexo.Windows.Ambient;
 using Nexo.Windows.Automation;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
+using Nexo.Windows.Flow;
 using Nexo.Windows.Focus;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Resources;
@@ -56,11 +58,16 @@ public partial class MainWindow : Window
     private const int PeekHotkeyId = 0x4E59;
     private const int CommandPaletteHotkeyId = 0x4E5A;
     private const int LookHotkeyId = 0x4E5B;
+
+    /// <summary>Diseño D6.3 (Fase 3 — Kohana Flow) — atajo global de dictado.</summary>
+    private const int FlowHotkeyId = 0x4E5C;
+
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
     private const uint VirtualKeyA = 0x41;
     private const uint VirtualKeySpace = 0x20;
+    private const uint VirtualKeyD = 0x44;
     private const int WmHotkey = 0x0312;
     private const int WmPowerBroadcast = 0x0218;
     private const int PbtApmResumeSuspend = 0x0007;
@@ -121,6 +128,22 @@ public partial class MainWindow : Window
     private readonly WindowsOcrService _lensOcrService = new();
     private readonly WindowsUiAutomationReader _lensUiAutomationReader = new();
     private readonly LensHighlightOverlay _lensHighlightOverlay = new();
+
+    /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
+    private readonly WindowsFlowTextInserter _flowTextInserter;
+
+    /// <summary>
+    /// Handle de la ventana donde se escribirá lo dictado, recordado AL EMPEZAR. Si cambia el foco
+    /// antes de terminar, <see cref="WindowsFlowTextInserter"/> se niega a escribir.
+    /// </summary>
+    private long _flowTargetWindowHandle;
+
+    /// <summary>
+    /// Señal que cierra el dictado en curso. El atajo llega como dos pulsaciones separadas, pero el
+    /// ámbito de voz debe sostenerse durante toda la sección crítica; por eso una única operación
+    /// asíncrona espera aquí en vez de guardar el ámbito en un campo entre dos manejadores.
+    /// </summary>
+    private TaskCompletionSource<bool>? _flowStopSignal;
     private readonly SakuraPillWindow _sakuraPillWindow = new();
     private readonly HomeView _homeView = new();
     private readonly AssistantView _assistantView = new();
@@ -243,6 +266,7 @@ public partial class MainWindow : Window
             _taskManager));
         _ambientRequestManager = new AmbientRequestManager(_ambientRequestStore);
         _ambientRequestManager.Load();
+        _flowTextInserter = new WindowsFlowTextInserter(_ambientContextProvider);
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
             _focusManager,
@@ -1400,6 +1424,16 @@ public partial class MainWindow : Window
             _assistantView.AddKohanaMessage(
                 "Ctrl + Shift + Espacio ya está siendo utilizado por otra aplicación.");
         }
+
+        // Diseño D6.3 — el dictado global se registra igual que los demás atajos: como atajo de
+        // sistema, para que funcione con Kohana sin foco (que es todo el sentido de dictar en otra
+        // aplicación).
+        if (_preferences.FlowEnabled &&
+            !RegisterHotKey(windowHandle, FlowHotkeyId, ModControl | ModShift, VirtualKeyD))
+        {
+            _assistantView.AddKohanaMessage(
+                "Ctrl + Shift + D ya está siendo utilizado por otra aplicación; el dictado global no quedó disponible.");
+        }
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -1479,6 +1513,7 @@ public partial class MainWindow : Window
             UnregisterHotKey(windowHandle, PeekHotkeyId);
             UnregisterHotKey(windowHandle, CommandPaletteHotkeyId);
             UnregisterHotKey(windowHandle, LookHotkeyId);
+            UnregisterHotKey(windowHandle, FlowHotkeyId);
         }
 
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -1526,6 +1561,11 @@ public partial class MainWindow : Window
         {
             RememberForegroundWindow();
             _ = LookAtForegroundWindowAsync();
+            handled = true;
+        }
+        else if (wParam.ToInt32() == FlowHotkeyId)
+        {
+            ToggleFlowDictation();
             handled = true;
         }
 
@@ -3644,6 +3684,157 @@ public partial class MainWindow : Window
             uiaSnapshot.WindowHeight,
             regions);
     }
+
+    /// <summary>
+    /// Diseño D6.3 (Fase 3 — Kohana Flow) — el atajo global funciona como interruptor: una pulsación
+    /// empieza a dictar, la siguiente termina y escribe.
+    ///
+    /// No es "mantener presionado" por una razón concreta: <c>RegisterHotKey</c> solo avisa de la
+    /// pulsación, nunca del soltado, así que un verdadero push-to-talk exigiría un hook de teclado
+    /// de bajo nivel — la misma API que usan los registradores de teclas, que dispara falsos
+    /// positivos de antivirus y encaja mal con el empaquetado para la Store. Además, el valor que
+    /// el roadmap le atribuye a Flow es "escribir texto largo por voz", y sostener una tecla dos
+    /// minutos es peor experiencia que alternar. El botón de micrófono que ya existía en el
+    /// Asistente también es un interruptor, así que esto es consistente con lo que ya había.
+    /// </summary>
+    private void ToggleFlowDictation()
+    {
+        if (_isClosed || !_preferences.FlowEnabled)
+        {
+            return;
+        }
+
+        var pendingStop = _flowStopSignal;
+        if (pendingStop is not null)
+        {
+            // Ya hay un dictado en curso: esta pulsación lo cierra.
+            pendingStop.TrySetResult(true);
+            return;
+        }
+
+        _ = RunFlowDictationAsync();
+    }
+
+    private async Task RunFlowDictationAsync()
+    {
+        // La ventana destino se fija AQUÍ, antes de grabar nada: es la referencia contra la que el
+        // insertor comprobará después que el foco no cambió.
+        _flowTargetWindowHandle = _ambientForegroundTracker.LastExternalWindowHandle;
+
+        var stopSignal = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _flowStopSignal = stopSignal;
+        FlowIndicator.Visibility = Visibility.Visible;
+
+        try
+        {
+            await using var voiceScope = await _voiceCoordinator.AcquireVoiceInputScopeAsync();
+            await PauseWakeWordAsync();
+            _voiceCoordinator.StopSpeaking();
+
+            try
+            {
+                var startResult = await voiceScope.StartListeningAsync();
+                if (!startResult.IsAvailable)
+                {
+                    ShowFlowNotice(CapsuleKind.Warning, "No pude escuchar", startResult.Detail);
+                    return;
+                }
+
+                // El ámbito de voz debe sostenerse durante toda la sección crítica, así que se
+                // espera aquí a la segunda pulsación en vez de repartir el ámbito entre dos
+                // manejadores de mensajes distintos.
+                await stopSignal.Task;
+
+                var recognition = await voiceScope.StopListeningAsync(
+                    VoiceTranscriptionMode.Dictation);
+
+                HandleFlowDictationResult(recognition);
+            }
+            finally
+            {
+                await ResumeWakeWordIfEnabledAsync();
+            }
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or IOException)
+        {
+            ShowFlowNotice(CapsuleKind.Error, "Dictado interrumpido", exception.Message);
+        }
+        finally
+        {
+            _flowStopSignal = null;
+            FlowIndicator.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>
+    /// Diseño D6.3 — rama propia para el dictado: NO pasa por
+    /// <c>HandleVoiceRecognitionResultAsync</c> ni por <c>ProcessPromptAsync</c>. Lo dictado es
+    /// texto que la persona quiere escribir en otra aplicación, no una orden para Kohana; mezclarlo
+    /// con el camino de comandos haría, por ejemplo, que dictar "abre Spotify" dentro de un correo
+    /// abriera Spotify en vez de escribir esas palabras.
+    /// </summary>
+    private void HandleFlowDictationResult(VoiceRecognitionResult recognition)
+    {
+        if (!recognition.IsRecognized)
+        {
+            ShowFlowNotice(CapsuleKind.Warning, "No te entendí", recognition.Detail);
+            return;
+        }
+
+        var options = new FlowDictationOptions(
+            _preferences.FlowMode,
+            FlowSettingsParser.ParseDictionary(_preferences.FlowDictionary),
+            FlowSettingsParser.ParseSnippets(_preferences.FlowSnippets));
+
+        var text = SpanishDictationNormalizer.Normalize(recognition.Text, options);
+        var insertion = _flowTextInserter.Insert(text, _flowTargetWindowHandle);
+
+        if (insertion.IsInserted)
+        {
+            ShowFlowNotice(CapsuleKind.Success, "Dictado escrito", SummarizeForCapsule(text));
+            return;
+        }
+
+        HandleFlowInsertionFailure(insertion, text);
+    }
+
+    /// <summary>
+    /// Diseño D6.3 — cuando no se pudo escribir, el texto dictado NO se tira. Se copia al
+    /// portapapeles para que no se pierda el trabajo… salvo si la ventana destino era sensible: en
+    /// ese caso lo dictado pudo ser una contraseña, y dejarla en el portapapeles (accesible a
+    /// cualquier otro programa) sería peor que perderla.
+    /// </summary>
+    private void HandleFlowInsertionFailure(FlowInsertionResult insertion, string text)
+    {
+        if (insertion.Failure == FlowInsertionFailure.SensitiveWindow)
+        {
+            ShowFlowNotice(CapsuleKind.Warning, "Dictado descartado", insertion.Detail);
+            return;
+        }
+
+        if (insertion.Failure == FlowInsertionFailure.EmptyText || string.IsNullOrEmpty(text))
+        {
+            ShowFlowNotice(CapsuleKind.Warning, "No te entendí", insertion.Detail);
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(text);
+            ShowFlowNotice(
+                CapsuleKind.Warning,
+                "Copiado, no escrito",
+                $"{insertion.Detail} Lo dejé en el portapapeles.");
+        }
+        catch (Exception exception) when (exception is COMException or ExternalException)
+        {
+            ShowFlowNotice(CapsuleKind.Error, "Dictado perdido", insertion.Detail);
+        }
+    }
+
+    private void ShowFlowNotice(CapsuleKind kind, string title, string detail) =>
+        _capsuleWindow.ShowMessage(kind, title, detail, _preferences.Position);
 
     private static string LensModeLabel(LensMode mode) => mode switch
     {

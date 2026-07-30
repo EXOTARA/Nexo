@@ -168,8 +168,10 @@ public sealed class VoiceCoordinator : IDisposable
         public Task<VoiceStartResult> StartListeningAsync(CancellationToken cancellationToken = default) =>
             _owner._voiceInputService.StartListeningAsync(cancellationToken);
 
-        public Task<VoiceRecognitionResult> StopListeningAsync(CancellationToken cancellationToken = default) =>
-            _owner._voiceInputService.StopListeningAsync(cancellationToken);
+        public Task<VoiceRecognitionResult> StopListeningAsync(
+            VoiceTranscriptionMode transcriptionMode = VoiceTranscriptionMode.Command,
+            CancellationToken cancellationToken = default) =>
+            _owner._voiceInputService.StopListeningAsync(transcriptionMode, cancellationToken);
 
         public Task CancelAsync() => _owner._voiceInputService.CancelAsync();
 

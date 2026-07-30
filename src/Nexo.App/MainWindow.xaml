@@ -404,6 +404,27 @@
                                                    FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>
+                                <Border x:Name="FlowIndicator"
+                                        Margin="8,1,0,0"
+                                        Padding="8,3"
+                                        VerticalAlignment="Center"
+                                        Background="{DynamicResource BrushAccentSoft}"
+                                        CornerRadius="9"
+                                        Visibility="Collapsed"
+                                        ToolTip="Kohana está dictando: habla y pulsa Ctrl + Shift + D otra vez para escribir."
+                                        AutomationProperties.Name="Kohana está escuchando tu dictado">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="7"
+                                                 Height="7"
+                                                 Margin="0,0,6,0"
+                                                 VerticalAlignment="Center"
+                                                 Fill="{DynamicResource BrushAccent}" />
+                                        <TextBlock Text="Dictando"
+                                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Border>
                                 <Border x:Name="LensIndicator"
                                         Margin="8,1,0,0"
                                         Padding="8,3"

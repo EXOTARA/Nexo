@@ -16,6 +16,36 @@ public sealed class VoiceCoordinatorTests
         return (coordinator, log, voiceInput, voiceOutput, wakeWord);
     }
 
+    // ---------- Diseño D6.3: modo de transcripción ----------
+
+    [Fact]
+    public async Task StopListeningAsync_DefaultsToCommandMode_SoNothingBeforeFlowChanges()
+    {
+        var (coordinator, _, voiceInput, _, _) = CreateCoordinator();
+
+        await using (var scope = await coordinator.AcquireVoiceInputScopeAsync())
+        {
+            await scope.StopListeningAsync();
+        }
+
+        Assert.Equal(VoiceTranscriptionMode.Command, voiceInput.LastTranscriptionMode);
+    }
+
+    [Fact]
+    public async Task StopListeningAsync_ForwardsDictationModeThroughTheScope()
+    {
+        // Es lo que Flow necesita: sin este modo, el transcriptor aplicaría el normalizador de
+        // comandos y devolvería el dictado sin acentos, sin mayúsculas y sin puntuación.
+        var (coordinator, _, voiceInput, _, _) = CreateCoordinator();
+
+        await using (var scope = await coordinator.AcquireVoiceInputScopeAsync())
+        {
+            await scope.StopListeningAsync(VoiceTranscriptionMode.Dictation);
+        }
+
+        Assert.Equal(VoiceTranscriptionMode.Dictation, voiceInput.LastTranscriptionMode);
+    }
+
     // ---------- Propiedad exacta de las tres dependencias ----------
 
     [Fact]
@@ -124,7 +154,8 @@ public sealed class VoiceCoordinatorTests
             var startResult = await scope.StartListeningAsync(startCts.Token);
             var listenResult = await scope.ListenForUtteranceAsync(
                 maximumDuration, trailingSilence, preRoll, postWake, listenCts.Token);
-            var stopResult = await scope.StopListeningAsync(stopCts.Token);
+            var stopResult = await scope.StopListeningAsync(
+                VoiceTranscriptionMode.Command, stopCts.Token);
             await scope.CancelAsync();
 
             Assert.Same(voiceInput.StartResult, startResult);

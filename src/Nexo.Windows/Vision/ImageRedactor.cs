@@ -25,6 +25,11 @@ public static class ImageRedactor
             return pngBytes;
         }
 
+        // No se capturan aquí los fallos de GDI+ a propósito: si el tapado no se puede completar,
+        // devolver la imagen original entregaría intactos justo los píxeles que se querían ocultar.
+        // Es preferible que la excepción suba y el comando falle —el llamador ya la traduce a un
+        // fallo visible— a enviar en silencio una captura sin redactar a un proveedor de IA.
+
         using var inputStream = new MemoryStream(pngBytes);
         using var bitmap = new Bitmap(inputStream);
 
