@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D5 — Kohana Lens** en curso: D5.1-D5.6 implementados y probados en `design/kohana-lens-v1` — los tres modos funcionan de punta a punta sobre la ventana activa; no integrado a `release/kohana-1.0-rc` todavía |
-| **Siguiente fase** | D5.7 — resaltado visual sobre pantalla (única pieza restante del criterio de terminado de la Fase 2), luego validación manual del usuario e integración a release |
+| **Fase actual** | **Diseño D5 — Kohana Lens**: D5.1-D5.7 implementados y probados en `design/kohana-lens-v1` — el criterio de terminado completo de la Fase 2 (tres modos + resaltado visual, sobre la ventana activa, sin acción automática) está cubierto; no integrado a `release/kohana-1.0-rc` todavía |
+| **Siguiente fase** | Validación manual completa del usuario (el flujo de captura+OCR+IA ya se probó "funciona bien"; el resaltado visual D5.7 es nuevo, sin probar todavía), luego integración a release |
 | **Rama** | `design/kohana-lens-v1`, creada desde `release/kohana-1.0-rc` (`f279e18`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-28 |
-| **Bloqueador activo** | Ninguno. Falta el resaltado visual (D5.7) y la validación manual del usuario antes de declarar D5 aprobado |
+| **Bloqueador activo** | Ninguno. El usuario ya probó el flujo de Lens sin el resaltado ("funciona bien") — falta que pruebe D5.7 antes de declarar D5 aprobado |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2419,11 +2419,52 @@ Total: 1115 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces 
 Confirmado con un arranque manual que la app sigue iniciando con normalidad con los campos y el XAML
 nuevos ya cableados.
 
-**Pendiente (D5.7, siguiente):** resaltado visual sobre pantalla ("guía visual" del criterio de
-terminado de la Fase 2) — una ventana de superposición no activable (mismo patrón
-`WS_EX_NOACTIVATE`/`WS_EX_TOOLWINDOW` que `CapsuleWindow`/`SakuraPillWindow`) que dibuje recuadros
-sobre las regiones de OCR/UI Automation relevantes. Con D5.1-D5.6, los tres modos **ya funcionan**
-de punta a punta sobre la ventana activa — lo único que falta del criterio de terminado de la Fase 2
-es el resaltado visual.
+> **Confirmación del usuario (D5.1-D5.6):** el usuario probó los tres modos de Lens manualmente y
+> confirmó "funciona bien; el concepto está excelente". Dos observaciones de fricción registradas
+> como retroalimentación, no como defectos: (1) el Command Center (Ctrl+K) solo funciona con
+> Kohana ya enfocada — comportamiento conocido y documentado (D4), no un bug de Lens; (2) idea para
+> el futuro — animaciones del pill y expansión automática con el contenido "escribiéndose" conforme
+> la IA piensa (streaming) en vez de esperar la respuesta completa. Ninguna de las dos se atiende en
+> este sprint; la segunda queda registrada como mejora de UX futura para el Sakura Pill Host.
+
+### D5.7 — Resaltado visual sobre pantalla
+
+Última pieza del criterio de terminado de la Fase 2. `LensHighlightMatcher` (`Nexo.Core.Vision`,
+función pura) decide qué resaltar: no existe un mecanismo de citas estructuradas entre la IA y la
+captura (eso exigiría cambiar el formato del prompt de forma más profunda), así que esta primera
+versión usa una heurística honesta y simple — una línea de OCR o el nombre de un elemento de UI
+Automation se resalta si aparece tal cual (sin distinguir mayúsculas ni acentos) dentro de la
+respuesta de la IA. Es guía visual aproximada, no una prueba de que "esto es exactamente a lo que
+se refiere la IA" — documentado así en el propio código.
+
+`UiAutomationSnapshot` ahora también carga los límites reales de la ventana observada (UI
+Automation ya los da gratis, son el `BoundingRectangle` del elemento raíz) para traducir las
+coordenadas de OCR (relativas a la captura) a posición absoluta de pantalla; las coordenadas de UI
+Automation ya son absolutas, así que pasan sin cambios. `VisionIntentPolicy.Normalize` se hizo
+público para que el emparejador reutilice la misma normalización de mayúsculas/acentos en vez de
+duplicarla.
+
+`LensHighlightOverlay` (`Nexo.App`): mismo patrón no activable que `CapsuleWindow`/
+`SakuraPillWindow`, más `WS_EX_TRANSPARENT` — esta ventana cubre el área completa de la ventana
+observada, así que sin ese estilo bloquearía los clics reales dirigidos a la app de abajo. Se
+autodescarta a los 6 segundos; nunca intercepta entrada, solo dibuja. Se muestra justo después de
+un resultado exitoso de la IA en `ExecuteLensAsync`; se omite por completo si UI Automation no
+devolvió límites válidos.
+
+**Build y pruebas (Release), acumulado D5.1-D5.7:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 778 superadas
+  Nexo.Windows.Tests.dll → 183 superadas
+  Nexo.App.Tests.dll     → 164 superadas
+Total: 1125 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado con un arranque manual que la app sigue iniciando con normalidad con la superposición ya
+cableada. **Con D5.1-D5.7, el criterio de terminado completo de la Fase 2 está cubierto** — falta
+que el usuario pruebe específicamente el resaltado visual (D5.7 es nuevo, no probado todavía) antes
+de declarar D5 aprobado e integrarlo a release.
 
 **No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
