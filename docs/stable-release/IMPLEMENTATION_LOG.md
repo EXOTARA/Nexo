@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D5 — Kohana Lens**: D5.1-D5.7 implementados y probados en `design/kohana-lens-v1` — el criterio de terminado completo de la Fase 2 (tres modos + resaltado visual, sobre la ventana activa, sin acción automática) está cubierto; no integrado a `release/kohana-1.0-rc` todavía |
-| **Siguiente fase** | Validación manual completa del usuario (el flujo de captura+OCR+IA ya se probó "funciona bien"; el resaltado visual D5.7 es nuevo, sin probar todavía), luego integración a release |
-| **Rama** | `design/kohana-lens-v1`, creada desde `release/kohana-1.0-rc` (`f279e18`) |
+| **Fase actual** | **Diseño D5 — Kohana Lens, APROBADO** (D5.1-D5.7 probados y validados manualmente por el usuario, integrados en `release/kohana-1.0-rc` vía `merge: integrate approved Kohana Lens D5`, `1ab8871`) |
+| **Siguiente fase** | Sin decidir todavía — candidatos: Fase 3 (Kohana Flow) por orden del roadmap, o pulido adicional de Fase 1/2 |
+| **Rama** | `release/kohana-1.0-rc` — D5 se integró vía `merge --no-ff` desde `design/kohana-lens-v1` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-28 |
-| **Bloqueador activo** | Ninguno. El usuario ya probó el flujo de Lens sin el resaltado ("funciona bien") — falta que pruebe D5.7 antes de declarar D5 aprobado |
+| **Bloqueador activo** | Ninguno. D5 aprobado por el usuario en dos pruebas manuales (D5.1-D5.6, y D5.7) e integrado a release |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2292,7 +2292,7 @@ un cambio independiente de D4, ya integrado antes de este merge.)
 
 ---
 
-## Diseño D5 — Kohana Lens (en curso)
+## Diseño D5 — Kohana Lens
 
 **Rama:** `design/kohana-lens-v1`, creada desde `release/kohana-1.0-rc` (`f279e18`, D4 ya integrado).
 Implementa el comienzo de la Fase 2 del roadmap tecnológico
@@ -2463,8 +2463,13 @@ Total: 1125 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces 
 ```
 
 Confirmado con un arranque manual que la app sigue iniciando con normalidad con la superposición ya
-cableada. **Con D5.1-D5.7, el criterio de terminado completo de la Fase 2 está cubierto** — falta
-que el usuario pruebe específicamente el resaltado visual (D5.7 es nuevo, no probado todavía) antes
-de declarar D5 aprobado e integrarlo a release.
+cableada. **Con D5.1-D5.7, el criterio de terminado completo de la Fase 2 está cubierto.**
 
-**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+> **Aprobación (2026-07-28):** el usuario probó el resaltado visual (D5.7) y confirmó de nuevo "se
+> ve bien". **Diseño D5 (D5.1-D5.7, Kohana Lens completo) queda aprobado por el usuario** e
+> integrado en `release/kohana-1.0-rc` vía `merge: integrate approved Kohana Lens D5` (`1ab8871`).
+> Build Release 0 warnings, 1125 pruebas, 0 fallidas, suite repetida 3 veces sin flakiness tras el
+> merge. Fase 2 (Kohana Lens) pasa a **Implementada** en el roadmap.
+
+**No se hizo push a `release/kohana-1.0-rc` con el merge de D5, ni se abrió PR ni se hizo merge a
+`main`.**
