@@ -57,7 +57,8 @@ public sealed class AmbientRequestManager
         lock (_sync)
         {
             if (_state.ActiveRequest is
-                { Status: AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking })
+                { Status: AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking
+                    or AmbientRequestStatus.Streaming })
             {
                 return AmbientRequestOperationResult.Failed(
                     "Ya hay una solicitud en curso. Cancélala antes de iniciar otra.");
@@ -103,6 +104,95 @@ public sealed class AmbientRequestManager
         }
     }
 
+    /// <summary>
+    /// Diseño D7 — pasa a mostrar la respuesta conforme llega, en vez de esperar a tenerla
+    /// completa. No guarda en disco en cada fragmento a propósito: una respuesta larga dispararía
+    /// cientos de escrituras del archivo de historial por una sola solicitud. El estado se
+    /// persiste al completar (o al fallar), que es cuando hay algo definitivo que recordar.
+    /// </summary>
+    public AmbientRequestOperationResult BeginStreaming(DateTimeOffset now)
+    {
+        lock (_sync)
+        {
+            var request = _state.ActiveRequest;
+            if (request is null ||
+                request.Status is not (AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking))
+            {
+                return AmbientRequestOperationResult.Failed(
+                    "No hay una solicitud en curso que pueda empezar a responder.");
+            }
+
+            request.Status = AmbientRequestStatus.Streaming;
+            request.PartialText = string.Empty;
+            request.UpdatedAt = now;
+            SaveLocked();
+            return AmbientRequestOperationResult.Completed("Respondiendo.", request.Copy());
+        }
+    }
+
+    public AmbientRequestOperationResult AppendStreamedText(string? chunk, DateTimeOffset now)
+    {
+        if (string.IsNullOrEmpty(chunk))
+        {
+            return AmbientRequestOperationResult.Failed("No hay texto que añadir.");
+        }
+
+        lock (_sync)
+        {
+            var request = _state.ActiveRequest;
+            if (request is null || request.Status != AmbientRequestStatus.Streaming)
+            {
+                return AmbientRequestOperationResult.Failed(
+                    "No hay una respuesta en curso a la que añadir texto.");
+            }
+
+            request.PartialText += chunk;
+            request.UpdatedAt = now;
+            return AmbientRequestOperationResult.Completed(request.PartialText, request.Copy());
+        }
+    }
+
+    /// <summary>
+    /// Diseño D7 — cierra una respuesta que llegó por partes usando el texto ya acumulado, para que
+    /// quien orquesta no tenga que volver a juntarlo por su cuenta.
+    /// </summary>
+    public AmbientRequestOperationResult CompleteStreamedResult(
+        IReadOnlyList<AmbientQuickAction> quickActions,
+        bool canUndo,
+        DateTimeOffset now,
+        Func<string, string>? summarize = null)
+    {
+        lock (_sync)
+        {
+            var request = _state.ActiveRequest;
+            if (request is null || request.Status != AmbientRequestStatus.Streaming)
+            {
+                return AmbientRequestOperationResult.Failed(
+                    "No hay una respuesta en curso que completar.");
+            }
+
+            var fullText = request.PartialText ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(fullText))
+            {
+                request.Status = AmbientRequestStatus.Failed;
+                request.ErrorMessage = "La respuesta llegó vacía.";
+                request.UpdatedAt = now;
+                SaveLocked();
+                return AmbientRequestOperationResult.Failed("La respuesta llegó vacía.");
+            }
+
+            request.Status = AmbientRequestStatus.Result;
+            request.Result = new AmbientRequestResult(
+                summarize is null ? fullText : summarize(fullText),
+                fullText,
+                quickActions,
+                canUndo);
+            request.UpdatedAt = now;
+            SaveLocked();
+            return AmbientRequestOperationResult.Completed(fullText, request.Copy());
+        }
+    }
+
     public AmbientRequestOperationResult CompleteWithResult(
         AmbientRequestResult result,
         DateTimeOffset now)
@@ -111,7 +201,8 @@ public sealed class AmbientRequestManager
         {
             var request = _state.ActiveRequest;
             if (request is null ||
-                request.Status is not (AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking))
+                request.Status is not (AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking
+                    or AmbientRequestStatus.Streaming))
             {
                 return AmbientRequestOperationResult.Failed(
                     "No hay una solicitud en curso para completar.");
@@ -135,7 +226,8 @@ public sealed class AmbientRequestManager
         {
             var request = _state.ActiveRequest;
             if (request is null ||
-                request.Status is not (AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking))
+                request.Status is not (AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking
+                    or AmbientRequestStatus.Streaming))
             {
                 return AmbientRequestOperationResult.Failed(
                     "No hay una solicitud en curso para marcar como fallida.");
@@ -184,7 +276,8 @@ public sealed class AmbientRequestManager
                     "No hay ninguna solicitud para descartar.");
             }
 
-            if (request.Status is AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking)
+            if (request.Status is AmbientRequestStatus.Listening or AmbientRequestStatus.Thinking
+                or AmbientRequestStatus.Streaming)
             {
                 return AmbientRequestOperationResult.Failed(
                     "La solicitud sigue en curso. Cancélala en vez de descartarla.");

@@ -122,6 +122,36 @@ public sealed class AmbientRequestDisplayStateBuilderTests
         Assert.False(state.IsVisible);
     }
 
+    [Fact]
+    public void Streaming_ShowsThePartialAnswerAndStaysCancellable()
+    {
+        var manager = CreateManager();
+        manager.Begin("resume esto", context: null, ReferenceNow);
+        manager.BeginStreaming(ReferenceNow.AddSeconds(1));
+        manager.AppendStreamedText("Va llegando", ReferenceNow.AddSeconds(2));
+
+        var state = AmbientRequestDisplayStateBuilder.Build(manager);
+
+        Assert.True(state.IsVisible);
+        Assert.Equal("Respondiendo…", state.StatusText);
+        Assert.Equal("Va llegando", state.ShortText);
+        Assert.True(state.CanCancel);
+        // No debe autodescartarse mientras el texto sigue llegando.
+        Assert.False(state.CanDismiss);
+    }
+
+    [Fact]
+    public void Streaming_BeforeAnyTextArrives_FallsBackToThePrompt()
+    {
+        var manager = CreateManager();
+        manager.Begin("¿qué es esto?", context: null, ReferenceNow);
+        manager.BeginStreaming(ReferenceNow.AddSeconds(1));
+
+        var state = AmbientRequestDisplayStateBuilder.Build(manager);
+
+        Assert.Equal("¿qué es esto?", state.ShortText);
+    }
+
     private static AmbientRequestManager CreateManager()
     {
         var manager = new AmbientRequestManager(new FakeAmbientRequestHistoryStore());

@@ -240,6 +240,90 @@ public sealed class AmbientRequestManagerTests
         Assert.Equal(context, manager.GetSnapshot().ActiveRequest?.Context);
     }
 
+    // ---------- Diseño D7: respuesta por partes ----------
+
+    [Fact]
+    public void Streaming_ShowsTextAsItArrivesAndCompletesWithTheWholeAnswer()
+    {
+        var manager = CreateManager();
+        manager.Begin("resume esto", context: null, ReferenceNow);
+        manager.BeginThinking(ReferenceNow.AddSeconds(1));
+
+        Assert.True(manager.BeginStreaming(ReferenceNow.AddSeconds(2)).Success);
+        manager.AppendStreamedText("Hola", ReferenceNow.AddSeconds(3));
+        manager.AppendStreamedText(" mundo", ReferenceNow.AddSeconds(4));
+
+        var midway = manager.GetSnapshot().ActiveRequest!;
+        Assert.Equal(AmbientRequestStatus.Streaming, midway.Status);
+        Assert.Equal("Hola mundo", midway.PartialText);
+
+        var completed = manager.CompleteStreamedResult([], canUndo: false, ReferenceNow.AddSeconds(5));
+
+        Assert.True(completed.Success);
+        Assert.Equal(AmbientRequestStatus.Result, completed.Request?.Status);
+        Assert.Equal("Hola mundo", completed.Request?.Result?.ExpandedText);
+    }
+
+    [Fact]
+    public void Streaming_UsesTheSummarizerForTheShortTextWhenGivenOne()
+    {
+        var manager = CreateManager();
+        manager.Begin("resume esto", context: null, ReferenceNow);
+        manager.BeginStreaming(ReferenceNow.AddSeconds(1));
+        manager.AppendStreamedText("respuesta larga", ReferenceNow.AddSeconds(2));
+
+        var completed = manager.CompleteStreamedResult(
+            [], canUndo: false, ReferenceNow.AddSeconds(3), _ => "corto");
+
+        Assert.Equal("corto", completed.Request?.Result?.ShortText);
+        Assert.Equal("respuesta larga", completed.Request?.Result?.ExpandedText);
+    }
+
+    [Fact]
+    public void Streaming_ThatNeverProducedTextFailsInsteadOfShowingAnEmptyResult()
+    {
+        var manager = CreateManager();
+        manager.Begin("algo", context: null, ReferenceNow);
+        manager.BeginStreaming(ReferenceNow.AddSeconds(1));
+
+        var completed = manager.CompleteStreamedResult([], canUndo: false, ReferenceNow.AddSeconds(2));
+
+        Assert.False(completed.Success);
+        Assert.Equal(AmbientRequestStatus.Failed, manager.GetSnapshot().ActiveRequest?.Status);
+    }
+
+    [Fact]
+    public void AppendStreamedText_OutsideAStreamIsRejected()
+    {
+        var manager = CreateManager();
+        manager.Begin("algo", context: null, ReferenceNow);
+
+        Assert.False(manager.AppendStreamedText("hola", ReferenceNow.AddSeconds(1)).Success);
+    }
+
+    [Fact]
+    public void Streaming_IsStillInFlight_SoANewRequestIsRejectedAndDismissRefuses()
+    {
+        var manager = CreateManager();
+        manager.Begin("primera", context: null, ReferenceNow);
+        manager.BeginStreaming(ReferenceNow.AddSeconds(1));
+
+        Assert.False(manager.Begin("segunda", context: null, ReferenceNow.AddSeconds(2)).Success);
+        Assert.False(manager.Dismiss(ReferenceNow.AddSeconds(3)).Success);
+    }
+
+    [Fact]
+    public void Streaming_CanBeCancelledMidAnswer()
+    {
+        var manager = CreateManager();
+        manager.Begin("algo", context: null, ReferenceNow);
+        manager.BeginStreaming(ReferenceNow.AddSeconds(1));
+        manager.AppendStreamedText("a medias", ReferenceNow.AddSeconds(2));
+
+        Assert.True(manager.Cancel(ReferenceNow.AddSeconds(3)).Success);
+        Assert.Null(manager.GetSnapshot().ActiveRequest);
+    }
+
     private static AmbientRequestManager CreateManager()
     {
         var manager = new AmbientRequestManager(new MemoryAmbientRequestHistoryStore());

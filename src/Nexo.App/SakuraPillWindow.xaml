@@ -32,6 +32,9 @@
                               Opacity="0.38"
                               Color="#000000" />
         </Border.Effect>
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="PillTranslate" Y="0" />
+        </Border.RenderTransform>
 
         <StackPanel>
             <Grid>
@@ -60,12 +63,22 @@
                                FontSize="11.5"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource BrushTextSecondary}" />
-                    <TextBlock x:Name="ShortTextBlock"
-                               Margin="0,3,0,0"
-                               Text=""
-                               FontSize="13.5"
-                               TextWrapping="Wrap"
-                               Foreground="{DynamicResource BrushTextPrimary}" />
+                    <!--
+                        Diseño D7 — mientras la respuesta se escribe, este bloque es el que crece.
+                        Se limita la altura y se permite desplazamiento para que una respuesta larga
+                        no estire la píldora fuera de la pantalla.
+                    -->
+                    <ScrollViewer x:Name="ShortTextScroller"
+                                  MaxHeight="220"
+                                  Margin="0,3,0,0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock x:Name="ShortTextBlock"
+                                   Text=""
+                                   FontSize="13.5"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushTextPrimary}" />
+                    </ScrollViewer>
                     <TextBlock x:Name="ErrorTextBlock"
                                Margin="0,3,0,0"
                                Text=""

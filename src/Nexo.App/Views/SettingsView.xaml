@@ -442,6 +442,86 @@
                 </RadioButton>
             </StackPanel>
 
+            <!-- Diseño D7 (Fase 3 — Kohana Flow): dictado global -->
+            <TextBlock Margin="0,24,0,9" Text="Dictado global (Kohana Flow)" FontWeight="SemiBold" />
+
+            <CheckBox x:Name="FlowEnabledCheckBox"
+                      Content="Activar el dictado global (Ctrl + Shift + D)"
+                      Checked="FlowEnabledCheckBox_Changed"
+                      Unchecked="FlowEnabledCheckBox_Changed" />
+            <TextBlock Margin="24,4,0,0"
+                       Text="Pulsa una vez para empezar a dictar y otra vez para escribir el texto en la aplicación que tengas activa. Si cambias de ventana mientras dictas, Kohana no escribe nada."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <StackPanel Margin="24,12,0,0">
+                <TextBlock Margin="0,0,0,7" Text="Estilo del dictado" FontWeight="SemiBold" />
+                <WrapPanel>
+                    <RadioButton x:Name="FlowModeTextoRadioButton"
+                                 GroupName="FlowMode"
+                                 Content="Texto"
+                                 Tag="Texto"
+                                 Checked="FlowModeRadioButton_Checked"
+                                 AutomationProperties.Name="Estilo de dictado: Texto" />
+                    <RadioButton x:Name="FlowModeCorreoRadioButton"
+                                 Margin="18,0,0,0"
+                                 GroupName="FlowMode"
+                                 Content="Correo"
+                                 Tag="Correo"
+                                 Checked="FlowModeRadioButton_Checked"
+                                 AutomationProperties.Name="Estilo de dictado: Correo" />
+                    <RadioButton x:Name="FlowModeCodigoRadioButton"
+                                 Margin="18,0,0,0"
+                                 GroupName="FlowMode"
+                                 Content="Código"
+                                 Tag="Codigo"
+                                 Checked="FlowModeRadioButton_Checked"
+                                 AutomationProperties.Name="Estilo de dictado: Código" />
+                </WrapPanel>
+                <TextBlock Margin="0,6,0,0"
+                           Text="Texto y Correo ponen mayúscula al inicio de cada oración; Código no la pone y entiende símbolos como llaves, corchetes y flecha."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+
+            <StackPanel Margin="24,14,0,0">
+                <TextBlock Margin="0,0,0,5" Text="Diccionario personal" FontWeight="SemiBold" />
+                <TextBlock Margin="0,0,0,6"
+                           Text="Una línea por corrección, con el formato dicho=escrito. Ejemplo: cojana=Kohana"
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+                <TextBox x:Name="FlowDictionaryBox"
+                         MinHeight="62"
+                         MaxHeight="120"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto"
+                         LostFocus="FlowDictionaryBox_LostFocus"
+                         AutomationProperties.Name="Diccionario personal de dictado" />
+            </StackPanel>
+
+            <StackPanel Margin="24,12,0,0">
+                <TextBlock Margin="0,0,0,5" Text="Atajos" FontWeight="SemiBold" />
+                <TextBlock Margin="0,0,0,6"
+                           Text="Una línea por atajo, con el mismo formato. Lo escrito se inserta tal cual. Ejemplo: mi correo=adler@ejemplo.com"
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+                <TextBox x:Name="FlowSnippetsBox"
+                         MinHeight="62"
+                         MaxHeight="120"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto"
+                         LostFocus="FlowSnippetsBox_LostFocus"
+                         AutomationProperties.Name="Atajos de dictado" />
+                <TextBlock x:Name="FlowListsStatusText"
+                           Margin="0,6,0,0"
+                           Text=""
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+
             <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
             <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
                       Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />

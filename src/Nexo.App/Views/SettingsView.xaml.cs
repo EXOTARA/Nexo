@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Nexo.Core.Ai;
 using Nexo.Core.AdaptiveEngine;
+using Nexo.Core.Flow;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
 
@@ -27,6 +28,12 @@ public partial class SettingsView : UserControl
     public event EventHandler? WakeWordTestRequested;
     public event EventHandler? WakeWordAliasFromLastRequested;
     public event EventHandler? WakeWordAliasesClearRequested;
+
+    // Diseño D7 (Fase 3 — Kohana Flow)
+    public event Action<bool>? FlowEnabledChanged;
+    public event Action<FlowMode>? FlowModeChanged;
+    public event Action<IReadOnlyList<string>>? FlowDictionaryChanged;
+    public event Action<IReadOnlyList<string>>? FlowSnippetsChanged;
     public event Action<AiProviderKind>? AiProviderChanged;
     public event Action<string>? AiBaseUrlChanged;
     public event Action<string>? AiModelChanged;
@@ -85,6 +92,13 @@ public partial class SettingsView : UserControl
         WakeWordHeyKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
         SelectWakeWordSensitivity(preferences.WakeWordSensitivity);
         SetWakeWordAliases(preferences.WakeWordAliases);
+
+        FlowEnabledCheckBox.IsChecked = preferences.FlowEnabled;
+        FlowModeTextoRadioButton.IsChecked = preferences.FlowMode == FlowMode.Texto;
+        FlowModeCorreoRadioButton.IsChecked = preferences.FlowMode == FlowMode.Correo;
+        FlowModeCodigoRadioButton.IsChecked = preferences.FlowMode == FlowMode.Codigo;
+        FlowDictionaryBox.Text = string.Join(Environment.NewLine, preferences.FlowDictionary);
+        FlowSnippetsBox.Text = string.Join(Environment.NewLine, preferences.FlowSnippets);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
@@ -695,5 +709,84 @@ public partial class SettingsView : UserControl
         RightButton.Background = position == SidebarPosition.Right
             ? (System.Windows.Media.Brush)FindResource("BrushAccentSoft")
             : (System.Windows.Media.Brush)FindResource("BrushSurfaceRaised");
+    }
+
+    // ---------- Diseño D7 (Fase 3 — Kohana Flow) ----------
+
+    private void FlowEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        FlowEnabledChanged?.Invoke(FlowEnabledCheckBox.IsChecked == true);
+    }
+
+    private void FlowModeRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not RadioButton { Tag: string tag })
+        {
+            return;
+        }
+
+        if (Enum.TryParse<FlowMode>(tag, out var mode))
+        {
+            FlowModeChanged?.Invoke(mode);
+        }
+    }
+
+    private void FlowDictionaryBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var lines = SplitListLines(FlowDictionaryBox.Text);
+        ReportIgnoredLines(lines, "diccionario");
+        FlowDictionaryChanged?.Invoke(lines);
+    }
+
+    private void FlowSnippetsBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var lines = SplitListLines(FlowSnippetsBox.Text);
+        ReportIgnoredLines(lines, "atajos");
+        FlowSnippetsChanged?.Invoke(lines);
+    }
+
+    private static IReadOnlyList<string> SplitListLines(string? text) =>
+        (text ?? string.Empty)
+            .ReplaceLineEndings()
+            .Split(
+                Environment.NewLine,
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
+
+    /// <summary>
+    /// Diseño D7 — el parser ignora en silencio las líneas mal escritas para que una sola no tumbe
+    /// el resto, pero en la interfaz sí conviene decirlo: si alguien escribe "cojana Kohana" (sin
+    /// el igual) y no pasa nada, parecería que el diccionario no funciona.
+    /// </summary>
+    private void ReportIgnoredLines(IReadOnlyList<string> lines, string listName)
+    {
+        var accepted = FlowSettingsParser.ParseDictionary(lines).Count;
+        var ignored = lines.Count - accepted;
+
+        if (ignored <= 0)
+        {
+            FlowListsStatusText.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        FlowListsStatusText.Text = ignored == 1
+            ? $"Se ignoró 1 línea del {listName} porque no tiene el formato dicho=escrito."
+            : $"Se ignoraron {ignored} líneas del {listName} porque no tienen el formato dicho=escrito.";
+        FlowListsStatusText.Visibility = Visibility.Visible;
     }
 }

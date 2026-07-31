@@ -47,6 +47,24 @@ public static class AmbientRequestDisplayStateBuilder
                 CanDismiss: false,
                 CanUndo: false),
 
+            // Diseño D7 — la respuesta ya se está viendo aunque no esté completa. Se muestra en el
+            // cuerpo principal (no en la zona expandible) para que se lea sin pulsar nada, y sigue
+            // siendo cancelable: es justo mientras se escribe cuando más sentido tiene detenerla.
+            AmbientRequestStatus.Streaming => new AmbientRequestDisplayState(
+                IsVisible: true,
+                RequestId: request.Id,
+                Status: request.Status,
+                StatusText: "Respondiendo…",
+                ShortText: string.IsNullOrEmpty(request.PartialText)
+                    ? request.Prompt
+                    : request.PartialText,
+                ExpandedText: null,
+                ErrorMessage: null,
+                QuickActions: [],
+                CanCancel: true,
+                CanDismiss: false,
+                CanUndo: false),
+
             AmbientRequestStatus.Result => new AmbientRequestDisplayState(
                 IsVisible: true,
                 RequestId: request.Id,

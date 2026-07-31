@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -513,6 +514,32 @@ public partial class MainWindow : Window
 
         _settingsView.WakeWordAliasesClearRequested += async (_, _) =>
             await ClearWakeWordAliasesAsync();
+
+        // Diseño D7 (Fase 3 — Kohana Flow)
+        _settingsView.FlowEnabledChanged += enabled =>
+        {
+            _preferences.FlowEnabled = enabled;
+            SavePreferences();
+            ApplyFlowHotkeyRegistration();
+        };
+
+        _settingsView.FlowModeChanged += mode =>
+        {
+            _preferences.FlowMode = mode;
+            SavePreferences();
+        };
+
+        _settingsView.FlowDictionaryChanged += lines =>
+        {
+            _preferences.FlowDictionary = [.. lines];
+            SavePreferences();
+        };
+
+        _settingsView.FlowSnippetsChanged += lines =>
+        {
+            _preferences.FlowSnippets = [.. lines];
+            SavePreferences();
+        };
 
         _settingsView.AiProviderChanged += provider =>
         {
@@ -3627,25 +3654,57 @@ public partial class MainWindow : Window
                 [image],
                 lensContext.RequestMode);
 
-            var aiResult = await _aiChatService.SendAsync(BuildAiConfiguration(), aiRequest);
+            // Diseño D7 — se transmite por partes en vez de esperar la respuesta completa: el
+            // usuario ve el texto aparecer conforme la IA lo escribe, que es lo que pidió tras
+            // probar Lens. Si el proveedor falla a mitad, lo ya recibido no se descarta en
+            // silencio: se conserva como resultado parcial y se avisa.
+            _ambientRequestManager.BeginStreaming(DateTimeOffset.Now);
+            CheckAmbientRequest();
 
-            if (!aiResult.IsSuccess)
+            var streamed = new StringBuilder();
+            string? streamFailure = null;
+            try
+            {
+                await foreach (var chunk in _aiChatService.StreamAsync(
+                    BuildAiConfiguration(), aiRequest, _lifetimeCancellation.Token))
+                {
+                    if (string.IsNullOrEmpty(chunk))
+                    {
+                        continue;
+                    }
+
+                    streamed.Append(chunk);
+                    _ambientRequestManager.AppendStreamedText(chunk, DateTimeOffset.Now);
+                    CheckAmbientRequest();
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                streamFailure = exception.Message;
+            }
+
+            if (streamed.Length == 0)
             {
                 _ambientRequestManager.Fail(
-                    string.IsNullOrWhiteSpace(aiResult.Detail)
+                    string.IsNullOrWhiteSpace(streamFailure)
                         ? "No pude analizar la ventana activa."
-                        : aiResult.Detail,
+                        : streamFailure,
                     DateTimeOffset.Now);
             }
             else
             {
-                var result = new AmbientRequestResult(
-                    SummarizeForCapsule(aiResult.Text),
-                    aiResult.Text,
-                    [],
-                    CanUndo: false);
-                _ambientRequestManager.CompleteWithResult(result, DateTimeOffset.Now);
-                ShowLensHighlights(aiResult.Text, redactedOcr, redactedElements, uiaSnapshot);
+                var answer = streamed.ToString();
+                _ambientRequestManager.CompleteStreamedResult(
+                    [], canUndo: false, DateTimeOffset.Now, SummarizeForCapsule);
+                ShowLensHighlights(answer, redactedOcr, redactedElements, uiaSnapshot);
+
+                if (streamFailure is not null)
+                {
+                    ShowFlowNotice(
+                        CapsuleKind.Warning,
+                        "Respuesta incompleta",
+                        "La conexión se cortó mientras respondía; lo que alcanzó a escribir sigue visible.");
+                }
             }
         }
         finally
@@ -3697,6 +3756,30 @@ public partial class MainWindow : Window
     /// minutos es peor experiencia que alternar. El botón de micrófono que ya existía en el
     /// Asistente también es un interruptor, así que esto es consistente con lo que ya había.
     /// </summary>
+    /// <summary>
+    /// Diseño D7 — aplica el atajo global sin reiniciar Kohana: al activarlo desde Ajustes se
+    /// registra en el momento, y al desactivarlo se libera para que otra aplicación pueda usar la
+    /// combinación. Registrar dos veces el mismo id es inofensivo (Windows lo rechaza y se ignora),
+    /// así que se desregistra siempre antes.
+    /// </summary>
+    private void ApplyFlowHotkeyRegistration()
+    {
+        var windowHandle = new WindowInteropHelper(this).Handle;
+        if (windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        UnregisterHotKey(windowHandle, FlowHotkeyId);
+
+        if (_preferences.FlowEnabled &&
+            !RegisterHotKey(windowHandle, FlowHotkeyId, ModControl | ModShift, VirtualKeyD))
+        {
+            _assistantView.AddKohanaMessage(
+                "Ctrl + Shift + D ya está siendo utilizado por otra aplicación; el dictado global no quedó disponible.");
+        }
+    }
+
     private void ToggleFlowDictation()
     {
         if (_isClosed || !_preferences.FlowEnabled)
