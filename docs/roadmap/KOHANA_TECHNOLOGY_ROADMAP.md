@@ -78,7 +78,12 @@ validado manualmente por el usuario e integrado en `release/kohana-1.0-rc` — v
 
 ## Fase 3 — Kohana Flow
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseño D6 — D6.1-D6.3 implementados y probados en `design/kohana-flow-v1`:
+atajo global `Ctrl + Shift + D`, transcripción sin normalizar para dictado, puntuación hablada,
+muletillas, diccionario, atajos, los tres modos —texto/correo/código— e inserción universal con
+guardia de foco. Sin integrar a `release/kohana-1.0-rc` y pendiente del smoke test manual del
+usuario — ver `docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D6". Falta interfaz para
+editar el diccionario y los atajos, hoy editables solo a mano en `settings.json`).
 
 - Objetivo: dictado global de alta calidad en cualquier aplicación de Windows.
 - Valor: reemplaza el cambio de ventana para escribir texto largo por voz.

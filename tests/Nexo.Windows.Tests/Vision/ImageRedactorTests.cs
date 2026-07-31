@@ -13,10 +13,19 @@ namespace Nexo.Windows.Tests.Vision;
 /// </summary>
 public sealed class ImageRedactorTests
 {
+    /// <summary>
+    /// Sin regiones sensibles el método devuelve el MISMO arreglo sin tocar la imagen, así que esta
+    /// prueba no necesita renderizar nada: basta con cualquier arreglo no vacío. Antes sí
+    /// renderizaba un PNG y resultó ser intermitente (~1 de cada 10 corridas de la suite completa,
+    /// nunca aislada): System.Drawing/GDI+ falla de vez en cuando bajo la ejecución en paralelo de
+    /// xUnit, compartiendo recursos gráficos con las pruebas de OCR. Quitar el renderizado
+    /// innecesario elimina esa fuente de inestabilidad sin debilitar lo que se comprueba — el
+    /// contrato de retorno temprano —, en vez de reintentar o silenciar el fallo.
+    /// </summary>
     [Fact]
     public void RedactRegions_WithNoSensitiveLines_ReturnsTheSameBytes()
     {
-        var original = RenderPngWithLines("Hola mundo");
+        var original = new byte[] { 1, 2, 3, 4 };
 
         var result = ImageRedactor.RedactRegions(original, []);
 

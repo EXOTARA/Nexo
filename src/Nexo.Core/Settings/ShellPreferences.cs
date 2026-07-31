@@ -1,5 +1,6 @@
 using Nexo.Core.Ai;
 using Nexo.Core.AdaptiveEngine;
+using Nexo.Core.Flow;
 using Nexo.Core.Voice;
 using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
 using WakeSensitivity = Nexo.Core.Voice.WakeWordSensitivity;
@@ -90,6 +91,26 @@ public sealed class ShellPreferences
     public bool ProtectVisionWhenBusy { get; set; } = true;
 
     public HardwarePerformanceMode HardwarePerformanceMode { get; set; } = HardwarePerformanceMode.Automatic;
+
+    // ---------- Diseño D6 (Fase 3 — Kohana Flow) ----------
+
+    /// <summary>
+    /// Registra el atajo global de dictado. Activado por omisión, igual que el resto de atajos
+    /// globales ya existentes (Alt+A, Ctrl+Espacio…): el micrófono solo graba mientras el dictado
+    /// está explícitamente en curso, nunca de fondo.
+    /// </summary>
+    public bool FlowEnabled { get; set; } = true;
+
+    public FlowMode FlowMode { get; set; } = FlowMode.Texto;
+
+    /// <summary>
+    /// Diccionario personal, en formato "dicho=escrito" por línea. Todavía no hay interfaz para
+    /// editarlo: se lee del archivo de ajustes si está presente. Ver la nota de pendientes de D6.3.
+    /// </summary>
+    public List<string> FlowDictionary { get; set; } = [];
+
+    /// <summary>Atajos personales, en el mismo formato "dicho=escrito".</summary>
+    public List<string> FlowSnippets { get; set; } = [];
 
     public void Normalize()
     {
@@ -216,6 +237,15 @@ public sealed class ShellPreferences
             SchemaVersion = 17;
         }
 
+        if (SchemaVersion < 18)
+        {
+            // Diseño D6 (Fase 3 — Kohana Flow). Igual que el escalón v16 con los aliases: un
+            // archivo antiguo no trae estas listas, pero migrar no debe borrar las que ya existan.
+            FlowDictionary ??= [];
+            FlowSnippets ??= [];
+            SchemaVersion = 18;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -234,6 +264,15 @@ public sealed class ShellPreferences
         }
 
         WakeWordAliases = WakeWordAliasPolicy.NormalizeMany(WakeWordAliases);
+
+        // Diseño D6 — las listas pueden faltar en un settings.json escrito a mano o anterior a v18.
+        FlowDictionary ??= [];
+        FlowSnippets ??= [];
+
+        if (!Enum.IsDefined(FlowMode))
+        {
+            FlowMode = FlowMode.Texto;
+        }
 
         if (!Enum.IsDefined(AiProvider))
         {

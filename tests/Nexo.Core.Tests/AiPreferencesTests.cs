@@ -19,7 +19,7 @@ public sealed class AiPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(17, preferences.SchemaVersion);
+        Assert.Equal(18, preferences.SchemaVersion);
         Assert.Equal(AiProviderKind.Disabled, preferences.AiProvider);
         Assert.Equal(string.Empty, preferences.AiBaseUrl);
         Assert.Equal(string.Empty, preferences.AiModel);

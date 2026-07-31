@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D5 — Kohana Lens, APROBADO** (D5.1-D5.7 probados y validados manualmente por el usuario, integrados en `release/kohana-1.0-rc` vía `merge: integrate approved Kohana Lens D5`, `1ab8871`) |
-| **Siguiente fase** | Sin decidir todavía — candidatos: Fase 3 (Kohana Flow) por orden del roadmap, o pulido adicional de Fase 1/2 |
-| **Rama** | `release/kohana-1.0-rc` — D5 se integró vía `merge --no-ff` desde `design/kohana-lens-v1` |
+| **Fase actual** | **Diseño D6 — Kohana Flow** (dictado global): D6.1-D6.3 implementados y probados en `design/kohana-flow-v1`; el criterio de terminado de la Fase 3 está cubierto en código, sin integrar a `release/kohana-1.0-rc` todavía |
+| **Siguiente fase** | Smoke test manual del usuario sobre el dictado real, luego integración a release. Después: interfaz para el diccionario/atajos, o Fase 4 (Adaptive Computer Optimization) por orden del roadmap |
+| **Rama** | `design/kohana-flow-v1`, creada desde `release/kohana-1.0-rc` (`3180eec`) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
-| **Última actualización** | 2026-07-28 |
-| **Bloqueador activo** | Ninguno. D5 aprobado por el usuario en dos pruebas manuales (D5.1-D5.6, y D5.7) e integrado a release |
+| **Última actualización** | 2026-07-30 |
+| **Bloqueador activo** | Ninguno. Falta que el usuario pruebe el dictado a mano antes de declarar D6 aprobado |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2473,3 +2473,130 @@ cableada. **Con D5.1-D5.7, el criterio de terminado completo de la Fase 2 está 
 
 **No se hizo push a `release/kohana-1.0-rc` con el merge de D5, ni se abrió PR ni se hizo merge a
 `main`.**
+
+---
+
+## Diseño D6 — Kohana Flow (dictado global)
+
+**Rama:** `design/kohana-flow-v1`, creada desde `release/kohana-1.0-rc` (`3180eec`, D5 ya integrado).
+Implementa la Fase 3 del roadmap tecnológico, sprint sugerido "Flow: dictado global v1".
+
+**Qué hace:** `Ctrl + Shift + D` en cualquier parte de Windows empieza a dictar; la misma
+combinación otra vez transcribe y **escribe el texto en la aplicación que estuviera activa**.
+
+### Decisión: interruptor, no "mantener presionado"
+
+`RegisterHotKey` solo avisa de la pulsación, nunca del soltado. Un push-to-talk literal exigiría un
+hook de teclado de bajo nivel (`WH_KEYBOARD_LL`) — la misma API que usan los registradores de
+teclas, que dispara falsos positivos de antivirus (preocupación ya registrada del propietario) y
+encaja mal con el empaquetado MSIX para la Store. Además, el valor que el propio roadmap le asigna a
+Flow es *"escribir texto largo por voz"*, y sostener una tecla dos minutos es peor experiencia que
+alternar. El botón de micrófono que ya existía en el Asistente también es un interruptor, así que
+esto es consistente con lo que ya había, no una excepción.
+
+### D6.1 — Normalizador de dictado
+
+`Nexo.Core/Flow/`: `SpanishDictationNormalizer` convierte la transcripción CRUDA de Whisper en texto
+insertable — puntuación hablada, muletillas, diccionario personal, atajos, mayúscula de oración — y
+los tres modos que exige el criterio de terminado de la fase (texto/correo/código), cada uno con una
+diferencia real de comportamiento, no una etiqueta cosmética.
+
+Deliberadamente separado de `SpanishVoiceTranscriptNormalizer`: aquel normaliza para el motor de
+COMANDOS y es destructivo por diseño (minúsculas, sin acentos, sin puntuación). Correcto para
+"abre powershell", inservible para dictar un correo.
+
+**Tres decisiones de criterio, todas cubiertas por pruebas:**
+- La lista de muletillas solo contiene sonidos de duda sin significado ("eh", "mmm"…). Excluye a
+  propósito "este", "o sea", "bueno", "pues": se usan como muletilla pero también son palabras
+  reales, y borrar en silencio una palabra que la persona sí quiso decir es peor que dejar una
+  muletilla.
+- Los guiones NO se pegan a las palabras vecinas. Whisper escribe sus propios guiones como inciso en
+  prosa ("esto - aquello") y pegarlos corrompería texto que ya estaba bien; un "kebab - case" mal
+  separado es más raro y se ve de inmediato.
+- La reconstrucción de dominios ("adler arroba gmail punto com" → `adler@gmail.com`) exige un TLD
+  conocido después del punto, porque el punto de un dominio y el de fin de oración son el mismo
+  carácter. Así "adler@ejemplo.com. luego te escribo" conserva su punto final en vez de convertirse
+  en "…com.luego".
+
+**Dos defectos reales que las pruebas atraparon antes del commit:** la capitalización convertía
+`adler@gmail.com` en `adler@gmail. Com` (la comprobación de correo solo miraba hacia adelante y se
+perdía una arroba que quedaba detrás), y los dominios de varios niveles necesitaban varias pasadas
+porque `Regex.Replace` reanuda después de cada coincidencia.
+
+### D6.2 — Inserción universal con guardia de foco
+
+`IFlowTextInserter` + `WindowsFlowTextInserter`, sobre `SendInput` con `KEYEVENTF_UNICODE` (entrega
+el carácter Unicode directamente, así que acentos y "ñ" funcionan sin depender de la distribución de
+teclado). **Es el primer y único punto de todo Kohana que envía entrada a otro programa**; antes de
+D6 no existía ninguno.
+
+Tres negativas antes de enviar una sola tecla, cada una con su propio motivo para que la capa de
+aplicación responda distinto:
+1. Sin ventana destino recordada → no se escribe a ciegas.
+2. **El foco cambió desde que empezó el dictado → no se escribe.** Es exactamente el riesgo que el
+   roadmap señala para esta fase; dictar un mensaje privado dentro de la ventana equivocada es un
+   daño real e irreversible.
+3. Ventana marcada como sensible (gestor de contraseñas, diálogo de credenciales) → tampoco,
+   reutilizando la misma `VisionPrivacyPolicy` que ya protege a Lens.
+
+Todo el lote va en UNA sola llamada a `SendInput`, para que la secuencia sea atómica y las
+pulsaciones reales del usuario no se intercalen en el texto dictado.
+
+**Sobre las pruebas de esta clase:** solo se prueban los casos en que el insertor SE NIEGA a
+escribir, a propósito. Una prueba del camino feliz llamaría a `SendInput` de verdad, y `SendInput`
+escribe en la ventana que tenga el foco mientras corre la suite — en la máquina de desarrollo o en
+CI. Una prueba que teclea dentro de una ventana ajena no es una prueba, es un efecto secundario. Las
+negativas son además la mitad crítica de seguridad y sí son deterministas.
+
+### D6.3 — Atajo global, orquestación e indicador "Dictando"
+
+**Bloqueador que hubo que abrir primero:** la transcripción aplicaba el normalizador de comandos de
+forma incondicional. Se añadió un `VoiceTranscriptionMode` OPCIONAL, propagado por
+`IVoiceInputService`/`IVoiceInputScope`/`VoiceCoordinator`, con valor predeterminado `Command` para
+que ningún llamador existente cambie de comportamiento; en `Dictation` se devuelve el texto de
+Whisper intacto y se usa un prompt orientado a prosa en vez del orientado a órdenes.
+
+El dictado tiene su propia rama de resultado y **nunca** pasa por `ProcessPromptAsync`: dictar "abre
+Spotify" dentro de un correo debe escribir esas palabras, no abrir Spotify. Si no se pudo escribir,
+el texto no se tira — se copia al portapapeles —, **salvo** cuando la ventana destino era sensible:
+ahí lo dictado pudo ser una contraseña, y dejarla en el portapapeles (accesible a cualquier otro
+programa) sería peor que perderla. Nuevo indicador "Dictando" en el encabezado, por la regla del
+modelo de confianza de que un estado de escucha debe ser visible.
+
+Preferencias al esquema v18 (`FlowEnabled`, `FlowMode`, listas de diccionario y atajos), siguiendo
+el escalón existente y el precedente de v16: una migración añade valores por omisión pero nunca
+borra los que ya estaban. Unas 23 pruebas de la suite fijaban el número de esquema anterior;
+describen "Normalize migra al actual", que sigue siendo cierto, así que se actualizó el valor
+esperado, no el comportamiento.
+
+**Corrección de una prueba intermitente propia (de D5.4):** la prueba de retorno temprano de
+`ImageRedactor` renderizaba un PNG que no necesitaba, y System.Drawing/GDI+ falla de vez en cuando
+bajo la ejecución en paralelo de xUnit (~1 de cada 10 corridas de la suite completa, nunca aislada).
+Se quitó el renderizado innecesario en vez de reintentar o silenciar el fallo. De paso se documentó
+por qué `ImageRedactor` **no** captura los fallos de GDI+: devolver la imagen original entregaría
+intactos justo los píxeles que se querían ocultar.
+
+**Incidencia de proceso registrada:** el commit de D6.3 se creó sin tres archivos que su propio
+mensaje describía, dejando un `HEAD` que fallaba 7 pruebas. Se detectó al verificar, se confirmó
+guardando temporalmente los cambios y volviendo a correr la suite sobre el commit publicado, y se
+enmendó el commit (no estaba empujado) para que mensaje y contenido coincidan.
+
+**Build y pruebas (Release), acumulado D6.1-D6.3:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 822 superadas
+  Nexo.Windows.Tests.dll → 190 superadas
+  Nexo.App.Tests.dll     → 164 superadas
+Total: 1176 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness
+(y 5 veces seguidas al verificar la corrección de la prueba intermitente).
+```
+
+Confirmado con un arranque manual que la app sigue iniciando con el atajo global registrado.
+
+**Pendiente, no bloqueante:** las listas de diccionario y atajos se guardan y se leen, pero todavía
+no tienen interfaz de edición — se editan a mano en `settings.json`. Falta también el smoke test
+manual del usuario sobre el dictado real.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
