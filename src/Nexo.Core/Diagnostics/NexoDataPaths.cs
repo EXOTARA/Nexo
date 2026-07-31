@@ -180,6 +180,8 @@ public static class NexoDataPaths
     public static string Focus => Path.Combine(RootDirectory, "focus.json");
     public static string Routines => Path.Combine(RootDirectory, "routines.json");
     public static string AmbientRequests => Path.Combine(RootDirectory, "ambient-requests.json");
+    public static string OptimizationSnapshot =>
+        Path.Combine(RootDirectory, "optimization-snapshot.json");
     public static string Conversation => Path.Combine(
         RootDirectory,
         "conversation-history.json");

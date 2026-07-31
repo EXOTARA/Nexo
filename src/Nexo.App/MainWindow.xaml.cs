@@ -29,6 +29,7 @@ using Nexo.Core.Flow;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
+using Nexo.Core.Optimization;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Shell;
@@ -43,6 +44,7 @@ using Nexo.Windows.Audio;
 using Nexo.Windows.Flow;
 using Nexo.Windows.Focus;
 using Nexo.Windows.Metrics;
+using Nexo.Windows.Optimization;
 using Nexo.Windows.Resources;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Tasks;
@@ -129,6 +131,10 @@ public partial class MainWindow : Window
     private readonly WindowsOcrService _lensOcrService = new();
     private readonly WindowsUiAutomationReader _lensUiAutomationReader = new();
     private readonly LensHighlightOverlay _lensHighlightOverlay = new();
+
+    /// <summary>Diseño D8 (Fase 4) — optimización adaptativa del equipo.</summary>
+    private readonly WindowsOptimizationApplier _optimizationApplier = new();
+    private readonly JsonOptimizationSnapshotStore _optimizationSnapshotStore = new();
 
     /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
@@ -1087,6 +1093,7 @@ public partial class MainWindow : Window
             keywords: ["ambiental", "historial", "solicitudes", "pill", "sakura"]));
 
         registry.RegisterRange(BuildLensCommands());
+        registry.RegisterRange(BuildOptimizationCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -1186,6 +1193,158 @@ public partial class MainWindow : Window
                     ? KohanaCommandAvailability.Available
                     : KohanaCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso."));
         }
+    }
+
+    /// <summary>
+    /// Diseño D8 (Fase 4) — un comando por escenario. Todos PROPONEN: muestran el plan y lo que
+    /// cambiaría, sin tocar nada. Aplicar es un segundo paso explícito, porque cambiar la
+    /// configuración del sistema es, en el modelo de confianza, riesgo alto con snapshot previo
+    /// obligatorio.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildOptimizationCommands()
+    {
+        (OptimizationScenario Scenario, string Id, string Title)[] presets =
+        [
+            (OptimizationScenario.Jugar, "optimize.jugar", "Optimizar para jugar"),
+            (OptimizationScenario.Programar, "optimize.programar", "Optimizar para programar"),
+            (OptimizationScenario.EdicionVideo, "optimize.video", "Optimizar para editar video"),
+            (OptimizationScenario.Videollamada, "optimize.videollamada", "Optimizar para videollamada"),
+            (OptimizationScenario.Bateria, "optimize.bateria", "Optimizar para batería"),
+            (OptimizationScenario.General, "optimize.general", "Optimizar para uso general")
+        ];
+
+        foreach (var (scenario, id, title) in presets)
+        {
+            yield return new KohanaCommandDescriptor(
+                id,
+                title,
+                "Revisa tu hardware real y propone los cambios que tengan sentido. No aplica nada sin que lo confirmes.",
+                KohanaCommandCategory.System,
+                _ => ProposeOptimizationAsync(scenario),
+                keywords: ["optimizar", "rendimiento", "equipo", "pc", title.ToLowerInvariant()]);
+        }
+
+        yield return new KohanaCommandDescriptor(
+            "optimize.restaurar",
+            "Deshacer la última optimización",
+            "Devuelve el equipo al estado guardado antes del último plan aplicado.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(RestoreOptimization()),
+            keywords: ["deshacer", "restaurar", "optimizacion", "revertir"],
+            availability: () => _optimizationSnapshotStore.Load() is not null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna optimización aplicada que deshacer."));
+    }
+
+    private async Task<CommandExecutionResult> ProposeOptimizationAsync(OptimizationScenario scenario)
+    {
+        var profile = await _hardwareCapabilityService.RefreshAsync(_lifetimeCancellation.Token);
+        var plan = OptimizationPlanBuilder.Build(scenario, profile);
+
+        ShowOptimizationPlan(plan);
+        return CommandExecutionResult.Success();
+    }
+
+    /// <summary>
+    /// Diseño D8 — enseña el plan y, solo si hay algo que Kohana pueda aplicar Y revertir, ofrece
+    /// aplicarlo. La confirmación es un diálogo explícito: el modelo de confianza no permite pasar
+    /// de proponer a actuar sin que la persona lo diga.
+    /// </summary>
+    private void ShowOptimizationPlan(OptimizationPlan plan)
+    {
+        var message = new StringBuilder();
+        message.AppendLine(plan.Summary);
+
+        foreach (var change in plan.Changes)
+        {
+            message.AppendLine();
+            message.Append(change.Target == OptimizationTarget.Advice ? "· Consejo: " : "· Cambio: ");
+            message.AppendLine(change.Title);
+            message.Append("  ").AppendLine(change.Justification);
+        }
+
+        foreach (var skipped in plan.SkippedForMissingData)
+        {
+            message.AppendLine();
+            message.Append("· No propuesto: ").AppendLine(skipped);
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+
+        if (!plan.RequiresSnapshot)
+        {
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"{plan.Summary}" + Environment.NewLine + Environment.NewLine +
+                "¿Aplico los cambios? Guardaré cómo está ahora para poder deshacerlo.",
+            "Optimizar equipo",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        ApplyOptimization(plan);
+    }
+
+    private void ApplyOptimization(OptimizationPlan plan)
+    {
+        // El snapshot se guarda ANTES de tocar nada: si algo falla a media aplicación, la vuelta
+        // atrás ya está en disco. Al revés no habría manera de deshacer lo ya aplicado.
+        var snapshot = new OptimizationSnapshot
+        {
+            CapturedAt = DateTimeOffset.Now,
+            Scenario = plan.Scenario.ToString(),
+            PreviousPowerPlanId = _optimizationApplier.ReadCurrentPowerPlanId()
+        };
+
+        if (snapshot.PreviousPowerPlanId is null)
+        {
+            ShowFlowNotice(
+                CapsuleKind.Warning,
+                "No apliqué nada",
+                "No pude leer el plan de energía actual, así que no podría deshacerlo después.");
+            return;
+        }
+
+        _optimizationSnapshotStore.Save(snapshot);
+
+        var result = _optimizationApplier.Apply(plan);
+        if (result.IsApplied)
+        {
+            ShowFlowNotice(CapsuleKind.Success, "Equipo optimizado", result.Detail);
+        }
+        else
+        {
+            // No se aplicó: el snapshot guardado no corresponde a ningún cambio real y dejarlo
+            // ofrecería un "deshacer" que no deshace nada.
+            _optimizationSnapshotStore.Save(null);
+            ShowFlowNotice(CapsuleKind.Warning, "No se pudo optimizar", result.Detail);
+        }
+    }
+
+    private CommandExecutionResult RestoreOptimization()
+    {
+        var snapshot = _optimizationSnapshotStore.Load();
+        if (snapshot is null)
+        {
+            return CommandExecutionResult.Failure("No hay ninguna optimización aplicada que deshacer.");
+        }
+
+        var result = _optimizationApplier.Restore(snapshot);
+        if (!result.IsApplied)
+        {
+            return CommandExecutionResult.Failure(result.Detail);
+        }
+
+        _optimizationSnapshotStore.Save(null);
+        ShowFlowNotice(CapsuleKind.Success, "Optimización deshecha", result.Detail);
+        return CommandExecutionResult.Success(result.Detail);
     }
 
     private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
