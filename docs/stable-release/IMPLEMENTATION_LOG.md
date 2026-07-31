@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D6 — Kohana Flow** (dictado global): D6.1-D6.3 implementados y probados en `design/kohana-flow-v1`; el criterio de terminado de la Fase 3 está cubierto en código, sin integrar a `release/kohana-1.0-rc` todavía |
-| **Siguiente fase** | Smoke test manual del usuario sobre el dictado real, luego integración a release. Después: interfaz para el diccionario/atajos, o Fase 4 (Adaptive Computer Optimization) por orden del roadmap |
-| **Rama** | `design/kohana-flow-v1`, creada desde `release/kohana-1.0-rc` (`3180eec`) |
+| **Fase actual** | **Diseño D6 — Kohana Flow, APROBADO** (D6.1-D6.3 probados y validados manualmente por el usuario, integrados en `release/kohana-1.0-rc` vía `merge: integrate approved Kohana Flow D6`) |
+| **Siguiente fase** | D7 (pulido de Flow + píldora con streaming), D8 (Fase 4 — optimización adaptativa) y D9 (Fase 6 — memoria opt-in), encargados juntos por el usuario |
+| **Rama** | `release/kohana-1.0-rc` — D6 se integró vía `merge --no-ff` desde `design/kohana-flow-v1` |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-30 |
-| **Bloqueador activo** | Ninguno. Falta que el usuario pruebe el dictado a mano antes de declarar D6 aprobado |
+| **Bloqueador activo** | Ninguno. D6 aprobado por el usuario tras probar el dictado a mano e integrado a release |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2596,7 +2596,9 @@ Total: 1176 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces 
 Confirmado con un arranque manual que la app sigue iniciando con el atajo global registrado.
 
 **Pendiente, no bloqueante:** las listas de diccionario y atajos se guardan y se leen, pero todavía
-no tienen interfaz de edición — se editan a mano en `settings.json`. Falta también el smoke test
-manual del usuario sobre el dictado real.
+no tienen interfaz de edición — se editan a mano en `settings.json`. Se atiende en D7.
 
-**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+> **Aprobación (2026-07-30):** el usuario probó el dictado global a mano y confirmó "se ve bien".
+> **Diseño D6 (D6.1-D6.3, Kohana Flow) queda aprobado** e integrado en `release/kohana-1.0-rc` vía
+> `merge: integrate approved Kohana Flow D6`. Build Release 0 warnings, 1176 pruebas, 0 fallidas
+> tras el merge. Fase 3 pasa a **Implementada** en el roadmap.
