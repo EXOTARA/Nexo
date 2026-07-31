@@ -1,6 +1,7 @@
 using Nexo.Core.Ai;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Flow;
+using Nexo.Core.Memory;
 using Nexo.Core.Voice;
 using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
 using WakeSensitivity = Nexo.Core.Voice.WakeWordSensitivity;
@@ -111,6 +112,12 @@ public sealed class ShellPreferences
 
     /// <summary>Atajos personales, en el mismo formato "dicho=escrito".</summary>
     public List<string> FlowSnippets { get; set; } = [];
+
+    /// <summary>
+    /// Diseño D9 (Fase 6) — controles de la memoria. Objeto propio en vez de campos sueltos porque
+    /// la política que decide qué se recuerda necesita verlos juntos.
+    /// </summary>
+    public MemorySettings Memory { get; set; } = new();
 
     public void Normalize()
     {
@@ -246,6 +253,15 @@ public sealed class ShellPreferences
             SchemaVersion = 18;
         }
 
+        if (SchemaVersion < 19)
+        {
+            // Diseño D9 — la memoria llega apagada para todo el mundo, también al actualizar: el
+            // roadmap dice que nunca se activa por defecto, y una migración no es un consentimiento.
+            Memory ??= new MemorySettings();
+            Memory.Enabled = false;
+            SchemaVersion = 19;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -268,6 +284,9 @@ public sealed class ShellPreferences
         // Diseño D6 — las listas pueden faltar en un settings.json escrito a mano o anterior a v18.
         FlowDictionary ??= [];
         FlowSnippets ??= [];
+
+        Memory ??= new MemorySettings();
+        Memory.Normalize();
 
         if (!Enum.IsDefined(FlowMode))
         {

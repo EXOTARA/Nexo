@@ -98,7 +98,10 @@ e integrado en `release/kohana-1.0-rc` — ver `docs/stable-release/IMPLEMENTATI
 
 ## Fase 4 — Adaptive Computer Optimization
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseño D8 en `design/kohana-sprints-d7-d9`: los siete escenarios proponen un
+plan basado en el hardware real, con snapshot previo obligatorio y reversión. Kohana solo APLICA el
+plan de energía —lo único que hoy puede revertir con certeza—; el resto son consejos. Sin integrar a
+release y pendiente de validación manual).
 
 - Objetivo: que el usuario pueda pedir "optimiza mi computadora para X" y Kohana proponga y aplique
   (con confirmación) cambios reversibles basados en el hardware real.
@@ -143,7 +146,10 @@ e integrado en `release/kohana-1.0-rc` — ver `docs/stable-release/IMPLEMENTATI
 
 ## Fase 6 — Context and Memory
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseño D9 en `design/kohana-sprints-d7-d9`: controles de exclusión y retención
+funcionando antes que el almacenamiento, tres categorías independientes, cifrado DPAPI en reposo y
+búsqueda literal. Falta interfaz de ajustes para activarla y escritura automática de recuerdos desde
+la conversación. Sin integrar a release y pendiente de validación manual).
 
 - Objetivo: que Kohana recuerde contexto relevante entre sesiones sin convertirse en vigilancia
   permanente.

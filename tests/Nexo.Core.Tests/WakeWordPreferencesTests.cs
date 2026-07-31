@@ -17,7 +17,7 @@ public sealed class WakeWordPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(18, preferences.SchemaVersion);
+        Assert.Equal(19, preferences.SchemaVersion);
         Assert.False(preferences.WakeWordEnabled);
         Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
     }
@@ -38,7 +38,7 @@ public sealed class WakeWordPreferencesTests
         preferences.Normalize();
 
         Assert.True(preferences.WakeWordEnabled);
-        Assert.Equal(18, preferences.SchemaVersion);
+        Assert.Equal(19, preferences.SchemaVersion);
         Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
     }
 
@@ -83,7 +83,7 @@ public sealed class WakeWordPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(18, preferences.SchemaVersion);
+        Assert.Equal(19, preferences.SchemaVersion);
         Assert.Equal(new[] { "coyana" }, preferences.WakeWordAliases);
     }
 }

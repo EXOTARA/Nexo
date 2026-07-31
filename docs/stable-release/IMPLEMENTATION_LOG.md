@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D6 — Kohana Flow, APROBADO** (D6.1-D6.3 probados y validados manualmente por el usuario, integrados en `release/kohana-1.0-rc` vía `merge: integrate approved Kohana Flow D6`) |
-| **Siguiente fase** | D7 (pulido de Flow + píldora con streaming), D8 (Fase 4 — optimización adaptativa) y D9 (Fase 6 — memoria opt-in), encargados juntos por el usuario |
-| **Rama** | `release/kohana-1.0-rc` — D6 se integró vía `merge --no-ff` desde `design/kohana-flow-v1` |
+| **Fase actual** | **Diseños D7, D8 y D9** implementados y probados en `design/kohana-sprints-d7-d9`; sin integrar a `release/kohana-1.0-rc` todavía |
+| **Siguiente fase** | Smoke test manual del usuario sobre los tres, luego integración a release |
+| **Rama** | `design/kohana-sprints-d7-d9`, creada desde `release/kohana-1.0-rc` (`56e0d3a`, D6 ya integrado) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-30 |
-| **Bloqueador activo** | Ninguno. D6 aprobado por el usuario tras probar el dictado a mano e integrado a release |
+| **Bloqueador activo** | Ninguno. Falta que el usuario pruebe D7/D8/D9 a mano antes de declararlos aprobados |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2602,3 +2602,113 @@ no tienen interfaz de edición — se editan a mano en `settings.json`. Se atien
 > **Diseño D6 (D6.1-D6.3, Kohana Flow) queda aprobado** e integrado en `release/kohana-1.0-rc` vía
 > `merge: integrate approved Kohana Flow D6`. Build Release 0 warnings, 1176 pruebas, 0 fallidas
 > tras el merge. Fase 3 pasa a **Implementada** en el roadmap.
+
+---
+
+## Diseños D7, D8 y D9 — tres sprints encargados juntos
+
+**Rama:** `design/kohana-sprints-d7-d9`, creada desde `release/kohana-1.0-rc` (`56e0d3a`).
+El usuario pidió explícitamente hacer tres sprints en vez de uno.
+
+### D7 — Píldora con streaming y ajustes de Flow
+
+**Streaming (idea propuesta por el propio usuario tras probar Lens).** `AmbientRequestManager` gana
+un estado `Streaming` —estado propio, no una variante de `Thinking`: quien presenta necesita
+distinguir "todavía no hay nada que enseñar" de "esto que se ve aún no está completo"— más
+`BeginStreaming`/`AppendStreamedText`/`CompleteStreamedResult`. Lens pasa de `SendAsync` a
+`StreamAsync`, así que la respuesta aparece conforme el modelo la escribe.
+
+Dos decisiones deliberadas: **no** se persiste en cada fragmento (una respuesta larga dispararía
+cientos de escrituras del archivo de historial por una sola solicitud; se guarda cuando hay algo
+definitivo), y si el proveedor se corta a mitad, **lo ya recibido se conserva y se muestra** en vez
+de descartarse en silencio, avisando de que quedó incompleta.
+
+La píldora suma una aparición suave (solo en el primer despliegue — animar cada refresco parpadearía
+sin parar mientras el texto llega), un cuerpo desplazable con tope de 220 px para que una respuesta
+larga no la estire fuera de pantalla, y seguimiento automático del final del texto. Nunca se
+autodescarta mientras está recibiendo.
+
+**Ajustes de Flow.** Interfaz para activar/desactivar el dictado, elegir estilo
+(texto/correo/código) y editar el diccionario y los atajos que D6 dejó editables solo a mano. El
+atajo global ahora se registra y libera en vivo, sin reiniciar. El parser ignora líneas mal escritas
+en silencio para que una sola no rompa el resto, pero la interfaz **sí dice cuántas ignoró**: una
+línea sin "=" que simplemente no hace nada parecería que la función está rota.
+
+### D8 — Optimización adaptativa (Fase 4)
+
+Siete comandos (jugar, programar, edición de video, videollamada, batería, general, restaurar) que
+leen el `HardwareCapabilityProfile` REAL y proponen solo lo que ese hardware justifica.
+
+La regla del roadmap gobierna todo el planificador: *"no es una lista genérica de tweaks de internet
+— cada cambio debe justificarse con una medición real del equipo"*. Por eso **cuando falta el dato,
+el cambio NO se propone**: pasa a `SkippedForMissingData` con el motivo. Sin saber si hay batería no
+se toca el plan de energía; sin saber la RAM no se dice nada de memoria; sin saber la GPU nada de
+gráficos. Pedir "optimizar para batería" en un equipo de escritorio no propone ahorro y explica por
+qué. Los umbrales de memoria cambian según el escenario (12 GB sobran para una videollamada y se
+quedan cortos para editar video) en vez de un número fijo, que sería justo el truco genérico que la
+fase prohíbe.
+
+Todo **propone** primero; aplicar es una confirmación aparte. Kohana solo aplica lo que puede
+revertir con certeza — hoy únicamente el plan de energía, vía API documentada de Win32
+(`PowerGet`/`PowerSetActiveScheme`), sin trucos de registro ni procesos lanzados, por la
+preocupación ya registrada sobre falsos positivos de antivirus. Lo demás son consejos que ejecuta la
+persona. **Aplicar poco y poder deshacerlo siempre es mejor que aplicar mucho sin garantía de vuelta
+atrás**: el roadmap trata la reversión como requisito, no como aspiración.
+
+Tres decisiones de orden que importan: el snapshot se escribe en disco ANTES de tocar nada (si algo
+falla a media aplicación, la vuelta atrás ya existe); se persiste en disco y no en memoria (una
+caída después de aplicar no debe llevarse el deshacer); si no se puede leer el plan de energía
+actual **no se aplica nada**, porque no habría manera de volver.
+
+### D9 — Memoria opt-in (Fase 6)
+
+El criterio de terminado de la fase es literal: *"controles de exclusión y retención funcionando
+ANTES de que exista cualquier almacenamiento de memoria de facto"*. Por eso `MemoryPolicy` vive
+aparte del almacén y es la única puerta: no hay ningún camino que guarde saltándose los controles.
+
+Cuatro razones para no recordar, en orden: memoria apagada (lo está por omisión), categoría concreta
+no activada, coincidencia con una exclusión del usuario, o contenido sensible evidente —reutilizando
+el mismo `SensitiveContentRedactor` de Lens en vez de duplicar heurísticas, para que una contraseña
+dictada sin querer no acabe guardada aunque todo esté activado.
+
+Tres categorías independientes (preferencias, conversación, hábitos): aceptar una no autoriza las
+otras. Apagar el interruptor general apaga también las categorías, porque si no, reactivar la
+memoria resucitaría en silencio permisos que la persona creía revocados. La retención se aplica
+**también al leer**, no solo al escribir: bajar la retención de 90 a 7 días es una orden, no una
+preferencia a futuro. Hay además un tope duro de entradas, porque una memoria sin límite es justo el
+riesgo de "acumulación silenciosa" que el roadmap señala.
+
+Almacenamiento cifrado en reposo con DPAPI (`CurrentUser`), la decisión ya registrada en la sesión
+de roadmap: cifra de verdad sin obligar a inventar una contraseña. Consecuencia asumida: el archivo
+no es portable entre equipos ni cuentas — para memoria personal, que no se pueda leer desde otra
+cuenta es la propiedad buscada, no un defecto. Búsqueda literal primero, sin índice semántico, según
+lo ya decidido.
+
+"Ver lo que Kohana recuerda" y "olvidar todo" funcionan **aunque la memoria esté apagada**: revocar y
+auditar deben poder hacerse siempre; si apagar bloqueara el borrado, lo ya guardado quedaría atrapado
+justo cuando la persona quiere deshacerse de ello.
+
+**Corrección detectada al escribir el escalón de migración:** el rung v19 quedó insertado ANTES del
+v18, de modo que un archivo en v17 habría saltado la migración de las listas de Flow. Se detectó
+revisando el orden y se reordenó para que la escalera siga siendo estrictamente ascendente.
+
+**Build y pruebas (Release), acumulado D7-D9:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 860 superadas
+  Nexo.Windows.Tests.dll → 190 superadas
+  Nexo.App.Tests.dll     → 166 superadas
+Total: 1216 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado con arranques manuales que la app sigue iniciando tras cada sprint.
+
+**Pendiente, no bloqueante:** la memoria tiene comandos y controles pero todavía no hay interfaz de
+ajustes para activarla (se activa editando `settings.json`), ni escritura automática de recuerdos
+desde la conversación — hoy la memoria existe, se protege y se consulta, pero solo se llena por
+código. La optimización aplica un único ajuste real (plan de energía); ampliar el conjunto exige
+poder revertir cada nuevo cambio con la misma certeza.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**

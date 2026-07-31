@@ -28,6 +28,7 @@ using Nexo.Core.Commands.CommandCenter;
 using Nexo.Core.Flow;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
+using Nexo.Core.Memory;
 using Nexo.Core.Metrics;
 using Nexo.Core.Optimization;
 using Nexo.Core.Resources;
@@ -43,6 +44,7 @@ using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Flow;
 using Nexo.Windows.Focus;
+using Nexo.Windows.Memory;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Optimization;
 using Nexo.Windows.Resources;
@@ -135,6 +137,9 @@ public partial class MainWindow : Window
     /// <summary>Diseño D8 (Fase 4) — optimización adaptativa del equipo.</summary>
     private readonly WindowsOptimizationApplier _optimizationApplier = new();
     private readonly JsonOptimizationSnapshotStore _optimizationSnapshotStore = new();
+
+    /// <summary>Diseño D9 (Fase 6) — memoria opt-in, cifrada en reposo.</summary>
+    private readonly MemoryManager _memoryManager = new(new DpapiMemoryStore());
 
     /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
@@ -274,6 +279,7 @@ public partial class MainWindow : Window
         _ambientRequestManager = new AmbientRequestManager(_ambientRequestStore);
         _ambientRequestManager.Load();
         _flowTextInserter = new WindowsFlowTextInserter(_ambientContextProvider);
+        _memoryManager.Load();
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
             _focusManager,
@@ -1094,6 +1100,7 @@ public partial class MainWindow : Window
 
         registry.RegisterRange(BuildLensCommands());
         registry.RegisterRange(BuildOptimizationCommands());
+        registry.RegisterRange(BuildMemoryCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -1345,6 +1352,88 @@ public partial class MainWindow : Window
         _optimizationSnapshotStore.Save(null);
         ShowFlowNotice(CapsuleKind.Success, "Optimización deshecha", result.Detail);
         return CommandExecutionResult.Success(result.Detail);
+    }
+
+    /// <summary>
+    /// Diseño D9 (Fase 6) — comandos de memoria. "Ver" y "olvidar todo" existen aunque la memoria
+    /// esté apagada: revocar y auditar deben funcionar SIEMPRE. Si apagar la memoria bloqueara el
+    /// borrado, lo ya guardado quedaría atrapado justo cuando la persona quiere deshacerse de ello.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildMemoryCommands()
+    {
+        yield return new KohanaCommandDescriptor(
+            "memory.show",
+            "Ver lo que Kohana recuerda",
+            "Muestra, en texto claro, todo lo que hay guardado en la memoria.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowMemoryContents();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["memoria", "recuerda", "guardado", "privacidad"]);
+
+        yield return new KohanaCommandDescriptor(
+            "memory.forgetAll",
+            "Olvidar todo lo que Kohana recuerda",
+            "Borra por completo la memoria guardada. No se puede deshacer.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(ForgetAllMemory()),
+            keywords: ["olvidar", "borrar", "memoria", "privacidad"]);
+    }
+
+    private void ShowMemoryContents()
+    {
+        var settings = _preferences.Memory;
+        var entries = _memoryManager.GetAll(settings, DateTimeOffset.Now);
+
+        var message = new StringBuilder();
+        message.AppendLine(settings.Enabled
+            ? $"Memoria activada · retención de {settings.RetentionDays} días."
+            : "La memoria está desactivada: no estoy guardando nada nuevo.");
+
+        if (entries.Count == 0)
+        {
+            message.Append("No hay nada guardado.");
+        }
+        else
+        {
+            foreach (var entry in entries)
+            {
+                message.AppendLine();
+                message.Append("· [")
+                    .Append(MemoryPolicy.CategoryLabel(entry.Category))
+                    .Append("] ")
+                    .Append(entry.Text);
+            }
+        }
+
+        if (settings.Exclusions.Count > 0)
+        {
+            message.AppendLine();
+            message.Append("Exclusiones activas: ").Append(string.Join(", ", settings.Exclusions));
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+    }
+
+    private CommandExecutionResult ForgetAllMemory()
+    {
+        var confirmation = MessageBox.Show(
+            this,
+            "¿Borro todo lo que Kohana recuerda? Esto no se puede deshacer.",
+            "Olvidar todo",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return CommandExecutionResult.Failure("No borré nada.");
+        }
+
+        var result = _memoryManager.ForgetEverything();
+        ShowFlowNotice(CapsuleKind.Success, "Memoria borrada", result.Message);
+        return CommandExecutionResult.Success(result.Message);
     }
 
     private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
