@@ -141,6 +141,12 @@ public partial class MainWindow : Window
     /// <summary>Diseño D9 (Fase 6) — memoria opt-in, cifrada en reposo.</summary>
     private readonly MemoryManager _memoryManager = new(new DpapiMemoryStore());
 
+    /// <summary>
+    /// Diseño D10 — recuerdo propuesto que espera un sí. Nunca se guarda solo: mientras vive aquí
+    /// no está en la memoria.
+    /// </summary>
+    private MemoryCandidate? _pendingMemoryCandidate;
+
     /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
 
@@ -551,6 +557,76 @@ public partial class MainWindow : Window
         {
             _preferences.FlowSnippets = [.. lines];
             SavePreferences();
+        };
+
+        // Diseño D10 (Fase 6 — Context and Memory)
+        _settingsView.MemoryEnabledChanged += enabled =>
+        {
+            _preferences.Memory.Enabled = enabled;
+
+            // Normalize() apaga también las categorías cuando el interruptor general se apaga. Se
+            // llama aquí, y no solo al guardar, para que la política vea el estado correcto en la
+            // siguiente frase aunque el guardado tarde.
+            _preferences.Memory.Normalize();
+            SavePreferences();
+            _settingsView.ApplyMemorySettings(_preferences.Memory);
+            _settingsView.SetMemoryStatus(enabled
+                ? "Memoria activada. Elige qué categorías puede recordar."
+                : "Memoria desactivada. Lo ya guardado sigue ahí hasta que lo borres.");
+        };
+
+        _settingsView.MemoryCategoryChanged += (category, enabled) =>
+        {
+            switch (category)
+            {
+                case MemoryCategory.Preferencias:
+                    _preferences.Memory.RememberPreferences = enabled;
+                    break;
+                case MemoryCategory.Conversacion:
+                    _preferences.Memory.RememberConversation = enabled;
+                    break;
+                case MemoryCategory.Habitos:
+                    _preferences.Memory.RememberHabits = enabled;
+                    break;
+            }
+
+            SavePreferences();
+        };
+
+        _settingsView.MemoryRetentionChanged += days =>
+        {
+            _preferences.Memory.RetentionDays = days;
+            SavePreferences();
+
+            // La retención se aplica al leer, así que basta con pedir la lista para que lo que ya
+            // caducó desaparezca ahora mismo y no en la próxima escritura.
+            var remaining = _memoryManager.GetAll(_preferences.Memory, DateTimeOffset.Now).Count;
+            _settingsView.SetMemoryStatus(
+                $"Retención de {days} días. Quedan {remaining} recuerdos guardados.");
+        };
+
+        _settingsView.MemoryExclusionsChanged += lines =>
+        {
+            _preferences.Memory.Exclusions = [.. lines];
+            _preferences.Memory.Normalize();
+            SavePreferences();
+            _settingsView.SetMemoryStatus(
+                _preferences.Memory.Exclusions.Count == 0
+                    ? "Sin exclusiones."
+                    : $"{_preferences.Memory.Exclusions.Count} exclusiones activas. " +
+                      "No afectan a lo ya guardado: para eso, usa «olvidar todo».");
+        };
+
+        _settingsView.MemoryShowRequested += (_, _) =>
+        {
+            ShowMemoryContents();
+            NavigateTo("Assistant", animate: true);
+        };
+
+        _settingsView.MemoryForgetAllRequested += (_, _) =>
+        {
+            var result = ForgetAllMemory();
+            _settingsView.SetMemoryStatus(result.Message);
         };
 
         _settingsView.AiProviderChanged += provider =>
@@ -1382,6 +1458,84 @@ public partial class MainWindow : Window
             keywords: ["olvidar", "borrar", "memoria", "privacidad"]);
     }
 
+    /// <summary>
+    /// Diseño D10 (Fase 6) — la memoria ya se llena desde la conversación, que es lo que D9 dejó
+    /// pendiente. Dos caminos con reglas distintas a propósito:
+    ///
+    /// - **Explícito** ("recuerda que ..."): se guarda. La persona acaba de dar la orden; volver a
+    ///   preguntarle "¿seguro?" sería ruido. Si la política lo rechaza, se dice POR QUÉ — un
+    ///   "recuerda que ..." que no guarda nada y no explica nada parecería que funcionó.
+    /// - **Observado** (una preferencia dicha de paso): **nunca** se guarda solo. Se propone y hace
+    ///   falta un sí. Guardar lo que alguien mencionó sin pedirlo es exactamente la vigilancia
+    ///   silenciosa que el roadmap prohíbe para esta fase.
+    ///
+    /// Devuelve true solo cuando la frase ERA la orden de memoria y ya está atendida.
+    /// </summary>
+    private bool TryHandleMemoryPrompt(string prompt)
+    {
+        if (_pendingMemoryCandidate is { } pending)
+        {
+            // Una sola oportunidad: la propuesta caduca con la siguiente frase, sea cual sea. Una
+            // pregunta que sigue viva varios turnos acabaría capturando un "sí" dicho por otra cosa.
+            _pendingMemoryCandidate = null;
+
+            if (IsVoiceConfirmation(SpanishVoiceTranscriptNormalizer.Normalize(prompt)))
+            {
+                SaveMemoryCandidate(pending);
+                return true;
+            }
+        }
+
+        var candidate = MemoryCandidateDetector.Detect(prompt);
+        if (candidate is null)
+        {
+            return false;
+        }
+
+        if (candidate.Source == MemoryCandidateSource.Explicito)
+        {
+            SaveMemoryCandidate(candidate);
+            return true;
+        }
+
+        // Se consulta la política ANTES de proponer: preguntar "¿lo recuerdo?" para después
+        // rechazarlo por una exclusión propia sería hacer perder el tiempo a la persona.
+        var verdict = MemoryPolicy.CanRemember(candidate.Category, candidate.Text, _preferences.Memory);
+        if (!verdict.Success)
+        {
+            // En silencio: nadie pidió recordar nada, así que un aviso aquí sería una interrupción
+            // no solicitada.
+            return false;
+        }
+
+        _pendingMemoryCandidate = candidate;
+        ShowFlowNotice(
+            CapsuleKind.Information,
+            "¿Lo recuerdo?",
+            $"«{candidate.Text}». Responde «sí» para guardarlo.");
+
+        // La frase sigue su curso normal: la propuesta es aparte, no reemplaza la conversación.
+        return false;
+    }
+
+    private void SaveMemoryCandidate(MemoryCandidate candidate)
+    {
+        var result = _memoryManager.Remember(
+            candidate.Category,
+            candidate.Text,
+            _preferences.Memory,
+            DateTimeOffset.Now);
+
+        _assistantView.AddKohanaMessage(result.Success
+            ? $"{result.Message} «{candidate.Text}»"
+            : result.Message);
+
+        ShowFlowNotice(
+            result.Success ? CapsuleKind.Success : CapsuleKind.Warning,
+            result.Success ? "Lo recordaré" : "No lo recordé",
+            result.Message);
+    }
+
     private void ShowMemoryContents()
     {
         var settings = _preferences.Memory;
@@ -2208,6 +2362,14 @@ public partial class MainWindow : Window
             // cápsula genérica que parpadee antes de acciones instantáneas.
             await Task.Yield();
 
+            // Diseño D10 — antes de los parsers: "recuerda que prefiero X" es una orden de memoria,
+            // no una consulta a la IA. Va después de AddUserMessage para que la frase quede en la
+            // conversación igual que cualquier otra.
+            if (TryHandleMemoryPrompt(prompt))
+            {
+                return;
+            }
+
             // La precedencia entre subsistemas vive en `PromptDispatchPolicy`, no aquí.
             // Se evalúan los cuatro parsers y la política decide, de modo que "inicia" deje
             // de significar automáticamente "rutina". Ver defecto D1 de la fase 1.1.
@@ -2351,6 +2513,21 @@ public partial class MainWindow : Window
                 systemContext = string.IsNullOrWhiteSpace(systemContext)
                     ? _visualContextMetadata
                     : systemContext + Environment.NewLine + _visualContextMetadata;
+            }
+
+            // Diseño D10 — la memoria se usa, no solo se guarda: sin esto no hay continuidad
+            // ninguna entre sesiones. El constructor decide qué sale (solo categorías activas
+            // ahora, acotado y redactado de nuevo), porque este texto viaja al proveedor.
+            var memoryContext = MemoryContextBuilder.Build(
+                _memoryManager.GetAll(_preferences.Memory, DateTimeOffset.Now),
+                _preferences.Memory,
+                DateTimeOffset.Now);
+
+            if (!string.IsNullOrWhiteSpace(memoryContext))
+            {
+                systemContext = string.IsNullOrWhiteSpace(systemContext)
+                    ? memoryContext
+                    : systemContext + Environment.NewLine + memoryContext;
             }
 
             var images = _pendingVisionAttachment is { } image

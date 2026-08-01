@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using Nexo.Core.Ai;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Flow;
+using Nexo.Core.Memory;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
 
@@ -34,6 +35,15 @@ public partial class SettingsView : UserControl
     public event Action<FlowMode>? FlowModeChanged;
     public event Action<IReadOnlyList<string>>? FlowDictionaryChanged;
     public event Action<IReadOnlyList<string>>? FlowSnippetsChanged;
+
+    // Diseño D10 (Fase 6 — Context and Memory)
+    public event Action<bool>? MemoryEnabledChanged;
+    public event Action<MemoryCategory, bool>? MemoryCategoryChanged;
+    public event Action<int>? MemoryRetentionChanged;
+    public event Action<IReadOnlyList<string>>? MemoryExclusionsChanged;
+    public event EventHandler? MemoryShowRequested;
+    public event EventHandler? MemoryForgetAllRequested;
+
     public event Action<AiProviderKind>? AiProviderChanged;
     public event Action<string>? AiBaseUrlChanged;
     public event Action<string>? AiModelChanged;
@@ -99,6 +109,7 @@ public partial class SettingsView : UserControl
         FlowModeCodigoRadioButton.IsChecked = preferences.FlowMode == FlowMode.Codigo;
         FlowDictionaryBox.Text = string.Join(Environment.NewLine, preferences.FlowDictionary);
         FlowSnippetsBox.Text = string.Join(Environment.NewLine, preferences.FlowSnippets);
+        ApplyMemorySettings(preferences.Memory);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
@@ -788,5 +799,126 @@ public partial class SettingsView : UserControl
             ? $"Se ignoró 1 línea del {listName} porque no tiene el formato dicho=escrito."
             : $"Se ignoraron {ignored} líneas del {listName} porque no tienen el formato dicho=escrito.";
         FlowListsStatusText.Visibility = Visibility.Visible;
+    }
+
+    // ---------- Diseño D10 (Fase 6 — Context and Memory) ----------
+
+    /// <summary>
+    /// Diseño D10 — la memoria dejó de configurarse a mano en <c>settings.json</c>. Los cuatro
+    /// controles que la fase exige (activar, categorías, retención y exclusiones) viven aquí, junto
+    /// a los dos que tienen que funcionar siempre: ver lo guardado y borrarlo.
+    /// </summary>
+    public void ApplyMemorySettings(MemorySettings? memory)
+    {
+        var settings = memory ?? new MemorySettings();
+
+        MemoryEnabledCheckBox.IsChecked = settings.Enabled;
+        MemoryPreferencesCheckBox.IsChecked = settings.RememberPreferences;
+        MemoryConversationCheckBox.IsChecked = settings.RememberConversation;
+        MemoryHabitsCheckBox.IsChecked = settings.RememberHabits;
+        MemoryRetentionBox.Text = settings.RetentionDays.ToString();
+        MemoryExclusionsBox.Text = string.Join(Environment.NewLine, settings.Exclusions);
+
+        UpdateMemoryCategoriesAvailability(settings.Enabled);
+    }
+
+    /// <summary>
+    /// Los botones de ver y olvidar NO se desactivan con la memoria: revocar y auditar deben poder
+    /// hacerse siempre. Si apagar la memoria bloqueara el borrado, lo ya guardado quedaría atrapado
+    /// justo cuando la persona quiere deshacerse de ello.
+    /// </summary>
+    private void UpdateMemoryCategoriesAvailability(bool enabled)
+    {
+        MemoryCategoriesPanel.IsEnabled = enabled;
+        MemoryCategoriesPanel.Opacity = enabled ? 1.0 : 0.55;
+    }
+
+    private void MemoryEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var enabled = MemoryEnabledCheckBox.IsChecked == true;
+        UpdateMemoryCategoriesAvailability(enabled);
+
+        if (!enabled)
+        {
+            // Refleja en la interfaz lo que MemorySettings.Normalize hace en los datos: apagar el
+            // interruptor general apaga las categorías. Si la vista siguiera enseñándolas marcadas,
+            // volver a activar la memoria parecería restaurar permisos que ya no existen.
+            _isApplyingPreferences = true;
+            MemoryPreferencesCheckBox.IsChecked = false;
+            MemoryConversationCheckBox.IsChecked = false;
+            MemoryHabitsCheckBox.IsChecked = false;
+            _isApplyingPreferences = false;
+        }
+
+        MemoryEnabledChanged?.Invoke(enabled);
+    }
+
+    private void MemoryCategoryCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not CheckBox { Tag: string tag } box)
+        {
+            return;
+        }
+
+        if (Enum.TryParse<MemoryCategory>(tag, out var category))
+        {
+            MemoryCategoryChanged?.Invoke(category, box.IsChecked == true);
+        }
+    }
+
+    private void MemoryRetentionBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        if (!int.TryParse(MemoryRetentionBox.Text?.Trim(), out var days))
+        {
+            // Un valor ilegible no puede aceptarse en silencio: la retención es el límite de cuánto
+            // se conserva, y dejar el cuadro con texto inválido haría creer que se guardó.
+            SetMemoryStatus(
+                $"La retención debe ser un número de días entre {MemorySettings.MinimumRetentionDays} " +
+                $"y {MemorySettings.MaximumRetentionDays}.");
+            return;
+        }
+
+        var clamped = Math.Clamp(days, MemorySettings.MinimumRetentionDays, MemorySettings.MaximumRetentionDays);
+        MemoryRetentionBox.Text = clamped.ToString();
+
+        SetMemoryStatus(clamped != days
+            ? $"La retención se ajustó a {clamped} días, el límite permitido."
+            : null);
+
+        MemoryRetentionChanged?.Invoke(clamped);
+    }
+
+    private void MemoryExclusionsBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        MemoryExclusionsChanged?.Invoke(SplitListLines(MemoryExclusionsBox.Text));
+    }
+
+    private void MemoryShowButton_Click(object sender, RoutedEventArgs e) =>
+        MemoryShowRequested?.Invoke(this, EventArgs.Empty);
+
+    private void MemoryForgetAllButton_Click(object sender, RoutedEventArgs e) =>
+        MemoryForgetAllRequested?.Invoke(this, EventArgs.Empty);
+
+    public void SetMemoryStatus(string? message)
+    {
+        MemoryStatusText.Text = message ?? string.Empty;
+        MemoryStatusText.Visibility = string.IsNullOrWhiteSpace(message)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 }

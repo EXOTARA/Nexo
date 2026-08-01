@@ -23,8 +23,16 @@ public static class SensitiveContentRedactor
     private static readonly Regex SsnPattern = new(
         @"\b\d{3}-\d{2}-\d{4}\b", RegexOptions.Compiled);
 
+    /// <summary>
+    /// Además de la forma de formulario ("contraseña: 1234"), reconoce la forma HABLADA
+    /// ("mi contraseña es 1234"). Ampliado en el Diseño D10: la memoria y el dictado guardan prosa,
+    /// no campos de formulario, así que sin esto una contraseña dicha en voz alta pasaba de largo.
+    /// Sí, redacta de más en frases como "la clave es importante" — es exactamente el intercambio
+    /// que esta clase declara aceptar: redactar de más molesta, no redactar es una fuga.
+    /// </summary>
     private static readonly Regex PasswordFieldPattern = new(
-        @"(?i)\b(contrase[ñn]a|password|clave|pwd)\s*[:=]\s*(?<value>\S+)", RegexOptions.Compiled);
+        @"(?i)\b(contrase[ñn]a|password|clave|pwd)\s*(?:[:=]\s*|\s+(?:es|era)\s+)(?<value>\S+)",
+        RegexOptions.Compiled);
 
     private static readonly Regex TokenCandidatePattern = new(
         @"\b[A-Za-z0-9_\-]{20,}\b", RegexOptions.Compiled);

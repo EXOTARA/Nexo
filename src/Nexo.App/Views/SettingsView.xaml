@@ -522,6 +522,83 @@
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>
 
+            <!-- Diseño D10 (Fase 6 — Context and Memory): controles de la memoria personal -->
+            <TextBlock Margin="0,24,0,9" Text="Memoria personal" FontWeight="SemiBold" />
+
+            <CheckBox x:Name="MemoryEnabledCheckBox"
+                      Content="Dejar que Kohana recuerde cosas entre sesiones"
+                      Checked="MemoryEnabledCheckBox_Changed"
+                      Unchecked="MemoryEnabledCheckBox_Changed" />
+            <TextBlock Margin="24,4,0,0"
+                       Text="Está desactivada por omisión. Nada se guarda sin que lo pidas, y todo lo guardado se puede ver y borrar aunque después la desactives."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <StackPanel x:Name="MemoryCategoriesPanel" Margin="24,12,0,0">
+                <TextBlock Margin="0,0,0,7" Text="Qué puede recordar" FontWeight="SemiBold" />
+                <CheckBox x:Name="MemoryPreferencesCheckBox" Margin="0,0,0,7"
+                          Content="Tus preferencias (por ejemplo: «prefiero respuestas cortas»)"
+                          Checked="MemoryCategoryCheckBox_Changed"
+                          Unchecked="MemoryCategoryCheckBox_Changed" Tag="Preferencias" />
+                <CheckBox x:Name="MemoryConversationCheckBox" Margin="0,0,0,7"
+                          Content="El contexto de tus conversaciones"
+                          Checked="MemoryCategoryCheckBox_Changed"
+                          Unchecked="MemoryCategoryCheckBox_Changed" Tag="Conversacion" />
+                <CheckBox x:Name="MemoryHabitsCheckBox"
+                          Content="Tus hábitos de uso"
+                          Checked="MemoryCategoryCheckBox_Changed"
+                          Unchecked="MemoryCategoryCheckBox_Changed" Tag="Habitos" />
+                <TextBlock Margin="0,6,0,0"
+                           Text="Cada una se activa por separado: aceptar una no autoriza las demás."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+
+            <StackPanel Margin="24,14,0,0">
+                <TextBlock Margin="0,0,0,5" Text="Retención" FontWeight="SemiBold" />
+                <TextBlock Margin="0,0,0,6"
+                           Text="Días que se conserva cada recuerdo. Al bajarla, lo más viejo desaparece de inmediato, no la próxima vez."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+                <TextBox x:Name="MemoryRetentionBox"
+                         Width="90"
+                         HorizontalAlignment="Left"
+                         LostFocus="MemoryRetentionBox_LostFocus"
+                         AutomationProperties.Name="Días de retención de la memoria" />
+            </StackPanel>
+
+            <StackPanel Margin="24,12,0,0">
+                <TextBlock Margin="0,0,0,5" Text="Nunca recordar" FontWeight="SemiBold" />
+                <TextBlock Margin="0,0,0,6"
+                           Text="Una palabra o frase por línea. Si aparece en el texto, Kohana no lo guarda aunque la memoria esté activada."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+                <TextBox x:Name="MemoryExclusionsBox"
+                         MinHeight="62"
+                         MaxHeight="120"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto"
+                         LostFocus="MemoryExclusionsBox_LostFocus"
+                         AutomationProperties.Name="Exclusiones de la memoria" />
+            </StackPanel>
+
+            <WrapPanel Margin="24,12,0,0">
+                <Button Content="Ver lo que recuerda"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="MemoryShowButton_Click" />
+                <Button Margin="9,0,0,0"
+                        Content="Olvidar todo"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="MemoryForgetAllButton_Click" />
+            </WrapPanel>
+            <TextBlock x:Name="MemoryStatusText"
+                       Margin="24,6,0,0"
+                       Text=""
+                       TextWrapping="Wrap"
+                       Visibility="Collapsed"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
             <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
                       Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />
