@@ -9,11 +9,11 @@ namespace Nexo.Windows.Optimization;
 /// decisión explícita registrada en el roadmap: nada de trucos de registro ni de lanzar procesos,
 /// para no disparar falsos positivos de antivirus.
 ///
-/// Alcance honesto de esta primera versión: el único cambio que Kohana APLICA es el plan de
-/// energía, porque es el que puede revertirse por completo y con certeza (se guarda el GUID
-/// anterior y se vuelve a él). Todo lo demás del plan son consejos que ejecuta la persona. Es
-/// preferible aplicar poco y poder deshacerlo siempre, que aplicar mucho sin poder garantizar la
-/// vuelta atrás — el roadmap marca la reversión como requisito, no como aspiración.
+/// Diseño D11 — **cada cambio se verifica releyendo el estado**. Que <c>PowerSetActiveScheme</c>
+/// devuelva 0 significa que Windows aceptó la llamada, no que el plan activo sea ahora el que se
+/// pidió: una directiva de grupo o un fabricante pueden reponer el suyo. El criterio de terminado de
+/// la fase pide reversión *verificada*, y verificar es releer. Sin esto, Kohana podía anunciar
+/// "listo" sobre un cambio que no ocurrió, y ofrecer después deshacer algo que nunca se hizo.
 /// </summary>
 public sealed class WindowsOptimizationApplier : IOptimizationApplier
 {
@@ -48,53 +48,43 @@ public sealed class WindowsOptimizationApplier : IOptimizationApplier
         }
     }
 
-    public OptimizationApplyResult Apply(OptimizationPlan plan)
+    public OptimizationStepResult ApplyPowerPlan(string changeId)
     {
-        ArgumentNullException.ThrowIfNull(plan);
-
-        var applied = 0;
-        foreach (var change in plan.ApplicableChanges)
-        {
-            if (change.Target != OptimizationTarget.PowerPlan)
-            {
-                continue;
-            }
-
-            var scheme = ResolveScheme(change.Id);
-            if (scheme is null)
-            {
-                return OptimizationApplyResult.Failed(
-                    $"No reconozco el cambio «{change.Id}», así que no apliqué nada.");
-            }
-
-            if (!TrySetScheme(scheme.Value))
-            {
-                return OptimizationApplyResult.Failed(
-                    "Windows no aceptó el cambio de plan de energía.");
-            }
-
-            applied++;
-        }
-
-        return applied == 0
-            ? OptimizationApplyResult.Failed("Este plan no tiene cambios que Kohana pueda aplicar.")
-            : OptimizationApplyResult.Applied(applied, "Listo. Puedes deshacerlo cuando quieras.");
+        var scheme = ResolveScheme(changeId);
+        return scheme is null
+            ? OptimizationStepResult.Failed($"No reconozco el cambio «{changeId}», así que no lo apliqué.")
+            : SetAndVerify(scheme.Value, "Windows no aceptó el cambio de plan de energía.");
     }
 
-    public OptimizationApplyResult Restore(OptimizationSnapshot snapshot)
-    {
-        ArgumentNullException.ThrowIfNull(snapshot);
+    public OptimizationStepResult RestorePowerPlan(string previousPowerPlanId) =>
+        Guid.TryParse(previousPowerPlanId, out var previous)
+            ? SetAndVerify(previous, "Windows no aceptó restaurar el plan de energía anterior.")
+            : OptimizationStepResult.Failed("El plan de energía guardado no es válido, así que no pude restaurarlo.");
 
-        if (!Guid.TryParse(snapshot.PreviousPowerPlanId, out var previous))
+    /// <summary>
+    /// Pide el cambio y comprueba releyendo. Los dos fallos posibles se distinguen a propósito: que
+    /// Windows rechace la llamada y que la acepte pero el plan activo siga siendo otro no son el
+    /// mismo problema, y quien lo lea necesita saber cuál de los dos ocurrió.
+    /// </summary>
+    private OptimizationStepResult SetAndVerify(Guid scheme, string rejectedMessage)
+    {
+        if (!TrySetScheme(scheme))
         {
-            return OptimizationApplyResult.Failed(
-                "No hay un estado anterior guardado que restaurar.");
+            return OptimizationStepResult.Failed(rejectedMessage);
         }
 
-        return TrySetScheme(previous)
-            ? OptimizationApplyResult.Applied(1, "Devolví el plan de energía a como estaba.")
-            : OptimizationApplyResult.Failed(
-                "Windows no aceptó restaurar el plan de energía anterior.");
+        var active = ReadCurrentPowerPlanId();
+        if (active is null)
+        {
+            return OptimizationStepResult.Failed(
+                "Cambié el plan de energía pero no pude releerlo para confirmarlo, así que no lo doy por hecho.");
+        }
+
+        return Guid.TryParse(active, out var current) && current == scheme
+            ? OptimizationStepResult.Ok("Plan de energía verificado.")
+            : OptimizationStepResult.Failed(
+                "Windows aceptó el cambio pero el plan activo sigue siendo otro. " +
+                "Puede que una directiva del sistema lo esté reponiendo.");
     }
 
     private static Guid? ResolveScheme(string changeId) => changeId switch

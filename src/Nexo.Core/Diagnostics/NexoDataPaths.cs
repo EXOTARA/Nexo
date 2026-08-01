@@ -183,6 +183,13 @@ public static class NexoDataPaths
     public static string Memory => Path.Combine(RootDirectory, "memory.dat");
     public static string OptimizationSnapshot =>
         Path.Combine(RootDirectory, "optimization-snapshot.json");
+
+    /// <summary>Diseño D11 — registro de qué optimizaciones se aplicaron, se deshicieron o fallaron.</summary>
+    public static string OptimizationAudit =>
+        Path.Combine(RootDirectory, "optimization-audit.json");
+
+    /// <summary>Diseño D12 — carpeta de trabajo autorizada y su historial de autorizaciones.</summary>
+    public static string Workspace => Path.Combine(RootDirectory, "workspace.json");
     public static string Conversation => Path.Combine(
         RootDirectory,
         "conversation-history.json");

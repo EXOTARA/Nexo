@@ -34,6 +34,7 @@ public static class OptimizationPlanBuilder
         var skipped = new List<string>();
 
         AddPowerPlanChange(scenario, snapshot, changes, skipped);
+        AddKohanaFootprintChange(scenario, snapshot, changes, skipped);
         AddMemoryAdvice(scenario, snapshot, changes, skipped);
         AddGraphicsAdvice(scenario, snapshot, changes, skipped);
 
@@ -94,6 +95,77 @@ public static class OptimizationPlanBuilder
                     IsReversibleByKohana: true));
                 break;
         }
+    }
+
+    /// <summary>
+    /// Diseño D11 — antes de pedirle a la persona que cierre sus programas, la aplicación que se
+    /// aparta primero es Kohana.
+    ///
+    /// La misma regla de siempre decide si se propone: **hace falta una medición**. Aquí la medición
+    /// es cuánto margen tiene el equipo, medido en procesadores lógicos. En una máquina holgada
+    /// Kohana no le estorba a nada y bajar su modo sería un gesto vacío que solo empeoraría sus
+    /// propios motores; en una justa, sí compite de verdad por el procesador. Sin ese dato no se
+    /// propone nada, igual que con la batería o la RAM.
+    /// </summary>
+    private static void AddKohanaFootprintChange(
+        OptimizationScenario scenario,
+        HardwareCapabilitySnapshot? snapshot,
+        List<OptimizationChange> changes,
+        List<string> skipped)
+    {
+        // Escenarios donde Kohana compite con lo que la persona está haciendo. Programar queda
+        // fuera a propósito: ahí Kohana es justamente la herramienta que se está usando, y
+        // ralentizarla iría en contra de lo que se pidió.
+        var competes = scenario is OptimizationScenario.Jugar
+            or OptimizationScenario.EdicionVideo
+            or OptimizationScenario.Videollamada
+            or OptimizationScenario.Bateria;
+
+        if (scenario == OptimizationScenario.General)
+        {
+            changes.Add(new OptimizationChange(
+                KohanaFootprintModes.Automatic,
+                "Devolver a Kohana a su modo de rendimiento automático",
+                "Para uso mixto, el modo automático deja que Kohana se ajuste sola al equipo.",
+                OptimizationTarget.KohanaFootprint,
+                IsReversibleByKohana: true));
+            return;
+        }
+
+        if (!competes)
+        {
+            return;
+        }
+
+        var logicalProcessors = snapshot?.Processor.LogicalProcessors;
+        if (logicalProcessors is null)
+        {
+            skipped.Add(
+                "Consumo de Kohana: no se pudo medir cuántos procesadores lógicos tiene el equipo, " +
+                "así que no se propone bajar su modo de rendimiento.");
+            return;
+        }
+
+        // Con batería el criterio no es el margen de procesador sino la autonomía: aunque sobre
+        // potencia, cada motor que corre gasta carga.
+        var justified = scenario == OptimizationScenario.Bateria || logicalProcessors <= 8;
+        if (!justified)
+        {
+            skipped.Add(
+                $"Consumo de Kohana: con {logicalProcessors} procesadores lógicos este equipo tiene " +
+                "margen de sobra, así que bajar el modo de Kohana no aportaría nada.");
+            return;
+        }
+
+        changes.Add(new OptimizationChange(
+            KohanaFootprintModes.Eco,
+            "Poner a Kohana en modo de bajo consumo",
+            scenario == OptimizationScenario.Bateria
+                ? "Los motores locales de voz e IA son lo más caro que corre aquí; en batería, cada uno resta autonomía."
+                : $"Este equipo tiene {logicalProcessors} procesadores lógicos, así que los motores " +
+                  $"locales de Kohana compiten de verdad con {ScenarioLabel(scenario)}.",
+            OptimizationTarget.KohanaFootprint,
+            IsReversibleByKohana: true));
     }
 
     private static void AddMemoryAdvice(

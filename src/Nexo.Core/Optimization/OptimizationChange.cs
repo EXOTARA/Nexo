@@ -7,6 +7,13 @@ public enum OptimizationTarget
     PowerPlan,
 
     /// <summary>
+    /// Diseño D11 — el consumo de la propia Kohana (modo de rendimiento de sus motores). Reversible
+    /// por completo: vive en el archivo de preferencias, así que deshacerlo es reescribir el valor
+    /// anterior.
+    /// </summary>
+    KohanaFootprint,
+
+    /// <summary>
     /// Consejo que Kohana NO aplica: lo ejecuta la persona. No necesita snapshot porque Kohana no
     /// cambió nada.
     /// </summary>

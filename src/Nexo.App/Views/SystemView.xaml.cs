@@ -6,6 +6,7 @@ using System.Windows.Media;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
+using Nexo.Core.Optimization;
 using Nexo.Core.Resources;
 
 namespace Nexo.App.Views;
@@ -25,6 +26,41 @@ public partial class SystemView : UserControl
     public event EventHandler? DiagnosticsRequested;
 
     public event EventHandler? HardwareCapabilityRefreshRequested;
+
+    // Diseño D11 (Fase 4 — Adaptive Computer Optimization)
+    public event Action<OptimizationScenario>? OptimizationScenarioRequested;
+
+    public event EventHandler? OptimizationUndoRequested;
+
+    public event EventHandler? OptimizationAuditRequested;
+
+    private void OptimizationScenarioButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tag } && Enum.TryParse<OptimizationScenario>(tag, out var scenario))
+        {
+            OptimizationScenarioRequested?.Invoke(scenario);
+        }
+    }
+
+    private void OptimizationUndoButton_Click(object sender, RoutedEventArgs e) =>
+        OptimizationUndoRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OptimizationAuditButton_Click(object sender, RoutedEventArgs e) =>
+        OptimizationAuditRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// Diseño D11 — el botón de deshacer solo se activa cuando hay un snapshot guardado. Ofrecer
+    /// "deshacer" sin nada que deshacer haría dudar de si la optimización anterior se aplicó.
+    /// </summary>
+    public void SetOptimizationStatus(string? detail, bool canUndo)
+    {
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            OptimizationStatusText.Text = detail;
+        }
+
+        OptimizationUndoButton.IsEnabled = canUndo;
+    }
 
     public void UpdateSnapshot(SystemSnapshot snapshot)
     {

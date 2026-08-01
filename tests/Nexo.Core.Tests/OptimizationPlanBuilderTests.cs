@@ -13,14 +13,19 @@ public sealed class OptimizationPlanBuilderTests
     private static HardwareCapabilityProfile Profile(
         bool? hasBattery = null,
         ulong? memoryBytes = null,
-        bool? dedicatedGraphics = null)
+        bool? dedicatedGraphics = null,
+        int? logicalProcessors = null)
     {
         var graphics = dedicatedGraphics is null
             ? GraphicsCapability.Unknown
             : new GraphicsCapability("Adaptador de prueba", dedicatedGraphics, null, null);
 
+        var processor = logicalProcessors is null
+            ? ProcessorCapability.Unknown
+            : new ProcessorCapability("CPU de prueba", "Prueba", null, logicalProcessors, null, null);
+
         var snapshot = new HardwareCapabilitySnapshot(
-            ProcessorCapability.Unknown,
+            processor,
             new MemoryCapability(memoryBytes),
             [graphics],
             graphics,
@@ -190,5 +195,66 @@ public sealed class OptimizationPlanBuilderTests
 
             Assert.All(plan.Changes, change => Assert.False(string.IsNullOrWhiteSpace(change.Justification)));
         }
+    }
+
+    // ---------- Diseño D11: el consumo de la propia Kohana ----------
+
+    [Fact]
+    public void WithoutKnowingTheProcessor_KohanasOwnFootprintIsNotTouched()
+    {
+        // Misma regla que con la batería y la RAM: sin medición, no se propone.
+        var plan = OptimizationPlanBuilder.Build(OptimizationScenario.Jugar, Profile(hasBattery: false));
+
+        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.KohanaFootprint);
+        Assert.Contains(plan.SkippedForMissingData, reason => reason.Contains("Consumo de Kohana"));
+    }
+
+    [Fact]
+    public void OnATightMachine_KohanaStepsAsideFirst()
+    {
+        var plan = OptimizationPlanBuilder.Build(
+            OptimizationScenario.Jugar, Profile(hasBattery: false, logicalProcessors: 4));
+
+        var change = Assert.Single(plan.Changes, change => change.Target == OptimizationTarget.KohanaFootprint);
+        Assert.Equal(KohanaFootprintModes.Eco, change.Id);
+        Assert.True(change.IsReversibleByKohana);
+    }
+
+    [Fact]
+    public void OnARoomyMachine_LoweringKohanasModeWouldBeAnEmptyGesture()
+    {
+        var plan = OptimizationPlanBuilder.Build(
+            OptimizationScenario.Jugar, Profile(hasBattery: false, logicalProcessors: 24));
+
+        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.KohanaFootprint);
+        Assert.Contains(plan.SkippedForMissingData, reason => reason.Contains("margen de sobra"));
+    }
+
+    [Fact]
+    public void OnBattery_TheCriterionIsAutonomy_NotProcessorHeadroom()
+    {
+        // Aunque sobre potencia, cada motor que corre resta carga.
+        var plan = OptimizationPlanBuilder.Build(
+            OptimizationScenario.Bateria, Profile(hasBattery: true, logicalProcessors: 24));
+
+        Assert.Contains(plan.Changes, change => change.Id == KohanaFootprintModes.Eco);
+    }
+
+    [Fact]
+    public void WhileProgramming_KohanaIsTheToolBeingUsed_AndIsNotSlowedDown()
+    {
+        var plan = OptimizationPlanBuilder.Build(
+            OptimizationScenario.Programar, Profile(hasBattery: false, logicalProcessors: 4));
+
+        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.KohanaFootprint);
+    }
+
+    [Fact]
+    public void GeneralUse_ReturnsKohanaToDecidingForItself()
+    {
+        var plan = OptimizationPlanBuilder.Build(
+            OptimizationScenario.General, Profile(hasBattery: false, logicalProcessors: 4));
+
+        Assert.Contains(plan.Changes, change => change.Id == KohanaFootprintModes.Automatic);
     }
 }

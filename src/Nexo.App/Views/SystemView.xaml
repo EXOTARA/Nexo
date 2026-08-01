@@ -190,6 +190,56 @@
                 </StackPanel>
             </Border>
 
+            <!-- Diseño D11 (Fase 4 — Adaptive Computer Optimization) -->
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Optimización del equipo" FontSize="16" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,3,0,0"
+                               Text="Kohana revisa tu hardware real y propone solo lo que ese hardware justifica. Nada se aplica sin que lo confirmes, y siempre se puede deshacer."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <WrapPanel Margin="0,11,0,0">
+                        <Button Margin="0,0,7,7" Content="Jugar" Tag="Jugar"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OptimizationScenarioButton_Click" />
+                        <Button Margin="0,0,7,7" Content="Programar" Tag="Programar"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OptimizationScenarioButton_Click" />
+                        <Button Margin="0,0,7,7" Content="Editar video" Tag="EdicionVideo"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OptimizationScenarioButton_Click" />
+                        <Button Margin="0,0,7,7" Content="Videollamada" Tag="Videollamada"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OptimizationScenarioButton_Click" />
+                        <Button Margin="0,0,7,7" Content="Batería" Tag="Bateria"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OptimizationScenarioButton_Click" />
+                        <Button Margin="0,0,7,7" Content="Uso general" Tag="General"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OptimizationScenarioButton_Click" />
+                    </WrapPanel>
+
+                    <WrapPanel Margin="0,4,0,0">
+                        <Button x:Name="OptimizationUndoButton"
+                                Margin="0,0,7,0"
+                                Content="Deshacer la última optimización"
+                                IsEnabled="False"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OptimizationUndoButton_Click" />
+                        <Button Content="Ver historial"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OptimizationAuditButton_Click" />
+                    </WrapPanel>
+
+                    <TextBlock x:Name="OptimizationStatusText"
+                               Margin="0,9,0,0"
+                               Text="Elige para qué quieres optimizar y Kohana te enseñará el plan antes de tocar nada."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+            </Border>
+
             <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,12">
                 <Grid>
                     <Grid.ColumnDefinitions>

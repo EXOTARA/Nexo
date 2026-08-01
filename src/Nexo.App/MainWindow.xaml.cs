@@ -15,6 +15,7 @@ using System.Windows.Threading;
 using Nexo.App.Ambient;
 using Nexo.App.Automation;
 using Nexo.App.DailyFlow;
+using Nexo.App.Optimization;
 using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
@@ -137,6 +138,14 @@ public partial class MainWindow : Window
     /// <summary>Diseño D8 (Fase 4) — optimización adaptativa del equipo.</summary>
     private readonly WindowsOptimizationApplier _optimizationApplier = new();
     private readonly JsonOptimizationSnapshotStore _optimizationSnapshotStore = new();
+    private readonly JsonOptimizationAuditLog _optimizationAuditLog = new();
+
+    /// <summary>
+    /// Diseño D11 (Fase 4) — orquesta aplicar, verificar, deshacer y registrar. Se crea en el
+    /// constructor porque necesita las preferencias ya cargadas para el objetivo "consumo de
+    /// Kohana".
+    /// </summary>
+    private readonly OptimizationCoordinator _optimizationCoordinator;
 
     /// <summary>Diseño D9 (Fase 6) — memoria opt-in, cifrada en reposo.</summary>
     private readonly MemoryManager _memoryManager = new(new DpapiMemoryStore());
@@ -286,6 +295,21 @@ public partial class MainWindow : Window
         _ambientRequestManager.Load();
         _flowTextInserter = new WindowsFlowTextInserter(_ambientContextProvider);
         _memoryManager.Load();
+
+        // Diseño D11 — el coordinador necesita las preferencias ya cargadas: el segundo objetivo
+        // que aplica de verdad es el modo de rendimiento de la propia Kohana.
+        _optimizationCoordinator = new OptimizationCoordinator(
+            _optimizationApplier,
+            new PreferencesKohanaFootprintApplier(
+                _preferences,
+                () =>
+                {
+                    SavePreferences();
+                    RefreshAdaptiveEnginePlan();
+                }),
+            _optimizationSnapshotStore,
+            _optimizationAuditLog);
+
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
             _focusManager,
@@ -355,6 +379,13 @@ public partial class MainWindow : Window
         _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
         _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
         _systemView.HardwareCapabilityRefreshRequested += async (_, _) => await RefreshHardwareCapabilityAsync();
+
+        // Diseño D11 (Fase 4) — los mismos siete escenarios que ya existían como comandos, ahora
+        // también en Sistema. Comparten camino: la interfaz no aplica nada por su cuenta.
+        _systemView.OptimizationScenarioRequested += async scenario =>
+            await ProposeOptimizationAsync(scenario);
+        _systemView.OptimizationUndoRequested += (_, _) => RestoreOptimization();
+        _systemView.OptimizationAuditRequested += (_, _) => ShowOptimizationAudit();
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -1314,9 +1345,45 @@ public partial class MainWindow : Window
             KohanaCommandCategory.System,
             _ => Task.FromResult(RestoreOptimization()),
             keywords: ["deshacer", "restaurar", "optimizacion", "revertir"],
-            availability: () => _optimizationSnapshotStore.Load() is not null
+            availability: () => _optimizationCoordinator.HasSomethingToUndo
                 ? KohanaCommandAvailability.Available
                 : KohanaCommandAvailability.Unavailable("No hay ninguna optimización aplicada que deshacer."));
+
+        // Diseño D11 — la auditoría es consultable desde el mismo sitio que todo lo demás. Un
+        // registro que solo se puede leer abriendo un archivo a mano no lo lee nadie.
+        yield return new KohanaCommandDescriptor(
+            "optimize.historial",
+            "Ver el historial de optimizaciones",
+            "Muestra qué se aplicó, qué se deshizo y qué falló, con su fecha.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowOptimizationAudit();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["historial", "auditoria", "optimizacion", "registro"]);
+    }
+
+    private void ShowOptimizationAudit()
+    {
+        var entries = _optimizationCoordinator.ReadAudit();
+
+        var message = new StringBuilder();
+        if (entries.Count == 0)
+        {
+            message.Append("Todavía no he aplicado ninguna optimización.");
+        }
+        else
+        {
+            message.AppendLine("Historial de optimizaciones:");
+            foreach (var entry in entries.Take(15))
+            {
+                message.Append("· ").AppendLine(entry.Describe());
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
     }
 
     private async Task<CommandExecutionResult> ProposeOptimizationAsync(OptimizationScenario scenario)
@@ -1375,57 +1442,34 @@ public partial class MainWindow : Window
         ApplyOptimization(plan);
     }
 
+    /// <summary>
+    /// Diseño D11 — el orden (snapshot antes que nada, reversión de lo ya aplicado si un paso falla)
+    /// vive ahora en <see cref="OptimizationCoordinator"/>, en Core, donde se puede probar con
+    /// dobles. Aquí solo queda enseñar el resultado.
+    /// </summary>
     private void ApplyOptimization(OptimizationPlan plan)
     {
-        // El snapshot se guarda ANTES de tocar nada: si algo falla a media aplicación, la vuelta
-        // atrás ya está en disco. Al revés no habría manera de deshacer lo ya aplicado.
-        var snapshot = new OptimizationSnapshot
-        {
-            CapturedAt = DateTimeOffset.Now,
-            Scenario = plan.Scenario.ToString(),
-            PreviousPowerPlanId = _optimizationApplier.ReadCurrentPowerPlanId()
-        };
+        var result = _optimizationCoordinator.Apply(plan);
 
-        if (snapshot.PreviousPowerPlanId is null)
-        {
-            ShowFlowNotice(
-                CapsuleKind.Warning,
-                "No apliqué nada",
-                "No pude leer el plan de energía actual, así que no podría deshacerlo después.");
-            return;
-        }
+        ShowFlowNotice(
+            result.IsApplied ? CapsuleKind.Success : CapsuleKind.Warning,
+            result.IsApplied ? "Equipo optimizado" : "No se pudo optimizar",
+            result.Detail);
 
-        _optimizationSnapshotStore.Save(snapshot);
-
-        var result = _optimizationApplier.Apply(plan);
-        if (result.IsApplied)
-        {
-            ShowFlowNotice(CapsuleKind.Success, "Equipo optimizado", result.Detail);
-        }
-        else
-        {
-            // No se aplicó: el snapshot guardado no corresponde a ningún cambio real y dejarlo
-            // ofrecería un "deshacer" que no deshace nada.
-            _optimizationSnapshotStore.Save(null);
-            ShowFlowNotice(CapsuleKind.Warning, "No se pudo optimizar", result.Detail);
-        }
+        _systemView.SetOptimizationStatus(result.Detail, _optimizationCoordinator.HasSomethingToUndo);
     }
 
     private CommandExecutionResult RestoreOptimization()
     {
-        var snapshot = _optimizationSnapshotStore.Load();
-        if (snapshot is null)
-        {
-            return CommandExecutionResult.Failure("No hay ninguna optimización aplicada que deshacer.");
-        }
+        var result = _optimizationCoordinator.Restore();
 
-        var result = _optimizationApplier.Restore(snapshot);
+        _systemView.SetOptimizationStatus(result.Detail, _optimizationCoordinator.HasSomethingToUndo);
+
         if (!result.IsApplied)
         {
             return CommandExecutionResult.Failure(result.Detail);
         }
 
-        _optimizationSnapshotStore.Save(null);
         ShowFlowNotice(CapsuleKind.Success, "Optimización deshecha", result.Detail);
         return CommandExecutionResult.Success(result.Detail);
     }
