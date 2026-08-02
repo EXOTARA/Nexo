@@ -98,10 +98,14 @@ e integrado en `release/kohana-1.0-rc` — ver `docs/stable-release/IMPLEMENTATI
 
 ## Fase 4 — Adaptive Computer Optimization
 
-**Estado: Parcial** (Diseño D8 en `design/kohana-sprints-d7-d9`: los siete escenarios proponen un
-plan basado en el hardware real, con snapshot previo obligatorio y reversión. Kohana solo APLICA el
-plan de energía —lo único que hoy puede revertir con certeza—; el resto son consejos. Sin integrar a
-release y pendiente de validación manual).
+**Estado: Parcial** (Diseños D8 + D11 en `design/kohana-sprints-d7-d9`. El criterio de terminado está
+cubierto en código: los siete escenarios proponen un plan basado en el hardware real, la aplicación
+exige confirmación y snapshot previo, la reversión se **verifica releyendo** el estado, un fallo a
+mitad deshace lo ya aplicado, y todo queda en un registro de auditoría consultable. Kohana aplica
+dos objetivos reversibles con certeza —el plan de energía y su propio modo de rendimiento—; el resto
+del plan son consejos que ejecuta la persona. Sigue marcada **Parcial** por la regla de este
+documento: el código no está en `release/kohana-1.0-rc` todavía y falta la validación manual del
+usuario).
 
 - Objetivo: que el usuario pueda pedir "optimiza mi computadora para X" y Kohana proponga y aplique
   (con confirmación) cambios reversibles basados en el hardware real.
@@ -125,7 +129,12 @@ release y pendiente de validación manual).
 
 ## Fase 5 — Project Companion
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseño D12 en `design/kohana-sprints-d7-d9`: carpeta de trabajo autorizada con
+contención real de rutas, exclusión de archivos de secretos y de carpetas de dependencias, detección
+de secretos en código antes de enviar nada, y los niveles 1–3 del modelo de autonomía. **No escribe
+nada**: `IWorkspaceReader` no tiene métodos de escritura, y el salto al nivel 4 exige antes el
+snapshot por archivo y el Audit Log que ese modelo pide. Sin integrar a release y pendiente de
+validación manual).
 
 - Objetivo: que Kohana trabaje junto al usuario dentro de un proyecto de código autorizado —desde
   guiar hasta ejecutar cambios— con el nivel de autonomía que el usuario elija.
@@ -142,14 +151,24 @@ release y pendiente de validación manual).
 - No objetivos: no reemplaza revisión humana de cambios significativos por defecto.
 - Criterio de terminado: los cinco modos operando con checkpoints y detección de secretos activa
   antes de cualquier acción de escritura.
-- Sprints sugeridos: "Companion: workspace y modo Guía", "Companion: modo Agente y checkpoints".
+- Sprints sugeridos: "Companion: workspace y modo Guía" (hecho en D12), "Companion: modo Agente y
+  checkpoints".
+
+> **Nota de vocabulario (D12).** Este documento nombra "cinco modos" (Guía, Observador, Copiloto,
+> Colaborador, Agente) y el modelo de confianza nombra seis niveles numerados (Ver, Guiar, Proponer,
+> Ejecutar un paso, Colaborar con confirmaciones, Automatizar una secuencia). Son la misma escalera
+> con dos vocabularios. **La implementación sigue la del modelo de confianza**, que es la que fija el
+> orden de habilitación y la regla de "ninguna capacidad empieza por arriba"; ver
+> `WorkspaceAutonomyLevel`.
 
 ## Fase 6 — Context and Memory
 
-**Estado: Parcial** (Diseño D9 en `design/kohana-sprints-d7-d9`: controles de exclusión y retención
-funcionando antes que el almacenamiento, tres categorías independientes, cifrado DPAPI en reposo y
-búsqueda literal. Falta interfaz de ajustes para activarla y escritura automática de recuerdos desde
-la conversación. Sin integrar a release y pendiente de validación manual).
+**Estado: Parcial** (Diseños D9 + D10 en `design/kohana-sprints-d7-d9`: controles de exclusión y
+retención funcionando antes que el almacenamiento, tres categorías independientes, cifrado DPAPI en
+reposo y búsqueda literal; y ya se llena desde la conversación —solo por petición explícita, o por
+propuesta con un sí de por medio—, se usa como contexto de las consultas y se configura desde
+Personalizar. Falta llenar la categoría `Habitos`, que necesita algo que mida conducta real y no una
+frase suelta. Sin integrar a release y pendiente de validación manual).
 
 - Objetivo: que Kohana recuerde contexto relevante entre sesiones sin convertirse en vigilancia
   permanente.

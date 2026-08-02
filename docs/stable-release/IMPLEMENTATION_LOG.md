@@ -2712,3 +2712,164 @@ código. La optimización aplica un único ajuste real (plan de energía); ampli
 poder revertir cada nuevo cambio con la misma certeza.
 
 **No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D10, D11 y D12 — segundo bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (continúa la misma rama, sobre `3abf93a`).
+El usuario volvió a pedir explícitamente tres sprints en una sola entrega. Los tres cierran
+pendientes que las fases anteriores habían dejado nombrados por escrito, en vez de abrir frentes
+nuevos: D10 y D11 completan lo que D9 y D8 dejaron a medias, y D12 arranca la Fase 5 por el nivel
+más bajo del modelo de confianza.
+
+### D10 — La memoria se llena, se usa y se configura (Fase 6)
+
+D9 dejó la memoria protegida pero inerte: solo la llenaba el código y solo se activaba editando
+`settings.json`.
+
+`MemoryCandidateDetector` lee UNA frase y decide si contiene algo recordable. Dos límites
+deliberados, los dos por la regla del roadmap de que la memoria no puede convertirse en vigilancia
+permanente. **Solo reconoce frases literales**: no infiere del resto de la conversación, porque
+deducir que alguien "parece preferir X" tras mencionarlo tres veces es exactamente la observación
+silenciosa que la fase prohíbe, y además sería adivinar. Y **nunca produce la categoría `Habitos`**:
+un hábito es conducta observada a lo largo del tiempo, no algo que se lea en una oración suelta. La
+categoría existe y se respeta, pero solo puede llenarla algo que mida conducta de verdad, y eso
+todavía no existe.
+
+Dos caminos con reglas distintas. El **explícito** ("recuerda que ...") guarda: la persona acaba de
+dar la orden, y preguntarle "¿seguro?" sería ruido; si la política lo rechaza, **se dice por qué**,
+porque un "recuerda que ..." que no guarda nada y no explica nada parecería que funcionó. El
+**observado** (una preferencia dicha de paso) no se guarda nunca solo: se propone y hace falta un
+sí, y la propuesta caduca con la frase siguiente para que un "sí" dicho por otra cosa no la capture.
+La política se consulta ANTES de proponer, para no preguntar por algo que una exclusión rechazaría
+igualmente.
+
+`MemoryContextBuilder` es lo que hace útil a la memoria — guardarla sin usarla no da continuidad
+ninguna. Se trata como un envío, que es lo que es cuando el proveedor es remoto: solo categorías
+activas EN ESE MOMENTO (desactivar una deja de usarla en el acto, aunque sus entradas sobrevivan;
+borrarlas al mover un interruptor sería destruir datos, y para eso está "olvidar"), redacción
+repetida a la salida, y tope de cantidad y tamaño. Si no cabe ni una entrada tampoco se manda el
+encabezado: anunciar una memoria vacía es peor que no mandar nada.
+
+Interfaz en Personalizar con los cuatro controles de la fase (interruptor general, tres categorías,
+retención y exclusiones). Apagar el general desmarca también las categorías en la vista, igual que
+hace `Normalize` con los datos: si no, reactivar la memoria parecería restaurar permisos que ya no
+existen. "Ver lo que recuerda" y "olvidar todo" siguen activos con la memoria apagada.
+
+**Defecto encontrado al probar:** `SensitiveContentRedactor` solo conocía la forma de formulario
+("contraseña: 1234"), no la hablada ("mi contraseña es 1234"). La memoria y el dictado guardan
+prosa, así que una contraseña dicha en voz alta pasaba de largo. Ampliado — sí redacta de más en
+frases como "la clave es importante", que es el intercambio que esa clase ya declara aceptar.
+
+### D11 — Optimización verificada, reversible y auditada (Fase 4)
+
+D8 aplicaba una sola cosa y se fiaba de que hubiera funcionado.
+
+**Verificar es releer.** Que `PowerSetActiveScheme` devuelva 0 significa que Windows aceptó la
+llamada, no que el plan activo sea ahora el pedido: una directiva de grupo o una utilidad del
+fabricante pueden reponer el suyo. Sin la relectura, Kohana podía anunciar "listo" sobre un cambio
+que no ocurrió y ofrecer después deshacer algo que nunca se hizo. Los dos fallos se informan por
+separado a propósito: "Windows lo rechazó" y "Windows lo aceptó pero el plan activo sigue siendo
+otro" son problemas distintos.
+
+**Segundo objetivo real: el consumo de la propia Kohana.** Cumple las dos condiciones que la fase
+exige a la vez — es un cambio que se nota (los motores locales de voz e IA son lo más caro que corre
+aquí) y vive en el archivo de preferencias, así que revertirlo es reescribir el valor anterior. Es
+además el más honesto disponible: antes de pedirle a la persona que cierre sus programas, la
+aplicación que se aparta primero es Kohana. Sigue exigiendo medición como todo lo demás: sin el
+número de procesadores lógicos no se propone nada, y en un equipo holgado se omite con el motivo,
+porque ahí bajarlo sería un gesto vacío que solo empeora sus propios motores. Programar queda fuera
+a propósito: ahí Kohana es la herramienta que se está usando.
+
+Con dos objetivos, el fallo parcial deja de ser un detalle, así que la orquestación se mudó de
+`MainWindow` a `OptimizationCoordinator`, en Core, donde se prueba con dobles. Tres reglas: no se
+toca nada si falta el valor anterior de algún objetivo (sin él, deshacer no existiría); el snapshot
+llega al disco antes del primer cambio; y **si un paso falla, se deshacen los anteriores**, porque
+un plan a medias deja el equipo en un estado que nadie pidió y que nadie sabría describir. Cuando la
+propia reversión falla, se dice en voz alta en vez de fingir éxito. Un deshacer fallido conserva el
+snapshot para poder reintentarlo.
+
+Registro de auditoría en disco, de solo añadir, con tope de 50 entradas y recorte solo por
+antigüedad: poder quitar UNA entrada convertiría el registro en una versión de los hechos. Sin
+cifrar a propósito — no contiene datos personales, y que se pueda abrir con cualquier editor es
+parte de que sea de la persona. Consultable desde un comando y desde el panel nuevo.
+
+Sistema gana un panel de optimización con los mismos siete escenarios que ya existían como comandos
+—mismo camino, la interfaz no aplica nada por su cuenta—. El botón de deshacer se desactiva cuando
+no hay snapshot: ofrecer "deshacer" sin nada que deshacer haría dudar de si lo anterior se aplicó.
+
+### D12 — Workspace autorizado y modo Guiar (Fase 5)
+
+Primer sprint del acompañante de proyecto, y **no escribe nada**. El modelo de confianza es
+explícito: *"ninguna capacidad nueva puede empezar en el nivel 6: cada una debe demostrarse en los
+niveles 1–3 antes de solicitar el salto a ejecución"*. `IWorkspaceReader` no tiene ningún método de
+escritura, y eso es el diseño, no un pendiente: mientras la capacidad viva en los niveles 1–3 no
+debe existir siquiera la forma de llamar a una escritura. El nivel 4 exige antes lo que ese mismo
+modelo pide y aquí no existe todavía: snapshot previo por archivo y el Audit Log orientado al
+usuario.
+
+`WorkspacePathPolicy` es la pieza de seguridad del sprint. La contención se comprueba sobre rutas ya
+RESUELTAS, no sobre las cadenas que llegan: una comprobación textual la burla cualquier `..\..\`, y
+también los enlaces simbólicos y las uniones de directorio de Windows, que apuntan fuera sin que la
+ruta lo aparente. La comparación exige separador, así que `C:\...\Proyecto` no contiene a
+`C:\...\Proyecto-privado`. Y las extensiones son una **lista de permitidos**: con una lista de
+prohibidos, cada extensión nueva del mundo entraría por defecto.
+
+Los archivos de secretos (`.env*`, `id_rsa`, `*.pem`, `*.pfx`, `secrets.json`...) se niegan **por
+nombre, antes de abrirlos**: leer el contenido para decidir si contiene secretos ya sería haberlo
+leído. Las carpetas de dependencias y de compilación se saltan, aunque un nombre excluido en la raíz
+autorizada no bloquea nada — si alguien autoriza una carpeta llamada `build`, su proyecto se llama
+build.
+
+`WorkspaceSecretScanner` atrapa lo que queda, y es una clase aparte de `SensitiveContentRedactor` en
+vez de un reemplazo: aquélla busca datos personales en texto de pantalla; ésta, asignaciones de
+configuración, cadenas de conexión y bloques de clave privada con la forma que tienen en un archivo
+de código. Se usan las dos. Conserva el nombre de la variable y tira el valor: saber que existe
+`ApiKey` ayuda a explicar un proyecto, su valor no. Las asignaciones exigen un valor de 8 caracteres
+o más para no redactar los marcadores vacíos del código de ejemplo, cuya redacción solo escondería
+que el hueco está vacío.
+
+Explicar un proyecto envía **estructura, no código**. Mandar un proyecto entero a un proveedor
+remoto para que diga de qué va es desproporcionado; el árbol de archivos lo explica casi igual de
+bien y sale del equipo una fracción. El contexto del proyecto se consume en UNA consulta y se apaga:
+ésa es la garantía de que autorizar una carpeta no convierte cada pregunta posterior en un envío de
+código.
+
+Autorizar y revocar están al mismo nivel y en el mismo sitio: un permiso que cuesta más quitar que
+dar no es un permiso, es una trampa. La confirmación dice qué se concede Y qué no. Preferencias al
+esquema v20, y el escalón **revoca**: nadie hereda una carpeta autorizada al actualizar, por el
+mismo motivo que la memoria en v19 — una migración no es un consentimiento.
+
+De paso, la auditoría de D11 se añadió a la prueba de aislamiento de perfiles de validación: un
+store que se escapara a la carpeta real mezclaría lo probado con lo que la persona hizo de verdad en
+su equipo.
+
+**Build y pruebas (Release), acumulado D10-D12:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 959 superadas
+  Nexo.Windows.Tests.dll -> 190 superadas
+  Nexo.App.Tests.dll     -> 166 superadas
+Total: 1315 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando tras los tres sprints (arranque real del ejecutable
+publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **Sin validación manual del usuario.** Se comprobó que la app arranca, no que los paneles nuevos
+  (memoria en Personalizar, optimización en Sistema) se vean y se usen bien. Los tres sprints
+  quedan pendientes de la misma prueba a mano que aprobó D4, D5 y D6.
+- La memoria sigue sin categoría `Habitos` llena: hace falta algo que mida conducta de verdad.
+- La optimización aplica dos objetivos reales (plan de energía y consumo de Kohana). Ampliar el
+  conjunto exige poder revertir cada nuevo cambio con la misma certeza.
+- El workspace no tiene interfaz propia: se autoriza, se consulta y se revoca desde la paleta de
+  comandos. Tampoco hay selección de nivel de autonomía en la interfaz (se queda en `Guiar`).
+- La búsqueda en el proyecto (`IWorkspaceReader.Search`) está implementada y probada por contrato,
+  pero todavía no tiene comando que la exponga.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**

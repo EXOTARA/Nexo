@@ -10,6 +10,25 @@
 
 - Kohana 0.9.5-beta.
 
+### Agregado (Diseños D10, D11 y D12 — sin integrar a release)
+
+- Memoria personal que se llena desde la conversación: guarda lo que le pides recordar explícitamente y propone (nunca guarda solo) las preferencias que dices de paso.
+- Lo recordado acompaña a las consultas, así que hay continuidad real entre sesiones.
+- Panel de memoria en Personalizar: activar, tres categorías por separado, días de retención, exclusiones, ver lo guardado y olvidar todo.
+- Reversión verificada de las optimizaciones: Kohana relee el estado en vez de fiarse de que la llamada al sistema fuera aceptada.
+- Si un paso de la optimización falla, se deshacen los ya aplicados en lugar de dejar el equipo a medias.
+- Segundo ajuste reversible: Kohana baja su propio modo de rendimiento cuando el hardware lo justifica.
+- Historial de auditoría de optimizaciones, consultable desde comando y desde el nuevo panel de Sistema.
+- Panel de optimización en Sistema con los siete escenarios, deshacer e historial.
+- Carpeta de proyecto autorizada, de solo lectura, con revocación inmediata.
+- Detección de secretos en código y exclusión de archivos de credenciales antes de enviar nada a la IA.
+- Comando para que Kohana explique el proyecto autorizado usando su estructura, no su código.
+
+### Cambiado
+
+- Esquema de preferencias v19 → v20. Al actualizar, nadie hereda una carpeta de proyecto autorizada.
+- La redacción de datos sensibles reconoce ahora la forma hablada de una contraseña («mi contraseña es …»), además de la de formulario.
+
 # Changelog
 
 Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.
