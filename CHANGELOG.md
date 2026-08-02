@@ -44,6 +44,21 @@
 
 - Activar un pack ya no podía reactivar Vision por efecto de la normalización de preferencias, que habría encendido un permiso apagado a propósito.
 
+### Agregado (Diseños D16, D17 y D18 — sin integrar a release)
+
+- Permisos por capacidad en Personalizar, con niveles Bloqueado, Preguntar y Permitido. Dar uno no da los demás.
+- Hay cosas que Kohana pregunta siempre, aunque las tengas permitidas: borrar sin recuperación, credenciales, pagos, permisos de administrador, enviar algo fuera del equipo y cambios amplios del sistema.
+- Ampliar un permiso pide una confirmación nueva; restringirlo, no.
+- Kohana puede proponer cómo hacer algo en el equipo eligiendo siempre la forma más segura disponible, y explica por qué esa y no otra.
+- Comando para ver los métodos con los que Kohana puede actuar, en orden de más a menos seguro.
+- Comandos de diagnóstico de solo lectura (red, DNS, sistema, controladores), ejecutables uno a uno con tu confirmación.
+- Kohana puede dejarte algo en el portapapeles y devolverlo a como estaba.
+- Botón de deshacer en el registro de actividad, para las acciones que se pueden revertir.
+
+### Cambiado
+
+- Esquema de preferencias v20 → v22. Al actualizar, actuar sobre el equipo llega bloqueado y el resto de permisos en «preguntar».
+
 # Changelog
 
 Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.

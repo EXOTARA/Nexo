@@ -3014,3 +3014,142 @@ Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 
   `RevertToken` existe en la entrada y no tiene botón.
 
 **No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D16, D17 y D18 — cuarto bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (misma rama, sobre `e7afebe`).
+Cuarta entrega de tres sprints. El arco lo dicta el propio roadmap: la Fase 7 dice que Computer Use
+*"requiere el Permission Broker y el Audit Log completos antes de habilitarse"*. El Audit Log llegó
+en D13, así que D16 construye la otra mitad, D17 abre la fase por los niveles 1–3, y D18 abre el
+nivel 4 cuando ya existe todo lo que hace falta para ejecutar sin dejar el equipo a medias.
+
+### D16 — Permission Broker
+
+Capacidades con permiso **independiente**, porque el modelo de confianza lo exige: *"cada capacidad
+de la matriz tiene su propio permiso, independiente de las demás — habilitar Lens no habilita
+Computer Use"*. Un enum por capacidad en vez de banderas de un permiso general, que es como se acaba
+concediendo de más sin querer.
+
+**El orden de las comprobaciones ES la política**, y por eso es lo que fijan las pruebas:
+
+1. **Exclusión por aplicación**, primero, porque el modelo dice que vale *"incluso si la capacidad en
+   general está habilitada"*: tiene que ganarle a Permitido.
+2. **Bloqueado** → denegado. Denegar gana a preguntar: confirmar algo que de todas formas no va a
+   ocurrir enseña a aceptar por costumbre.
+3. **Las siete categorías de confirmación obligatoria**, que preguntan *sea cual sea el nivel*. Estar
+   en Permitido no las salta; ése es todo el motivo de que existan.
+4. **Permitido** → adelante.
+5. **Cualquier otra cosa** → preguntar. Falla cerrado.
+
+Los valores por omisión son la parte que más importa: Computer Use llega **Bloqueado** —el permiso
+más alto del roadmap no se concede por instalar Kohana— y el resto llega **Preguntar**, no
+Permitido. El escalón v21 los reconstruye así al actualizar, por el mismo motivo que v19 y v20: una
+migración no es un consentimiento. Un `settings.json` escrito a mano tampoco se lo salta —los
+duplicados se resuelven por el **más restrictivo**, porque resolverlos "por la última línea" dejaría
+que añadir una línea ampliara permisos sin que nadie lo confirmara.
+
+Ampliar un permiso vuelve a preguntar (política de mínimo privilegio del modelo); restringir, no.
+
+Se cableó a dos caminos reales en vez de dejarlo como andamio: borrar la memoria pasa por el broker
+en lugar de por su diálogo propio (borrado irreversible es una de las siete categorías, así que
+pregunta aunque la memoria esté permitida), y los cambios en el proyecto comprueban denegación antes
+de ofrecerse. Cada concesión, negativa y rechazo va al Audit Log: un "sí" que no deja rastro es
+indistinguible de un permiso que nadie dio.
+
+### D17 — Computer Use en los niveles 1–3
+
+**La escalera de métodos es la política.** El roadmap fija el orden y explica por qué: *"automatizar
+mouse/teclado es frágil e inseguro si se usa como primera opción en vez de último recurso — de ahí
+el orden estricto"*. El enum se numera de forma que **menor es más seguro**, para que elegir sea
+comparar números y no recordar una lista; un orden que hay que recordar es un orden que alguien se
+salta.
+
+No se baja de escalón mientras haya uno más arriba disponible: si existe la API oficial no se usa UI
+Automation aunque "también funcione". Es toda la diferencia entre una automatización que sobrevive a
+una actualización y una que no. Ratón y teclado simulados exigen haberlos habilitado a propósito:
+que estén disponibles no basta, porque son el único método que no puede comprobar qué hizo.
+
+**Disponibilidad y preferencia son interfaces separadas**, porque son preguntas distintas y
+confundirlas es como se acaba prometiendo lo que no hay. La respuesta honesta hoy es: dos métodos.
+El portapapeles y una lista corta de comandos de solo lectura. Los cuatro de arriba no se declaran
+disponibles porque Kohana no sabe ejecutarlos, y declarar un método inexistente llevaría a elegirlo
+y fallar después. UI Automation ya se usa para LEER en Lens, pero leer un control e invocarlo no son
+la misma capacidad.
+
+La lista de comandos es de permitidos, fija y sin ninguna entrada del usuario ni del modelo: en
+cuanto un argumento venga de fuera deja de ser esta lista y pasa a ser ejecución arbitraria. **Dos
+candidatos se descartaron al escribirla y el motivo quedó anotado en el archivo** para que no
+vuelvan solos: `powercfg /batteryreport` ESCRIBE un archivo y rompe la invariante de "solo leen", y
+`wmic` está en la lista de intérpretes de `ShellExecutionPolicy`, así que meterlo aquí contradiría
+una política que Kohana ya aplica en otro sitio. Una lista de permitidos solo vale si se defiende
+cuando estorba.
+
+No se ejecuta nada. El plan se arma **aunque algo lo bloquee**, y entonces trae el motivo: un plan
+que no llega a formarse deja a la persona sin saber qué haría falta para que sí, y explicarlo es
+justo lo que "proponer" significa.
+
+**Unificación de la escalera de autonomía.** Nació en D12 como `WorkspaceAutonomyLevel` y Computer
+Use necesitaba los mismos seis niveles. Dos copias del mismo concepto son el riesgo de fragmentación
+que el roadmap nombra: se separan en cuanto una crece, y entonces "nivel 4" significa cosas
+distintas según a quién se pregunte. La escalera es del modelo de confianza, no de ninguna capacidad.
+
+### D18 — Nivel 4: ejecutar una acción confirmada
+
+El nivel 4 se abre porque existen las tres cosas que el modelo pide antes de ejecutar: el broker
+(D16), el Audit Log (D13) y una reversión real para el único método que la admite —el portapapeles
+guarda lo que había—. Los comandos de la lista no necesitan reversión porque no cambian nada, y eso
+lo **defiende** `SafeShellCatalog`, no una promesa.
+
+Mismo esqueleto que `WorkspaceEditCoordinator` de D14, a propósito: los dos resuelven el mismo
+problema —ejecutar un paso confirmado sin quedarse a medias— y darle a cada capacidad el suyo es
+como acaban divergiendo las garantías.
+
+Lo específico de esta fase: **pedir un método menos seguro cuando hay uno mejor se rechaza**. Sin
+eso, el orden estricto de D17 sería decorativo — bastaría con pedir el método cómodo para saltárselo.
+
+El portapapeles se verifica releyendo, y deshacer **se niega si cambió después de que Kohana lo
+pusiera**: misma regla que D14 con los archivos y por el mismo motivo, deshacer no puede destruir lo
+que hizo la persona después. Los comandos se lanzan **sin shell**, con ejecutable y argumentos tal
+cual vienen del catálogo: no se compone ninguna cadena, así que no hay nada que escapar.
+
+Computer Use tiene **su propio nivel de autonomía**, no el del proyecto. Compartirlo haría que subir
+el del proyecto concediera también éste, que es justo lo que "habilitar Lens no habilita Computer
+Use" prohíbe. Ninguno de los dos valores por omisión sube: ejecutar es posible, estar encendido es
+otra decisión, y el permiso sigue llegando Bloqueado — hacen falta **dos** decisiones, no una.
+Escalón v22 para el campo nuevo, porque sin él un archivo anterior lo dejaría en 0, que no es ningún
+nivel válido.
+
+También cierra el pendiente de D13: el panel de auditoría ya tiene el botón de deshacer que sus
+entradas sabían describir desde entonces. Un "cómo deshacerlo" que obliga a ir a buscar el comando
+correcto es media promesa. El despacho es por capacidad: el registro dice QUÉ se puede deshacer, pero
+quien sabe CÓMO sigue siendo la capacidad que lo hizo.
+
+**Build y pruebas (Release), acumulado D16-D18:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 1077 superadas
+  Nexo.Windows.Tests.dll ->  206 superadas
+  Nexo.App.Tests.dll     ->  166 superadas
+Total: 1449 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **Sigue sin validación manual del usuario**, acumulada desde D10. D14 escribe archivos y D18
+  ejecuta procesos: son los dos sprints que más piden una prueba a mano antes de integrarse.
+- **Ningún método de los cuatro primeros está implementado.** Kohana elige bien entre lo que hay,
+  pero lo que hay son dos métodos de los ocho. La escalera funciona; falta llenarla por arriba.
+- Ratón y teclado simulados **no están implementados** y no hay interruptor para habilitarlos: la
+  política los contempla y los rechaza, que es donde deben estar hasta que exista una razón.
+- Las exclusiones por aplicación existen en el modelo y en el broker, pero **no tienen interfaz**:
+  se editan a mano en `settings.json`.
+- Los niveles 5 y 6 siguen cerrados para todas las capacidades.
+- El panel de permisos no muestra el detalle de las exclusiones, solo cuántas hay.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**

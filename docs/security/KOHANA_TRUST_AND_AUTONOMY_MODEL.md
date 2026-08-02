@@ -51,6 +51,14 @@ antes de solicitar el salto a ejecución.
 > se abrió cuando esas dos condiciones existieron, no antes. Los niveles 5 y 6 siguen cerrados para
 > todas las capacidades. Ver `WorkspaceAutonomyPolicy`, que falla cerrado ante cualquier nivel que no
 > reconozca explícitamente.
+>
+> **Actualización (Diseño D18).** Computer Use (Fase 7) es la segunda capacidad en llegar al nivel 4,
+> por el mismo camino: D17 la implementó en los niveles 1–3 sin ejecutar nada, y el salto esperó a
+> que existieran el Permission Broker (D16), el Audit Log (D13) y una reversión real. Tiene su
+> **propio** nivel, independiente del de la Fase 5: compartirlos haría que subir uno concediera el
+> otro, contra la regla de permisos independientes de este documento. La escalera de niveles vive
+> ahora en `Nexo.Core.Permissions.AutonomyLevel`, una sola para todas las capacidades; cuál puede
+> usarse lo decide la política de cada una.
 
 ## Permisos
 

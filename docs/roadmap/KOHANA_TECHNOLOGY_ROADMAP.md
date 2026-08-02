@@ -190,7 +190,15 @@ frase suelta. Sin integrar a release y pendiente de validación manual).
 
 ## Fase 7 — Safe Computer Use
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseños D16 + D17 + D18 en `design/kohana-sprints-d7-d9`. Las dos condiciones
+que esta fase ponía para habilitarse ya existen: el **Permission Broker** (D16) y el **Audit Log**
+(D13). D17 implementa el orden estricto de métodos —nunca se baja de escalón habiendo uno más
+seguro disponible, y ratón/teclado exigen habilitarse a propósito— y los niveles 1–3. D18 abre el
+**nivel 4**: una acción confirmada cada vez, verificada releyendo, reversible donde se puede
+garantizar, y siempre auditada. **Solo dos de los ocho métodos están implementados** —portapapeles y
+una lista de comandos de solo lectura—; los cuatro primeros no se declaran disponibles porque Kohana
+no sabe ejecutarlos, y ratón/teclado no está implementado en absoluto. Sin integrar a release y
+pendiente de validación manual).
 
 - Objetivo: permitir que Kohana ejecute acciones reales sobre el equipo, siempre por el camino más
   seguro disponible primero.
@@ -208,8 +216,15 @@ frase suelta. Sin integrar a release y pendiente de validación manual).
   paso → Colaborar con confirmaciones → Automatizar una secuencia autorizada).
 - Criterio de terminado: los seis niveles de autonomía disponibles y auditables para al menos una
   herramienta de cada categoría de la lista de preferencia.
-- Sprints sugeridos: "Computer Use: niveles Ver/Guiar/Proponer", "Computer Use: ejecución y
-  auditoría".
+- Sprints sugeridos: "Computer Use: niveles Ver/Guiar/Proponer" (hecho en D17), "Computer Use:
+  ejecución y auditoría" (hecho en D18, en el nivel 4).
+
+> **Distancia real al criterio de terminado (D18).** El criterio pide los seis niveles *"para al
+> menos una herramienta de cada categoría de la lista de preferencia"*, y ahí es donde queda lo
+> gordo: hay herramienta para **dos** categorías de ocho (shell seguro y portapapeles), y los
+> niveles llegan hasta el 4 de 6. Lo que sí está terminado es la parte que decide: el orden de
+> preferencia, el broker, la auditoría y la reversión. Añadir un método por arriba no exige tocar
+> ninguna de esas piezas — la política lo elegirá sola en cuanto exista.
 
 ## Fase 8 — Skills Platform
 
