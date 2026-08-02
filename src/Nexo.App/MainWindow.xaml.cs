@@ -36,6 +36,7 @@ using Nexo.Core.Optimization;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Shell;
+using Nexo.Core.Skills;
 using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
 using Nexo.Core.Vision;
@@ -53,6 +54,7 @@ using Nexo.Windows.Metrics;
 using Nexo.Windows.Optimization;
 using Nexo.Windows.Resources;
 using Nexo.Windows.Settings;
+using Nexo.Windows.Skills;
 using Nexo.Windows.Tasks;
 using Nexo.Windows.Voice;
 using Nexo.Windows.Vision;
@@ -195,6 +197,9 @@ public partial class MainWindow : Window
     private readonly JsonWorkspaceCheckpointStore _workspaceCheckpointStore = new();
 
     private readonly WorkspaceEditCoordinator _workspaceEditCoordinator;
+
+    /// <summary>Diseño D15 (Fase 8) — packs que dejan configuradas capacidades ya existentes.</summary>
+    private readonly SkillPackCoordinator _skillPackCoordinator;
 
     /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
@@ -353,6 +358,10 @@ public partial class MainWindow : Window
         _workspaceEditCoordinator = new WorkspaceEditCoordinator(
             new FileSystemWorkspaceWriter(),
             _workspaceCheckpointStore,
+            _auditLog);
+
+        _skillPackCoordinator = new SkillPackCoordinator(
+            new JsonSkillPackSnapshotStore(),
             _auditLog);
 
         _tasksView = new TasksView(_taskManager);
@@ -1289,6 +1298,7 @@ public partial class MainWindow : Window
         registry.RegisterRange(BuildOptimizationCommands());
         registry.RegisterRange(BuildMemoryCommands());
         registry.RegisterRange(BuildWorkspaceCommands());
+        registry.RegisterRange(BuildSkillPackCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -2009,6 +2019,134 @@ public partial class MainWindow : Window
 
         _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
         return true;
+    }
+
+    /// <summary>
+    /// Diseño D15 (Fase 8 — Skills Platform) — activar un pack deja configuradas de una vez varias
+    /// capacidades que ya existen. Un pack **nunca concede un permiso**: si le falta alguno, lo dice
+    /// y explica dónde se da.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildSkillPackCommands()
+    {
+        foreach (var pack in SkillPackCatalog.All)
+        {
+            var current = pack;
+
+            yield return new KohanaCommandDescriptor(
+                $"skills.{current.Id}".ToLowerInvariant(),
+                $"Activar {current.Name}",
+                current.Purpose,
+                KohanaCommandCategory.System,
+                _ =>
+                {
+                    ApplySkillPack(current);
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: ["pack", "modo", "skills", current.Name.ToLowerInvariant()]);
+        }
+
+        yield return new KohanaCommandDescriptor(
+            "skills.off",
+            "Desactivar el pack activo",
+            "Devuelve los ajustes a como estaban antes de activarlo.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(RevertSkillPack()),
+            keywords: ["pack", "desactivar", "quitar", "skills"],
+            availability: () => _skillPackCoordinator.ActivePackId is not null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ningún pack activo."));
+    }
+
+    private void ApplySkillPack(SkillPack pack)
+    {
+        var plan = _skillPackCoordinator.Preview(pack, _preferences);
+
+        var message = new StringBuilder();
+        message.AppendLine(pack.Purpose);
+
+        if (plan.Changes.Count == 0)
+        {
+            message.AppendLine().Append("Ya está todo como lo dejaría este pack.");
+        }
+        else
+        {
+            message.AppendLine();
+            message.AppendLine("Cambiaría estos ajustes:");
+            foreach (var change in plan.Changes)
+            {
+                message.Append("· ").Append(change.Title)
+                    .Append(" (ahora: ").Append(change.Current).AppendLine(")");
+            }
+        }
+
+        // Lo que el pack NO puede hacer se enseña con el mismo peso que lo que sí: enseñar solo lo
+        // que gana la persona sería vender el pack, no explicarlo.
+        if (plan.UnmetRequirements.Count > 0)
+        {
+            message.AppendLine();
+            message.AppendLine("Esto le haría falta y NO lo activo yo, lo decides tú:");
+            foreach (var requirement in plan.UnmetRequirements)
+            {
+                message.Append("· ").Append(requirement.Title).Append(" — ")
+                    .Append(requirement.WhyItMatters).Append(' ')
+                    .AppendLine(requirement.HowToEnable);
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+
+        if (!plan.HasSomethingToDo)
+        {
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"Voy a cambiar {plan.Changes.Count} ajustes para dejar {pack.Name} listo." +
+                Environment.NewLine + Environment.NewLine +
+                "No activo ningún permiso: la memoria, Vision y la carpeta de proyecto siguen como " +
+                "las tengas." + Environment.NewLine + Environment.NewLine +
+                "Puedes desactivarlo cuando quieras y todo vuelve a como estaba. ¿Lo activo?",
+            $"Activar {pack.Name}",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var result = _skillPackCoordinator.Apply(pack, _preferences);
+        AfterSkillPackChange(result, result.Success ? "Pack activado" : "No activé el pack");
+    }
+
+    private CommandExecutionResult RevertSkillPack()
+    {
+        var result = _skillPackCoordinator.Revert(_preferences);
+        AfterSkillPackChange(result, result.Success ? "Pack desactivado" : "No había pack activo");
+
+        return result.Success
+            ? CommandExecutionResult.Success(result.Detail)
+            : CommandExecutionResult.Failure(result.Detail);
+    }
+
+    /// <summary>
+    /// Diseño D15 — un pack toca preferencias que ya tienen efectos vivos (el atajo de dictado, el
+    /// plan de motores, los módulos visibles). Se reaplican todas en vez de una lista a mano: una
+    /// lista se queda corta en cuanto un pack cambia un ajuste nuevo.
+    /// </summary>
+    private void AfterSkillPackChange(SkillPackResult result, string title)
+    {
+        SavePreferences();
+        ApplyPreferences();
+        _settingsView.ApplyPreferences(_preferences);
+        ApplyFlowHotkeyRegistration();
+        RefreshAdaptiveEnginePlan();
+        RefreshAuditPanel();
+
+        _assistantView.AddKohanaMessage(result.Detail);
+        ShowFlowNotice(result.Success ? CapsuleKind.Success : CapsuleKind.Warning, title, result.Detail);
     }
 
     // ---------- Diseño D14 (Fase 5, nivel 4 — "Ejecutar un paso") ----------

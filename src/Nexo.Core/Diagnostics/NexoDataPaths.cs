@@ -200,6 +200,10 @@ public static class NexoDataPaths
     /// <summary>Diseño D14 — copias previas de los archivos que Kohana modificó, para poder deshacer.</summary>
     public static string WorkspaceCheckpoints =>
         Path.Combine(RootDirectory, "workspace-checkpoints.json");
+
+    /// <summary>Diseño D15 — ajustes anteriores al pack activo, para poder desactivarlo.</summary>
+    public static string SkillPackSnapshot =>
+        Path.Combine(RootDirectory, "skill-pack-snapshot.json");
     public static string Conversation => Path.Combine(
         RootDirectory,
         "conversation-history.json");
