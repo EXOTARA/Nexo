@@ -177,6 +177,25 @@ public partial class MainWindow : Window
     /// <summary>Diseño D13 — la paleta no acepta argumentos: la consulta de búsqueda llega por chat.</summary>
     private bool _awaitingWorkspaceSearchQuery;
 
+    /// <summary>Diseño D14 — igual que la búsqueda: la instrucción del cambio llega por chat.</summary>
+    private bool _awaitingWorkspaceEditInstruction;
+
+    /// <summary>
+    /// Diseño D14 — la SIGUIENTE respuesta de la IA puede traer un cambio propuesto. Solo esa: sin
+    /// esta marca, cualquier respuesta que por casualidad contuviera el formato ofrecería escribir
+    /// en el proyecto, y nadie lo habría pedido.
+    /// </summary>
+    private bool _pendingWorkspaceEditRequested;
+
+    /// <summary>
+    /// Diseño D14 (Fase 5, nivel 4) — checkpoints y escritura. Existen siempre, pero
+    /// <see cref="WorkspaceEditCoordinator"/> se niega a escribir por debajo del nivel 4, así que
+    /// tenerlos construidos no concede nada.
+    /// </summary>
+    private readonly JsonWorkspaceCheckpointStore _workspaceCheckpointStore = new();
+
+    private readonly WorkspaceEditCoordinator _workspaceEditCoordinator;
+
     /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
 
@@ -329,6 +348,11 @@ public partial class MainWindow : Window
                     RefreshAdaptiveEnginePlan();
                 }),
             _optimizationSnapshotStore,
+            _auditLog);
+
+        _workspaceEditCoordinator = new WorkspaceEditCoordinator(
+            new FileSystemWorkspaceWriter(),
+            _workspaceCheckpointStore,
             _auditLog);
 
         _tasksView = new TasksView(_taskManager);
@@ -1829,6 +1853,38 @@ public partial class MainWindow : Window
                 ? KohanaCommandAvailability.Available
                 : KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
 
+        // Diseño D14 (Fase 5, nivel 4) — proponer y aplicar UN cambio. Solo aparece cuando el nivel
+        // de autonomía lo permite: un comando visible que siempre responde "no puedo" enseña a
+        // ignorar los mensajes de permisos.
+        yield return new KohanaCommandDescriptor(
+            "workspace.edit",
+            "Pedir un cambio en el proyecto",
+            "Kohana propone el cambio, te lo enseña y solo lo aplica si lo confirmas. Siempre se puede deshacer.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                RequestWorkspaceEdit();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["cambiar", "editar", "proyecto", "codigo", "modificar"],
+            availability: () => !_preferences.Workspace.HasAuthorizedFolder
+                ? KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto.")
+                : WorkspaceAutonomyPolicy.CanWrite(_preferences.Workspace.AutonomyLevel)
+                    ? KohanaCommandAvailability.Available
+                    : KohanaCommandAvailability.Unavailable(
+                        "Sube el nivel de autonomía del proyecto a «Ejecutar un paso» en Personalizar."));
+
+        yield return new KohanaCommandDescriptor(
+            "workspace.undo",
+            "Deshacer el último cambio en el proyecto",
+            "Devuelve el archivo a como estaba antes de que Kohana lo tocara.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(UndoLastWorkspaceEdit()),
+            keywords: ["deshacer", "revertir", "proyecto", "cambio"],
+            availability: () => _workspaceEditCoordinator.Checkpoints.Count > 0
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No he cambiado nada en tu proyecto."));
+
         yield return new KohanaCommandDescriptor(
             "workspace.revoke",
             "Revocar el acceso al proyecto",
@@ -1953,6 +2009,130 @@ public partial class MainWindow : Window
 
         _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
         return true;
+    }
+
+    // ---------- Diseño D14 (Fase 5, nivel 4 — "Ejecutar un paso") ----------
+
+    private void RequestWorkspaceEdit()
+    {
+        _awaitingWorkspaceEditInstruction = true;
+        _assistantView.AddKohanaMessage(
+            "¿Qué quieres que cambie? Dímelo y te enseño el cambio antes de tocar nada.");
+        NavigateTo("Assistant", animate: true);
+    }
+
+    /// <summary>
+    /// Diseño D14 — la instrucción va a la IA con el proyecto como contexto y con el formato de
+    /// cambio exigido. La respuesta se parsea; si no cumple el formato exacto se enseña como texto y
+    /// no se escribe nada. Adivinar lo que el modelo quiso decir es como se acaba escribiendo en el
+    /// archivo equivocado.
+    /// </summary>
+    private async Task<bool> TryHandleWorkspaceEditInstructionAsync(string prompt, bool fromVoice)
+    {
+        if (!_awaitingWorkspaceEditInstruction)
+        {
+            return false;
+        }
+
+        _awaitingWorkspaceEditInstruction = false;
+
+        var workspace = _preferences.Workspace;
+        if (IsVoiceCancellation(SpanishVoiceTranscriptNormalizer.Normalize(prompt)))
+        {
+            _assistantView.AddKohanaMessage("De acuerdo, no cambio nada.");
+            return true;
+        }
+
+        // Se vuelve a comprobar aquí: el permiso pudo revocarse o bajarse de nivel entre el comando
+        // y la respuesta, y eso tiene que surtir efecto en el acto.
+        if (!workspace.HasAuthorizedFolder ||
+            !WorkspaceAutonomyPolicy.CanWrite(workspace.AutonomyLevel))
+        {
+            _assistantView.AddKohanaMessage(
+                "Ya no tengo permiso para modificar ese proyecto, así que no cambié nada.");
+            return true;
+        }
+
+        var files = _workspaceReader.ListFiles(workspace.AuthorizedPath, maximumFiles: 500);
+        var structure = WorkspaceContextBuilder.BuildStructure(
+            workspace.AuthorizedPath, files, workspace.AutonomyLevel);
+
+        _pendingWorkspaceContext = string.IsNullOrWhiteSpace(structure)
+            ? WorkspaceEditParser.ModelInstructions
+            : structure + Environment.NewLine + WorkspaceEditParser.ModelInstructions;
+
+        _pendingWorkspaceEditRequested = true;
+        await SendPromptToAiAsync(prompt, fromVoice);
+        return true;
+    }
+
+    /// <summary>
+    /// Diseño D14 — vista previa y confirmación. La confirmación dice el archivo, si existe o se
+    /// crearía, y cuánto ocupa lo nuevo: aceptar un cambio sin saber sobre qué archivo cae es
+    /// aceptar a ciegas.
+    /// </summary>
+    private void OfferWorkspaceEdit(string answer)
+    {
+        var edit = WorkspaceEditParser.Parse(answer);
+        if (edit is null)
+        {
+            return;
+        }
+
+        var workspace = _preferences.Workspace;
+        var verdict = _workspaceEditCoordinator.CanApply(edit, workspace);
+        if (!verdict.IsAllowed)
+        {
+            _assistantView.AddKohanaMessage($"No puedo aplicar ese cambio: {verdict.Message}");
+            return;
+        }
+
+        var fullPath = Path.Combine(workspace.AuthorizedPath, edit.RelativePath);
+        var exists = File.Exists(fullPath);
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"{(exists ? "Voy a REEMPLAZAR" : "Voy a CREAR")} este archivo:{Environment.NewLine}" +
+                $"{edit.RelativePath}{Environment.NewLine}{Environment.NewLine}" +
+                $"Motivo: {edit.Description}{Environment.NewLine}" +
+                $"Tamaño del contenido nuevo: {edit.NewContent.Length} caracteres." +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                "Guardaré una copia previa para que puedas deshacerlo. ¿Lo aplico?",
+            "Aplicar un cambio en el proyecto",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            _assistantView.AddKohanaMessage("No apliqué el cambio.");
+            return;
+        }
+
+        var result = _workspaceEditCoordinator.Apply(edit, workspace);
+
+        _assistantView.AddKohanaMessage(result.Detail);
+        ShowFlowNotice(
+            result.Success ? CapsuleKind.Success : CapsuleKind.Warning,
+            result.Success ? "Cambio aplicado" : "No apliqué el cambio",
+            result.Detail);
+
+        RefreshAuditPanel();
+    }
+
+    private CommandExecutionResult UndoLastWorkspaceEdit()
+    {
+        var result = _workspaceEditCoordinator.RevertLast(_preferences.Workspace);
+
+        _assistantView.AddKohanaMessage(result.Detail);
+        RefreshAuditPanel();
+
+        if (!result.Success)
+        {
+            return CommandExecutionResult.Failure(result.Detail);
+        }
+
+        ShowFlowNotice(CapsuleKind.Success, "Cambio deshecho", result.Detail);
+        return CommandExecutionResult.Success(result.Detail);
     }
 
     private void ShowWorkspaceStatus()
@@ -2819,6 +2999,11 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (await TryHandleWorkspaceEditInstructionAsync(prompt, fromVoice))
+            {
+                return;
+            }
+
             if (TryHandleMemoryPrompt(prompt))
             {
                 return;
@@ -2944,6 +3129,10 @@ public partial class MainWindow : Window
 
         await _aiGate.WaitAsync(_lifetimeCancellation.Token);
         var streamingStarted = false;
+
+        // Diseño D14 — respuesta que trae un cambio propuesto, si la hubo. Se ofrece fuera del
+        // bloque, con el turno de IA ya liberado.
+        string? proposedEditAnswer = null;
 
         try
         {
@@ -3075,6 +3264,14 @@ public partial class MainWindow : Window
             {
                 SpeakVoiceResult(finalText);
             }
+
+            // Diseño D14 — solo si esta consulta se pidió para cambiar algo. Se anota y se ofrece
+            // DESPUÉS de soltar el turno de IA: la confirmación es un diálogo modal, y dejar el
+            // turno tomado mientras alguien lo lee bloquearía cualquier otra consulta.
+            if (_pendingWorkspaceEditRequested)
+            {
+                proposedEditAnswer = finalText;
+            }
         }
         catch (AiChatStreamException exception)
         {
@@ -3123,8 +3320,16 @@ public partial class MainWindow : Window
         }
         finally
         {
+            // Si la respuesta se cortó, se canceló o falló, la oferta de escribir no sobrevive: un
+            // cambio propuesto a partir de media respuesta no es un cambio, es un riesgo.
+            _pendingWorkspaceEditRequested = false;
             _assistantView.SetAiActivity(null);
             _aiGate.Release();
+        }
+
+        if (proposedEditAnswer is not null)
+        {
+            OfferWorkspaceEdit(proposedEditAnswer);
         }
     }
 

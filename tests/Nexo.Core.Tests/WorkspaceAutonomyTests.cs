@@ -16,14 +16,43 @@ public sealed class WorkspaceAutonomyTests
     public void LevelsOneToThree_AreAvailable(WorkspaceAutonomyLevel level) =>
         Assert.True(WorkspaceAutonomyPolicy.IsAvailable(level));
 
+    /// <summary>
+    /// Diseño D14 — el nivel 4 se abrió porque aparecieron las dos cosas que lo bloqueaban (el
+    /// checkpoint por archivo y el Audit Log), no porque pasara un sprint.
+    /// </summary>
+    [Fact]
+    public void LevelFour_IsAvailableSinceCheckpointsAndTheAuditLogExist()
+    {
+        Assert.True(WorkspaceAutonomyPolicy.IsAvailable(WorkspaceAutonomyLevel.EjecutarUnPaso));
+        Assert.True(WorkspaceAutonomyPolicy.CanWrite(WorkspaceAutonomyLevel.EjecutarUnPaso));
+    }
+
     [Theory]
-    [InlineData(WorkspaceAutonomyLevel.EjecutarUnPaso)]
+    [InlineData(WorkspaceAutonomyLevel.Ver)]
+    [InlineData(WorkspaceAutonomyLevel.Guiar)]
+    [InlineData(WorkspaceAutonomyLevel.Proponer)]
+    public void LevelsOneToThree_CanStillNotWrite(WorkspaceAutonomyLevel level) =>
+        Assert.False(WorkspaceAutonomyPolicy.CanWrite(level));
+
+    [Theory]
     [InlineData(WorkspaceAutonomyLevel.ColaborarConConfirmaciones)]
     [InlineData(WorkspaceAutonomyLevel.AutomatizarSecuencia)]
-    public void ExecutionLevels_AreNotAvailableYet_AndSayWhy(WorkspaceAutonomyLevel level)
+    public void ChainedLevels_AreNotAvailableYet_AndSayWhy(WorkspaceAutonomyLevel level)
     {
+        // Encadenar pasos y automatizar una secuencia son problemas distintos de "hacer un cambio
+        // confirmado", y ninguno se ha demostrado todavía.
         Assert.False(WorkspaceAutonomyPolicy.IsAvailable(level));
-        Assert.Contains("copia previa", WorkspaceAutonomyPolicy.ExplainUnavailable(level));
+        Assert.False(WorkspaceAutonomyPolicy.CanWrite(level));
+        Assert.Contains("encadenar", WorkspaceAutonomyPolicy.ExplainUnavailable(level));
+    }
+
+    [Fact]
+    public void TheDefaultLevel_DoesNotRiseWithD14()
+    {
+        // Que escribir sea posible no significa que deba estar encendido: subir a nivel 4 es una
+        // decisión de la persona, y una actualización no la toma por ella.
+        Assert.Equal(WorkspaceAutonomyLevel.Guiar, WorkspaceAutonomyPolicy.Default);
+        Assert.False(WorkspaceAutonomyPolicy.CanWrite(new WorkspaceSettings().AutonomyLevel));
     }
 
     [Fact]

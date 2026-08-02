@@ -196,6 +196,10 @@ public static class NexoDataPaths
 
     /// <summary>Diseño D12 — carpeta de trabajo autorizada y su historial de autorizaciones.</summary>
     public static string Workspace => Path.Combine(RootDirectory, "workspace.json");
+
+    /// <summary>Diseño D14 — copias previas de los archivos que Kohana modificó, para poder deshacer.</summary>
+    public static string WorkspaceCheckpoints =>
+        Path.Combine(RootDirectory, "workspace-checkpoints.json");
     public static string Conversation => Path.Combine(
         RootDirectory,
         "conversation-history.json");

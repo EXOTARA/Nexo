@@ -20,7 +20,10 @@ public enum WorkspaceAutonomyLevel
     /// <summary>Kohana redacta el plan de una acción concreta, sin ejecutarla.</summary>
     Proponer = 3,
 
-    /// <summary>Ejecuta un único paso confirmado explícitamente. **No disponible en D12.**</summary>
+    /// <summary>
+    /// Ejecuta un único paso confirmado explícitamente. Disponible desde D14, cuando aparecieron el
+    /// checkpoint por archivo y el Audit Log que el modelo de confianza exige antes de escribir.
+    /// </summary>
     EjecutarUnPaso = 4,
 
     /// <summary>Ejecuta varios pasos, confirmando en los puntos de riesgo. **No disponible en D12.**</summary>
