@@ -38,6 +38,7 @@ using Nexo.Core.Shell;
 using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
 using Nexo.Core.Vision;
+using Nexo.Core.Workspace;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Ambient;
 using Nexo.Windows.Automation;
@@ -54,6 +55,7 @@ using Nexo.Windows.Tasks;
 using Nexo.Windows.Voice;
 using Nexo.Windows.Vision;
 using Nexo.Windows.WindowsIntegration;
+using Nexo.Windows.Workspace;
 using NexoFocusManager = Nexo.Core.Focus.FocusManager;
 
 namespace Nexo.App;
@@ -155,6 +157,15 @@ public partial class MainWindow : Window
     /// no está en la memoria.
     /// </summary>
     private MemoryCandidate? _pendingMemoryCandidate;
+
+    /// <summary>Diseño D12 (Fase 5) — lectura de solo-lectura del proyecto autorizado.</summary>
+    private readonly FileSystemWorkspaceReader _workspaceReader = new();
+
+    /// <summary>
+    /// Diseño D12 — contexto del proyecto para la SIGUIENTE consulta, y solo para ésa. No se manda
+    /// en todas: el proyecto solo sale del equipo cuando la persona pidió algo sobre el proyecto.
+    /// </summary>
+    private string? _pendingWorkspaceContext;
 
     /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
@@ -1208,6 +1219,7 @@ public partial class MainWindow : Window
         registry.RegisterRange(BuildLensCommands());
         registry.RegisterRange(BuildOptimizationCommands());
         registry.RegisterRange(BuildMemoryCommands());
+        registry.RegisterRange(BuildWorkspaceCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -1632,6 +1644,184 @@ public partial class MainWindow : Window
         var result = _memoryManager.ForgetEverything();
         ShowFlowNotice(CapsuleKind.Success, "Memoria borrada", result.Message);
         return CommandExecutionResult.Success(result.Message);
+    }
+
+    /// <summary>
+    /// Diseño D12 (Fase 5 — Project Companion) — cuatro comandos y ni uno que escriba. La capacidad
+    /// vive en los niveles 1–3 del modelo de confianza ("ninguna capacidad nueva puede empezar en el
+    /// nivel 6"), así que Kohana lee, explica y guía; los cambios los aplica la persona.
+    ///
+    /// Autorizar y revocar están al mismo nivel, en el mismo sitio: un permiso que cuesta más
+    /// quitar que dar no es un permiso, es una trampa.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildWorkspaceCommands()
+    {
+        yield return new KohanaCommandDescriptor(
+            "workspace.authorize",
+            "Autorizar una carpeta de proyecto",
+            "Elige la carpeta que Kohana podrá leer. Solo lectura: no modifica archivos.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                AuthorizeWorkspaceFolder();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["proyecto", "carpeta", "workspace", "autorizar", "codigo"]);
+
+        yield return new KohanaCommandDescriptor(
+            "workspace.show",
+            "Ver el proyecto autorizado",
+            "Muestra qué carpeta puede leer Kohana y con qué nivel de autonomía.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowWorkspaceStatus();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["proyecto", "workspace", "permisos", "acceso"]);
+
+        yield return new KohanaCommandDescriptor(
+            "workspace.explain",
+            "Explicar el proyecto autorizado",
+            "Kohana revisa la estructura del proyecto y te la explica. No cambia nada.",
+            KohanaCommandCategory.System,
+            async _ => await ExplainWorkspaceAsync(),
+            keywords: ["proyecto", "explicar", "estructura", "codigo"],
+            availability: () => _preferences.Workspace.HasAuthorizedFolder
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
+
+        yield return new KohanaCommandDescriptor(
+            "workspace.revoke",
+            "Revocar el acceso al proyecto",
+            "Kohana deja de poder leer esa carpeta, en el acto.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(RevokeWorkspace()),
+            keywords: ["revocar", "quitar", "proyecto", "acceso", "privacidad"],
+            availability: () => _preferences.Workspace.HasAuthorizedFolder
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna carpeta autorizada."));
+    }
+
+    private void AuthorizeWorkspaceFolder()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "Elige la carpeta del proyecto que Kohana podrá leer",
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var chosen = dialog.FolderName;
+
+        // La confirmación dice qué se concede Y qué no. Un permiso que solo enumera lo que gana
+        // quien lo pide no deja decidir a quien lo da.
+        var confirmation = MessageBox.Show(
+            this,
+            $"Kohana podrá LEER los archivos de:{Environment.NewLine}{chosen}{Environment.NewLine}{Environment.NewLine}" +
+                "No podrá modificarlos ni borrarlos. No leerá .env, claves ni carpetas de dependencias, " +
+                "y ocultará los valores que parezcan secretos antes de enviar nada a la IA." +
+                $"{Environment.NewLine}{Environment.NewLine}Puedes revocarlo cuando quieras. ¿Lo autorizo?",
+            "Autorizar carpeta de proyecto",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _preferences.Workspace.AuthorizedPath = chosen;
+        _preferences.Workspace.AuthorizedAt = DateTimeOffset.Now;
+        _preferences.Workspace.Normalize();
+        SavePreferences();
+
+        ShowFlowNotice(
+            CapsuleKind.Success,
+            "Proyecto autorizado",
+            $"Puedo leer {Path.GetFileName(Path.TrimEndingDirectorySeparator(chosen))}. Solo lectura.");
+        ShowWorkspaceStatus();
+    }
+
+    private void ShowWorkspaceStatus()
+    {
+        var workspace = _preferences.Workspace;
+
+        var message = new StringBuilder();
+        if (!workspace.HasAuthorizedFolder)
+        {
+            message.Append(
+                "No tengo ninguna carpeta de proyecto autorizada. Puedes autorizar una desde la " +
+                "paleta de comandos, y quitármela igual de rápido.");
+        }
+        else
+        {
+            message.AppendLine($"Carpeta autorizada: {workspace.AuthorizedPath}");
+            message.AppendLine(
+                $"Autorizada el {workspace.AuthorizedAt?.ToString("dd/MM/yyyy HH:mm") ?? "—"}.");
+            message.AppendLine(WorkspaceAutonomyPolicy.Describe(workspace.AutonomyLevel));
+            message.AppendLine(
+                "Solo lectura. No leo .env, claves privadas ni carpetas de dependencias, y oculto " +
+                "los valores que parecen secretos antes de enviar nada.");
+
+            var files = _workspaceReader.ListFiles(workspace.AuthorizedPath, maximumFiles: 500);
+            message.Append($"Archivos legibles ahora mismo: {files.Count}.");
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    private CommandExecutionResult RevokeWorkspace()
+    {
+        if (!_preferences.Workspace.HasAuthorizedFolder)
+        {
+            return CommandExecutionResult.Failure("No hay ninguna carpeta autorizada.");
+        }
+
+        _preferences.Workspace.Revoke();
+        _preferences.Workspace.Normalize();
+        SavePreferences();
+
+        ShowFlowNotice(
+            CapsuleKind.Success,
+            "Acceso revocado",
+            "Ya no puedo leer esa carpeta.");
+        return CommandExecutionResult.Success("Ya no puedo leer esa carpeta.");
+    }
+
+    /// <summary>
+    /// Diseño D12 — explica el proyecto usando la estructura, no el código entero. Mandar un
+    /// proyecto completo a un proveedor remoto para que diga de qué va es desproporcionado; con el
+    /// árbol de archivos se explica casi igual de bien y sale del equipo una fracción de lo mismo.
+    /// </summary>
+    private async Task<CommandExecutionResult> ExplainWorkspaceAsync()
+    {
+        var workspace = _preferences.Workspace;
+        if (!workspace.HasAuthorizedFolder)
+        {
+            return CommandExecutionResult.Failure("Todavía no autorizaste ninguna carpeta de proyecto.");
+        }
+
+        var files = _workspaceReader.ListFiles(workspace.AuthorizedPath, maximumFiles: 500);
+        if (files.Count == 0)
+        {
+            return CommandExecutionResult.Failure(
+                "No encontré archivos legibles en esa carpeta. Puede que sea todo binarios o dependencias.");
+        }
+
+        _pendingWorkspaceContext = WorkspaceContextBuilder.BuildStructure(
+            workspace.AuthorizedPath, files, workspace.AutonomyLevel);
+
+        await ProcessPromptAsync(
+            "Explícame de qué trata este proyecto y por dónde empezaría a leerlo.",
+            fromVoice: false);
+
+        return CommandExecutionResult.Success();
     }
 
     private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
@@ -2572,6 +2762,19 @@ public partial class MainWindow : Window
                 systemContext = string.IsNullOrWhiteSpace(systemContext)
                     ? memoryContext
                     : systemContext + Environment.NewLine + memoryContext;
+            }
+
+            // Diseño D12 — el contexto del proyecto se consume aquí y se apaga. Que dure una sola
+            // consulta es la garantía de que autorizar una carpeta no convierte cada pregunta
+            // posterior en un envío de código.
+            var workspaceContext = _pendingWorkspaceContext;
+            _pendingWorkspaceContext = null;
+
+            if (!string.IsNullOrWhiteSpace(workspaceContext))
+            {
+                systemContext = string.IsNullOrWhiteSpace(systemContext)
+                    ? workspaceContext
+                    : systemContext + Environment.NewLine + workspaceContext;
             }
 
             var images = _pendingVisionAttachment is { } image

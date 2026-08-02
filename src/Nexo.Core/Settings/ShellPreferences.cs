@@ -3,6 +3,7 @@ using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Flow;
 using Nexo.Core.Memory;
 using Nexo.Core.Voice;
+using Nexo.Core.Workspace;
 using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
 using WakeSensitivity = Nexo.Core.Voice.WakeWordSensitivity;
 
@@ -118,6 +119,12 @@ public sealed class ShellPreferences
     /// la política que decide qué se recuerda necesita verlos juntos.
     /// </summary>
     public MemorySettings Memory { get; set; } = new();
+
+    /// <summary>
+    /// Diseño D12 (Fase 5) — la carpeta de proyecto autorizada. Vacía por omisión: Kohana no tiene
+    /// acceso a ninguna hasta que la persona elige una.
+    /// </summary>
+    public WorkspaceSettings Workspace { get; set; } = new();
 
     public void Normalize()
     {
@@ -262,6 +269,16 @@ public sealed class ShellPreferences
             SchemaVersion = 19;
         }
 
+        if (SchemaVersion < 20)
+        {
+            // Diseño D12 — al actualizar nadie hereda una carpeta autorizada. Igual que con la
+            // memoria en v19: una migración no es un consentimiento, y el acceso a los archivos de
+            // un proyecto es de los permisos más altos que Kohana puede pedir.
+            Workspace ??= new WorkspaceSettings();
+            Workspace.Revoke();
+            SchemaVersion = 20;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -287,6 +304,9 @@ public sealed class ShellPreferences
 
         Memory ??= new MemorySettings();
         Memory.Normalize();
+
+        Workspace ??= new WorkspaceSettings();
+        Workspace.Normalize();
 
         if (!Enum.IsDefined(FlowMode))
         {
