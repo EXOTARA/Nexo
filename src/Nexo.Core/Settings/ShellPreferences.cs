@@ -2,6 +2,7 @@ using Nexo.Core.Ai;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Flow;
 using Nexo.Core.Memory;
+using Nexo.Core.Permissions;
 using Nexo.Core.Voice;
 using Nexo.Core.Workspace;
 using WakePhrase = Nexo.Core.Voice.WakeWordPhrase;
@@ -125,6 +126,12 @@ public sealed class ShellPreferences
     /// acceso a ninguna hasta que la persona elige una.
     /// </summary>
     public WorkspaceSettings Workspace { get; set; } = new();
+
+    /// <summary>
+    /// Diseño D16 — permisos por capacidad. Objeto propio, como la memoria y el proyecto, porque el
+    /// broker necesita verlos juntos para decidir.
+    /// </summary>
+    public PermissionSettings Permissions { get; set; } = new();
 
     public void Normalize()
     {
@@ -279,6 +286,15 @@ public sealed class ShellPreferences
             SchemaVersion = 20;
         }
 
+        if (SchemaVersion < 21)
+        {
+            // Diseño D16 — al actualizar, los permisos llegan con su valor conservador: nada de
+            // Computer Use, y todo lo demás en "preguntar". Igual que en v19 y v20, una migración no
+            // es un consentimiento, y éste es el permiso más alto del roadmap.
+            Permissions = new PermissionSettings();
+            SchemaVersion = 21;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -307,6 +323,9 @@ public sealed class ShellPreferences
 
         Workspace ??= new WorkspaceSettings();
         Workspace.Normalize();
+
+        Permissions ??= new PermissionSettings();
+        Permissions.Normalize();
 
         if (!Enum.IsDefined(FlowMode))
         {

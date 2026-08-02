@@ -15,7 +15,7 @@ public sealed class OnboardingPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(20, preferences.SchemaVersion);
+        Assert.Equal(21, preferences.SchemaVersion);
         Assert.False(preferences.HasCompletedOnboarding);
     }
 

@@ -599,6 +599,45 @@
                        Visibility="Collapsed"
                        Style="{StaticResource MutedTextStyle}" />
 
+            <!-- Diseño D16: permisos por capacidad -->
+            <TextBlock Margin="0,24,0,9" Text="Permisos de Kohana" FontWeight="SemiBold" />
+            <TextBlock Text="Cada capacidad pide su permiso por separado: darle uno no le da los demás. Hay cosas que Kohana te pregunta siempre, aunque las tengas permitidas — borrar algo sin recuperación, tocar credenciales, enviar algo fuera de tu equipo o pedir permisos de administrador."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <ItemsControl x:Name="PermissionsItemsControl" Margin="20,11,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,9">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Detail}"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                            <ComboBox Grid.Column="1"
+                                      Width="128"
+                                      Margin="11,0,0,0"
+                                      VerticalAlignment="Center"
+                                      ItemsSource="{Binding Levels}"
+                                      SelectedItem="{Binding Level, Mode=TwoWay}"
+                                      AutomationProperties.Name="{Binding Title}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock x:Name="PermissionsStatusText"
+                       Margin="20,4,0,0"
+                       Text=""
+                       TextWrapping="Wrap"
+                       Visibility="Collapsed"
+                       Style="{StaticResource MutedTextStyle}" />
+
             <!-- Diseño D13 (Fase 5 — Project Companion): permisos del proyecto -->
             <TextBlock Margin="0,24,0,9" Text="Proyecto autorizado" FontWeight="SemiBold" />
 

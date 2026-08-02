@@ -4,6 +4,7 @@ using Nexo.Core.Ai;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Flow;
 using Nexo.Core.Memory;
+using Nexo.Core.Permissions;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
 using Nexo.Core.Workspace;
@@ -44,6 +45,9 @@ public partial class SettingsView : UserControl
     public event Action<IReadOnlyList<string>>? MemoryExclusionsChanged;
     public event EventHandler? MemoryShowRequested;
     public event EventHandler? MemoryForgetAllRequested;
+
+    // Diseño D16: permisos por capacidad
+    public event Action<KohanaCapability, PermissionLevel>? CapabilityPermissionChanged;
 
     // Diseño D13 (Fase 5 — Project Companion)
     public event EventHandler? WorkspaceAuthorizeRequested;
@@ -116,6 +120,7 @@ public partial class SettingsView : UserControl
         FlowDictionaryBox.Text = string.Join(Environment.NewLine, preferences.FlowDictionary);
         FlowSnippetsBox.Text = string.Join(Environment.NewLine, preferences.FlowSnippets);
         ApplyMemorySettings(preferences.Memory);
+        ApplyPermissionSettings(preferences.Permissions);
         ApplyWorkspaceSettings(preferences.Workspace);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
@@ -971,6 +976,99 @@ public partial class SettingsView : UserControl
             WorkspaceAutonomyPolicy.IsAvailable(level))
         {
             WorkspaceAutonomyLevelChanged?.Invoke(level);
+        }
+    }
+
+    // ---------- Diseño D16: permisos por capacidad ----------
+
+    private readonly System.Collections.ObjectModel.ObservableCollection<PermissionRow> _permissionRows = [];
+
+    /// <summary>
+    /// Diseño D16 — una fila por capacidad, cada una con su propio nivel. Se listan todas aunque
+    /// alguna esté bloqueada: una capacidad que no aparece es una capacidad cuyo permiso nadie sabe
+    /// que existe.
+    /// </summary>
+    public void ApplyPermissionSettings(PermissionSettings? permissions)
+    {
+        var settings = permissions ?? new PermissionSettings();
+        settings.Normalize();
+
+        _permissionRows.Clear();
+        PermissionsItemsControl.ItemsSource = _permissionRows;
+
+        foreach (var capability in Enum.GetValues<KohanaCapability>())
+        {
+            var permission = settings.For(capability);
+            var excluded = permission.ExcludedApps.Count;
+
+            _permissionRows.Add(new PermissionRow(
+                capability,
+                CapabilityTitle(capability),
+                excluded == 0
+                    ? CapabilityText.Describe(capability)
+                    : $"{CapabilityText.Describe(capability)} · {excluded} exclusiones",
+                permission.Level,
+                OnPermissionRowChanged));
+        }
+    }
+
+    private void OnPermissionRowChanged(KohanaCapability capability, PermissionLevel level)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        CapabilityPermissionChanged?.Invoke(capability, level);
+    }
+
+    public void SetPermissionsStatus(string? message)
+    {
+        PermissionsStatusText.Text = message ?? string.Empty;
+        PermissionsStatusText.Visibility = string.IsNullOrWhiteSpace(message)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    private static string CapabilityTitle(KohanaCapability capability) => capability switch
+    {
+        KohanaCapability.Lens => "Ver la pantalla (Lens)",
+        KohanaCapability.Flow => "Dictado global (Flow)",
+        KohanaCapability.Memoria => "Memoria personal",
+        KohanaCapability.Proyecto => "Proyecto autorizado",
+        KohanaCapability.Optimizacion => "Optimizar el equipo",
+        KohanaCapability.ComputerUse => "Actuar sobre el equipo",
+        _ => capability.ToString()
+    };
+
+    private sealed class PermissionRow(
+        KohanaCapability capability,
+        string title,
+        string detail,
+        PermissionLevel level,
+        Action<KohanaCapability, PermissionLevel> onChanged)
+    {
+        private PermissionLevel _level = level;
+
+        public string Title { get; } = title;
+
+        public string Detail { get; } = detail;
+
+        public IReadOnlyList<PermissionLevel> Levels { get; } = Enum.GetValues<PermissionLevel>();
+
+        public PermissionLevel Level
+        {
+            get => _level;
+            set
+            {
+                if (_level == value)
+                {
+                    return;
+                }
+
+                _level = value;
+                onChanged(capability, value);
+            }
         }
     }
 

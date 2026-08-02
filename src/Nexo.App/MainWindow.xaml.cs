@@ -33,6 +33,7 @@ using Nexo.Core.Hardware;
 using Nexo.Core.Memory;
 using Nexo.Core.Metrics;
 using Nexo.Core.Optimization;
+using Nexo.Core.Permissions;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Shell;
@@ -718,6 +719,54 @@ public partial class MainWindow : Window
         {
             var result = ForgetAllMemory();
             _settingsView.SetMemoryStatus(result.Message);
+        };
+
+        // Diseño D16 — cambiar un permiso es la decisión de la que cuelgan las demás, así que se
+        // confirma al ampliar y se registra siempre.
+        _settingsView.CapabilityPermissionChanged += (capability, level) =>
+        {
+            var permission = _preferences.Permissions.For(capability);
+            var previous = permission.Level;
+
+            if (previous == level)
+            {
+                return;
+            }
+
+            // Política de mínimo privilegio: ampliar exige una confirmación nueva; restringir, no.
+            if (PermissionBroker.RequiresNewConfirmation(previous, level))
+            {
+                var confirmation = MessageBox.Show(
+                    this,
+                    $"Vas a ampliar el permiso de «{CapabilityText.Describe(capability)}» " +
+                        $"de {previous} a {level}." + Environment.NewLine + Environment.NewLine +
+                        "Aunque lo permitas, seguiré preguntándote antes de borrar algo sin " +
+                        "recuperación, tocar credenciales, enviar algo fuera de tu equipo o pedir " +
+                        "permisos de administrador." + Environment.NewLine + Environment.NewLine +
+                        "¿Lo amplío?",
+                    "Ampliar un permiso",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (confirmation != MessageBoxResult.Yes)
+                {
+                    _settingsView.ApplyPermissionSettings(_preferences.Permissions);
+                    _settingsView.SetPermissionsStatus("No cambié ese permiso.");
+                    return;
+                }
+            }
+
+            permission.Level = level;
+            SavePreferences();
+
+            RecordAudit(
+                AuditCapability.Permisos,
+                $"Permiso cambiado ({capability})",
+                $"{previous} → {level}",
+                "Cambio explícito del usuario");
+
+            _settingsView.SetPermissionsStatus(
+                $"«{CapabilityTitleFor(capability)}» quedó en {level}.");
         };
 
         // Diseño D13 (Fase 5 — Project Companion)
@@ -1471,6 +1520,57 @@ public partial class MainWindow : Window
 
     private void RefreshAuditPanel() => _systemView.UpdateAudit(_auditLog.Read());
 
+    private static string CapabilityTitleFor(KohanaCapability capability) =>
+        CapabilityText.Describe(capability);
+
+    /// <summary>
+    /// Diseño D16 — el único punto por el que una capacidad pide permiso. Devuelve true si puede
+    /// seguir. Cuando el broker pide confirmación, se pregunta aquí y la respuesta queda registrada:
+    /// un "sí" que no deja rastro es indistinguible de un permiso que nadie dio.
+    /// </summary>
+    private bool TryGetPermission(PermissionRequest request)
+    {
+        var decision = PermissionBroker.Decide(request, _preferences.Permissions);
+
+        if (decision.IsDenied)
+        {
+            _assistantView.AddKohanaMessage(decision.Reason);
+            RecordAudit(
+                AuditCapability.Permisos,
+                $"Acción denegada ({request.Capability})",
+                $"{request.Description} — {decision.Reason}",
+                "Permiso denegado");
+            return false;
+        }
+
+        if (decision.MayProceedWithoutAsking)
+        {
+            return true;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"{request.Description}{Environment.NewLine}{Environment.NewLine}{decision.Reason}" +
+                $"{Environment.NewLine}{Environment.NewLine}¿Lo hago?",
+            $"Permiso: {CapabilityTitleFor(request.Capability)}",
+            MessageBoxButton.YesNo,
+            decision.TriggeredCategories.Count > 0
+                ? MessageBoxImage.Warning
+                : MessageBoxImage.Question);
+
+        var granted = confirmation == MessageBoxResult.Yes;
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            granted
+                ? $"Acción autorizada ({request.Capability})"
+                : $"Acción rechazada ({request.Capability})",
+            request.Description,
+            granted ? "Confirmación explícita del usuario" : "El usuario dijo que no");
+
+        return granted;
+    }
+
     private void ShowFullAudit()
     {
         var entries = _auditLog.Read();
@@ -1774,22 +1874,19 @@ public partial class MainWindow : Window
 
     private CommandExecutionResult ForgetAllMemory()
     {
-        var confirmation = MessageBox.Show(
-            this,
-            "¿Borro todo lo que Kohana recuerda? Esto no se puede deshacer.",
-            "Olvidar todo",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-
-        if (confirmation != MessageBoxResult.Yes)
+        // Diseño D16 — pasa por el broker en vez de por un diálogo propio. Borrar sin recuperación
+        // es una de las siete categorías de confirmación obligatoria, así que preguntará aunque la
+        // memoria esté permitida: es exactamente lo que el broker existe para garantizar.
+        if (!TryGetPermission(new PermissionRequest(
+                KohanaCapability.Memoria,
+                "Borrar todo lo que Kohana recuerda. No se puede deshacer.",
+                Categories: [MandatoryConfirmation.BorradoIrreversible])))
         {
             return CommandExecutionResult.Failure("No borré nada.");
         }
 
         var result = _memoryManager.ForgetEverything();
 
-        // Un borrado irreversible es de los casos que el modelo de confianza marca como
-        // confirmación obligatoria; que quede constancia de que ocurrió es la otra mitad.
         RecordAudit(
             AuditCapability.Memoria,
             "Memoria borrada por completo",
@@ -2218,6 +2315,20 @@ public partial class MainWindow : Window
         }
 
         var workspace = _preferences.Workspace;
+
+        // Diseño D16 — el broker decide primero si la capacidad puede actuar siquiera. Solo se mira
+        // la denegación: la confirmación de este camino es el diálogo de abajo, que dice qué archivo
+        // y por qué, y preguntar dos veces enseñaría a aceptar sin leer.
+        var permission = PermissionBroker.Decide(
+            new PermissionRequest(KohanaCapability.Proyecto, edit.Description),
+            _preferences.Permissions);
+
+        if (permission.IsDenied)
+        {
+            _assistantView.AddKohanaMessage(permission.Reason);
+            return;
+        }
+
         var verdict = _workspaceEditCoordinator.CanApply(edit, workspace);
         if (!verdict.IsAllowed)
         {

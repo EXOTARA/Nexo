@@ -109,7 +109,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
         store.Save(new ShellPreferences { SchemaVersion = 0, Width = 10_000 });
 
         var loaded = new JsonSettingsStore(_settingsPath).Load();
-        Assert.Equal(20, loaded.SchemaVersion);
+        Assert.Equal(21, loaded.SchemaVersion);
         Assert.Equal(820, loaded.Width);
     }
 
@@ -168,7 +168,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var reloaded = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(20, reloaded.SchemaVersion);
+        Assert.Equal(21, reloaded.SchemaVersion);
         Assert.False(reloaded.HasCompletedOnboarding);
     }
 
@@ -198,7 +198,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(20, preferences.SchemaVersion);
+        Assert.Equal(21, preferences.SchemaVersion);
         Assert.Empty(Directory.GetFiles(_directory, "settings.json.corrupt-*"));
     }
 
@@ -218,7 +218,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(20, preferences.SchemaVersion);
+        Assert.Equal(21, preferences.SchemaVersion);
         Assert.False(preferences.StartWithWindows);
         Assert.True(preferences.MinimizeToTray);
         Assert.Equal("#E98AAF", preferences.AccentColor);
@@ -238,7 +238,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(20, preferences.SchemaVersion);
+        Assert.Equal(21, preferences.SchemaVersion);
         Assert.NotEmpty(preferences.WakeWordAliases);
     }
 
@@ -254,7 +254,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(20, preferences.SchemaVersion);
+        Assert.Equal(21, preferences.SchemaVersion);
     }
 
     [Fact]
@@ -293,7 +293,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         var preferences = new JsonSettingsStore(_settingsPath).Load();
 
-        Assert.Equal(20, preferences.SchemaVersion);
+        Assert.Equal(21, preferences.SchemaVersion);
         Assert.Equal(
             Nexo.Core.AdaptiveEngine.HardwarePerformanceMode.Automatic,
             preferences.HardwarePerformanceMode);
