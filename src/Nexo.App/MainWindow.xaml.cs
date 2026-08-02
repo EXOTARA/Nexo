@@ -27,6 +27,7 @@ using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Commands.CommandCenter;
+using Nexo.Core.ComputerUse;
 using Nexo.Core.Flow;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
@@ -45,6 +46,7 @@ using Nexo.Core.Workspace;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Ambient;
 using Nexo.Windows.Audit;
+using Nexo.Windows.ComputerUse;
 using Nexo.Windows.Automation;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
@@ -179,6 +181,12 @@ public partial class MainWindow : Window
 
     /// <summary>Diseño D13 — la paleta no acepta argumentos: la consulta de búsqueda llega por chat.</summary>
     private bool _awaitingWorkspaceSearchQuery;
+
+    /// <summary>Diseño D17 (Fase 7) — qué métodos puede usar Kohana para actuar en este equipo.</summary>
+    private readonly WindowsComputerUseMethodProbe _computerUseProbe = new();
+
+    /// <summary>Diseño D17 — igual que la búsqueda: lo que se quiere hacer llega por chat.</summary>
+    private bool _awaitingComputerUseIntent;
 
     /// <summary>Diseño D14 — igual que la búsqueda: la instrucción del cambio llega por chat.</summary>
     private bool _awaitingWorkspaceEditInstruction;
@@ -1348,6 +1356,7 @@ public partial class MainWindow : Window
         registry.RegisterRange(BuildMemoryCommands());
         registry.RegisterRange(BuildWorkspaceCommands());
         registry.RegisterRange(BuildSkillPackCommands());
+        registry.RegisterRange(BuildComputerUseCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -2115,6 +2124,122 @@ public partial class MainWindow : Window
         }
 
         _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        return true;
+    }
+
+    /// <summary>
+    /// Diseño D17 (Fase 7 — Safe Computer Use) — Kohana dice **qué haría y por qué método**, sin
+    /// hacerlo. El roadmap prohíbe saltarse niveles del modelo de autonomía, y esta capacidad acaba
+    /// de nacer: empieza donde tienen que empezar todas.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildComputerUseCommands()
+    {
+        yield return new KohanaCommandDescriptor(
+            "computeruse.plan",
+            "Proponer cómo hacer algo en el equipo",
+            "Kohana elige la forma más segura de hacerlo y te la explica. No lo ejecuta.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                _awaitingComputerUseIntent = true;
+                _assistantView.AddKohanaMessage(
+                    "¿Qué quieres hacer en el equipo? Te digo cómo lo haría y por qué de esa forma.");
+                NavigateTo("Assistant", animate: true);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["equipo", "hacer", "accion", "automatizar", "computer use"]);
+
+        yield return new KohanaCommandDescriptor(
+            "computeruse.methods",
+            "Ver cómo puede actuar Kohana en el equipo",
+            "Muestra los métodos disponibles, en orden de más a menos seguro.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowComputerUseMethods();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["metodos", "seguridad", "equipo", "computer use"]);
+    }
+
+    private void ShowComputerUseMethods()
+    {
+        var available = _computerUseProbe.GetAvailableMethods(targetApp: null);
+
+        var message = new StringBuilder();
+        message.AppendLine(
+            "Cuando actúo sobre el equipo, siempre elijo la forma más segura disponible, en este " +
+            "orden. Ratón y teclado simulados van los últimos a propósito: no distinguen ventanas " +
+            "ni pueden comprobar qué hicieron.");
+        message.AppendLine();
+
+        foreach (var method in Enum.GetValues<ComputerUseMethod>().OrderBy(method => (int)method))
+        {
+            message.Append((int)method).Append(". ")
+                .Append(ComputerUseMethodText.Describe(method))
+                .Append(available.Contains(method) ? " — disponible" : " — todavía no implementado")
+                .AppendLine();
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    /// <summary>
+    /// Diseño D17 — arma el plan y lo enseña. Si algo lo bloquea, se dice **qué** lo bloquea: un
+    /// plan que no llega a formarse deja a la persona sin saber qué haría falta para que sí.
+    /// </summary>
+    private bool TryHandleComputerUseIntent(string prompt)
+    {
+        if (!_awaitingComputerUseIntent)
+        {
+            return false;
+        }
+
+        _awaitingComputerUseIntent = false;
+
+        if (IsVoiceCancellation(SpanishVoiceTranscriptNormalizer.Normalize(prompt)))
+        {
+            _assistantView.AddKohanaMessage("De acuerdo, no propongo nada.");
+            return true;
+        }
+
+        var intent = new ComputerUseIntent(prompt.Trim());
+        var plan = ComputerUsePlanner.Build(
+            intent,
+            _computerUseProbe.GetAvailableMethods(intent.TargetApp),
+            _preferences.Permissions,
+            ComputerUseAutonomyPolicy.Default);
+
+        var message = new StringBuilder();
+        message.Append("Lo que pides: ").AppendLine(intent.Description);
+        message.AppendLine();
+        message.Append("Cómo lo haría: ").AppendLine(plan.Choice.Reason);
+
+        foreach (var rejection in plan.Choice.Rejected)
+        {
+            message.Append("· Descarté ")
+                .Append(ComputerUseMethodText.Describe(rejection.Method))
+                .Append(": ").AppendLine(rejection.Reason);
+        }
+
+        message.Append("Vuelta atrás: ").AppendLine(plan.ReversalNote);
+
+        if (plan.Blocker is not null)
+        {
+            message.AppendLine();
+            message.Append("Ahora mismo no puedo hacerlo: ").AppendLine(plan.Blocker);
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Plan de acción propuesto",
+            $"{intent.Description} — {plan.Choice.Reason}",
+            "Solo propuesta: no se ejecutó nada",
+            (int)plan.Level);
+
         return true;
     }
 
@@ -3244,6 +3369,11 @@ public partial class MainWindow : Window
             // no una consulta a la IA. Va después de AddUserMessage para que la frase quede en la
             // conversación igual que cualquier otra.
             if (TryHandleWorkspaceSearchPrompt(prompt))
+            {
+                return;
+            }
+
+            if (TryHandleComputerUseIntent(prompt))
             {
                 return;
             }

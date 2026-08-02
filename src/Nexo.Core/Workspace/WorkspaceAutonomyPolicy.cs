@@ -1,3 +1,5 @@
+using Nexo.Core.Permissions;
+
 namespace Nexo.Core.Workspace;
 
 /// <summary>
@@ -25,14 +27,14 @@ public static class WorkspaceAutonomyPolicy
     /// encendido: subir a nivel 4 es una decisión de la persona, y una actualización no la toma por
     /// ella.
     /// </summary>
-    public static WorkspaceAutonomyLevel Default => WorkspaceAutonomyLevel.Guiar;
+    public static AutonomyLevel Default => AutonomyLevel.Guiar;
 
-    public static bool IsAvailable(WorkspaceAutonomyLevel level) => level switch
+    public static bool IsAvailable(AutonomyLevel level) => level switch
     {
-        WorkspaceAutonomyLevel.Ver or
-        WorkspaceAutonomyLevel.Guiar or
-        WorkspaceAutonomyLevel.Proponer or
-        WorkspaceAutonomyLevel.EjecutarUnPaso => true,
+        AutonomyLevel.Ver or
+        AutonomyLevel.Guiar or
+        AutonomyLevel.Proponer or
+        AutonomyLevel.EjecutarUnPaso => true,
         _ => false
     };
 
@@ -42,28 +44,28 @@ public static class WorkspaceAutonomyPolicy
     /// el disco" son preguntas distintas, y mezclarlas es como se cuela una escritura donde no
     /// debía.
     /// </summary>
-    public static bool CanWrite(WorkspaceAutonomyLevel level) =>
-        IsAvailable(level) && level >= WorkspaceAutonomyLevel.EjecutarUnPaso;
+    public static bool CanWrite(AutonomyLevel level) =>
+        IsAvailable(level) && level >= AutonomyLevel.EjecutarUnPaso;
 
     /// <summary>Por qué un nivel no está disponible. Se dice, no se ignora en silencio.</summary>
-    public static string ExplainUnavailable(WorkspaceAutonomyLevel level) => level switch
+    public static string ExplainUnavailable(AutonomyLevel level) => level switch
     {
-        WorkspaceAutonomyLevel.ColaborarConConfirmaciones or
-        WorkspaceAutonomyLevel.AutomatizarSecuencia =>
+        AutonomyLevel.ColaborarConConfirmaciones or
+        AutonomyLevel.AutomatizarSecuencia =>
             "Todavía no puedo encadenar varios cambios seguidos. Hoy hago uno cada vez, y cada uno " +
             "lo confirmas tú.",
         _ => "Ese nivel de autonomía no existe."
     };
 
-    public static string Describe(WorkspaceAutonomyLevel level) => level switch
+    public static string Describe(AutonomyLevel level) => level switch
     {
-        WorkspaceAutonomyLevel.Ver => "Ver: leo y describo, sin sugerir cambios.",
-        WorkspaceAutonomyLevel.Guiar => "Guiar: te digo qué harías tú, y lo haces tú.",
-        WorkspaceAutonomyLevel.Proponer => "Proponer: redacto el plan de un cambio, sin aplicarlo.",
-        WorkspaceAutonomyLevel.EjecutarUnPaso =>
+        AutonomyLevel.Ver => "Ver: leo y describo, sin sugerir cambios.",
+        AutonomyLevel.Guiar => "Guiar: te digo qué harías tú, y lo haces tú.",
+        AutonomyLevel.Proponer => "Proponer: redacto el plan de un cambio, sin aplicarlo.",
+        AutonomyLevel.EjecutarUnPaso =>
             "Ejecutar un paso: aplico un cambio cada vez, y cada uno lo confirmas tú.",
-        WorkspaceAutonomyLevel.ColaborarConConfirmaciones => "Colaborar con confirmaciones (no disponible todavía).",
-        WorkspaceAutonomyLevel.AutomatizarSecuencia => "Automatizar una secuencia (no disponible todavía).",
+        AutonomyLevel.ColaborarConConfirmaciones => "Colaborar con confirmaciones (no disponible todavía).",
+        AutonomyLevel.AutomatizarSecuencia => "Automatizar una secuencia (no disponible todavía).",
         _ => level.ToString()
     };
 }

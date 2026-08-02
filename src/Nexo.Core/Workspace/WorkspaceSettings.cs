@@ -1,3 +1,5 @@
+using Nexo.Core.Permissions;
+
 namespace Nexo.Core.Workspace;
 
 /// <summary>
@@ -14,7 +16,7 @@ public sealed class WorkspaceSettings
 
     public DateTimeOffset? AuthorizedAt { get; set; }
 
-    public WorkspaceAutonomyLevel AutonomyLevel { get; set; } = WorkspaceAutonomyLevel.Guiar;
+    public AutonomyLevel AutonomyLevel { get; set; } = AutonomyLevel.Guiar;
 
     public bool HasAuthorizedFolder => !string.IsNullOrWhiteSpace(AuthorizedPath);
 

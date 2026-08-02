@@ -1,3 +1,4 @@
+using Nexo.Core.Permissions;
 using Nexo.Core.Workspace;
 
 namespace Nexo.Core.Tests;
@@ -10,10 +11,10 @@ namespace Nexo.Core.Tests;
 public sealed class WorkspaceAutonomyTests
 {
     [Theory]
-    [InlineData(WorkspaceAutonomyLevel.Ver)]
-    [InlineData(WorkspaceAutonomyLevel.Guiar)]
-    [InlineData(WorkspaceAutonomyLevel.Proponer)]
-    public void LevelsOneToThree_AreAvailable(WorkspaceAutonomyLevel level) =>
+    [InlineData(AutonomyLevel.Ver)]
+    [InlineData(AutonomyLevel.Guiar)]
+    [InlineData(AutonomyLevel.Proponer)]
+    public void LevelsOneToThree_AreAvailable(AutonomyLevel level) =>
         Assert.True(WorkspaceAutonomyPolicy.IsAvailable(level));
 
     /// <summary>
@@ -23,21 +24,21 @@ public sealed class WorkspaceAutonomyTests
     [Fact]
     public void LevelFour_IsAvailableSinceCheckpointsAndTheAuditLogExist()
     {
-        Assert.True(WorkspaceAutonomyPolicy.IsAvailable(WorkspaceAutonomyLevel.EjecutarUnPaso));
-        Assert.True(WorkspaceAutonomyPolicy.CanWrite(WorkspaceAutonomyLevel.EjecutarUnPaso));
+        Assert.True(WorkspaceAutonomyPolicy.IsAvailable(AutonomyLevel.EjecutarUnPaso));
+        Assert.True(WorkspaceAutonomyPolicy.CanWrite(AutonomyLevel.EjecutarUnPaso));
     }
 
     [Theory]
-    [InlineData(WorkspaceAutonomyLevel.Ver)]
-    [InlineData(WorkspaceAutonomyLevel.Guiar)]
-    [InlineData(WorkspaceAutonomyLevel.Proponer)]
-    public void LevelsOneToThree_CanStillNotWrite(WorkspaceAutonomyLevel level) =>
+    [InlineData(AutonomyLevel.Ver)]
+    [InlineData(AutonomyLevel.Guiar)]
+    [InlineData(AutonomyLevel.Proponer)]
+    public void LevelsOneToThree_CanStillNotWrite(AutonomyLevel level) =>
         Assert.False(WorkspaceAutonomyPolicy.CanWrite(level));
 
     [Theory]
-    [InlineData(WorkspaceAutonomyLevel.ColaborarConConfirmaciones)]
-    [InlineData(WorkspaceAutonomyLevel.AutomatizarSecuencia)]
-    public void ChainedLevels_AreNotAvailableYet_AndSayWhy(WorkspaceAutonomyLevel level)
+    [InlineData(AutonomyLevel.ColaborarConConfirmaciones)]
+    [InlineData(AutonomyLevel.AutomatizarSecuencia)]
+    public void ChainedLevels_AreNotAvailableYet_AndSayWhy(AutonomyLevel level)
     {
         // Encadenar pasos y automatizar una secuencia son problemas distintos de "hacer un cambio
         // confirmado", y ninguno se ha demostrado todavía.
@@ -51,7 +52,7 @@ public sealed class WorkspaceAutonomyTests
     {
         // Que escribir sea posible no significa que deba estar encendido: subir a nivel 4 es una
         // decisión de la persona, y una actualización no la toma por ella.
-        Assert.Equal(WorkspaceAutonomyLevel.Guiar, WorkspaceAutonomyPolicy.Default);
+        Assert.Equal(AutonomyLevel.Guiar, WorkspaceAutonomyPolicy.Default);
         Assert.False(WorkspaceAutonomyPolicy.CanWrite(new WorkspaceSettings().AutonomyLevel));
     }
 
@@ -59,7 +60,7 @@ public sealed class WorkspaceAutonomyTests
     public void AnUnknownLevel_FailsClosed()
     {
         // Añadir valores al enum no debe escalar la autonomía en silencio.
-        Assert.False(WorkspaceAutonomyPolicy.IsAvailable((WorkspaceAutonomyLevel)99));
+        Assert.False(WorkspaceAutonomyPolicy.IsAvailable((AutonomyLevel)99));
     }
 
     // ---------- Ajustes ----------
@@ -80,7 +81,7 @@ public sealed class WorkspaceAutonomyTests
         var settings = new WorkspaceSettings
         {
             AuthorizedPath = @"C:\Proyectos\Kohana",
-            AutonomyLevel = WorkspaceAutonomyLevel.AutomatizarSecuencia
+            AutonomyLevel = AutonomyLevel.AutomatizarSecuencia
         };
 
         settings.Normalize();
@@ -116,7 +117,7 @@ public sealed class WorkspaceAutonomyTests
         };
 
         var context = WorkspaceContextBuilder.BuildStructure(
-            @"C:\Proyectos\Kohana", files, WorkspaceAutonomyLevel.Guiar);
+            @"C:\Proyectos\Kohana", files, AutonomyLevel.Guiar);
 
         Assert.NotNull(context);
         Assert.Contains("Program.cs", context);
@@ -126,7 +127,7 @@ public sealed class WorkspaceAutonomyTests
     [Fact]
     public void WithNoFiles_NoProjectContextIsSent() =>
         Assert.Null(WorkspaceContextBuilder.BuildStructure(
-            @"C:\Proyectos\Kohana", [], WorkspaceAutonomyLevel.Guiar));
+            @"C:\Proyectos\Kohana", [], AutonomyLevel.Guiar));
 
     [Fact]
     public void WhenSomethingWasRedacted_ItIsSaid()

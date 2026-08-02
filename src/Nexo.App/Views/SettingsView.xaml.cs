@@ -52,7 +52,7 @@ public partial class SettingsView : UserControl
     // Diseño D13 (Fase 5 — Project Companion)
     public event EventHandler? WorkspaceAuthorizeRequested;
     public event EventHandler? WorkspaceRevokeRequested;
-    public event Action<WorkspaceAutonomyLevel>? WorkspaceAutonomyLevelChanged;
+    public event Action<AutonomyLevel>? WorkspaceAutonomyLevelChanged;
 
     public event Action<AiProviderKind>? AiProviderChanged;
     public event Action<string>? AiBaseUrlChanged;
@@ -957,9 +957,9 @@ public partial class SettingsView : UserControl
 
         var wasApplying = _isApplyingPreferences;
         _isApplyingPreferences = true;
-        WorkspaceLevelVerRadioButton.IsChecked = settings.AutonomyLevel == WorkspaceAutonomyLevel.Ver;
-        WorkspaceLevelGuiarRadioButton.IsChecked = settings.AutonomyLevel == WorkspaceAutonomyLevel.Guiar;
-        WorkspaceLevelProponerRadioButton.IsChecked = settings.AutonomyLevel == WorkspaceAutonomyLevel.Proponer;
+        WorkspaceLevelVerRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Ver;
+        WorkspaceLevelGuiarRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Guiar;
+        WorkspaceLevelProponerRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Proponer;
         _isApplyingPreferences = wasApplying;
     }
 
@@ -972,7 +972,7 @@ public partial class SettingsView : UserControl
 
         // Solo se emiten niveles que la política ofrece. La interfaz no puede conceder lo que el
         // modelo de confianza no permite todavía.
-        if (Enum.TryParse<WorkspaceAutonomyLevel>(tag, out var level) &&
+        if (Enum.TryParse<AutonomyLevel>(tag, out var level) &&
             WorkspaceAutonomyPolicy.IsAvailable(level))
         {
             WorkspaceAutonomyLevelChanged?.Invoke(level);

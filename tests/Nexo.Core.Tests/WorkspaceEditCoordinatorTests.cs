@@ -1,4 +1,5 @@
 using Nexo.Core.Audit;
+using Nexo.Core.Permissions;
 using Nexo.Core.Workspace;
 
 namespace Nexo.Core.Tests;
@@ -103,7 +104,7 @@ public sealed class WorkspaceEditCoordinatorTests
     // ---------- Ayudas ----------
 
     private static WorkspaceSettings Settings(
-        WorkspaceAutonomyLevel level = WorkspaceAutonomyLevel.EjecutarUnPaso,
+        AutonomyLevel level = AutonomyLevel.EjecutarUnPaso,
         string path = Root) => new()
     {
         AuthorizedPath = path,
@@ -129,10 +130,10 @@ public sealed class WorkspaceEditCoordinatorTests
     // ---------- El nivel de autonomía manda ----------
 
     [Theory]
-    [InlineData(WorkspaceAutonomyLevel.Ver)]
-    [InlineData(WorkspaceAutonomyLevel.Guiar)]
-    [InlineData(WorkspaceAutonomyLevel.Proponer)]
-    public void BelowLevelFour_NothingIsWritten(WorkspaceAutonomyLevel level)
+    [InlineData(AutonomyLevel.Ver)]
+    [InlineData(AutonomyLevel.Guiar)]
+    [InlineData(AutonomyLevel.Proponer)]
+    public void BelowLevelFour_NothingIsWritten(AutonomyLevel level)
     {
         var (coordinator, writer, checkpoints, _) = Build();
 

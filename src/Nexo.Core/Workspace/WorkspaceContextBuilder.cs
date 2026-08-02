@@ -1,4 +1,5 @@
 using System.Text;
+using Nexo.Core.Permissions;
 
 namespace Nexo.Core.Workspace;
 
@@ -20,7 +21,7 @@ public static class WorkspaceContextBuilder
     public static string? BuildStructure(
         string authorizedRoot,
         IReadOnlyList<WorkspaceFile> files,
-        WorkspaceAutonomyLevel level)
+        AutonomyLevel level)
     {
         if (string.IsNullOrWhiteSpace(authorizedRoot) || files is null || files.Count == 0)
         {
