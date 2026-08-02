@@ -129,12 +129,15 @@ usuario).
 
 ## Fase 5 — Project Companion
 
-**Estado: Parcial** (Diseño D12 en `design/kohana-sprints-d7-d9`: carpeta de trabajo autorizada con
-contención real de rutas, exclusión de archivos de secretos y de carpetas de dependencias, detección
-de secretos en código antes de enviar nada, y los niveles 1–3 del modelo de autonomía. **No escribe
-nada**: `IWorkspaceReader` no tiene métodos de escritura, y el salto al nivel 4 exige antes el
-snapshot por archivo y el Audit Log que ese modelo pide. Sin integrar a release y pendiente de
-validación manual).
+**Estado: Parcial** (Diseños D12 + D13 + D14 en `design/kohana-sprints-d7-d9`: carpeta de trabajo
+autorizada con contención real de rutas, exclusión de archivos de secretos y de carpetas de
+dependencias, detección de secretos en código antes de enviar nada, búsqueda dentro del proyecto, y
+los niveles 1–4 del modelo de autonomía. **D14 abre la escritura**, con checkpoint reversible por
+archivo comprobado antes de tocar nada, verificación releyendo, reversión de lo aplicado si un paso
+falla, negativa a deshacer si la persona editó el archivo después, y registro en el Audit Log. Un
+archivo por paso: los niveles 5 y 6 —encadenar y automatizar— siguen cerrados, y el nivel por
+omisión sigue siendo `Guiar`. Sin integrar a release y pendiente de validación manual, que aquí pesa
+más que en ningún otro sprint porque se escriben archivos reales).
 
 - Objetivo: que Kohana trabaje junto al usuario dentro de un proyecto de código autorizado —desde
   guiar hasta ejecutar cambios— con el nivel de autonomía que el usuario elija.
@@ -152,7 +155,8 @@ validación manual).
 - Criterio de terminado: los cinco modos operando con checkpoints y detección de secretos activa
   antes de cualquier acción de escritura.
 - Sprints sugeridos: "Companion: workspace y modo Guía" (hecho en D12), "Companion: modo Agente y
-  checkpoints".
+  checkpoints" (los checkpoints y el nivel 4 son D14; el modo Agente —niveles 5 y 6— sigue
+  pendiente).
 
 > **Nota de vocabulario (D12).** Este documento nombra "cinco modos" (Guía, Observador, Copiloto,
 > Colaborador, Agente) y el modelo de confianza nombra seis niveles numerados (Ver, Guiar, Proponer,
@@ -209,7 +213,13 @@ frase suelta. Sin integrar a release y pendiente de validación manual).
 
 ## Fase 8 — Skills Platform
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseño D15 en `design/kohana-sprints-d7-d9`: los packs **Kohana Study** y
+**Kohana Dev**, hechos exclusivamente con capacidades ya implementadas. Un pack solo escribe
+preferencias y **nunca concede un permiso**: lo que necesita y no puede activar por su cuenta —
+memoria, Vision, carpeta de proyecto— lo declara como requisito y dice dónde se da. Activar guarda
+el estado anterior y desactivar lo devuelve; un pack activo a la vez. Faltan los otros cuatro packs
+que nombra la fase y una interfaz propia: hoy se activan desde la paleta de comandos. Sin integrar a
+release y pendiente de validación manual).
 
 - Objetivo: empaquetar combinaciones de capacidades anteriores en "packs" con propósito claro.
 - Valor: un usuario no técnico puede activar "Kohana Study" sin entender qué capacidades incluye.
@@ -223,7 +233,8 @@ frase suelta. Sin integrar a release y pendiente de validación manual).
 - No objetivos: no es un marketplace de terceros en esta fase.
 - Criterio de terminado: al menos dos packs completos usando exclusivamente capacidades ya
   implementadas en fases anteriores.
-- Sprints sugeridos: uno por pack, empezando por "Skills: Kohana Study" y "Skills: Kohana Dev".
+- Sprints sugeridos: uno por pack, empezando por "Skills: Kohana Study" y "Skills: Kohana Dev"
+  (ambos hechos en D15, en un solo sprint por ser listas de ajustes y no lógica propia).
 
 ## Fase 9 — Productization
 

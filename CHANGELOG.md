@@ -29,6 +29,21 @@
 - Esquema de preferencias v19 → v20. Al actualizar, nadie hereda una carpeta de proyecto autorizada.
 - La redacción de datos sensibles reconoce ahora la forma hablada de una contraseña («mi contraseña es …»), además de la de formulario.
 
+### Agregado (Diseños D13, D14 y D15 — sin integrar a release)
+
+- Registro de actividad orientado al usuario: qué hizo Kohana, cuándo, con qué permiso y cómo deshacerlo, en un solo sitio y visible desde Sistema.
+- Quedan registradas también las decisiones de permisos: autorizar o revocar una carpeta, cambiar su nivel de autonomía y borrar la memoria.
+- Controles del proyecto en Personalizar: autorizar, revocar y elegir hasta dónde puede llegar Kohana.
+- Comando para buscar dentro del proyecto autorizado.
+- Kohana ya puede modificar un archivo del proyecto, de uno en uno y solo con tu confirmación, guardando antes una copia previa para poder deshacerlo.
+- Se niega a deshacer un cambio si editaste el archivo después, para no borrar tu trabajo.
+- Comando para deshacer el último cambio hecho en el proyecto.
+- Packs **Kohana Study** y **Kohana Dev**: dejan configuradas de una vez varias capacidades que ya existían, y se desactivan devolviendo los ajustes a como estaban.
+
+### Corregido
+
+- Activar un pack ya no podía reactivar Vision por efecto de la normalización de preferencias, que habría encendido un permiso apagado a propósito.
+
 # Changelog
 
 Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.

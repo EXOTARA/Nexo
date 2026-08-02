@@ -2873,3 +2873,144 @@ publicado, 12 s en pie).
   pero todavía no tiene comando que la exponga.
 
 **No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D13, D14 y D15 — tercer bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (misma rama, sobre `446c3a2`).
+Tercera vez que el usuario pide tres sprints en una entrega. El arco tiene un orden deliberado: D13
+construye la pieza que el modelo de confianza exige antes de poder escribir, D14 usa esa pieza para
+abrir el nivel 4, y D15 empaqueta lo que ya existe sin añadir capacidad nueva.
+
+### D13 — Audit Log orientado al usuario (capa 11)
+
+El modelo de confianza es explícito en que los logs de diagnóstico por subsistema
+(`command-center.log` y compañía) **no cumplen este propósito**: son técnicos, escritos para depurar,
+no para que alguien entienda qué pasó con su equipo. Esto construye el que sí pide.
+
+Cada entrada trae los cuatro datos que ese documento nombra literalmente —qué se hizo, cuándo, con
+qué permiso y cómo revertirlo— **como campos separados**, no como prosa dentro de un mensaje. Si
+"cómo revertirlo" formara parte de la frase, nada obligaría a rellenarlo y la primera acción
+irreversible pasaría desapercibida. Las entradas sin vuelta atrás lo dicen en voz alta; callarlo
+haría parecer que todo se puede deshacer.
+
+El registro propio de la optimización (D11) desaparece: un registro por capacidad obliga a la
+persona a saber de antemano en cuál mirar, y "¿qué ha hecho Kohana en mi equipo?" es una sola
+pregunta. Lo ya escrito **se importa** en vez de abandonarse —una entrada de auditoría que
+desaparece porque el formato cambió es justo lo que un registro no puede permitirse—, y la
+importación ocurre una sola vez.
+
+Las decisiones de permisos también se registran ahora: autorizar una carpeta, revocarla, cambiar su
+nivel de autonomía, borrar la memoria. Conceder un permiso es la decisión de la que cuelgan todas
+las demás, así que es lo primero que debería estar en el registro.
+
+Sistema gana la tarjeta "Qué ha hecho Kohana", poblada al abrir: un panel vacío se leería como "no
+hay registro" cuando lo que pasa es que nadie lo ha pedido. Personalizar gana la tarjeta del
+proyecto —autorizar y revocar uno al lado del otro, más hasta dónde puede llegar Kohana—, y solo
+deja elegir niveles que la política ofrece de verdad, para que la interfaz no pueda conceder lo que
+el modelo de confianza aún no permite.
+
+También cierra el pendiente de D12: la búsqueda en el proyecto ya tiene comando. La paleta no acepta
+argumentos, así que la consulta se pide por conversación —una frase, cancelable— y se vuelve a
+comprobar la autorización antes de buscar, porque revocar tiene que surtir efecto en el acto,
+incluso a media conversación.
+
+### D14 — Checkpoints y "ejecutar un paso" (Fase 5, nivel 4)
+
+Primera vez que Kohana escribe en archivos de la persona, así que casi todo el sprint es sobre
+cuándo se niega.
+
+**El nivel 4 se abre porque las dos cosas que lo bloqueaban ya existen**, no porque haya pasado un
+sprint: el checkpoint reversible por archivo y el Audit Log de D13. Los niveles 5 y 6 siguen
+cerrados —encadenar pasos y automatizar una secuencia son problemas distintos de "hacer un cambio
+confirmado", y ninguno se ha demostrado—. El nivel **por omisión no sube**: que escribir sea posible
+no significa que deba estar encendido, y una actualización no toma esa decisión por nadie.
+
+Orden en `WorkspaceEditCoordinator`, y cada paso sostiene algo: nivel de autonomía suficiente; la
+MISMA `WorkspacePathPolicy` que gobierna la lectura (darle a la escritura sus propias reglas de
+contención sería la forma más fácil de que una de las dos se quedara atrás); el checkpoint, que
+además **se comprueba persistido antes de tocar el archivo**, porque un cambio sin vuelta atrás es
+exactamente lo que el nivel 4 prohíbe; la escritura; la verificación releyendo; y si el archivo no
+quedó como se pidió, se deshace —un archivo a medio escribir es peor que uno sin tocar—. La
+reversión también se verifica: "lo dejé como estaba" es la frase que no puede decirse a la ligera,
+así que si tampoco cuajó, se dice y se pide mirarlo.
+
+**Deshacer se niega si el archivo cambió después de que Kohana lo escribiera.** Es el peor daño que
+esta capacidad podría causar y el único que no sería un fallo sino una decisión de diseño: revertir
+entonces no devolvería el archivo, destruiría lo que la persona hizo después. Por eso el checkpoint
+guarda también lo que Kohana ESCRIBIÓ, no solo lo que había antes; suena redundante y es la pieza
+que hace posible la comprobación.
+
+`WorkspaceEditParser` es estricto a propósito: **el formato es exacto o no hay cambio**. Un parser
+tolerante que adivina rutas o recompone bloques a medias acaba escribiendo en el archivo equivocado,
+y ese error no lo ve nadie hasta que ya ocurrió. Dos propuestas en una respuesta significan que no
+se aplica ninguna (el nivel 4 es literalmente un paso). Un bloque sin cerrar es una respuesta
+truncada. Un bloque vacío vaciaría el archivo en silencio. Todo se rechaza; rechazar es barato.
+
+La oferta de escribir se arma para UNA respuesta y se apaga en el `finally`, así que una respuesta
+cortada, cancelada o fallida no puede producir un cambio, y una posterior que por casualidad
+contuviera el formato tampoco. El permiso se vuelve a comprobar entre el comando y la respuesta. Los
+intentos rechazados también se auditan: saber que Kohana intentó tocar un archivo y no pudo es de lo
+que una auditoría existe para contar.
+
+### D15 — Kohana Study y Kohana Dev (Fase 8)
+
+El criterio de terminado de la fase es literal: al menos dos packs completos usando **exclusivamente**
+capacidades ya implementadas en fases anteriores. Ningún pack inventa nada; si algo no existe, no
+entra en un pack.
+
+La regla que sostiene la fase es que cada pack hereda los permisos de las capacidades que combina y
+no introduce excepciones. En consecuencia un pack **solo escribe preferencias**: nunca concede un
+permiso. Encender la memoria, autorizar una carpeta o activar Vision siguen necesitando su propia
+decisión; el pack se limita a decir que le harían falta y dónde se dan. Un pack que encendiera
+permisos sería una forma de concederlos sin pedirlos, disfrazada de comodidad.
+
+**Defecto real que atrapó una prueba:** llamar a `preferences.Normalize()` después de aplicar un
+pack arrastra la escalera de migración por `SchemaVersion`, y sobre unas preferencias que aún no
+hubieran pasado por ella eso **reactivaba Vision** — es decir, concedía un permiso que la persona
+tenía apagado. Se quitó, por el mismo motivo ya registrado en `ResetVisualPreferences`: migrar no es
+tarea de un pack, y los valores recién escritos ya son válidos porque el `Write` de cada ajuste solo
+acepta valores reconocidos.
+
+El riesgo que el roadmap señala para esta fase es la fragmentación ("si cada pack termina con su
+propia lógica en vez de reutilizar capacidades comunes"). Por eso un pack aquí no es código, es una
+LISTA: no puede hacer nada que Personalizar no pueda hacer ya, solo lo deja puesto de una vez. Los
+ajustes se leen y se escriben como texto, que es lo que hace que el estado anterior quepa en un JSON
+legible y que deshacer signifique "volver a escribir lo que había".
+
+Un pack activo a la vez. Dos superpuestos dejarían un estado que ninguno de los dos describe, y
+"¿qué tengo activado?" dejaría de tener respuesta. Cambiar de pack restaura primero los ajustes de
+la persona; si no, el snapshot del segundo guardaría los del primero como si fueran suyos.
+
+La vista previa enseña lo que cambiaría **y** lo que falta, con el mismo peso: enseñar solo lo que
+gana la persona sería vender el pack, no explicarlo. Los ajustes que ya están como el pack los
+quiere no se listan.
+
+**Build y pruebas (Release), acumulado D13-D15:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 1013 superadas
+  Nexo.Windows.Tests.dll ->  206 superadas
+  Nexo.App.Tests.dll     ->  166 superadas
+Total: 1385 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **Sigue sin validación manual del usuario**, ahora acumulada desde D10. Se comprueba que la app
+  arranca, no que los paneles nuevos se vean y se usen bien. **D14 escribe en archivos reales**: es
+  el sprint que más pide una prueba a mano antes de integrarse.
+- Los packs no tienen interfaz propia: se activan y desactivan desde la paleta de comandos.
+- Solo hay dos packs de los seis que nombra el roadmap (faltan Support, Creator, Access y Meeting).
+- El cambio en el proyecto reemplaza el archivo COMPLETO, no aplica parches. Es lo que permite
+  verificar releyendo, pero obliga al modelo a reescribir archivos enteros y limita el tamaño.
+- Los niveles 5 y 6 de autonomía siguen cerrados.
+- La auditoría se lee, pero todavía no se puede deshacer una acción DESDE el panel: el
+  `RevertToken` existe en la entrada y no tiene botón.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**

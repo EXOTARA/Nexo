@@ -44,6 +44,14 @@ De menor a mayor autonomía, en el orden en que deben habilitarse:
 Ninguna capacidad nueva puede empezar en el nivel 6: cada una debe demostrarse en los niveles 1–3
 antes de solicitar el salto a ejecución.
 
+> **Estado real (Diseño D14).** El acompañante de proyecto (Fase 5) es la primera capacidad que
+> llega al **nivel 4**, y llegó por este camino: D12 la implementó en los niveles 1–3 sin ningún
+> método de escritura, D13 construyó el Audit Log que exige la sección "Auditoría" de este mismo
+> documento, y D14 añadió el snapshot previo reversible que exige la sección "Reversión". El nivel 4
+> se abrió cuando esas dos condiciones existieron, no antes. Los niveles 5 y 6 siguen cerrados para
+> todas las capacidades. Ver `WorkspaceAutonomyPolicy`, que falla cerrado ante cualquier nivel que no
+> reconozca explícitamente.
+
 ## Permisos
 
 - **Por aplicación**: qué aplicaciones pueden ser objeto de Context Sources o Action Runtime (p.
