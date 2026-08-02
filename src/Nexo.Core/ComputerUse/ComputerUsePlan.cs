@@ -109,30 +109,49 @@ public static class ComputerUsePlanner
 /// </summary>
 public static class ComputerUseAutonomyPolicy
 {
+    /// <summary>
+    /// El nivel por omisión NO sube con D18. Que ejecutar sea posible no significa que deba estar
+    /// encendido, y ésta es la capacidad más arriesgada del roadmap: subirla es una decisión de la
+    /// persona. Además, el permiso de Computer Use llega Bloqueado (D16), así que hacen falta dos
+    /// decisiones distintas, no una.
+    /// </summary>
     public static AutonomyLevel Default => AutonomyLevel.Proponer;
 
     public static bool IsAvailable(AutonomyLevel level) => level switch
     {
-        AutonomyLevel.Ver or AutonomyLevel.Guiar or AutonomyLevel.Proponer => true,
+        AutonomyLevel.Ver or
+        AutonomyLevel.Guiar or
+        AutonomyLevel.Proponer or
+        AutonomyLevel.EjecutarUnPaso => true,
         _ => false
     };
 
     /// <summary>
-    /// Diseño D17 — hoy **nadie** puede ejecutar: la capacidad acaba de nacer y el modelo de
-    /// confianza prohíbe empezar por arriba. D18 abre el nivel 4 cuando existan la ejecución
-    /// verificada y su reversión.
+    /// **Diseño D18 — el nivel 4 se abre.** Se abre porque existen las tres cosas que el modelo de
+    /// confianza pide antes de ejecutar: el Permission Broker (D16), el Audit Log (D13) y una
+    /// reversión real para el único método que la admite (el portapapeles guarda lo que había). Los
+    /// comandos de la lista no necesitan reversión porque no cambian nada, y eso lo defiende
+    /// <see cref="SafeShellCatalog"/>, no una promesa.
+    ///
+    /// Los niveles 5 y 6 siguen cerrados: encadenar pasos y automatizar una secuencia son problemas
+    /// distintos de "hacer una acción confirmada", y ninguno se ha demostrado.
     /// </summary>
-    public static bool CanExecute(AutonomyLevel level) => false;
+    public static bool CanExecute(AutonomyLevel level) =>
+        IsAvailable(level) && level >= AutonomyLevel.EjecutarUnPaso;
 
     public static string ExplainCannotExecute(AutonomyLevel level) =>
-        "Todavía no ejecuto acciones sobre el equipo: de momento te digo qué haría y cómo, y lo " +
-        "haces tú.";
+        IsAvailable(level)
+            ? "Con el nivel actual te digo qué haría y cómo, pero no lo hago. Puedes subirlo a " +
+              "«Ejecutar un paso» en Personalizar."
+            : "Todavía no encadeno varias acciones seguidas. Hago una cada vez, y cada una la " +
+              "confirmas tú.";
 
     public static string Describe(AutonomyLevel level) => level switch
     {
         AutonomyLevel.Ver => "Ver: describo lo que hay, sin proponer nada.",
         AutonomyLevel.Guiar => "Guiar: te digo qué harías tú, y lo haces tú.",
         AutonomyLevel.Proponer => "Proponer: redacto el plan y el método, sin ejecutarlo.",
+        AutonomyLevel.EjecutarUnPaso => "Ejecutar un paso: hago una acción cada vez, y la confirmas tú.",
         _ => "Ese nivel todavía no está disponible para actuar sobre el equipo."
     };
 }

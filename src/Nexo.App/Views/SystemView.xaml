@@ -287,6 +287,13 @@
                                                    Text="{Binding ReversalLine}"
                                                    TextWrapping="Wrap"
                                                    Style="{StaticResource MutedTextStyle}" />
+                                        <Button Margin="0,7,0,0"
+                                                HorizontalAlignment="Left"
+                                                Content="Deshacer esto"
+                                                Visibility="{Binding RevertVisibility}"
+                                                Tag="{Binding Entry}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Click="AuditRevertButton_Click" />
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>

@@ -69,8 +69,23 @@ public partial class SystemView : UserControl
 
     public event EventHandler? AuditRefreshRequested;
 
+    /// <summary>
+    /// Diseño D18 — deshacer DESDE el registro. La entrada ya sabía cómo revertirse desde D13 y le
+    /// faltaba el botón: un "cómo deshacerlo" que obliga a ir a buscar el comando correcto es media
+    /// promesa.
+    /// </summary>
+    public event Action<AuditEntry>? AuditRevertRequested;
+
     private void AuditRefreshButton_Click(object sender, RoutedEventArgs e) =>
         AuditRefreshRequested?.Invoke(this, EventArgs.Empty);
+
+    private void AuditRevertButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: AuditEntry entry })
+        {
+            AuditRevertRequested?.Invoke(entry);
+        }
+    }
 
     /// <summary>
     /// Diseño D13 — cada entrada muestra los cuatro datos que el modelo de confianza exige, en
@@ -84,6 +99,7 @@ public partial class SystemView : UserControl
         foreach (var entry in (entries ?? []).Take(25))
         {
             _auditRows.Add(new AuditRow(
+                Entry: entry,
                 Headline: $"{entry.Capability} · {entry.Action}",
                 When: entry.At.ToString("dd/MM HH:mm"),
                 Detail: entry.Detail,
@@ -93,18 +109,24 @@ public partial class SystemView : UserControl
                       (entry.AutonomyLevel is { } level ? $" · nivel de autonomía {level}" : string.Empty),
                 ReversalLine: string.IsNullOrWhiteSpace(entry.RevertHint)
                     ? "Sin vuelta atrás automática."
-                    : $"Cómo deshacerlo: {entry.RevertHint}"));
+                    : $"Cómo deshacerlo: {entry.RevertHint}",
+
+                // El botón solo aparece cuando la entrada trae con qué deshacer. Enseñarlo
+                // deshabilitado en todas las demás llenaría el registro de botones muertos.
+                RevertVisibility: entry.CanRevert ? Visibility.Visible : Visibility.Collapsed));
         }
 
         AuditEmptyText.Visibility = _auditRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private sealed record AuditRow(
+        AuditEntry Entry,
         string Headline,
         string When,
         string Detail,
         string PermissionLine,
-        string ReversalLine);
+        string ReversalLine,
+        Visibility RevertVisibility);
 
     public void UpdateSnapshot(SystemSnapshot snapshot)
     {

@@ -188,6 +188,9 @@ public partial class MainWindow : Window
     /// <summary>Diseño D17 — igual que la búsqueda: lo que se quiere hacer llega por chat.</summary>
     private bool _awaitingComputerUseIntent;
 
+    /// <summary>Diseño D18 (Fase 7, nivel 4) — el único camino por el que Kohana actúa en el equipo.</summary>
+    private readonly ComputerUseCoordinator _computerUseCoordinator;
+
     /// <summary>Diseño D14 — igual que la búsqueda: la instrucción del cambio llega por chat.</summary>
     private bool _awaitingWorkspaceEditInstruction;
 
@@ -373,6 +376,12 @@ public partial class MainWindow : Window
             new JsonSkillPackSnapshotStore(),
             _auditLog);
 
+        _computerUseCoordinator = new ComputerUseCoordinator(
+            new WindowsComputerUseExecutor(),
+            _computerUseProbe,
+            new JsonComputerUseSnapshotStore(),
+            _auditLog);
+
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
             _focusManager,
@@ -450,6 +459,7 @@ public partial class MainWindow : Window
         _systemView.OptimizationUndoRequested += (_, _) => RestoreOptimization();
         _systemView.OptimizationAuditRequested += (_, _) => ShowOptimizationAudit();
         _systemView.AuditRefreshRequested += (_, _) => RefreshAuditPanel();
+        _systemView.AuditRevertRequested += RevertAuditEntry;
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -775,6 +785,50 @@ public partial class MainWindow : Window
 
             _settingsView.SetPermissionsStatus(
                 $"«{CapabilityTitleFor(capability)}» quedó en {level}.");
+        };
+
+        // Diseño D18 — subir hasta "ejecutar un paso" en el equipo se confirma aparte del permiso:
+        // son dos decisiones distintas y la más arriesgada del roadmap merece las dos.
+        _settingsView.ComputerUseAutonomyLevelChanged += level =>
+        {
+            var previous = _preferences.ComputerUseAutonomyLevel;
+            if (previous == level)
+            {
+                return;
+            }
+
+            if (level > previous)
+            {
+                var confirmation = MessageBox.Show(
+                    this,
+                    $"Vas a subir lo que Kohana puede hacer en tu equipo de {previous} a {level}." +
+                        Environment.NewLine + Environment.NewLine +
+                        (level == AutonomyLevel.EjecutarUnPaso
+                            ? "Podrá ejecutar UNA acción cada vez, y te la confirmaré antes. Sigo " +
+                              "eligiendo siempre la forma más segura disponible, y sigo sin usar " +
+                              "ratón y teclado simulados."
+                            : "Seguirá sin ejecutar nada.") +
+                        Environment.NewLine + Environment.NewLine + "¿Lo subo?",
+                    "Subir el nivel en el equipo",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (confirmation != MessageBoxResult.Yes)
+                {
+                    _settingsView.ApplyComputerUseAutonomyLevel(previous);
+                    return;
+                }
+            }
+
+            _preferences.ComputerUseAutonomyLevel = level;
+            SavePreferences();
+
+            RecordAudit(
+                AuditCapability.Permisos,
+                "Nivel en el equipo cambiado",
+                $"{previous} → {level}",
+                "Elección explícita del usuario",
+                (int)level);
         };
 
         // Diseño D13 (Fase 5 — Project Companion)
@@ -1529,6 +1583,54 @@ public partial class MainWindow : Window
 
     private void RefreshAuditPanel() => _systemView.UpdateAudit(_auditLog.Read());
 
+    /// <summary>
+    /// Diseño D18 — deshacer una acción concreta desde el registro. El despacho es por capacidad, y
+    /// cada una usa su propio camino de reversión: el registro dice QUÉ se puede deshacer, pero
+    /// quien sabe CÓMO sigue siendo la capacidad que lo hizo.
+    /// </summary>
+    private void RevertAuditEntry(AuditEntry entry)
+    {
+        if (!entry.CanRevert)
+        {
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"{entry.Detail}{Environment.NewLine}{Environment.NewLine}{entry.RevertHint}" +
+                $"{Environment.NewLine}{Environment.NewLine}¿Lo deshago?",
+            "Deshacer",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var detail = entry.Capability switch
+        {
+            AuditCapability.Optimizacion => _optimizationCoordinator.Restore().Detail,
+
+            AuditCapability.Proyecto when Guid.TryParse(entry.RevertToken, out var checkpointId) =>
+                _workspaceEditCoordinator.Revert(checkpointId, _preferences.Workspace).Detail,
+
+            AuditCapability.Permisos when Guid.TryParse(entry.RevertToken, out var snapshotId) =>
+                _computerUseCoordinator.Revert(snapshotId, _preferences.ComputerUseAutonomyLevel).Detail,
+
+            // Desactivar un pack toca preferencias con efectos vivos, así que va por su propio
+            // camino y no por el genérico: reaplicarlas es parte de deshacerlo.
+            AuditCapability.Permisos when Enum.TryParse<SkillPackId>(entry.RevertToken, out _) =>
+                RevertSkillPack().Message ?? "Pack desactivado.",
+
+            _ => "Esa acción no sé deshacerla desde aquí."
+        };
+
+        _assistantView.AddKohanaMessage(detail);
+        ShowFlowNotice(CapsuleKind.Information, "Deshacer", detail);
+        RefreshAuditPanel();
+    }
+
     private static string CapabilityTitleFor(KohanaCapability capability) =>
         CapabilityText.Describe(capability);
 
@@ -2160,6 +2262,76 @@ public partial class MainWindow : Window
                 return Task.FromResult(CommandExecutionResult.Success());
             },
             keywords: ["metodos", "seguridad", "equipo", "computer use"]);
+
+        // Diseño D18 (Fase 7, nivel 4) — los comandos de la lista de permitidos, uno por uno. Solo
+        // aparecen habilitados cuando el permiso y el nivel lo consienten: un comando visible que
+        // siempre responde "no puedo" enseña a ignorar los mensajes de permisos.
+        foreach (var command in SafeShellCatalog.All)
+        {
+            var current = command;
+
+            yield return new KohanaCommandDescriptor(
+                $"computeruse.run.{current.Id}",
+                current.Title,
+                $"Ejecuta «{current.Executable} {current.Arguments}». Solo lee: no cambia nada del equipo.",
+                KohanaCommandCategory.System,
+                _ =>
+                {
+                    RunSafeCommand(current);
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: ["equipo", "diagnostico", current.Title.ToLowerInvariant()],
+                availability: ComputerUseAvailability);
+        }
+    }
+
+    private KohanaCommandAvailability ComputerUseAvailability()
+    {
+        if (_preferences.Permissions.For(KohanaCapability.ComputerUse).Level == PermissionLevel.Bloqueado)
+        {
+            return KohanaCommandAvailability.Unavailable(
+                "Actuar sobre el equipo está bloqueado. Puedes cambiarlo en Personalizar.");
+        }
+
+        return ComputerUseAutonomyPolicy.CanExecute(_preferences.ComputerUseAutonomyLevel)
+            ? KohanaCommandAvailability.Available
+            : KohanaCommandAvailability.Unavailable(
+                "Sube el nivel de autonomía a «Ejecutar un paso» en Personalizar.");
+    }
+
+    /// <summary>
+    /// Diseño D18 — ejecuta un comando de la lista. La confirmación la pide el broker; el
+    /// coordinador comprueba permiso, nivel y método antes de lanzar nada.
+    /// </summary>
+    private void RunSafeCommand(SafeShellCommand command)
+    {
+        if (!TryGetPermission(new PermissionRequest(
+                KohanaCapability.ComputerUse,
+                $"{command.Title} ({command.Executable} {command.Arguments})")))
+        {
+            return;
+        }
+
+        var result = _computerUseCoordinator.Execute(
+            new ComputerUseRequest(
+                ComputerUseMethod.ShellSeguro,
+                command.Title,
+                SafeCommandId: command.Id),
+            _preferences.Permissions,
+            _preferences.ComputerUseAutonomyLevel);
+
+        var message = new StringBuilder();
+        message.AppendLine(result.Detail);
+
+        if (!string.IsNullOrWhiteSpace(result.Output))
+        {
+            message.AppendLine();
+            message.Append(result.Output.Trim());
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+        RefreshAuditPanel();
     }
 
     private void ShowComputerUseMethods()
@@ -2209,7 +2381,7 @@ public partial class MainWindow : Window
             intent,
             _computerUseProbe.GetAvailableMethods(intent.TargetApp),
             _preferences.Permissions,
-            ComputerUseAutonomyPolicy.Default);
+            _preferences.ComputerUseAutonomyLevel);
 
         var message = new StringBuilder();
         message.Append("Lo que pides: ").AppendLine(intent.Description);

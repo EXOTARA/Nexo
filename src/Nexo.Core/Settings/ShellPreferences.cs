@@ -133,6 +133,14 @@ public sealed class ShellPreferences
     /// </summary>
     public PermissionSettings Permissions { get; set; } = new();
 
+    /// <summary>
+    /// Diseño D18 — hasta dónde puede llegar Kohana al actuar sobre el equipo. **Campo propio, no el
+    /// del proyecto**: son capacidades distintas y el modelo de confianza exige que cada permiso sea
+    /// independiente. Compartir el nivel haría que subir el del proyecto concediera también el de
+    /// Computer Use, que es justo lo que "habilitar Lens no habilita Computer Use" prohíbe.
+    /// </summary>
+    public AutonomyLevel ComputerUseAutonomyLevel { get; set; } = AutonomyLevel.Proponer;
+
     public void Normalize()
     {
         if (SchemaVersion < 2)
@@ -295,6 +303,14 @@ public sealed class ShellPreferences
             SchemaVersion = 21;
         }
 
+        if (SchemaVersion < 22)
+        {
+            // Diseño D18 — un archivo anterior no trae este campo, y sin escalón se quedaría en 0,
+            // que no es ningún nivel válido. Se pone en "Proponer", que es proponer sin ejecutar.
+            ComputerUseAutonomyLevel = AutonomyLevel.Proponer;
+            SchemaVersion = 22;
+        }
+
         Width = Math.Clamp(Width, 680, 820);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
@@ -326,6 +342,14 @@ public sealed class ShellPreferences
 
         Permissions ??= new PermissionSettings();
         Permissions.Normalize();
+
+        // Un settings.json escrito a mano no puede conceder un nivel que la política no ofrece: se
+        // cae al valor por omisión en vez de aceptarlo. La autonomía se concede, no se hereda de un
+        // archivo.
+        if (!ComputerUse.ComputerUseAutonomyPolicy.IsAvailable(ComputerUseAutonomyLevel))
+        {
+            ComputerUseAutonomyLevel = ComputerUse.ComputerUseAutonomyPolicy.Default;
+        }
 
         if (!Enum.IsDefined(FlowMode))
         {

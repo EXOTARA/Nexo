@@ -157,7 +157,7 @@ public sealed class ComputerUseTests
                 level);
 
             Assert.False(plan.CanBeExecuted);
-            Assert.Contains("Todavía no ejecuto", plan.Blocker!);
+            Assert.Contains("no lo hago", plan.Blocker!);
         }
     }
 
@@ -203,15 +203,35 @@ public sealed class ComputerUseTests
     public void LevelsOneToThree_AreAvailable(AutonomyLevel level) =>
         Assert.True(ComputerUseAutonomyPolicy.IsAvailable(level));
 
+    /// <summary>
+    /// Diseño D18 — el nivel 4 se abrió porque existen las tres cosas que el modelo de confianza
+    /// pide antes de ejecutar: el broker (D16), el Audit Log (D13) y una reversión real para el
+    /// único método que la admite.
+    /// </summary>
+    [Fact]
+    public void LevelFour_IsAvailableSinceTheBrokerAndTheAuditLogExist()
+    {
+        Assert.True(ComputerUseAutonomyPolicy.IsAvailable(AutonomyLevel.EjecutarUnPaso));
+        Assert.True(ComputerUseAutonomyPolicy.CanExecute(AutonomyLevel.EjecutarUnPaso));
+    }
+
     [Theory]
-    [InlineData(AutonomyLevel.EjecutarUnPaso)]
     [InlineData(AutonomyLevel.ColaborarConConfirmaciones)]
     [InlineData(AutonomyLevel.AutomatizarSecuencia)]
-    public void ExecutionLevels_AreNotAvailableYet(AutonomyLevel level)
+    public void ChainedLevels_AreNotAvailableYet(AutonomyLevel level)
     {
-        // La capacidad más arriesgada del roadmap empieza donde tienen que empezar todas.
+        // Encadenar y automatizar son problemas distintos de "hacer una acción confirmada".
         Assert.False(ComputerUseAutonomyPolicy.IsAvailable(level));
         Assert.False(ComputerUseAutonomyPolicy.CanExecute(level));
+    }
+
+    [Fact]
+    public void TheDefaultLevel_DoesNotRiseWithD18()
+    {
+        // Ejecutar es posible; estar encendido es otra decisión. Y además el permiso llega
+        // Bloqueado, así que hacen falta dos.
+        Assert.Equal(AutonomyLevel.Proponer, ComputerUseAutonomyPolicy.Default);
+        Assert.False(ComputerUseAutonomyPolicy.CanExecute(ComputerUseAutonomyPolicy.Default));
     }
 
     [Fact]

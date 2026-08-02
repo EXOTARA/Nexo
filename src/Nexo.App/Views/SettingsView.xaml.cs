@@ -121,6 +121,7 @@ public partial class SettingsView : UserControl
         FlowSnippetsBox.Text = string.Join(Environment.NewLine, preferences.FlowSnippets);
         ApplyMemorySettings(preferences.Memory);
         ApplyPermissionSettings(preferences.Permissions);
+        ApplyComputerUseAutonomyLevel(preferences.ComputerUseAutonomyLevel);
         ApplyWorkspaceSettings(preferences.Workspace);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
@@ -1009,6 +1010,38 @@ public partial class SettingsView : UserControl
                     : $"{CapabilityText.Describe(capability)} · {excluded} exclusiones",
                 permission.Level,
                 OnPermissionRowChanged));
+        }
+    }
+
+    // Diseño D18: hasta dónde puede llegar Computer Use, con su propio nivel.
+    public event Action<AutonomyLevel>? ComputerUseAutonomyLevelChanged;
+
+    public void ApplyComputerUseAutonomyLevel(AutonomyLevel level)
+    {
+        var wasApplying = _isApplyingPreferences;
+        _isApplyingPreferences = true;
+
+        ComputerUseVerRadioButton.IsChecked = level == AutonomyLevel.Ver;
+        ComputerUseGuiarRadioButton.IsChecked = level == AutonomyLevel.Guiar;
+        ComputerUseProponerRadioButton.IsChecked = level == AutonomyLevel.Proponer;
+        ComputerUseEjecutarRadioButton.IsChecked = level == AutonomyLevel.EjecutarUnPaso;
+
+        _isApplyingPreferences = wasApplying;
+    }
+
+    private void ComputerUseLevelRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not RadioButton { Tag: string tag })
+        {
+            return;
+        }
+
+        // Solo se emiten niveles que la política de Computer Use ofrece: la interfaz no puede
+        // conceder lo que el modelo de confianza no permite todavía.
+        if (Enum.TryParse<AutonomyLevel>(tag, out var level) &&
+            Nexo.Core.ComputerUse.ComputerUseAutonomyPolicy.IsAvailable(level))
+        {
+            ComputerUseAutonomyLevelChanged?.Invoke(level);
         }
     }
 

@@ -631,6 +631,34 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
+            <StackPanel x:Name="ComputerUseAutonomyPanel" Margin="20,12,0,0">
+                <TextBlock Margin="0,0,0,5" Text="Hasta dónde puede llegar en el equipo" FontWeight="SemiBold" />
+                <TextBlock Margin="0,0,0,7"
+                           Text="Aunque le permitas actuar, Kohana elige siempre la forma más segura disponible y nunca usa ratón y teclado simulados salvo que no quede otra."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+                <RadioButton x:Name="ComputerUseVerRadioButton" Margin="0,0,0,6"
+                             GroupName="ComputerUseLevel" Tag="Ver"
+                             Content="Ver — describe lo que hay, sin proponer nada"
+                             Checked="ComputerUseLevelRadioButton_Checked" />
+                <RadioButton x:Name="ComputerUseGuiarRadioButton" Margin="0,0,0,6"
+                             GroupName="ComputerUseLevel" Tag="Guiar"
+                             Content="Guiar — te dice qué harías tú, y lo haces tú"
+                             Checked="ComputerUseLevelRadioButton_Checked" />
+                <RadioButton x:Name="ComputerUseProponerRadioButton" Margin="0,0,0,6"
+                             GroupName="ComputerUseLevel" Tag="Proponer"
+                             Content="Proponer — redacta el plan y el método, sin ejecutarlo"
+                             Checked="ComputerUseLevelRadioButton_Checked" />
+                <RadioButton x:Name="ComputerUseEjecutarRadioButton"
+                             GroupName="ComputerUseLevel" Tag="EjecutarUnPaso"
+                             Content="Ejecutar un paso — hace una acción cada vez, y la confirmas tú"
+                             Checked="ComputerUseLevelRadioButton_Checked" />
+                <TextBlock Margin="0,7,0,0"
+                           Text="Encadenar varias acciones seguidas todavía no está disponible."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+
             <TextBlock x:Name="PermissionsStatusText"
                        Margin="20,4,0,0"
                        Text=""
