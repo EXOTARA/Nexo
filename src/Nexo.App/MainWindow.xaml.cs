@@ -21,6 +21,7 @@ using Nexo.App.Views;
 using Nexo.Core.Ai;
 using Nexo.Core.Ambient;
 using Nexo.Core.Assistant;
+using Nexo.Core.Audit;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Automation;
 using Nexo.Core.Audio;
@@ -41,6 +42,7 @@ using Nexo.Core.Vision;
 using Nexo.Core.Workspace;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Ambient;
+using Nexo.Windows.Audit;
 using Nexo.Windows.Automation;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
@@ -140,7 +142,12 @@ public partial class MainWindow : Window
     /// <summary>Diseño D8 (Fase 4) — optimización adaptativa del equipo.</summary>
     private readonly WindowsOptimizationApplier _optimizationApplier = new();
     private readonly JsonOptimizationSnapshotStore _optimizationSnapshotStore = new();
-    private readonly JsonOptimizationAuditLog _optimizationAuditLog = new();
+    /// <summary>
+    /// Diseño D13 — el Audit Log único: qué hizo Kohana, cuándo, con qué permiso y cómo deshacerlo.
+    /// Lo comparten todas las capacidades; un registro por capacidad obligaría a la persona a saber
+    /// de antemano en cuál mirar.
+    /// </summary>
+    private readonly JsonKohanaAuditLog _auditLog = new();
 
     /// <summary>
     /// Diseño D11 (Fase 4) — orquesta aplicar, verificar, deshacer y registrar. Se crea en el
@@ -166,6 +173,9 @@ public partial class MainWindow : Window
     /// en todas: el proyecto solo sale del equipo cuando la persona pidió algo sobre el proyecto.
     /// </summary>
     private string? _pendingWorkspaceContext;
+
+    /// <summary>Diseño D13 — la paleta no acepta argumentos: la consulta de búsqueda llega por chat.</summary>
+    private bool _awaitingWorkspaceSearchQuery;
 
     /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
@@ -319,7 +329,7 @@ public partial class MainWindow : Window
                     RefreshAdaptiveEnginePlan();
                 }),
             _optimizationSnapshotStore,
-            _optimizationAuditLog);
+            _auditLog);
 
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
@@ -397,6 +407,7 @@ public partial class MainWindow : Window
             await ProposeOptimizationAsync(scenario);
         _systemView.OptimizationUndoRequested += (_, _) => RestoreOptimization();
         _systemView.OptimizationAuditRequested += (_, _) => ShowOptimizationAudit();
+        _systemView.AuditRefreshRequested += (_, _) => RefreshAuditPanel();
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -408,6 +419,11 @@ public partial class MainWindow : Window
 
         WireSettingsEvents();
         _settingsView.ApplyPreferences(_preferences);
+
+        // Diseño D13 — la auditoría se enseña ya poblada. Un panel vacío al abrir haría pensar que
+        // no hay registro, cuando lo que pasa es que nadie lo ha pedido todavía.
+        RefreshAuditPanel();
+        _systemView.SetOptimizationStatus(detail: null, _optimizationCoordinator.HasSomethingToUndo);
         UpdateAiProviderStatus();
         ApplyPreferences();
         _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
@@ -669,6 +685,35 @@ public partial class MainWindow : Window
         {
             var result = ForgetAllMemory();
             _settingsView.SetMemoryStatus(result.Message);
+        };
+
+        // Diseño D13 (Fase 5 — Project Companion)
+        _settingsView.WorkspaceAuthorizeRequested += (_, _) =>
+        {
+            AuthorizeWorkspaceFolder();
+            _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
+        };
+
+        _settingsView.WorkspaceRevokeRequested += (_, _) =>
+        {
+            RevokeWorkspace();
+            _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
+        };
+
+        _settingsView.WorkspaceAutonomyLevelChanged += level =>
+        {
+            _preferences.Workspace.AutonomyLevel = level;
+            _preferences.Workspace.Normalize();
+            SavePreferences();
+
+            // Cambiar hasta dónde puede llegar Kohana es una decisión de permisos, así que se
+            // registra igual que autorizar la carpeta.
+            RecordAudit(
+                AuditCapability.Permisos,
+                "Nivel de autonomía del proyecto cambiado",
+                WorkspaceAutonomyPolicy.Describe(_preferences.Workspace.AutonomyLevel),
+                "Elección explícita del usuario",
+                (int)_preferences.Workspace.AutonomyLevel);
         };
 
         _settingsView.AiProviderChanged += provider =>
@@ -1374,6 +1419,70 @@ public partial class MainWindow : Window
                 return Task.FromResult(CommandExecutionResult.Success());
             },
             keywords: ["historial", "auditoria", "optimizacion", "registro"]);
+
+        // Diseño D13 — el registro completo, no solo el de una capacidad. "¿Qué ha hecho Kohana en
+        // mi equipo?" es una pregunta sola, y no debería obligar a saber en qué apartado mirar.
+        yield return new KohanaCommandDescriptor(
+            "audit.show",
+            "Ver todo lo que Kohana ha hecho",
+            "El registro completo: qué hizo, cuándo, con qué permiso y cómo deshacerlo.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowFullAudit();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["auditoria", "registro", "actividad", "historial", "privacidad"]);
+    }
+
+    private void RefreshAuditPanel() => _systemView.UpdateAudit(_auditLog.Read());
+
+    private void ShowFullAudit()
+    {
+        var entries = _auditLog.Read();
+
+        var message = new StringBuilder();
+        if (entries.Count == 0)
+        {
+            message.Append("Todavía no he hecho nada que valga la pena registrar.");
+        }
+        else
+        {
+            message.AppendLine("Todo lo que he hecho, de lo más reciente a lo más antiguo:");
+            foreach (var entry in entries.Take(25))
+            {
+                message.Append("· ").AppendLine(entry.Describe());
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    /// <summary>
+    /// Diseño D13 — conceder o revocar un permiso es de lo primero que debe quedar registrado: es
+    /// la decisión de la que cuelgan todas las demás.
+    /// </summary>
+    private void RecordAudit(
+        AuditCapability capability,
+        string action,
+        string detail,
+        string permission,
+        int? autonomyLevel = null,
+        string revertHint = "")
+    {
+        _auditLog.Append(new AuditEntry
+        {
+            At = DateTimeOffset.Now,
+            Capability = capability,
+            Action = action,
+            Detail = detail,
+            Permission = permission,
+            AutonomyLevel = autonomyLevel,
+            RevertHint = revertHint
+        });
+
+        RefreshAuditPanel();
     }
 
     private void ShowOptimizationAudit()
@@ -1469,6 +1578,7 @@ public partial class MainWindow : Window
             result.Detail);
 
         _systemView.SetOptimizationStatus(result.Detail, _optimizationCoordinator.HasSomethingToUndo);
+        RefreshAuditPanel();
     }
 
     private CommandExecutionResult RestoreOptimization()
@@ -1476,6 +1586,7 @@ public partial class MainWindow : Window
         var result = _optimizationCoordinator.Restore();
 
         _systemView.SetOptimizationStatus(result.Detail, _optimizationCoordinator.HasSomethingToUndo);
+        RefreshAuditPanel();
 
         if (!result.IsApplied)
         {
@@ -1642,6 +1753,15 @@ public partial class MainWindow : Window
         }
 
         var result = _memoryManager.ForgetEverything();
+
+        // Un borrado irreversible es de los casos que el modelo de confianza marca como
+        // confirmación obligatoria; que quede constancia de que ocurrió es la otra mitad.
+        RecordAudit(
+            AuditCapability.Memoria,
+            "Memoria borrada por completo",
+            result.Message,
+            "Confirmación explícita del usuario");
+
         ShowFlowNotice(CapsuleKind.Success, "Memoria borrada", result.Message);
         return CommandExecutionResult.Success(result.Message);
     }
@@ -1687,6 +1807,24 @@ public partial class MainWindow : Window
             KohanaCommandCategory.System,
             async _ => await ExplainWorkspaceAsync(),
             keywords: ["proyecto", "explicar", "estructura", "codigo"],
+            availability: () => _preferences.Workspace.HasAuthorizedFolder
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
+
+        // Diseño D13 — la búsqueda existía desde D12 pero sin comando que la expusiera. Devuelve
+        // ruta, línea y la línea encontrada, ya redactada: una coincidencia puede caer justo encima
+        // de un token.
+        yield return new KohanaCommandDescriptor(
+            "workspace.search",
+            "Buscar en el proyecto autorizado",
+            "Busca un texto dentro de los archivos que Kohana puede leer.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                SearchWorkspace();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["buscar", "proyecto", "codigo", "workspace"],
             availability: () => _preferences.Workspace.HasAuthorizedFolder
                 ? KohanaCommandAvailability.Available
                 : KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
@@ -1740,11 +1878,81 @@ public partial class MainWindow : Window
         _preferences.Workspace.Normalize();
         SavePreferences();
 
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Carpeta de proyecto autorizada",
+            chosen,
+            "Autorización explícita del usuario",
+            (int)_preferences.Workspace.AutonomyLevel,
+            "Revocar el acceso al proyecto.");
+
         ShowFlowNotice(
             CapsuleKind.Success,
             "Proyecto autorizado",
             $"Puedo leer {Path.GetFileName(Path.TrimEndingDirectorySeparator(chosen))}. Solo lectura.");
         ShowWorkspaceStatus();
+    }
+
+    /// <summary>
+    /// Diseño D13 — la paleta de comandos no acepta argumentos, así que la consulta se pide en la
+    /// conversación: el comando deja a Kohana esperando UNA frase, igual que la propuesta de
+    /// recuerdo de D10. Vale una sola, y se cancela como cualquier otra pregunta.
+    /// </summary>
+    private void SearchWorkspace()
+    {
+        _awaitingWorkspaceSearchQuery = true;
+        _assistantView.AddKohanaMessage("¿Qué busco en el proyecto? Escríbelo y lo busco.");
+        NavigateTo("Assistant", animate: true);
+    }
+
+    private bool TryHandleWorkspaceSearchPrompt(string prompt)
+    {
+        if (!_awaitingWorkspaceSearchQuery)
+        {
+            return false;
+        }
+
+        _awaitingWorkspaceSearchQuery = false;
+
+        var normalized = SpanishVoiceTranscriptNormalizer.Normalize(prompt);
+        if (IsVoiceCancellation(normalized))
+        {
+            _assistantView.AddKohanaMessage("De acuerdo, no busco nada.");
+            return true;
+        }
+
+        var workspace = _preferences.Workspace;
+        if (!workspace.HasAuthorizedFolder)
+        {
+            // El acceso pudo revocarse entre el comando y la respuesta. Revocar tiene que surtir
+            // efecto en el acto, incluso a media conversación.
+            _assistantView.AddKohanaMessage("Ya no tengo ninguna carpeta autorizada, así que no busqué nada.");
+            return true;
+        }
+
+        var hits = _workspaceReader.Search(workspace.AuthorizedPath, prompt, maximumHits: 40);
+
+        var message = new StringBuilder();
+        if (hits.Count == 0)
+        {
+            message.Append($"No encontré «{prompt.Trim()}» en el proyecto.");
+        }
+        else
+        {
+            message.AppendLine($"{hits.Count} coincidencias de «{prompt.Trim()}»:");
+            foreach (var hit in hits.Take(25))
+            {
+                message.Append("· ")
+                    .Append(hit.RelativePath)
+                    .Append(':')
+                    .Append(hit.LineNumber)
+                    .Append("  ")
+                    .AppendLine(hit.Line);
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        return true;
     }
 
     private void ShowWorkspaceStatus()
@@ -1783,9 +1991,16 @@ public partial class MainWindow : Window
             return CommandExecutionResult.Failure("No hay ninguna carpeta autorizada.");
         }
 
+        var revoked = _preferences.Workspace.AuthorizedPath;
         _preferences.Workspace.Revoke();
         _preferences.Workspace.Normalize();
         SavePreferences();
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Acceso al proyecto revocado",
+            revoked,
+            "Revocación explícita del usuario");
 
         ShowFlowNotice(
             CapsuleKind.Success,
@@ -2599,6 +2814,11 @@ public partial class MainWindow : Window
             // Diseño D10 — antes de los parsers: "recuerda que prefiero X" es una orden de memoria,
             // no una consulta a la IA. Va después de AddUserMessage para que la frase quede en la
             // conversación igual que cualquier otra.
+            if (TryHandleWorkspaceSearchPrompt(prompt))
+            {
+                return;
+            }
+
             if (TryHandleMemoryPrompt(prompt))
             {
                 return;

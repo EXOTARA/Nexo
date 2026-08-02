@@ -6,6 +6,7 @@ using Nexo.Core.Flow;
 using Nexo.Core.Memory;
 using Nexo.Core.Settings;
 using Nexo.Core.Voice;
+using Nexo.Core.Workspace;
 
 namespace Nexo.App.Views;
 
@@ -43,6 +44,11 @@ public partial class SettingsView : UserControl
     public event Action<IReadOnlyList<string>>? MemoryExclusionsChanged;
     public event EventHandler? MemoryShowRequested;
     public event EventHandler? MemoryForgetAllRequested;
+
+    // Diseño D13 (Fase 5 — Project Companion)
+    public event EventHandler? WorkspaceAuthorizeRequested;
+    public event EventHandler? WorkspaceRevokeRequested;
+    public event Action<WorkspaceAutonomyLevel>? WorkspaceAutonomyLevelChanged;
 
     public event Action<AiProviderKind>? AiProviderChanged;
     public event Action<string>? AiBaseUrlChanged;
@@ -110,6 +116,7 @@ public partial class SettingsView : UserControl
         FlowDictionaryBox.Text = string.Join(Environment.NewLine, preferences.FlowDictionary);
         FlowSnippetsBox.Text = string.Join(Environment.NewLine, preferences.FlowSnippets);
         ApplyMemorySettings(preferences.Memory);
+        ApplyWorkspaceSettings(preferences.Workspace);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
@@ -921,4 +928,55 @@ public partial class SettingsView : UserControl
             ? Visibility.Collapsed
             : Visibility.Visible;
     }
+
+    // ---------- Diseño D13 (Fase 5 — Project Companion) ----------
+
+    /// <summary>
+    /// Diseño D13 — el proyecto dejó de manejarse solo desde la paleta de comandos. Autorizar y
+    /// revocar están aquí, uno al lado del otro, junto a hasta dónde puede llegar Kohana.
+    /// </summary>
+    public void ApplyWorkspaceSettings(WorkspaceSettings? workspace)
+    {
+        var settings = workspace ?? new WorkspaceSettings();
+        var authorized = settings.HasAuthorizedFolder;
+
+        WorkspacePathText.Text = authorized
+            ? $"Carpeta autorizada: {settings.AuthorizedPath}"
+            : "No hay ninguna carpeta autorizada.";
+
+        WorkspaceRevokeButton.IsEnabled = authorized;
+
+        // El nivel solo tiene sentido si hay algo a lo que aplicarlo.
+        WorkspaceAutonomyPanel.IsEnabled = authorized;
+        WorkspaceAutonomyPanel.Opacity = authorized ? 1.0 : 0.55;
+
+        var wasApplying = _isApplyingPreferences;
+        _isApplyingPreferences = true;
+        WorkspaceLevelVerRadioButton.IsChecked = settings.AutonomyLevel == WorkspaceAutonomyLevel.Ver;
+        WorkspaceLevelGuiarRadioButton.IsChecked = settings.AutonomyLevel == WorkspaceAutonomyLevel.Guiar;
+        WorkspaceLevelProponerRadioButton.IsChecked = settings.AutonomyLevel == WorkspaceAutonomyLevel.Proponer;
+        _isApplyingPreferences = wasApplying;
+    }
+
+    private void WorkspaceLevelRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not RadioButton { Tag: string tag })
+        {
+            return;
+        }
+
+        // Solo se emiten niveles que la política ofrece. La interfaz no puede conceder lo que el
+        // modelo de confianza no permite todavía.
+        if (Enum.TryParse<WorkspaceAutonomyLevel>(tag, out var level) &&
+            WorkspaceAutonomyPolicy.IsAvailable(level))
+        {
+            WorkspaceAutonomyLevelChanged?.Invoke(level);
+        }
+    }
+
+    private void WorkspaceAuthorizeButton_Click(object sender, RoutedEventArgs e) =>
+        WorkspaceAuthorizeRequested?.Invoke(this, EventArgs.Empty);
+
+    private void WorkspaceRevokeButton_Click(object sender, RoutedEventArgs e) =>
+        WorkspaceRevokeRequested?.Invoke(this, EventArgs.Empty);
 }

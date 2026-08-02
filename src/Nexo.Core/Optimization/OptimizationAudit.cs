@@ -1,9 +1,12 @@
 namespace Nexo.Core.Optimization;
 
 /// <summary>
-/// Diseño D11 (Fase 4) — qué pasó realmente. El roadmap lista la auditoría entre las tecnologías de
-/// esta fase, y con motivo: un cambio de sistema que nadie puede reconstruir después es
-/// indistinguible de un cambio que no se hizo.
+/// Diseño D11 (Fase 4) — qué pasó realmente con una optimización.
+///
+/// Diseño D13 — el almacén propio de esta capacidad desapareció. Ahora escribe en el Audit Log
+/// único (<see cref="Nexo.Core.Audit.IAuditLog"/>): un registro por capacidad obliga a la persona a
+/// saber de antemano en cuál mirar, y el modelo de confianza pide un solo sitio donde ver qué ha
+/// hecho Kohana. Lo que sobrevive aquí es el vocabulario de acciones, que sí es propio de la fase.
 /// </summary>
 public enum OptimizationAuditAction
 {
@@ -19,55 +22,4 @@ public enum OptimizationAuditAction
     /// importante de los cuatro: significa que el equipo NO se quedó a medias.
     /// </summary>
     RevertidoPorFallo
-}
-
-public sealed class OptimizationAuditEntry
-{
-    public DateTimeOffset At { get; set; }
-
-    public string Scenario { get; set; } = string.Empty;
-
-    public OptimizationAuditAction Action { get; set; }
-
-    /// <summary>Ids de los cambios implicados, en el orden en que se intentaron.</summary>
-    public List<string> Changes { get; set; } = [];
-
-    public string Detail { get; set; } = string.Empty;
-
-    public OptimizationAuditEntry Copy() => new()
-    {
-        At = At,
-        Scenario = Scenario,
-        Action = Action,
-        Changes = [.. Changes],
-        Detail = Detail
-    };
-
-    public string Describe() =>
-        $"{At:yyyy-MM-dd HH:mm} · {Scenario} · {Action}: {Detail}";
-}
-
-/// <summary>
-/// Diseño D11 — registro de solo-añadir. No hay borrado selectivo a propósito: poder quitar una
-/// entrada concreta convertiría la auditoría en una versión de los hechos en vez de en un registro.
-/// El almacén sí recorta las más viejas por tamaño.
-/// </summary>
-public interface IOptimizationAuditLog
-{
-    IReadOnlyList<OptimizationAuditEntry> Read();
-
-    void Append(OptimizationAuditEntry entry);
-}
-
-public sealed class OptimizationAuditState
-{
-    /// <summary>Tope duro: la auditoría es un historial reciente, no un archivo perpetuo.</summary>
-    public const int MaximumEntries = 50;
-
-    public List<OptimizationAuditEntry> Entries { get; set; } = [];
-
-    public OptimizationAuditState Copy() => new()
-    {
-        Entries = Entries.Select(entry => entry.Copy()).ToList()
-    };
 }

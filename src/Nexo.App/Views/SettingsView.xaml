@@ -599,6 +599,50 @@
                        Visibility="Collapsed"
                        Style="{StaticResource MutedTextStyle}" />
 
+            <!-- Diseño D13 (Fase 5 — Project Companion): permisos del proyecto -->
+            <TextBlock Margin="0,24,0,9" Text="Proyecto autorizado" FontWeight="SemiBold" />
+
+            <TextBlock x:Name="WorkspacePathText"
+                       Text="No hay ninguna carpeta autorizada."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+            <TextBlock Margin="0,6,0,0"
+                       Text="Kohana solo puede leer la carpeta que autorices. No lee archivos de credenciales ni carpetas de dependencias, y oculta lo que parezca un secreto antes de enviar nada."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <StackPanel x:Name="WorkspaceAutonomyPanel" Margin="24,12,0,0">
+                <TextBlock Margin="0,0,0,7" Text="Hasta dónde puede llegar" FontWeight="SemiBold" />
+                <RadioButton x:Name="WorkspaceLevelVerRadioButton" Margin="0,0,0,6"
+                             GroupName="WorkspaceLevel" Tag="Ver"
+                             Content="Ver — lee y describe, sin sugerir cambios"
+                             Checked="WorkspaceLevelRadioButton_Checked" />
+                <RadioButton x:Name="WorkspaceLevelGuiarRadioButton" Margin="0,0,0,6"
+                             GroupName="WorkspaceLevel" Tag="Guiar"
+                             Content="Guiar — te dice qué harías tú, y lo haces tú"
+                             Checked="WorkspaceLevelRadioButton_Checked" />
+                <RadioButton x:Name="WorkspaceLevelProponerRadioButton"
+                             GroupName="WorkspaceLevel" Tag="Proponer"
+                             Content="Proponer — redacta el plan de un cambio, sin aplicarlo"
+                             Checked="WorkspaceLevelRadioButton_Checked" />
+                <TextBlock Margin="0,7,0,0"
+                           Text="Modificar archivos todavía no está disponible: antes Kohana tiene que poder guardar una copia previa de cada archivo y registrar cada cambio."
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+            </StackPanel>
+
+            <WrapPanel Margin="24,12,0,0">
+                <Button Content="Autorizar una carpeta"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="WorkspaceAuthorizeButton_Click" />
+                <Button x:Name="WorkspaceRevokeButton"
+                        Margin="9,0,0,0"
+                        Content="Revocar el acceso"
+                        IsEnabled="False"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="WorkspaceRevokeButton_Click" />
+            </WrapPanel>
+
             <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
             <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
                       Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />

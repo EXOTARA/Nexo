@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Nexo.Core.AdaptiveEngine;
+using Nexo.Core.Audit;
 using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
 using Nexo.Core.Optimization;
@@ -14,11 +15,13 @@ namespace Nexo.App.Views;
 public partial class SystemView : UserControl
 {
     private readonly ObservableCollection<AdaptiveEnginePlanRow> _adaptiveEnginePlanRows = [];
+    private readonly ObservableCollection<AuditRow> _auditRows = [];
 
     public SystemView()
     {
         InitializeComponent();
         AdaptiveEnginePlanItemsControl.ItemsSource = _adaptiveEnginePlanRows;
+        AuditItemsControl.ItemsSource = _auditRows;
     }
 
     public event EventHandler? RestartVoiceRequested;
@@ -61,6 +64,47 @@ public partial class SystemView : UserControl
 
         OptimizationUndoButton.IsEnabled = canUndo;
     }
+
+    // ---------- Diseño D13: Audit Log orientado al usuario ----------
+
+    public event EventHandler? AuditRefreshRequested;
+
+    private void AuditRefreshButton_Click(object sender, RoutedEventArgs e) =>
+        AuditRefreshRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// Diseño D13 — cada entrada muestra los cuatro datos que el modelo de confianza exige, en
+    /// campos separados. "Sin vuelta atrás" se enseña igual que una reversión disponible: callarlo
+    /// haría parecer que todo se puede deshacer.
+    /// </summary>
+    public void UpdateAudit(IReadOnlyList<AuditEntry> entries)
+    {
+        _auditRows.Clear();
+
+        foreach (var entry in (entries ?? []).Take(25))
+        {
+            _auditRows.Add(new AuditRow(
+                Headline: $"{entry.Capability} · {entry.Action}",
+                When: entry.At.ToString("dd/MM HH:mm"),
+                Detail: entry.Detail,
+                PermissionLine: string.IsNullOrWhiteSpace(entry.Permission)
+                    ? "Permiso: —"
+                    : $"Permiso: {entry.Permission}" +
+                      (entry.AutonomyLevel is { } level ? $" · nivel de autonomía {level}" : string.Empty),
+                ReversalLine: string.IsNullOrWhiteSpace(entry.RevertHint)
+                    ? "Sin vuelta atrás automática."
+                    : $"Cómo deshacerlo: {entry.RevertHint}"));
+        }
+
+        AuditEmptyText.Visibility = _auditRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private sealed record AuditRow(
+        string Headline,
+        string When,
+        string Detail,
+        string PermissionLine,
+        string ReversalLine);
 
     public void UpdateSnapshot(SystemSnapshot snapshot)
     {

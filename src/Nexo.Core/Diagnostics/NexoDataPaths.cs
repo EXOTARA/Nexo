@@ -184,9 +184,15 @@ public static class NexoDataPaths
     public static string OptimizationSnapshot =>
         Path.Combine(RootDirectory, "optimization-snapshot.json");
 
-    /// <summary>Diseño D11 — registro de qué optimizaciones se aplicaron, se deshicieron o fallaron.</summary>
+    /// <summary>
+    /// Diseño D11 — registro propio de la optimización. Sustituido en D13 por el Audit Log único;
+    /// la ruta sobrevive solo para poder importar lo que ya estuviera escrito.
+    /// </summary>
     public static string OptimizationAudit =>
         Path.Combine(RootDirectory, "optimization-audit.json");
+
+    /// <summary>Diseño D13 — Audit Log orientado al usuario: qué hizo Kohana, cuándo y con qué permiso.</summary>
+    public static string Audit => Path.Combine(RootDirectory, "audit.json");
 
     /// <summary>Diseño D12 — carpeta de trabajo autorizada y su historial de autorizaciones.</summary>
     public static string Workspace => Path.Combine(RootDirectory, "workspace.json");

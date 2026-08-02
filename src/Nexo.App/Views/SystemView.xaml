@@ -240,6 +240,67 @@
                 </StackPanel>
             </Border>
 
+            <!-- Diseño D13: Audit Log orientado al usuario -->
+            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Qué ha hecho Kohana" FontSize="16" FontWeight="SemiBold" />
+                            <TextBlock Margin="0,3,0,0"
+                                       Text="Cada acción con efecto real: qué se hizo, cuándo, con qué permiso y cómo deshacerlo."
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                VerticalAlignment="Top"
+                                Content="Actualizar"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="AuditRefreshButton_Click" />
+                    </Grid>
+
+                    <ItemsControl x:Name="AuditItemsControl" Margin="-4,10,-4,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="4" Padding="11" Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Headline}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="9,0,0,0"
+                                                       Text="{Binding When}"
+                                                       Style="{StaticResource MutedTextStyle}" />
+                                        </Grid>
+                                        <TextBlock Margin="0,4,0,0" Text="{Binding Detail}" TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   Text="{Binding PermissionLine}"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource MutedTextStyle}" />
+                                        <TextBlock Margin="0,2,0,0"
+                                                   Text="{Binding ReversalLine}"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource MutedTextStyle}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock x:Name="AuditEmptyText"
+                               Margin="0,9,0,0"
+                               Text="Todavía no he hecho nada que valga la pena registrar."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+            </Border>
+
             <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,12">
                 <Grid>
                     <Grid.ColumnDefinitions>

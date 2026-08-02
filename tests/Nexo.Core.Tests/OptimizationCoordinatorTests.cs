@@ -1,4 +1,5 @@
 using Nexo.Core.AdaptiveEngine;
+using Nexo.Core.Audit;
 using Nexo.Core.Optimization;
 
 namespace Nexo.Core.Tests;
@@ -93,13 +94,13 @@ public sealed class OptimizationCoordinatorTests
         }
     }
 
-    private sealed class FakeAuditLog : IOptimizationAuditLog
+    private sealed class FakeAuditLog : IAuditLog
     {
-        public List<OptimizationAuditEntry> Entries { get; } = [];
+        public List<AuditEntry> Entries { get; } = [];
 
-        public IReadOnlyList<OptimizationAuditEntry> Read() => Entries;
+        public IReadOnlyList<AuditEntry> Read() => Entries;
 
-        public void Append(OptimizationAuditEntry entry) => Entries.Add(entry);
+        public void Append(AuditEntry entry) => Entries.Add(entry);
     }
 
     // ---------- Ayudas ----------
@@ -156,7 +157,7 @@ public sealed class OptimizationCoordinatorTests
         Assert.False(result.IsApplied);
         Assert.Empty(system.Applied);
         Assert.Null(snapshots.Current);
-        Assert.Equal(OptimizationAuditAction.Fallido, audit.Entries.Single().Action);
+        Assert.StartsWith(nameof(OptimizationAuditAction.Fallido), audit.Entries.Single().Action);
     }
 
     [Fact]
@@ -231,7 +232,7 @@ public sealed class OptimizationCoordinatorTests
         Assert.False(result.IsApplied);
         Assert.Equal([PreviousPlan], system.Restored);
         Assert.Contains("como estaba", result.Detail);
-        Assert.Equal(OptimizationAuditAction.RevertidoPorFallo, audit.Entries.Single().Action);
+        Assert.StartsWith(nameof(OptimizationAuditAction.RevertidoPorFallo), audit.Entries.Single().Action);
 
         // Sin snapshot: no quedó nada aplicado que deshacer.
         Assert.Null(snapshots.Current);
@@ -249,7 +250,7 @@ public sealed class OptimizationCoordinatorTests
 
         Assert.False(result.IsApplied);
         Assert.Contains("no pude deshacer", result.Detail);
-        Assert.Equal(OptimizationAuditAction.Fallido, audit.Entries.Single().Action);
+        Assert.StartsWith(nameof(OptimizationAuditAction.Fallido), audit.Entries.Single().Action);
     }
 
     // ---------- Camino feliz y deshacer ----------
@@ -268,7 +269,7 @@ public sealed class OptimizationCoordinatorTests
         Assert.Equal(["power.highPerformance"], system.Applied);
         Assert.Equal([HardwarePerformanceMode.Eco], footprint.Applied);
         Assert.True(coordinator.HasSomethingToUndo);
-        Assert.Equal(OptimizationAuditAction.Aplicado, audit.Entries.Single().Action);
+        Assert.StartsWith(nameof(OptimizationAuditAction.Aplicado), audit.Entries.Single().Action);
     }
 
     [Fact]
@@ -284,7 +285,7 @@ public sealed class OptimizationCoordinatorTests
         Assert.Equal([PreviousPlan], system.Restored);
         Assert.Equal(HardwarePerformanceMode.Maximum, footprint.Mode);
         Assert.False(coordinator.HasSomethingToUndo);
-        Assert.Contains(audit.Entries, entry => entry.Action == OptimizationAuditAction.Restaurado);
+        Assert.Contains(audit.Entries, entry => entry.Action.StartsWith(nameof(OptimizationAuditAction.Restaurado)));
     }
 
     [Fact]

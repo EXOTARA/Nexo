@@ -1,4 +1,5 @@
 using Nexo.Core.AdaptiveEngine;
+using Nexo.Core.Audit;
 
 namespace Nexo.Core.Optimization;
 
@@ -25,14 +26,14 @@ public sealed class OptimizationCoordinator
     private readonly IOptimizationApplier _system;
     private readonly IKohanaFootprintApplier _footprint;
     private readonly IOptimizationSnapshotStore _snapshots;
-    private readonly IOptimizationAuditLog _audit;
+    private readonly IAuditLog _audit;
     private readonly Func<DateTimeOffset> _clock;
 
     public OptimizationCoordinator(
         IOptimizationApplier system,
         IKohanaFootprintApplier footprint,
         IOptimizationSnapshotStore snapshots,
-        IOptimizationAuditLog audit,
+        IAuditLog audit,
         Func<DateTimeOffset>? clock = null)
     {
         _system = system;
@@ -152,7 +153,8 @@ public sealed class OptimizationCoordinator
         return OptimizationApplyResult.Applied(restored, message);
     }
 
-    public IReadOnlyList<OptimizationAuditEntry> ReadAudit() => _audit.Read();
+    public IReadOnlyList<AuditEntry> ReadAudit() =>
+        [.. _audit.Read().Where(entry => entry.Capability == AuditCapability.Optimizacion)];
 
     /// <summary>
     /// Regla 1: captura el estado anterior de CADA objetivo que el plan piensa tocar. Devuelve null
@@ -224,19 +226,34 @@ public sealed class OptimizationCoordinator
         string detail) =>
         Record(scenario.ToString(), action, changes, detail);
 
+    /// <summary>
+    /// Diseño D13 — cada entrada trae los cuatro datos que el modelo de confianza exige. "Cómo
+    /// revertirlo" solo se rellena cuando de verdad hay vuelta atrás: prometerla donde no la hay
+    /// sería peor que no decir nada.
+    /// </summary>
     private void Record(
         string scenario,
         OptimizationAuditAction action,
         IReadOnlyList<OptimizationChange> changes,
-        string detail) =>
-        _audit.Append(new OptimizationAuditEntry
+        string detail)
+    {
+        var changeIds = changes.Count == 0
+            ? string.Empty
+            : $" [{string.Join(", ", changes.Select(change => change.Id))}]";
+
+        _audit.Append(new AuditEntry
         {
             At = _clock(),
-            Scenario = scenario,
-            Action = action,
-            Changes = [.. changes.Select(change => change.Id)],
-            Detail = detail
+            Capability = AuditCapability.Optimizacion,
+            Action = $"{action} ({scenario})",
+            Detail = detail + changeIds,
+            Permission = "Optimización confirmada por el usuario",
+            RevertHint = action == OptimizationAuditAction.Aplicado
+                ? "Deshacer la última optimización."
+                : string.Empty,
+            RevertToken = action == OptimizationAuditAction.Aplicado ? scenario : string.Empty
         });
+    }
 
     private static bool TryParseMode(string? value, out HardwarePerformanceMode mode) =>
         Enum.TryParse(value, out mode) && Enum.IsDefined(mode);
