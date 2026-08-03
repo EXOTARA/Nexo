@@ -38,6 +38,7 @@ using Nexo.Core.Optimization;
 using Nexo.Core.Permissions;
 using Nexo.Core.Productization;
 using Nexo.Core.SelfCheck;
+using Nexo.Core.Sequences;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Shell;
@@ -205,6 +206,9 @@ public partial class MainWindow : Window
 
     /// <summary>Diseño D22 — comprobaciones que tocan disco, en una carpeta temporal aparte.</summary>
     private readonly WindowsSelfCheckProbes _selfCheckProbes = new();
+
+    /// <summary>Diseño D24 (nivel 5) — encadena pasos parando en los puntos de riesgo.</summary>
+    private readonly SequenceCoordinator _sequenceCoordinator;
 
     private readonly UpdateSafetyCoordinator _updateSafety;
 
@@ -404,6 +408,7 @@ public partial class MainWindow : Window
             new WindowsUiAutomationInvoker(_lensUiAutomationReader));
 
         _updateSafety = new UpdateSafetyCoordinator(_backupService, _auditLog);
+        _sequenceCoordinator = new SequenceCoordinator(_auditLog);
 
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
@@ -2980,8 +2985,23 @@ public partial class MainWindow : Window
     /// crearía, y cuánto ocupa lo nuevo: aceptar un cambio sin saber sobre qué archivo cae es
     /// aceptar a ciegas.
     /// </summary>
+    /// <summary>
+    /// Diseño D24 — con el nivel 5, una respuesta puede traer varios cambios y se ejecutan como
+    /// secuencia: parada al primer fallo, confirmación en los puntos de riesgo y reversión de lo ya
+    /// aplicado. Por debajo del nivel 5 se sigue exigiendo exactamente uno.
+    /// </summary>
     private void OfferWorkspaceEdit(string answer)
     {
+        if (_preferences.Workspace.AutonomyLevel == AutonomyLevel.ColaborarConConfirmaciones)
+        {
+            var sequence = WorkspaceEditParser.ParseSequence(answer);
+            if (sequence.Count > 1)
+            {
+                RunWorkspaceEditSequence(sequence);
+                return;
+            }
+        }
+
         var edit = WorkspaceEditParser.Parse(answer);
         if (edit is null)
         {
@@ -3040,6 +3060,102 @@ public partial class MainWindow : Window
             result.Detail);
 
         RefreshAuditPanel();
+    }
+
+    /// <summary>
+    /// Diseño D24 — arma la secuencia y la ejecuta. **Todo cambio de archivo es punto de riesgo**:
+    /// tocar el trabajo de alguien lo es por definición, y marcar unos sí y otros no exigiría un
+    /// criterio que Kohana no tiene. Que el nivel 5 pregunte en cada archivo no lo vuelve inútil —
+    /// sigue ahorrando redactar y encadenar los cambios uno a uno.
+    /// </summary>
+    private void RunWorkspaceEditSequence(IReadOnlyList<WorkspaceEdit> edits)
+    {
+        var workspace = _preferences.Workspace;
+        var checkpoints = new List<Guid>();
+
+        var steps = edits.Select(edit => new SequenceStep(
+            edit.RelativePath,
+            $"{edit.RelativePath} — {edit.Description}",
+            IsRiskPoint: true,
+            CanRevert: true,
+            Execute: () =>
+            {
+                var result = _workspaceEditCoordinator.Apply(edit, workspace);
+                if (result.Success)
+                {
+                    checkpoints.Add(result.CheckpointId);
+                }
+
+                return result.Success
+                    ? SequenceStepResult.Ok(result.Detail)
+                    : SequenceStepResult.Failed(result.Detail);
+            },
+            Revert: () =>
+            {
+                var last = checkpoints.LastOrDefault();
+                if (last == Guid.Empty)
+                {
+                    return SequenceStepResult.Failed("No tengo copia previa de ese paso.");
+                }
+
+                checkpoints.Remove(last);
+                var reverted = _workspaceEditCoordinator.Revert(last, workspace);
+
+                return reverted.Success
+                    ? SequenceStepResult.Ok(reverted.Detail)
+                    : SequenceStepResult.Failed(reverted.Detail);
+            })).ToArray();
+
+        var plan = new SequencePlan($"{edits.Count} cambios en el proyecto", steps);
+
+        var start = MessageBox.Show(
+            this,
+            $"Kohana propone {edits.Count} cambios:" + Environment.NewLine +
+                string.Join(Environment.NewLine, edits.Select(edit => $"· {edit.RelativePath}")) +
+                Environment.NewLine + Environment.NewLine + plan.ReversalWarning +
+                Environment.NewLine + Environment.NewLine +
+                "Te preguntaré antes de cada archivo. ¿Empiezo?",
+            "Aplicar varios cambios",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (start != MessageBoxResult.Yes)
+        {
+            _assistantView.AddKohanaMessage("No apliqué ningún cambio.");
+            return;
+        }
+
+        var report = _sequenceCoordinator.Run(
+            plan,
+            workspace.AutonomyLevel,
+            confirmRiskPoint: step => MessageBox.Show(
+                this,
+                $"{step.Title}{Environment.NewLine}{Environment.NewLine}¿Aplico este?",
+                "Siguiente cambio",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) == MessageBoxResult.Yes,
+            confirmRollback: applied => MessageBox.Show(
+                this,
+                $"Algo falló y hay {applied.Count} cambios ya aplicados." + Environment.NewLine +
+                    Environment.NewLine + "¿Los deshago y lo dejo como estaba?",
+                "Deshacer lo aplicado",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) == MessageBoxResult.Yes);
+
+        var message = new StringBuilder();
+        message.AppendLine(report.Detail);
+        foreach (var line in report.Log)
+        {
+            message.Append("· ").AppendLine(line);
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        RefreshAuditPanel();
+
+        ShowFlowNotice(
+            report.Outcome == SequenceOutcome.Completada ? CapsuleKind.Success : CapsuleKind.Warning,
+            report.Outcome == SequenceOutcome.Completada ? "Cambios aplicados" : "Secuencia detenida",
+            report.Detail);
     }
 
     private CommandExecutionResult UndoLastWorkspaceEdit()

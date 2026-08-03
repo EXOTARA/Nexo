@@ -29,12 +29,23 @@ public static class WorkspaceAutonomyPolicy
     /// </summary>
     public static AutonomyLevel Default => AutonomyLevel.Guiar;
 
+    /// <summary>
+    /// **Diseño D24 — se abre el nivel 5** para el acompañante de proyecto, y solo para él. La
+    /// obligación que lo bloqueaba es la del modelo de confianza para la recuperación tras fallo:
+    /// *"ofrecer revertir lo ya aplicado usando el snapshot previo"*. Aquí se puede cumplir porque
+    /// cada paso es una edición con su checkpoint por archivo (D14). Donde no se pueda cumplir —
+    /// Computer Use, cuyos métodos casi nunca saben volver atrás— el nivel sigue cerrado.
+    ///
+    /// El nivel 6 sigue cerrado en todas partes: automatizar una secuencia aprobada de antemano
+    /// significa actuar sin confirmar en el momento, y eso es otro problema que no se ha demostrado.
+    /// </summary>
     public static bool IsAvailable(AutonomyLevel level) => level switch
     {
         AutonomyLevel.Ver or
         AutonomyLevel.Guiar or
         AutonomyLevel.Proponer or
-        AutonomyLevel.EjecutarUnPaso => true,
+        AutonomyLevel.EjecutarUnPaso or
+        AutonomyLevel.ColaborarConConfirmaciones => true,
         _ => false
     };
 
@@ -50,10 +61,9 @@ public static class WorkspaceAutonomyPolicy
     /// <summary>Por qué un nivel no está disponible. Se dice, no se ignora en silencio.</summary>
     public static string ExplainUnavailable(AutonomyLevel level) => level switch
     {
-        AutonomyLevel.ColaborarConConfirmaciones or
         AutonomyLevel.AutomatizarSecuencia =>
-            "Todavía no puedo encadenar varios cambios seguidos. Hoy hago uno cada vez, y cada uno " +
-            "lo confirmas tú.",
+            "Todavía no ejecuto una secuencia entera sin preguntarte por el camino. Hoy, como mucho, " +
+            "encadeno pasos confirmando en los puntos de riesgo.",
         _ => "Ese nivel de autonomía no existe."
     };
 
@@ -64,7 +74,8 @@ public static class WorkspaceAutonomyPolicy
         AutonomyLevel.Proponer => "Proponer: redacto el plan de un cambio, sin aplicarlo.",
         AutonomyLevel.EjecutarUnPaso =>
             "Ejecutar un paso: aplico un cambio cada vez, y cada uno lo confirmas tú.",
-        AutonomyLevel.ColaborarConConfirmaciones => "Colaborar con confirmaciones (no disponible todavía).",
+        AutonomyLevel.ColaborarConConfirmaciones =>
+            "Colaborar: encadeno varios cambios, y me paro a preguntarte en los que tienen riesgo.",
         AutonomyLevel.AutomatizarSecuencia => "Automatizar una secuencia (no disponible todavía).",
         _ => level.ToString()
     };

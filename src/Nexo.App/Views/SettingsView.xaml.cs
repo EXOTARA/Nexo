@@ -969,6 +969,9 @@ public partial class SettingsView : UserControl
         WorkspaceLevelVerRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Ver;
         WorkspaceLevelGuiarRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Guiar;
         WorkspaceLevelProponerRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Proponer;
+        WorkspaceLevelEjecutarRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.EjecutarUnPaso;
+        WorkspaceLevelColaborarRadioButton.IsChecked =
+            settings.AutonomyLevel == AutonomyLevel.ColaborarConConfirmaciones;
         _isApplyingPreferences = wasApplying;
     }
 

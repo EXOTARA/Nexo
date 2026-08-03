@@ -745,12 +745,20 @@
                              GroupName="WorkspaceLevel" Tag="Guiar"
                              Content="Guiar — te dice qué harías tú, y lo haces tú"
                              Checked="WorkspaceLevelRadioButton_Checked" />
-                <RadioButton x:Name="WorkspaceLevelProponerRadioButton"
+                <RadioButton x:Name="WorkspaceLevelProponerRadioButton" Margin="0,0,0,6"
                              GroupName="WorkspaceLevel" Tag="Proponer"
                              Content="Proponer — redacta el plan de un cambio, sin aplicarlo"
                              Checked="WorkspaceLevelRadioButton_Checked" />
+                <RadioButton x:Name="WorkspaceLevelEjecutarRadioButton" Margin="0,0,0,6"
+                             GroupName="WorkspaceLevel" Tag="EjecutarUnPaso"
+                             Content="Ejecutar un paso — aplica un cambio cada vez, y lo confirmas tú"
+                             Checked="WorkspaceLevelRadioButton_Checked" />
+                <RadioButton x:Name="WorkspaceLevelColaborarRadioButton"
+                             GroupName="WorkspaceLevel" Tag="ColaborarConConfirmaciones"
+                             Content="Colaborar — encadena varios cambios y se para en los de riesgo"
+                             Checked="WorkspaceLevelRadioButton_Checked" />
                 <TextBlock Margin="0,7,0,0"
-                           Text="Modificar archivos todavía no está disponible: antes Kohana tiene que poder guardar una copia previa de cada archivo y registrar cada cambio."
+                           Text="Ejecutar una secuencia entera sin preguntar por el camino no está disponible. Cualquier cambio guarda antes una copia del archivo, así que siempre se puede deshacer."
                            TextWrapping="Wrap"
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>

@@ -35,16 +35,27 @@ public sealed class WorkspaceAutonomyTests
     public void LevelsOneToThree_CanStillNotWrite(AutonomyLevel level) =>
         Assert.False(WorkspaceAutonomyPolicy.CanWrite(level));
 
-    [Theory]
-    [InlineData(AutonomyLevel.ColaborarConConfirmaciones)]
-    [InlineData(AutonomyLevel.AutomatizarSecuencia)]
-    public void ChainedLevels_AreNotAvailableYet_AndSayWhy(AutonomyLevel level)
+    /// <summary>
+    /// Diseño D24 — el nivel 5 se abrió para el proyecto porque aquí la obligación de "revertir lo
+    /// ya aplicado" sí se puede cumplir: cada paso es una edición con su copia previa por archivo.
+    /// </summary>
+    [Fact]
+    public void LevelFive_IsAvailableForTheProject_BecauseEveryStepHasACheckpoint()
     {
-        // Encadenar pasos y automatizar una secuencia son problemas distintos de "hacer un cambio
-        // confirmado", y ninguno se ha demostrado todavía.
-        Assert.False(WorkspaceAutonomyPolicy.IsAvailable(level));
-        Assert.False(WorkspaceAutonomyPolicy.CanWrite(level));
-        Assert.Contains("encadenar", WorkspaceAutonomyPolicy.ExplainUnavailable(level));
+        Assert.True(WorkspaceAutonomyPolicy.IsAvailable(AutonomyLevel.ColaborarConConfirmaciones));
+        Assert.True(WorkspaceAutonomyPolicy.CanWrite(AutonomyLevel.ColaborarConConfirmaciones));
+    }
+
+    [Fact]
+    public void LevelSix_IsStillClosed_AndSaysWhy()
+    {
+        // Automatizar una secuencia aprobada de antemano significa actuar sin confirmar en el
+        // momento, y eso es otro problema.
+        Assert.False(WorkspaceAutonomyPolicy.IsAvailable(AutonomyLevel.AutomatizarSecuencia));
+        Assert.False(WorkspaceAutonomyPolicy.CanWrite(AutonomyLevel.AutomatizarSecuencia));
+        Assert.Contains(
+            "sin preguntarte",
+            WorkspaceAutonomyPolicy.ExplainUnavailable(AutonomyLevel.AutomatizarSecuencia));
     }
 
     [Fact]

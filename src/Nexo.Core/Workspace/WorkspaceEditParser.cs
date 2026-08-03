@@ -46,6 +46,96 @@ public static class WorkspaceEditParser
         Environment.NewLine + Fence +
         Environment.NewLine + "Si no hace falta cambiar ningún archivo, responde normalmente y no uses ese formato.";
 
+    /// <summary>
+    /// Diseño D24 (nivel 5) — extrae TODOS los cambios propuestos, en orden. El nivel 4 sigue
+    /// usando <see cref="Parse"/>, que exige exactamente uno; encadenar varios es el nivel 5 y por
+    /// eso es un método distinto y no un parámetro: si fuera un parámetro, un descuido en la
+    /// llamada convertiría un paso confirmado en cinco.
+    ///
+    /// El formato de cada bloque es el mismo, exacto, y un bloque mal formado **invalida la
+    /// secuencia entera**. En una secuencia, saltarse el bloque que no se entiende es peor que en un
+    /// cambio suelto: los pasos siguientes pueden dar por hecho el que se saltó.
+    /// </summary>
+    public static IReadOnlyList<WorkspaceEdit> ParseSequence(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            return [];
+        }
+
+        var lines = answer.ReplaceLineEndings("\n").Split('\n');
+        var edits = new List<WorkspaceEdit>();
+        var index = 0;
+
+        while (index < lines.Length)
+        {
+            if (!lines[index].TrimStart().StartsWith(PathMarker, StringComparison.Ordinal))
+            {
+                index++;
+                continue;
+            }
+
+            var block = TryReadBlock(lines, index, out var next);
+            if (block is null)
+            {
+                // Un bloque roto invalida la secuencia entera, a propósito.
+                return [];
+            }
+
+            edits.Add(block);
+            index = next;
+        }
+
+        return edits;
+    }
+
+    private static WorkspaceEdit? TryReadBlock(string[] lines, int pathIndex, out int nextIndex)
+    {
+        nextIndex = pathIndex + 1;
+
+        var relativePath = lines[pathIndex].TrimStart()[PathMarker.Length..].Trim();
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return null;
+        }
+
+        if (pathIndex + 1 >= lines.Length ||
+            !lines[pathIndex + 1].TrimStart().StartsWith(ReasonMarker, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var reason = lines[pathIndex + 1].TrimStart()[ReasonMarker.Length..].Trim();
+
+        var openFence = FindFence(lines, pathIndex + 2);
+        if (openFence < 0)
+        {
+            return null;
+        }
+
+        var closeFence = FindFence(lines, openFence + 1);
+        if (closeFence < 0)
+        {
+            return null;
+        }
+
+        var content = new StringBuilder();
+        for (var line = openFence + 1; line < closeFence; line++)
+        {
+            content.Append(lines[line]).Append(Environment.NewLine);
+        }
+
+        nextIndex = closeFence + 1;
+
+        var text = content.ToString();
+        return string.IsNullOrWhiteSpace(text)
+            ? null
+            : new WorkspaceEdit(
+                relativePath,
+                text,
+                string.IsNullOrWhiteSpace(reason) ? "Cambio propuesto por Kohana." : reason);
+    }
+
     public static WorkspaceEdit? Parse(string? answer)
     {
         if (string.IsNullOrWhiteSpace(answer))
