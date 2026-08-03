@@ -47,6 +47,65 @@ public sealed class SkillPackTests
     // ---------- El catálogo ----------
 
     [Fact]
+    public void TheSixPacksTheRoadmapNamesExist()
+    {
+        // El criterio de terminado de la fase pedía al menos dos (D15). D23 completa los seis que
+        // el roadmap nombra: Dev, Study, Support, Creator, Access y Meeting.
+        Assert.Equal(6, SkillPackCatalog.All.Count);
+        Assert.Equal(
+            Enum.GetValues<SkillPackId>().Length,
+            SkillPackCatalog.All.Select(pack => pack.Id).Distinct().Count());
+
+        foreach (var id in Enum.GetValues<SkillPackId>())
+        {
+            Assert.NotNull(SkillPackCatalog.Get(id));
+        }
+    }
+
+    [Fact]
+    public void EveryPackOnlyTouchesSettingsThatAlreadyExisted()
+    {
+        // La regla de la fase: los packs combinan capacidades ya implementadas, no inventan
+        // ninguna. Si un ajuste no se puede leer y escribir sobre unas preferencias normales, es que
+        // el pack se inventó algo.
+        var preferences = new ShellPreferences();
+
+        Assert.All(SkillPackCatalog.All.SelectMany(pack => pack.Settings), setting =>
+        {
+            var before = setting.Read(preferences);
+            setting.Write(preferences, setting.DesiredValue);
+            Assert.Equal(setting.DesiredValue, setting.Read(preferences));
+
+            setting.Write(preferences, before);
+            Assert.Equal(before, setting.Read(preferences));
+        });
+    }
+
+    [Fact]
+    public void EveryPackIsReversible()
+    {
+        // Cada pack, no solo los dos primeros: activar y desactivar tiene que devolver exactamente
+        // lo que había.
+        foreach (var pack in SkillPackCatalog.All)
+        {
+            var (coordinator, _, _) = Build();
+            var preferences = new ShellPreferences();
+
+            var before = pack.Settings.ToDictionary(
+                setting => setting.Id,
+                setting => setting.Read(preferences));
+
+            coordinator.Apply(pack, preferences);
+            coordinator.Revert(preferences);
+
+            foreach (var setting in pack.Settings)
+            {
+                Assert.Equal(before[setting.Id], setting.Read(preferences));
+            }
+        }
+    }
+
+    [Fact]
     public void TherAreTwoCompletePacks()
     {
         // El criterio de terminado de la fase: al menos dos.

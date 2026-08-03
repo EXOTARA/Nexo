@@ -599,6 +599,47 @@
                        Visibility="Collapsed"
                        Style="{StaticResource MutedTextStyle}" />
 
+            <!-- Diseño D23 (Fase 8 — Skills Platform): packs -->
+            <TextBlock Margin="0,24,0,9" Text="Packs de Kohana" FontWeight="SemiBold" />
+            <TextBlock Text="Un pack deja configuradas de una vez varias cosas que ya sabe hacer Kohana. No activa ningún permiso por su cuenta: si le hace falta alguno, te lo dice. Solo puede haber uno activo, y desactivarlo devuelve tus ajustes a como estaban."
+                       TextWrapping="Wrap"
+                       Style="{StaticResource MutedTextStyle}" />
+
+            <ItemsControl x:Name="SkillPackItemsControl" Margin="20,11,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,0,9" Padding="11"
+                                Background="{DynamicResource BrushSurfaceRaised}" CornerRadius="12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Margin="0,3,0,0"
+                                               Text="{Binding Purpose}"
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource MutedTextStyle}" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               Text="{Binding StateLine}"
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource MutedTextStyle}" />
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Margin="11,0,0,0"
+                                        VerticalAlignment="Center"
+                                        MinWidth="104"
+                                        Content="{Binding ButtonText}"
+                                        Tag="{Binding Id}"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Click="SkillPackButton_Click" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
             <!-- Diseño D16: permisos por capacidad -->
             <TextBlock Margin="0,24,0,9" Text="Permisos de Kohana" FontWeight="SemiBold" />
             <TextBlock Text="Cada capacidad pide su permiso por separado: darle uno no le da los demás. Hay cosas que Kohana te pregunta siempre, aunque las tengas permitidas — borrar algo sin recuperación, tocar credenciales, enviar algo fuera de tu equipo o pedir permisos de administrador."

@@ -498,6 +498,7 @@ public partial class MainWindow : Window
         // Diseño D13 — la auditoría se enseña ya poblada. Un panel vacío al abrir haría pensar que
         // no hay registro, cuando lo que pasa es que nadie lo ha pedido todavía.
         RefreshAuditPanel();
+        RefreshSkillPackPanel();
         _systemView.SetOptimizationStatus(detail: null, _optimizationCoordinator.HasSomethingToUndo);
         UpdateAiProviderStatus();
         ApplyPreferences();
@@ -808,6 +809,19 @@ public partial class MainWindow : Window
 
             _settingsView.SetPermissionsStatus(
                 $"«{CapabilityTitleFor(capability)}» quedó en {level}.");
+        };
+
+        // Diseño D23 — los packs, ya activables desde Personalizar y no solo desde la paleta.
+        _settingsView.SkillPackActivationRequested += id =>
+        {
+            ApplySkillPack(SkillPackCatalog.Get(id));
+            RefreshSkillPackPanel();
+        };
+
+        _settingsView.SkillPackDeactivationRequested += (_, _) =>
+        {
+            RevertSkillPack();
+            RefreshSkillPackPanel();
         };
 
         // Diseño D19 — las exclusiones por aplicación, ya editables sin abrir settings.json.
@@ -2889,6 +2903,9 @@ public partial class MainWindow : Window
     /// plan de motores, los módulos visibles). Se reaplican todas en vez de una lista a mano: una
     /// lista se queda corta en cuanto un pack cambia un ajuste nuevo.
     /// </summary>
+    private void RefreshSkillPackPanel() =>
+        _settingsView.ApplySkillPacks(_skillPackCoordinator.ActivePackId, _preferences);
+
     private void AfterSkillPackChange(SkillPackResult result, string title)
     {
         SavePreferences();
@@ -2897,6 +2914,7 @@ public partial class MainWindow : Window
         ApplyFlowHotkeyRegistration();
         RefreshAdaptiveEnginePlan();
         RefreshAuditPanel();
+        RefreshSkillPackPanel();
 
         _assistantView.AddKohanaMessage(result.Detail);
         ShowFlowNotice(result.Success ? CapsuleKind.Success : CapsuleKind.Warning, title, result.Detail);

@@ -6,6 +6,7 @@ using Nexo.Core.Flow;
 using Nexo.Core.Memory;
 using Nexo.Core.Permissions;
 using Nexo.Core.Settings;
+using Nexo.Core.Skills;
 using Nexo.Core.Voice;
 using Nexo.Core.Workspace;
 
@@ -51,6 +52,10 @@ public partial class SettingsView : UserControl
 
     // Diseño D19: exclusiones por aplicación
     public event Action<IReadOnlyList<string>>? PermissionExclusionsChanged;
+
+    // Diseño D23 (Fase 8 — Skills Platform)
+    public event Action<SkillPackId>? SkillPackActivationRequested;
+    public event EventHandler? SkillPackDeactivationRequested;
 
     // Diseño D13 (Fase 5 — Project Companion)
     public event EventHandler? WorkspaceAuthorizeRequested;
@@ -1059,6 +1064,63 @@ public partial class SettingsView : UserControl
 
         CapabilityPermissionChanged?.Invoke(capability, level);
     }
+
+    // ---------- Diseño D23 (Fase 8 — Skills Platform) ----------
+
+    private readonly System.Collections.ObjectModel.ObservableCollection<SkillPackRow> _skillPackRows = [];
+
+    /// <summary>
+    /// Diseño D23 — los seis packs con su estado. Cada fila dice qué le falta al pack **antes** de
+    /// activarlo: enterarse después de que necesitaba un permiso que no diste es enterarse tarde.
+    /// </summary>
+    public void ApplySkillPacks(SkillPackId? activePack, ShellPreferences preferences)
+    {
+        _skillPackRows.Clear();
+        SkillPackItemsControl.ItemsSource = _skillPackRows;
+
+        foreach (var pack in SkillPackCatalog.All)
+        {
+            var isActive = activePack == pack.Id;
+            var missing = pack.Requirements.Count(requirement => !requirement.IsSatisfied(preferences));
+
+            _skillPackRows.Add(new SkillPackRow(
+                pack.Id,
+                pack.Name,
+                pack.Purpose,
+                StateLine: isActive
+                    ? "Activo ahora mismo."
+                    : missing == 0
+                        ? "Listo para activar."
+                        : missing == 1
+                            ? "Le falta 1 permiso que solo puedes dar tú."
+                            : $"Le faltan {missing} permisos que solo puedes dar tú.",
+                ButtonText: isActive ? "Desactivar" : "Activar"));
+        }
+    }
+
+    private void SkillPackButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: SkillPackId id })
+        {
+            return;
+        }
+
+        var row = _skillPackRows.FirstOrDefault(entry => entry.Id == id);
+        if (row?.ButtonText == "Desactivar")
+        {
+            SkillPackDeactivationRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        SkillPackActivationRequested?.Invoke(id);
+    }
+
+    private sealed record SkillPackRow(
+        SkillPackId Id,
+        string Name,
+        string Purpose,
+        string StateLine,
+        string ButtonText);
 
     private void PermissionExclusionsBox_LostFocus(object sender, RoutedEventArgs e)
     {

@@ -2,11 +2,23 @@ using Nexo.Core.Settings;
 
 namespace Nexo.Core.Skills;
 
+/// <summary>
+/// Diseño D15/D23 — los seis packs que nombra la Fase 8. Study y Dev llegaron en D15; los otros
+/// cuatro en D23. Ninguno inventa capacidad: si algo no existe, no entra en un pack.
+/// </summary>
 public enum SkillPackId
 {
     Study,
 
-    Dev
+    Dev,
+
+    Support,
+
+    Creator,
+
+    Access,
+
+    Meeting
 }
 
 /// <summary>
