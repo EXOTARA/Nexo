@@ -12,7 +12,7 @@ public sealed class VisionPreferencesTests
         preferences.Normalize();
 
         Assert.True(preferences.VisionEnabled);
-        Assert.Equal(22, preferences.SchemaVersion);
+        Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
     }
 
     [Fact]

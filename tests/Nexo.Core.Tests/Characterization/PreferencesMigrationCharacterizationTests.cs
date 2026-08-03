@@ -17,7 +17,7 @@ namespace Nexo.Core.Tests.Characterization;
 /// </summary>
 public sealed class PreferencesMigrationCharacterizationTests
 {
-    private const int CurrentSchemaVersion = 22;
+    private static readonly int CurrentSchemaVersion = ShellPreferences.CurrentSchemaVersion;
 
     [Fact]
     public void CurrentSchemaVersion_IsNineteen()

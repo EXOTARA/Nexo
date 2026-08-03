@@ -37,6 +37,7 @@ using Nexo.Core.Metrics;
 using Nexo.Core.Optimization;
 using Nexo.Core.Permissions;
 using Nexo.Core.Productization;
+using Nexo.Core.SelfCheck;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Shell;
@@ -59,6 +60,7 @@ using Nexo.Windows.Memory;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Optimization;
 using Nexo.Windows.Productization;
+using Nexo.Windows.SelfCheck;
 using Nexo.Windows.Resources;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Skills;
@@ -200,6 +202,9 @@ public partial class MainWindow : Window
 
     /// <summary>Diseño D21 (Fase 9) — el mismo diagnóstico que ve la ventana, para poder exportarlo.</summary>
     private readonly NexoDiagnosticService _diagnosticService = new();
+
+    /// <summary>Diseño D22 — comprobaciones que tocan disco, en una carpeta temporal aparte.</summary>
+    private readonly WindowsSelfCheckProbes _selfCheckProbes = new();
 
     private readonly UpdateSafetyCoordinator _updateSafety;
 
@@ -2381,6 +2386,20 @@ public partial class MainWindow : Window
             },
             keywords: ["soporte", "diagnostico", "exportar", "ayuda", "problema"]);
 
+        // Diseño D22 — comprobar aquí y ahora, sobre el binario instalado, que las garantías se
+        // cumplen en ESTE equipo.
+        yield return new KohanaCommandDescriptor(
+            "selfcheck.run",
+            "Comprobar que Kohana funciona bien",
+            "Revisa permisos, migraciones, cifrado, copias y redacción en este equipo. No toca tus datos.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                RunSelfCheck();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["comprobar", "revisar", "diagnostico", "funciona", "prueba"]);
+
         yield return new KohanaCommandDescriptor(
             "privacy.report",
             "Ver el informe de privacidad",
@@ -2553,6 +2572,37 @@ public partial class MainWindow : Window
         NavigateTo("Assistant", animate: true);
 
         ShowFlowNotice(CapsuleKind.Success, "Diagnóstico guardado", "Sin tus datos personales dentro.");
+    }
+
+    /// <summary>
+    /// Diseño D22 — corre las comprobaciones y enseña el informe. Las de disco van en una carpeta
+    /// temporal propia: una autocomprobación que ensucia lo que comprueba no sirve de nada.
+    /// </summary>
+    private void RunSelfCheck()
+    {
+        var results = new List<SelfCheckResult>(SelfCheckSuite.RunLogicChecks());
+        results.AddRange(_selfCheckProbes.Run());
+
+        var report = SelfCheckReport.Build(results);
+        _assistantView.AddKohanaMessage(report);
+        NavigateTo("Assistant", animate: true);
+
+        var failed = results.Count(result => result.Status == SelfCheckStatus.Fallo);
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Autocomprobación ejecutada",
+            failed == 0
+                ? $"{results.Count} comprobaciones, ninguna falla."
+                : $"{results.Count} comprobaciones, {failed} fallan.",
+            "Comprobación interna, sin tocar datos personales");
+
+        ShowFlowNotice(
+            failed == 0 ? CapsuleKind.Success : CapsuleKind.Warning,
+            failed == 0 ? "Todo funciona" : $"{failed} comprobaciones fallan",
+            failed == 0
+                ? "Falta la parte que solo puedes comprobar tú usándola."
+                : "Míralas en el chat: están las primeras.");
     }
 
     private void ShowPrivacyReport()

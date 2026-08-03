@@ -18,6 +18,13 @@ public enum SidebarPosition
 
 public sealed class ShellPreferences
 {
+    /// <summary>
+    /// Diseño D22 — el último escalón de la escalera de migración, con nombre. Existía solo como
+    /// número suelto repetido en el último rung y en una veintena de pruebas, y un número repetido es
+    /// un número que se olvida de actualizar en algún sitio.
+    /// </summary>
+    public const int CurrentSchemaVersion = 22;
+
     public int SchemaVersion { get; set; }
     public SidebarPosition Position { get; set; } = SidebarPosition.Right;
 
@@ -308,7 +315,7 @@ public sealed class ShellPreferences
             // Diseño D18 — un archivo anterior no trae este campo, y sin escalón se quedaría en 0,
             // que no es ningún nivel válido. Se pone en "Proponer", que es proponer sin ejecutar.
             ComputerUseAutonomyLevel = AutonomyLevel.Proponer;
-            SchemaVersion = 22;
+            SchemaVersion = CurrentSchemaVersion;
         }
 
         Width = Math.Clamp(Width, 680, 820);

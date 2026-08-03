@@ -15,7 +15,7 @@ public sealed class VoicePreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(22, preferences.SchemaVersion);
+        Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
         Assert.False(preferences.SpeakVoiceResponses);
     }
 
@@ -45,7 +45,7 @@ public sealed class VoicePreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(22, preferences.SchemaVersion);
+        Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
         Assert.Equal(-1, preferences.VoiceInputDeviceNumber);
     }
 
