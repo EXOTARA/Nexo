@@ -3158,12 +3158,19 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Lo que de verdad hay que poder ver antes de decir que sí no es el tamaño, sino qué se
+        // pierde: el modelo puede leer el archivo entero y aun así devolverlo sin una línea.
+        var removalWarning = DescribeWorkspaceEditRemovals(exists ? fullPath : null, edit.NewContent);
+
         var confirmation = MessageBox.Show(
             this,
             $"{(exists ? "Voy a REEMPLAZAR" : "Voy a CREAR")} este archivo:{Environment.NewLine}" +
                 $"{edit.RelativePath}{Environment.NewLine}{Environment.NewLine}" +
                 $"Motivo: {edit.Description}{Environment.NewLine}" +
                 $"Tamaño del contenido nuevo: {edit.NewContent.Length} caracteres." +
+                (removalWarning is null
+                    ? string.Empty
+                    : Environment.NewLine + Environment.NewLine + removalWarning) +
                 $"{Environment.NewLine}{Environment.NewLine}" +
                 "Guardaré una copia previa para que puedas deshacerlo. ¿Lo aplico?",
             "Aplicar un cambio en el proyecto",
@@ -3193,6 +3200,32 @@ public partial class MainWindow : Window
     /// criterio que Kohana no tiene. Que el nivel 5 pregunte en cada archivo no lo vuelve inútil —
     /// sigue ahorrando redactar y encadenar los cambios uno a uno.
     /// </summary>
+    /// <summary>
+    /// Lee el archivo actual y describe qué líneas desaparecerían al aplicar el contenido propuesto.
+    /// Devuelve <c>null</c> si no hay archivo previo o si no se pierde nada. Si el archivo no se
+    /// puede leer, tampoco se inventa un aviso: se avisa de que no se pudo comprobar, porque callar
+    /// aquí se interpretaría como "no se pierde nada".
+    /// </summary>
+    private static string? DescribeWorkspaceEditRemovals(string? currentFullPath, string newContent)
+    {
+        if (string.IsNullOrEmpty(currentFullPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var current = File.ReadAllText(currentFullPath);
+            return WorkspaceEditImpactAnalyzer.DescribeRemovals(
+                WorkspaceEditImpactAnalyzer.Compare(current, newContent));
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return "No pude leer el archivo actual para comprobar qué se pierde con este cambio.";
+        }
+    }
+
     private void RunWorkspaceEditSequence(
         IReadOnlyList<WorkspaceEdit> edits,
         HashSet<string> knownContentPaths)
@@ -3277,12 +3310,30 @@ public partial class MainWindow : Window
         var report = _sequenceCoordinator.Run(
             plan,
             workspace.AutonomyLevel,
-            confirmRiskPoint: step => MessageBox.Show(
-                this,
-                $"{step.Title}{Environment.NewLine}{Environment.NewLine}¿Aplico este?",
-                "Siguiente cambio",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) == MessageBoxResult.Yes,
+            confirmRiskPoint: step =>
+            {
+                // Cada paso enseña lo que se pierde, igual que el cambio suelto. Aquí importa más:
+                // en una secuencia se confirma varias veces seguidas y es donde más fácil es decir
+                // que sí por inercia.
+                var stepEdit = edits.FirstOrDefault(item => item.RelativePath == step.Id);
+                var stepPath = stepEdit is null
+                    ? null
+                    : WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, stepEdit.RelativePath);
+                var stepWarning = stepEdit is not null && File.Exists(stepPath!)
+                    ? DescribeWorkspaceEditRemovals(stepPath, stepEdit.NewContent)
+                    : null;
+
+                return MessageBox.Show(
+                    this,
+                    step.Title +
+                        (stepWarning is null
+                            ? string.Empty
+                            : Environment.NewLine + Environment.NewLine + stepWarning) +
+                        $"{Environment.NewLine}{Environment.NewLine}¿Aplico este?",
+                    "Siguiente cambio",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question) == MessageBoxResult.Yes;
+            },
             confirmRollback: applied => MessageBox.Show(
                 this,
                 $"Algo falló y hay {applied.Count} cambios ya aplicados." + Environment.NewLine +
