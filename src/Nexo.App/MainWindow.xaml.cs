@@ -5947,6 +5947,16 @@ public partial class MainWindow : Window
                 }
             }
         }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Sin esto, cualquier falla en captura/OCR/UI Automation/redacción (todo lo que pasa
+            // ANTES del try/catch de streaming de más abajo) dejaba la solicitud ambiental
+            // atascada en "Pensando" para siempre, porque KohanaCommandDescriptor.ExecuteAsync
+            // atrapa la excepción a un nivel que no conoce el AmbientRequestManager. Reportado por
+            // Adler: Lens en modo estudio se quedaba en "Pensando…" sin salir nunca de ahí.
+            _ambientRequestManager.Fail(
+                $"No pude analizar la ventana activa: {exception.Message}", DateTimeOffset.Now);
+        }
         finally
         {
             LensIndicator.Visibility = Visibility.Collapsed;
