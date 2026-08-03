@@ -28,6 +28,7 @@ using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Commands.CommandCenter;
 using Nexo.Core.ComputerUse;
+using Nexo.Core.Diagnostics;
 using Nexo.Core.Flow;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
@@ -35,6 +36,7 @@ using Nexo.Core.Memory;
 using Nexo.Core.Metrics;
 using Nexo.Core.Optimization;
 using Nexo.Core.Permissions;
+using Nexo.Core.Productization;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Shell;
@@ -55,6 +57,7 @@ using Nexo.Windows.Focus;
 using Nexo.Windows.Memory;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Optimization;
+using Nexo.Windows.Productization;
 using Nexo.Windows.Resources;
 using Nexo.Windows.Settings;
 using Nexo.Windows.Skills;
@@ -190,6 +193,11 @@ public partial class MainWindow : Window
 
     /// <summary>Diseño D18 (Fase 7, nivel 4) — el único camino por el que Kohana actúa en el equipo.</summary>
     private readonly ComputerUseCoordinator _computerUseCoordinator;
+
+    /// <summary>Diseño D20 (Fase 9) — copia verificada de los datos, para poder volver.</summary>
+    private readonly FileSystemDataBackupService _backupService = new();
+
+    private readonly UpdateSafetyCoordinator _updateSafety;
 
     /// <summary>Diseño D14 — igual que la búsqueda: la instrucción del cambio llega por chat.</summary>
     private bool _awaitingWorkspaceEditInstruction;
@@ -385,6 +393,8 @@ public partial class MainWindow : Window
             // Diseño D19 — el invocador comparte el lector de Lens, pero no la capacidad: leer un
             // control e invocarlo pasan por interfaces y permisos distintos.
             new WindowsUiAutomationInvoker(_lensUiAutomationReader));
+
+        _updateSafety = new UpdateSafetyCoordinator(_backupService, _auditLog);
 
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
@@ -1432,6 +1442,7 @@ public partial class MainWindow : Window
         registry.RegisterRange(BuildWorkspaceCommands());
         registry.RegisterRange(BuildSkillPackCommands());
         registry.RegisterRange(BuildComputerUseCommands());
+        registry.RegisterRange(BuildProductizationCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -2304,6 +2315,166 @@ public partial class MainWindow : Window
                 keywords: ["equipo", "diagnostico", current.Title.ToLowerInvariant()],
                 availability: ComputerUseAvailability);
         }
+    }
+
+    /// <summary>
+    /// Diseño D20 (Fase 9 — Productization) — actualizar y desinstalar sin sorpresas. Nada de esto
+    /// actualiza ni desinstala: prepara la copia verificada de la que volver, y enseña qué se lleva
+    /// y qué se queda.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildProductizationCommands()
+    {
+        yield return new KohanaCommandDescriptor(
+            "data.inventory",
+            "Ver qué guarda Kohana en tu equipo",
+            "La lista completa: qué es cada archivo, si contiene datos tuyos y si está cifrado.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowDataInventory();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["datos", "privacidad", "guardar", "archivos"]);
+
+        yield return new KohanaCommandDescriptor(
+            "update.prepare",
+            "Preparar una copia antes de actualizar",
+            "Copia tus datos y comprueba que la copia está bien, para poder volver si algo sale mal.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                PrepareUpdateBackup();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["actualizar", "copia", "seguridad", "respaldo"]);
+
+        yield return new KohanaCommandDescriptor(
+            "update.rollback",
+            "Restaurar la última copia de tus datos",
+            "Devuelve tus ajustes, tareas y demás a como estaban en la copia más reciente.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                RestoreLatestBackup();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["restaurar", "copia", "volver", "respaldo"],
+            availability: () => _backupService.ListBackups().Count > 0
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("Todavía no hay ninguna copia guardada."));
+
+        yield return new KohanaCommandDescriptor(
+            "uninstall.plan",
+            "Ver qué pasaría al desinstalar Kohana",
+            "Enseña qué se borraría y qué se conservaría, antes de desinstalar nada.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowUninstallPlan();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["desinstalar", "borrar", "quitar", "datos"]);
+    }
+
+    private void ShowDataInventory()
+    {
+        var message = new StringBuilder();
+        message.AppendLine($"Todo lo que guardo está en {NexoDataPaths.RootDirectory}:");
+
+        foreach (var item in KohanaDataInventory.All)
+        {
+            var exists = File.Exists(item.FullPath);
+            message.AppendLine();
+            message.Append("· ").Append(item.Title)
+                .Append(exists ? "" : " (todavía no existe)")
+                .AppendLine();
+            message.Append("  ").AppendLine(item.WhatItHolds);
+            message.Append("  ")
+                .Append(item.IsPersonal ? "Contiene datos tuyos." : "No contiene datos personales.")
+                .AppendLine(item.IsEncrypted ? " Cifrado." : string.Empty);
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    private void PrepareUpdateBackup()
+    {
+        var readiness = _updateSafety.PrepareUpdate();
+
+        var message = new StringBuilder();
+        message.AppendLine(readiness.Detail);
+
+        if (readiness.Backup is { } backup)
+        {
+            foreach (var file in backup.Files.Where(file => file.Copied))
+            {
+                message.Append("· ").Append(file.FileName).Append(" — ").AppendLine(file.Detail);
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+
+        ShowFlowNotice(
+            readiness.CanUpdate ? CapsuleKind.Success : CapsuleKind.Warning,
+            readiness.CanUpdate ? "Copia verificada" : "Copia incompleta",
+            readiness.Detail);
+
+        RefreshAuditPanel();
+    }
+
+    private void RestoreLatestBackup()
+    {
+        var latest = _backupService.ListBackups().FirstOrDefault();
+        if (latest is null)
+        {
+            _assistantView.AddKohanaMessage("Todavía no hay ninguna copia guardada.");
+            return;
+        }
+
+        // Restaurar sobrescribe lo que tengas ahora: es de las cosas que el modelo de confianza
+        // manda confirmar siempre, tenga el permiso que tenga.
+        if (!TryGetPermission(new PermissionRequest(
+                KohanaCapability.Memoria,
+                $"Restaurar la copia «{latest}». Sobrescribe tus ajustes, tareas y memoria actuales.",
+                Categories: [MandatoryConfirmation.BorradoIrreversible])))
+        {
+            return;
+        }
+
+        var result = _updateSafety.Rollback(latest);
+
+        _assistantView.AddKohanaMessage(result.Detail);
+        ShowFlowNotice(
+            result.Success ? CapsuleKind.Success : CapsuleKind.Warning,
+            result.Success ? "Datos restaurados" : "No se pudo restaurar",
+            result.Detail);
+
+        if (result.Success)
+        {
+            _assistantView.AddKohanaMessage(
+                "Reinicia Kohana para que use los datos restaurados.");
+        }
+
+        RefreshAuditPanel();
+    }
+
+    private void ShowUninstallPlan()
+    {
+        var keep = UninstallPlanner.Build(UninstallDataChoice.Conservar);
+
+        var message = new StringBuilder();
+        message.AppendLine("Si desinstalas Kohana conservando tus datos:");
+        message.AppendLine();
+        message.AppendLine(UninstallPlanner.Describe(keep));
+        message.AppendLine();
+        message.AppendLine(
+            "Si prefieres que no quede nada, borra la carpeta de datos a mano después de " +
+            $"desinstalar: {NexoDataPaths.RootDirectory}");
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
     }
 
     private KohanaCommandAvailability ComputerUseAvailability()
