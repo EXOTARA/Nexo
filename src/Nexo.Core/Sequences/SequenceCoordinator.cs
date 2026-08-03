@@ -60,15 +60,27 @@ public sealed class SequenceCoordinator
     /// <paramref name="confirmRiskPoint"/> se llama en cada paso marcado como riesgo y devuelve si
     /// se sigue. Es un callback y no un booleano porque la respuesta tiene que pedirse **en ese
     /// momento**: preguntarlo todo al principio sería aprobar por adelantado, que es el nivel 6.
+    ///
+    /// <paramref name="confirmRollback"/> es obligatorio y no opcional a propósito — corrección de
+    /// un defecto real encontrado auditando esta clase, no probándola a mano. Antes tenía
+    /// <c>= null</c> por omisión, y cuando era null el código revertía lo ya aplicado **sin
+    /// preguntar**, justo lo contrario de lo que este mismo comentario de clase promete ("se
+    /// OFRECE, no se impone"). Nunca se manifestó en la app real porque
+    /// <c>MainWindow.RunWorkspaceEditSequence</c> siempre pasa el callback, pero la API en sí
+    /// quedaba insegura por defecto: cualquier llamador futuro que lo omitiera —o una prueba, como
+    /// pasó aquí— obtenía una reversión automática y silenciosa sin que nadie lo hubiera pedido.
+    /// Quitar el valor por omisión hace que ese olvido sea un error de compilación, no un
+    /// comportamiento incorrecto en producción.
     /// </summary>
     public SequenceReport Run(
         SequencePlan plan,
         AutonomyLevel level,
         Func<SequenceStep, bool> confirmRiskPoint,
-        Func<IReadOnlyList<SequenceStep>, bool>? confirmRollback = null)
+        Func<IReadOnlyList<SequenceStep>, bool> confirmRollback)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(confirmRiskPoint);
+        ArgumentNullException.ThrowIfNull(confirmRollback);
 
         var log = new List<string>();
 
@@ -131,7 +143,7 @@ public sealed class SequenceCoordinator
                     log);
             }
 
-            if (confirmRollback is not null && !confirmRollback(applied))
+            if (!confirmRollback(applied))
             {
                 return new SequenceReport(
                     SequenceOutcome.DetenidaSinPoderRevertir,

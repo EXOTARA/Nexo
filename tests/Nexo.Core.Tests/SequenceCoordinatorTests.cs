@@ -79,7 +79,7 @@ public sealed class SequenceCoordinatorTests
         var (coordinator, _) = Build();
         var recorder = new Recorder();
 
-        var report = coordinator.Run(Plan(recorder.Step("a")), level, _ => true);
+        var report = coordinator.Run(Plan(recorder.Step("a")), level, _ => true, _ => true);
 
         Assert.Equal(SequenceOutcome.NoPermitida, report.Outcome);
         Assert.Empty(recorder.Executed);
@@ -107,7 +107,8 @@ public sealed class SequenceCoordinatorTests
             {
                 asked.Add(step.Id);
                 return true;
-            });
+            },
+            _ => true);
 
         Assert.Equal(["a", "b"], asked);
     }
@@ -121,7 +122,8 @@ public sealed class SequenceCoordinatorTests
         var report = coordinator.Run(
             Plan(recorder.Step("a"), recorder.Step("b", riskPoint: true), recorder.Step("c")),
             AutonomyLevel.ColaborarConConfirmaciones,
-            _ => false);
+            _ => false,
+            _ => true);
 
         Assert.Equal(SequenceOutcome.Cancelada, report.Outcome);
         Assert.Equal(["a"], recorder.Executed);
@@ -137,7 +139,8 @@ public sealed class SequenceCoordinatorTests
         coordinator.Run(
             Plan(recorder.Step("a"), recorder.Step("b")),
             AutonomyLevel.ColaborarConConfirmaciones,
-            _ => { asked++; return true; });
+            _ => { asked++; return true; },
+            _ => true);
 
         Assert.Equal(0, asked);
     }
@@ -150,11 +153,25 @@ public sealed class SequenceCoordinatorTests
         var (coordinator, _) = Build();
         var recorder = new Recorder();
         recorder.Failing.Add("b");
+        var rollbackWasAsked = false;
 
         coordinator.Run(
             Plan(recorder.Step("a"), recorder.Step("b"), recorder.Step("c")),
             AutonomyLevel.ColaborarConConfirmaciones,
-            _ => true);
+            _ => true,
+            applied =>
+            {
+                // Corrección de un defecto real: este parámetro tenía "= null" por omisión, y con
+                // null el código revertía "a" AQUÍ MISMO sin preguntar — justo cuando ya se sabe
+                // que algo se aplicó y algo falló después, que es el caso exacto que esta prueba
+                // ejercita. Que ahora sea obligatorio (sin valor por omisión) hace que ese olvido
+                // sea un error de compilación; esta aserción prueba además que, cuando SÍ se pasa,
+                // de verdad se invoca antes de tocar nada.
+                rollbackWasAsked = true;
+                return true;
+            });
+
+        Assert.True(rollbackWasAsked);
 
         // "c" no llegó a intentarse: no se sigue "a ver si los demás van".
         Assert.Equal(["a"], recorder.Executed);
@@ -171,6 +188,7 @@ public sealed class SequenceCoordinatorTests
         var report = coordinator.Run(
             Plan(recorder.Step("a"), recorder.Step("b"), recorder.Step("c")),
             AutonomyLevel.ColaborarConConfirmaciones,
+            _ => true,
             _ => true);
 
         Assert.Equal("b", report.FailedStepId);
@@ -227,7 +245,8 @@ public sealed class SequenceCoordinatorTests
         var recorder = new Recorder();
         recorder.Failing.Add("a");
 
-        coordinator.Run(Plan(recorder.Step("a")), AutonomyLevel.ColaborarConConfirmaciones, _ => true);
+        coordinator.Run(
+            Plan(recorder.Step("a")), AutonomyLevel.ColaborarConConfirmaciones, _ => true, _ => true);
 
         // Un solo intento. Ni con espera ni sin ella.
         Assert.Equal(1, recorder.ExecuteCalls);
@@ -270,7 +289,7 @@ public sealed class SequenceCoordinatorTests
         recorder.Failing.Add("a");
 
         var report = coordinator.Run(
-            Plan(recorder.Step("a")), AutonomyLevel.ColaborarConConfirmaciones, _ => true);
+            Plan(recorder.Step("a")), AutonomyLevel.ColaborarConConfirmaciones, _ => true, _ => true);
 
         Assert.Equal(SequenceOutcome.DetenidaYRevertida, report.Outcome);
         Assert.Contains("No había nada aplicado", report.Detail);
@@ -287,6 +306,7 @@ public sealed class SequenceCoordinatorTests
         var report = coordinator.Run(
             Plan(recorder.Step("a"), recorder.Step("b"), recorder.Step("c")),
             AutonomyLevel.ColaborarConConfirmaciones,
+            _ => true,
             _ => true);
 
         Assert.Equal(SequenceOutcome.Completada, report.Outcome);

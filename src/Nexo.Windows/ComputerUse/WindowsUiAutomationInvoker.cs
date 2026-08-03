@@ -65,15 +65,7 @@ public sealed class WindowsUiAutomationInvoker : IUiAutomationInvoker
                     $"Ahora hay {matches.Count} controles llamados «{controlName}» y no sé cuál quieres.");
             }
 
-            var element = matches[0];
-            if (!element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern))
-            {
-                return ComputerUseStepResult.Failed(
-                    $"«{controlName}» no acepta que lo pulse desde aquí.");
-            }
-
-            ((InvokePattern)pattern).Invoke();
-            return ComputerUseStepResult.Ok($"Pulsé «{controlName}».");
+            return InvokeElement(matches[0], controlName);
         }
         catch (ElementNotAvailableException)
         {
@@ -85,5 +77,44 @@ public sealed class WindowsUiAutomationInvoker : IUiAutomationInvoker
         {
             return ComputerUseStepResult.Failed($"No pude pulsar «{controlName}»: {exception.Message}");
         }
+    }
+
+    /// <summary>
+    /// Corrección de un defecto real, encontrado auditando el código y no probándolo a mano:
+    /// <see cref="UiAutomationInvokePolicy"/> declara invocables Button, MenuItem, Hyperlink,
+    /// CheckBox, RadioButton, TabItem y ListItem, pero solo los tres primeros exponen
+    /// <see cref="InvokePattern"/> en la inmensa mayoría de aplicaciones reales de Windows. Un
+    /// CheckBox expone <see cref="TogglePattern"/>; un RadioButton, un TabItem o un ListItem
+    /// exponen <see cref="SelectionItemPattern"/>. Con solo InvokePattern, pulsar cualquiera de
+    /// esos cuatro tipos fallaba siempre con "no acepta que lo pulse" — de forma segura (no hacía
+    /// nada indebido), pero rota en silencio: la política prometía algo que el ejecutor no podía
+    /// cumplir. Ninguna prueba lo atrapó porque las pruebas de la política solo construyen
+    /// <c>UiAutomationElement</c> — nunca tocan un patrón real de UI Automation.
+    ///
+    /// Se prueban en este orden porque es el que refleja mejor la intención de "pulsar": invocar
+    /// directamente si se puede, y si no, la acción más parecida a pulsar que el control sí
+    /// entiende.
+    /// </summary>
+    private static ComputerUseStepResult InvokeElement(AutomationElement element, string controlName)
+    {
+        if (element.TryGetCurrentPattern(InvokePattern.Pattern, out var invoke))
+        {
+            ((InvokePattern)invoke).Invoke();
+            return ComputerUseStepResult.Ok($"Pulsé «{controlName}».");
+        }
+
+        if (element.TryGetCurrentPattern(TogglePattern.Pattern, out var toggle))
+        {
+            ((TogglePattern)toggle).Toggle();
+            return ComputerUseStepResult.Ok($"Cambié el estado de «{controlName}».");
+        }
+
+        if (element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var select))
+        {
+            ((SelectionItemPattern)select).Select();
+            return ComputerUseStepResult.Ok($"Seleccioné «{controlName}».");
+        }
+
+        return ComputerUseStepResult.Failed($"«{controlName}» no acepta que lo pulse desde aquí.");
     }
 }

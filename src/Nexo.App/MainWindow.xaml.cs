@@ -2988,17 +2988,30 @@ public partial class MainWindow : Window
         // instrucción, y se lee su contenido de verdad para incluirlo.
         var resolvedTargets = WorkspaceEditTargetResolver.Resolve(prompt, files);
         var knownContentPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var successfullyRead = new List<WorkspaceFile>();
 
         if (resolvedTargets.Count > 0)
         {
-            var reads = resolvedTargets
-                .Select(target => _workspaceReader.ReadFile(workspace.AuthorizedPath, target.FullPath))
-                .Where(result => result.Success)
-                .ToArray();
+            var reads = new List<WorkspaceReadResult>();
 
-            foreach (var read in reads)
+            foreach (var target in resolvedTargets)
             {
-                knownContentPaths.Add(read.RelativePath);
+                var read = _workspaceReader.ReadFile(workspace.AuthorizedPath, target.FullPath);
+                if (!read.Success)
+                {
+                    continue;
+                }
+
+                reads.Add(read);
+                successfullyRead.Add(target);
+
+                // Se guarda como RUTA RESUELTA, no como el texto que produjo Path.GetRelativePath.
+                // La plantilla que ve el modelo (WorkspaceEditParser.ModelInstructions) usa "/"
+                // como separador de ejemplo ("ruta/relativa/del/archivo"), y Path.GetRelativePath
+                // en Windows produce "\". Comparar las cadenas tal cual habría rechazado por error
+                // cualquier archivo dentro de una subcarpeta — que es la mayoría de un proyecto
+                // real — por un choque de formato, no por falta de contenido.
+                knownContentPaths.Add(WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, target.RelativePath));
             }
 
             var excerpts = WorkspaceContextBuilder.BuildFileExcerpts(reads);
@@ -3009,8 +3022,7 @@ public partial class MainWindow : Window
                     : structure + Environment.NewLine + excerpts;
 
                 structure += Environment.NewLine +
-                    WorkspaceContextBuilder.EditPreservationNotice(
-                        resolvedTargets.Where(target => knownContentPaths.Contains(target.RelativePath)).ToArray());
+                    WorkspaceContextBuilder.EditPreservationNotice(successfullyRead);
             }
         }
 
@@ -3090,7 +3102,12 @@ public partial class MainWindow : Window
         // EXISTÍA y cuyo contenido no viajó en el contexto de este turno no se aplica, sin importar
         // qué tan razonable parezca el cambio propuesto. Confiar en que el modelo conservó un
         // archivo que nunca vio es exactamente la apuesta que perdió al probarlo a mano.
-        if (exists && !knownContentPaths.Contains(edit.RelativePath))
+        //
+        // La comparación es por ruta RESUELTA (Path.GetFullPath), no por el texto crudo que
+        // escribió el modelo: la plantilla del formato usa "/" de ejemplo y el modelo puede
+        // devolver cualquier estilo de separador, así que comparar cadenas literales habría
+        // rechazado por error archivos cuyo contenido sí se había leído.
+        if (exists && !knownContentPaths.Contains(WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, edit.RelativePath)))
         {
             _assistantView.AddKohanaMessage(
                 $"No apliqué el cambio a «{edit.RelativePath}»: no tenía el contenido actual de " +
@@ -3154,7 +3171,8 @@ public partial class MainWindow : Window
                 // ya confirmada. Que falle AQUÍ hace que el coordinador de secuencias lo trate como
                 // cualquier otro paso fallido: se detiene y se ofrece deshacer lo anterior.
                 var fullPath = Path.Combine(workspace.AuthorizedPath, edit.RelativePath);
-                if (File.Exists(fullPath) && !knownContentPaths.Contains(edit.RelativePath))
+                if (File.Exists(fullPath) &&
+                    !knownContentPaths.Contains(WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, edit.RelativePath)))
                 {
                     return SequenceStepResult.Failed(
                         "No tenía el contenido actual de ese archivo en esta consulta, así que no " +

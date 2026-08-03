@@ -145,4 +145,48 @@ public sealed class WorkspacePathPolicyTests
     [Fact]
     public void AnOrdinarySizedFile_PassesTheSizeCheck() =>
         Assert.True(WorkspacePathPolicy.CheckSize(12_000).IsAllowed);
+
+    // ---------- Corrección de un defecto real: comparar rutas con distinto separador ----------
+
+    /// <summary>
+    /// Este es exactamente el caso que rompía la salvaguarda contra sobrescribir un archivo sin
+    /// haber leído su contenido: la plantilla que ve el modelo escribe el ejemplo con "/"
+    /// ("ruta/relativa/del/archivo"), así que un modelo pidiendo cambiar un archivo dentro de una
+    /// subcarpeta responde con "src/App.cs" aunque el lector, con <c>Path.GetRelativePath</c> en
+    /// Windows, lo hubiera registrado como "src\App.cs". Sin resolver ambas al mismo camino
+    /// canónico, la comparación de texto plano las trataría como archivos distintos.
+    /// </summary>
+    [Fact]
+    public void ResolveFullPath_TreatsForwardAndBackSlashAsTheSameFile()
+    {
+        var withForwardSlash = WorkspacePathPolicy.ResolveFullPath(Root, "src/App.cs");
+        var withBackSlash = WorkspacePathPolicy.ResolveFullPath(Root, @"src\App.cs");
+
+        Assert.Equal(withForwardSlash, withBackSlash, ignoreCase: true);
+    }
+
+    [Fact]
+    public void ResolveFullPath_TreatsCaseDifferencesAsTheSameFile()
+    {
+        // Path.GetFullPath no cambia mayúsculas por sí solo; la comparación en el sitio de uso es
+        // la que debe hacerse sin distinguirlas (ver knownContentPaths en MainWindow), pero esta
+        // prueba deja constancia de qué produce esta función para que ese contrato no se rompa
+        // calladamente si alguien la cambia.
+        var lower = WorkspacePathPolicy.ResolveFullPath(Root, "readme.md");
+        var upper = WorkspacePathPolicy.ResolveFullPath(Root, "README.md");
+
+        Assert.Equal(lower, upper, ignoreCase: true);
+    }
+
+    [Fact]
+    public void ResolveFullPath_MatchesWhatTheFileSystemReaderWouldRecordAsRelativePath()
+    {
+        // El archivo en la raíz (sin subcarpeta) es el caso que el defecto original SÍ cubría por
+        // casualidad, porque no hay separador de por medio. Esta prueba fija ese caso simple para
+        // que una regresión futura en cualquiera de los dos lados se note aquí.
+        var fromModelText = WorkspacePathPolicy.ResolveFullPath(Root, "README.md");
+        var fromDiskWalk = Path.GetFullPath(Path.Combine(Root, Path.GetRelativePath(Root, InRoot("README.md"))));
+
+        Assert.Equal(fromDiskWalk, fromModelText, ignoreCase: true);
+    }
 }

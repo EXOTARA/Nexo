@@ -147,6 +147,18 @@ public static class WorkspacePathPolicy
     /// Contención real: resuelve las dos rutas y compara exigiendo separador. Devuelve false si
     /// alguna no se puede resolver — una ruta que el sistema no sabe interpretar no se lee.
     /// </summary>
+    /// <summary>
+    /// Corrección de un defecto real: la plantilla que ve el modelo para proponer un cambio
+    /// (<c>WorkspaceEditParser.ModelInstructions</c>) usa "/" como separador de ejemplo
+    /// ("ruta/relativa/del/archivo"), pero <c>Path.GetRelativePath</c> en Windows produce "\". Una
+    /// ruta relativa que viene del texto del modelo y una que viene de recorrer el disco pueden ser
+    /// el mismo archivo y no comparar iguales como texto. Esta función resuelve las dos a la misma
+    /// forma canónica para que compararlas con <see cref="string.Equals(string?, string?)"/> (o un
+    /// <see cref="HashSet{T}"/>) tenga sentido, sin importar qué separador escribió cada lado.
+    /// </summary>
+    public static string ResolveFullPath(string authorizedRoot, string relativePath) =>
+        Path.GetFullPath(Path.Combine(authorizedRoot, relativePath));
+
     public static bool IsInside(string? candidatePath, string? authorizedRoot)
     {
         if (string.IsNullOrWhiteSpace(candidatePath) || string.IsNullOrWhiteSpace(authorizedRoot))
