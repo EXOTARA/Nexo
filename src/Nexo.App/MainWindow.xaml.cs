@@ -3126,7 +3126,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        var fullPath = Path.Combine(workspace.AuthorizedPath, edit.RelativePath);
+        // El modelo puede anteponer el nombre de la propia carpeta autorizada (ver
+        // WorkspacePathPolicy.NormalizeRelativePath). Se normaliza ANTES de decidir si el archivo
+        // existe: de esa decisión cuelgan tanto el texto de la confirmación como la salvaguarda de
+        // "no toco un archivo cuyo contenido no vi".
+        edit = edit with
+        {
+            RelativePath = WorkspacePathPolicy.NormalizeRelativePath(
+                workspace.AuthorizedPath, edit.RelativePath)
+        };
+
+        var fullPath = WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, edit.RelativePath);
         var exists = File.Exists(fullPath);
 
         // La salvaguarda de verdad contra el defecto real que esto corrige: un archivo que YA
@@ -3190,6 +3200,14 @@ public partial class MainWindow : Window
         var workspace = _preferences.Workspace;
         var checkpoints = new List<Guid>();
 
+        // Misma normalización que en el cambio suelto, y por el mismo motivo: si el prefijo sobrante
+        // llega hasta aquí, File.Exists da false y la salvaguarda de abajo se salta sola.
+        edits = [.. edits.Select(edit => edit with
+        {
+            RelativePath = WorkspacePathPolicy.NormalizeRelativePath(
+                workspace.AuthorizedPath, edit.RelativePath)
+        })];
+
         var steps = edits.Select(edit => new SequenceStep(
             edit.RelativePath,
             $"{edit.RelativePath} — {edit.Description}",
@@ -3201,7 +3219,8 @@ public partial class MainWindow : Window
                 // viajó en el contexto de este turno no se toca, ni siquiera dentro de una secuencia
                 // ya confirmada. Que falle AQUÍ hace que el coordinador de secuencias lo trate como
                 // cualquier otro paso fallido: se detiene y se ofrece deshacer lo anterior.
-                var fullPath = Path.Combine(workspace.AuthorizedPath, edit.RelativePath);
+                var fullPath = WorkspacePathPolicy.ResolveFullPath(
+                    workspace.AuthorizedPath, edit.RelativePath);
                 if (File.Exists(fullPath) &&
                     !knownContentPaths.Contains(WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, edit.RelativePath)))
                 {

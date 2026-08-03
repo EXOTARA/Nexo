@@ -157,7 +157,52 @@ public static class WorkspacePathPolicy
     /// <see cref="HashSet{T}"/>) tenga sentido, sin importar qué separador escribió cada lado.
     /// </summary>
     public static string ResolveFullPath(string authorizedRoot, string relativePath) =>
-        Path.GetFullPath(Path.Combine(authorizedRoot, relativePath));
+        Path.GetFullPath(Path.Combine(authorizedRoot, NormalizeRelativePath(authorizedRoot, relativePath)));
+
+    /// <summary>
+    /// Corrección de un segundo defecto real, encontrado usando la app: el contexto que ve el modelo
+    /// empieza por "Proyecto autorizado: &lt;nombre de la carpeta&gt;" y luego lista los archivos
+    /// relativos a esa carpeta ("Programa.cs"). Es completamente razonable que el modelo componga las
+    /// dos cosas y devuelva "ProyectoPrueba/Programa.cs", y hasta ahora eso se combinaba con la raíz
+    /// dando <c>...\ProyectoPrueba\ProyectoPrueba\Programa.cs</c> — un archivo que no existe.
+    ///
+    /// Las consecuencias no eran cosméticas: la confirmación decía "Voy a CREAR" sobre un archivo que
+    /// en realidad ya existía, y la salvaguarda que exige haber leído el contenido actual se salta
+    /// entera cuando el archivo "no existe", que es justo la protección añadida tras el borrado del
+    /// README. Se quita un único prefijo igual al nombre de la carpeta autorizada; si el proyecto
+    /// tiene de verdad una subcarpeta con su mismo nombre, esa ruta sigue alcanzándose nombrándola
+    /// dos veces, que es lo que el modelo tendría que escribir para referirse a ella.
+    /// </summary>
+    public static string NormalizeRelativePath(string authorizedRoot, string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = relativePath.Trim();
+        var rootName = Path.GetFileName(Path.TrimEndingDirectorySeparator(authorizedRoot ?? string.Empty));
+        if (string.IsNullOrEmpty(rootName))
+        {
+            return trimmed;
+        }
+
+        var segments = trimmed.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length < 2 ||
+            !segments[0].Equals(rootName, StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        // Solo se quita si al quitarlo apunta a algo que existe de verdad; si no, se respeta lo que
+        // escribió el modelo en vez de adivinar.
+        var withoutPrefix = Path.Combine(segments[1..]);
+        var candidate = Path.GetFullPath(Path.Combine(authorizedRoot!, withoutPrefix));
+        return File.Exists(candidate) ? withoutPrefix : trimmed;
+    }
 
     public static bool IsInside(string? candidatePath, string? authorizedRoot)
     {
