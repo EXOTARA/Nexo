@@ -73,6 +73,14 @@
 
 - La regla de «usa siempre el método más seguro disponible» comparaba métodos que no sirven para lo mismo, y desde que UI Automation está disponible impedía copiar al portapapeles. Ahora se compara solo entre métodos capaces del mismo objetivo.
 
+### Agregado (Diseños D22, D23 y D24 — sin integrar a release)
+
+- Comando «Comprobar que Kohana funciona bien»: revisa permisos, migraciones, cifrado, copias y redacción en tu equipo, sin tocar tus datos, y dice qué NO comprueba.
+- Cuatro packs nuevos: **Kohana Support**, **Kohana Creator**, **Kohana Access** y **Kohana Meeting**, con los dos anteriores hacen los seis del roadmap.
+- Panel de packs en Personalizar, con lo que le falta a cada uno antes de activarlo.
+- Nivel «Colaborar con confirmaciones» para el proyecto: Kohana encadena varios cambios y se para a preguntar en cada archivo.
+- Si un cambio de la secuencia falla, Kohana para, deja constancia del punto exacto y ofrece deshacer lo ya aplicado. Nunca reintenta sola.
+
 # Changelog
 
 Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.

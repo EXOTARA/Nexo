@@ -3280,3 +3280,129 @@ Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 
   caliente.
 
 **No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D22, D23 y D24 — sexto bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (misma rama, sobre `810a2e5`).
+D22 ataca de frente la deuda que lleva acumulándose desde D10 —la validación manual que no ha
+ocurrido—, D23 cierra los seis packs de la Fase 8 y D24 abre el nivel 5 del modelo de confianza donde
+puede cumplirse.
+
+### D22 — Autocomprobación en el equipo de la persona
+
+**Por qué, teniendo 1500 pruebas:** las pruebas corren en la máquina de desarrollo, sobre el código
+de ese momento. Esto corre aquí, ahora, sobre el binario instalado. No las repite por gusto: repite
+exactamente aquéllas que, si fallaran en un equipo concreto, significarían que **una promesa de
+Kohana no se está cumpliendo en ESE equipo**.
+
+Once comprobaciones puras (migraciones que no borran lo configurado, nada peligroso activado de
+fábrica, las siete confirmaciones obligatorias imposibles de saltar, exclusiones que ganan a un
+permiso, redacción de datos personales y de secretos de código, contención del proyecto, archivos de
+credenciales rechazados, comandos que solo leen, orden de métodos, packs que no conceden permisos,
+inventario completo) y cinco sobre disco (ajustes que van y vuelven, registro que escribe, memoria
+**de verdad cifrada** —el archivo NO debe contener el texto—, copia que se verifica, carpeta de datos
+escribible).
+
+Las de disco corren en una carpeta temporal propia, nunca sobre datos reales: una autocomprobación
+que ensucia lo que comprueba no sirve de nada. Y cada una aísla su fallo, porque un informe que se
+detiene en el primero esconde los demás, que es justo lo contrario de lo que necesita quien está
+intentando entender por qué algo no va.
+
+**Lo que más importa del sprint es la última sección del informe: qué NO comprueba.** Un verde total
+invita a concluir "está todo bien", y sería falso — nada de esto mira la interfaz, ni si el dictado
+escribe en la ventana correcta, ni si la píldora roba el foco. Si el informe no lo dijera, la primera
+persona que lo leyera sacaría la conclusión equivocada, y la culpa sería del informe. Acorta la
+validación manual; no la sustituye.
+
+De paso, la versión actual de la escalera de migración pasa a tener nombre
+(`ShellPreferences.CurrentSchemaVersion`). Existía solo como número suelto repetido en el último
+escalón y en una veintena de pruebas, y un número repetido es un número que se olvida de actualizar
+en algún sitio; ahora un escalón nuevo que olvide subirla falla en la suite y no en el equipo de
+alguien.
+
+### D23 — Los seis packs y su panel (Fase 8)
+
+D15 cumplió el criterio de la fase con dos; el roadmap nombra seis. **Support, Creator, Access y
+Meeting** completan el conjunto.
+
+Todos se construyen igual y desde la misma regla: un pack es una **lista** de ajustes que ya
+existían, no código. Una prueba nueva lo obliga — los ajustes de cada pack tienen que ir y volver
+sobre unas preferencias normales, así que un pack que se inventara algo fallaría ahí y no en
+ejecución. Otra comprueba que **todos** son reversibles, no solo los dos primeros.
+
+**Access** es el que merece nombrarse: es el pack que más cambia el día a día de quien lo necesita y
+el que menos añade. Responder en voz alta, escuchar la palabra de activación, sin animaciones,
+dictado encendido. Todo existía ya; solo estaba repartido en cuatro sitios de Personalizar, que es
+exactamente el problema que la fase existe para resolver en alguien que no quiere aprenderse cómo se
+llama cada capacidad.
+
+**Meeting** es el único que solo APAGA cosas, y lo declara como su requisito: no pide ningún permiso
+nuevo, así que se puede activar sin conceder nada. Decirlo es parte de explicarlo.
+
+El panel lista los seis con su estado, y cada fila dice qué le **falta** al pack antes de activarlo:
+enterarse después de que necesitaba un permiso que no diste es enterarse tarde.
+
+### D24 — Nivel 5: colaborar con confirmaciones
+
+`SequenceCoordinator` implementa las cuatro obligaciones que el modelo de confianza pone para la
+recuperación tras fallo, y están numeradas en el código porque son la razón de que la clase exista:
+
+1. **Detener** al primer fallo. No se sigue "a ver si los demás van".
+2. **Constancia del punto exacto** en el Audit Log: qué paso, qué posición ocupaba y cuántos se
+   habían aplicado.
+3. **Ofrecer revertir** lo ya aplicado, en orden inverso.
+4. **Nunca reintentar automáticamente.** No hay camino de reintento en esta clase, ni con espera ni
+   sin ella.
+
+Y la que da nombre al nivel: los puntos de riesgo se confirman **de uno en uno, a mitad de la
+secuencia**, aunque la secuencia entera ya esté aprobada. Aprobar "haz estas cinco cosas" no es
+aprobar la tercera si la tercera borra algo. La confirmación es un callback y no una bandera porque
+la respuesta hay que **pedirla en ese momento**: preguntarlo todo al principio es aprobar por
+adelantado, que es el nivel 6.
+
+La reversión se **ofrece**, no se impone: revertir sin preguntar también sería decidir por la
+persona, solo que hacia el otro lado. Y cuando algo no se pudo revertir, el resultado tiene nombre
+propio (`DetenidaSinPoderRevertir`) en vez de mezclarse con el caso bueno — dar por buena una
+reversión que no cuajó es el fallo que merece nombrarse aparte.
+
+**El nivel 5 se abre para el acompañante de proyecto y NO para Computer Use**, y esa asimetría es el
+argumento, no una precaución genérica: cada paso de proyecto es una edición con su copia previa por
+archivo, así que la obligación 3 se puede cumplir; de los métodos implementados de Computer Use solo
+el portapapeles sabe volver atrás, de modo que una secuencia que mezclara pulsar controles con
+cualquier otra cosa no podría cumplirla. Abrir el nivel ahí sería prometer una recuperación que no
+existe. **El nivel 6 sigue cerrado en todas partes.**
+
+`ParseSequence` es un método aparte de `Parse` y no un parámetro: si fuera un parámetro, un descuido
+en la llamada convertiría un paso confirmado en cinco. Un bloque mal formado invalida la secuencia
+entera, porque saltarse el que no se entiende es peor en una secuencia — los pasos siguientes pueden
+darlo por hecho.
+
+**Build y pruebas (Release), acumulado D22-D24:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 1183 superadas
+  Nexo.Windows.Tests.dll ->  216 superadas
+  Nexo.App.Tests.dll     ->  166 superadas
+Total: 1565 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **La validación manual sigue sin hacerse.** D22 la acorta —ahora hay un comando que comprueba la
+  maquinaria en el equipo real— pero no la sustituye, y lo dice él mismo. Sigue haciendo falta que
+  una persona use Kohana un rato: interfaz, dictado, píldora y voz.
+- Instalar, actualizar y desinstalar de punta a punta en una máquina limpia sigue pendiente (Fase 9).
+- La escalera de métodos sigue en tres de ocho.
+- El **nivel 6** sigue cerrado en todas partes, y debería seguir así hasta que exista una razón mejor
+  que "ya tocaba".
+- Computer Use no encadena pasos, por diseño y no por olvido: sus métodos no saben deshacerse.
+- El nivel 5 del proyecto pregunta en **cada** archivo, porque marcar unos como riesgo y otros no
+  exigiría un criterio que Kohana no tiene.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**

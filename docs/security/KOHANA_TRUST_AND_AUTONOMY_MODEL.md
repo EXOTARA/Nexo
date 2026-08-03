@@ -52,6 +52,17 @@ antes de solicitar el salto a ejecución.
 > todas las capacidades. Ver `WorkspaceAutonomyPolicy`, que falla cerrado ante cualquier nivel que no
 > reconozca explícitamente.
 >
+> **Actualización (Diseño D24).** El acompañante de proyecto llega al **nivel 5**. Se abrió cuando
+> se pudo cumplir la sección "Recuperación tras fallo" de este documento entera, no antes:
+> `SequenceCoordinator` detiene la secuencia al primer fallo, deja constancia del punto exacto,
+> ofrece revertir lo ya aplicado y no reintenta nunca por su cuenta. Los puntos de riesgo se
+> confirman uno a uno a mitad de secuencia, que es lo que distingue este nivel del 6.
+>
+> **Computer Use no llega al nivel 5, y es deliberado:** de sus métodos implementados solo el
+> portapapeles sabe volver atrás, así que la obligación de "ofrecer revertir lo ya aplicado" no se
+> podría cumplir. Abrir el nivel ahí sería prometer una recuperación inexistente. **El nivel 6 sigue
+> cerrado para todas las capacidades.**
+>
 > **Actualización (Diseño D18).** Computer Use (Fase 7) es la segunda capacidad en llegar al nivel 4,
 > por el mismo camino: D17 la implementó en los niveles 1–3 sin ejecutar nada, y el salto esperó a
 > que existieran el Permission Broker (D16), el Audit Log (D13) y una reversión real. Tiene su

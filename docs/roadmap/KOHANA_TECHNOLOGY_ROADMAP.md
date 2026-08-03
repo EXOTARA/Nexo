@@ -132,12 +132,15 @@ usuario).
 **Estado: Parcial** (Diseños D12 + D13 + D14 en `design/kohana-sprints-d7-d9`: carpeta de trabajo
 autorizada con contención real de rutas, exclusión de archivos de secretos y de carpetas de
 dependencias, detección de secretos en código antes de enviar nada, búsqueda dentro del proyecto, y
-los niveles 1–4 del modelo de autonomía. **D14 abre la escritura**, con checkpoint reversible por
+los niveles 1–5 del modelo de autonomía. **D14 abre la escritura**, con checkpoint reversible por
 archivo comprobado antes de tocar nada, verificación releyendo, reversión de lo aplicado si un paso
-falla, negativa a deshacer si la persona editó el archivo después, y registro en el Audit Log. Un
-archivo por paso: los niveles 5 y 6 —encadenar y automatizar— siguen cerrados, y el nivel por
-omisión sigue siendo `Guiar`. Sin integrar a release y pendiente de validación manual, que aquí pesa
-más que en ningún otro sprint porque se escriben archivos reales).
+falla, negativa a deshacer si la persona editó el archivo después, y registro en el Audit Log.
+**D24 abre el nivel 5**: varios cambios encadenados, confirmando archivo por archivo, parada al
+primer fallo con constancia del punto exacto y reversión de lo ya aplicado en orden inverso — se
+abrió aquí y no en la Fase 7 porque aquí cada paso tiene su copia previa y la obligación de revertir
+sí se puede cumplir. El nivel 6 sigue cerrado y el nivel por omisión sigue siendo `Guiar`. Sin
+integrar a release y pendiente de validación manual, que aquí pesa más que en ningún otro sprint
+porque se escriben archivos reales).
 
 - Objetivo: que Kohana trabaje junto al usuario dentro de un proyecto de código autorizado —desde
   guiar hasta ejecutar cambios— con el nivel de autonomía que el usuario elija.
@@ -231,13 +234,15 @@ integrar a release y pendiente de validación manual).
 
 ## Fase 8 — Skills Platform
 
-**Estado: Parcial** (Diseño D15 en `design/kohana-sprints-d7-d9`: los packs **Kohana Study** y
-**Kohana Dev**, hechos exclusivamente con capacidades ya implementadas. Un pack solo escribe
-preferencias y **nunca concede un permiso**: lo que necesita y no puede activar por su cuenta —
-memoria, Vision, carpeta de proyecto— lo declara como requisito y dice dónde se da. Activar guarda
-el estado anterior y desactivar lo devuelve; un pack activo a la vez. Faltan los otros cuatro packs
-que nombra la fase y una interfaz propia: hoy se activan desde la paleta de comandos. Sin integrar a
-release y pendiente de validación manual).
+**Estado: Parcial** (Diseños D15 + D23 en `design/kohana-sprints-d7-d9`: **los seis packs** que
+nombra la fase —Study, Dev, Support, Creator, Access y Meeting—, hechos exclusivamente con
+capacidades ya implementadas, con panel propio en Personalizar. Un pack solo escribe preferencias y
+**nunca concede un permiso**: lo que necesita y no puede activar por su cuenta —memoria, Vision,
+carpeta de proyecto— lo declara como requisito y dice dónde se da. Activar guarda el estado anterior
+y desactivar lo devuelve; un pack activo a la vez, y todos reversibles con prueba que lo obliga. El
+criterio de terminado de la fase —*"al menos dos packs completos usando exclusivamente capacidades
+ya implementadas"*— está cumplido con margen. Sigue **Parcial** solo por la regla de este documento:
+el código no está en `release/kohana-1.0-rc` y falta la validación manual).
 
 - Objetivo: empaquetar combinaciones de capacidades anteriores en "packs" con propósito claro.
 - Valor: un usuario no técnico puede activar "Kohana Study" sin entender qué capacidades incluye.
