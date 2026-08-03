@@ -49,6 +49,9 @@ public partial class SettingsView : UserControl
     // Diseño D16: permisos por capacidad
     public event Action<KohanaCapability, PermissionLevel>? CapabilityPermissionChanged;
 
+    // Diseño D19: exclusiones por aplicación
+    public event Action<IReadOnlyList<string>>? PermissionExclusionsChanged;
+
     // Diseño D13 (Fase 5 — Project Companion)
     public event EventHandler? WorkspaceAuthorizeRequested;
     public event EventHandler? WorkspaceRevokeRequested;
@@ -996,6 +999,8 @@ public partial class SettingsView : UserControl
 
         _permissionRows.Clear();
         PermissionsItemsControl.ItemsSource = _permissionRows;
+        PermissionExclusionsBox.Text = string.Join(
+            Environment.NewLine, PermissionExclusionParser.Format(settings));
 
         foreach (var capability in Enum.GetValues<KohanaCapability>())
         {
@@ -1053,6 +1058,28 @@ public partial class SettingsView : UserControl
         }
 
         CapabilityPermissionChanged?.Invoke(capability, level);
+    }
+
+    private void PermissionExclusionsBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var lines = SplitListLines(PermissionExclusionsBox.Text);
+        var ignored = PermissionExclusionParser.Parse(lines).IgnoredLines;
+
+        // Una exclusión que la persona cree puesta y no lo está es una protección que no existe, así
+        // que las líneas ignoradas se dicen en voz alta.
+        SetPermissionsStatus(ignored switch
+        {
+            0 => "Exclusiones guardadas.",
+            1 => "Se ignoró 1 línea porque no tiene el formato capacidad: aplicación.",
+            _ => $"Se ignoraron {ignored} líneas porque no tienen el formato capacidad: aplicación."
+        });
+
+        PermissionExclusionsChanged?.Invoke(lines);
     }
 
     public void SetPermissionsStatus(string? message)

@@ -102,7 +102,7 @@ public sealed class ComputerUseCoordinatorTests
             ? [ComputerUseMethod.ShellSeguro, ComputerUseMethod.Portapapeles]
             : available);
 
-        return (new ComputerUseCoordinator(executor, probe, snapshots, audit, () => Now),
+        return (new ComputerUseCoordinator(executor, probe, snapshots, audit, clock: () => Now),
             executor, snapshots, audit);
     }
 
@@ -143,17 +143,42 @@ public sealed class ComputerUseCoordinatorTests
     // ---------- El orden estricto no es decorativo ----------
 
     [Fact]
-    public void AskingForALessSafeMethod_WhenABetterOneExists_IsRefused()
+    public void AskingForALessSafeMethod_WhenABetterOneExistsForTheSameGoal_IsRefused()
     {
-        // Sin esto bastaría con pedir el método cómodo para saltarse el orden de D17.
-        var (coordinator, executor, _, _) = Build(
-            ComputerUseMethod.ShellSeguro, ComputerUseMethod.Portapapeles);
+        // Sin esto bastaría con pedir el método cómodo para saltarse el orden de D17. Los dos
+        // métodos sirven para lo mismo —pulsar un control—, que es cuando la comparación significa
+        // algo.
+        var (coordinator, _, _, _) = Build(
+            ComputerUseMethod.UiAutomation, ComputerUseMethod.RatonTeclado);
 
-        var result = coordinator.Execute(Clipboard(), Permissions(), AutonomyLevel.EjecutarUnPaso);
+        var result = coordinator.Execute(
+            new ComputerUseRequest(ComputerUseMethod.RatonTeclado, "Pulsar Aceptar"),
+            Permissions(),
+            AutonomyLevel.EjecutarUnPaso,
+            simulatedInputAllowed: true);
 
         Assert.False(result.Success);
         Assert.Contains("más segura", result.Detail);
-        Assert.Equal("lo que había antes", executor.Clipboard);
+    }
+
+    /// <summary>
+    /// Diseño D19 — corrección de un defecto que salió al subir UI Automation a la lista: la regla
+    /// del "más seguro disponible" comparaba TODOS los métodos entre sí, y empezó a rechazar copiar
+    /// al portapapeles porque existía UI Automation, que no sabe copiar. La comparación solo tiene
+    /// sentido entre métodos capaces del mismo objetivo.
+    /// </summary>
+    [Fact]
+    public void ASaferMethodForADifferentGoal_DoesNotBlockThisOne()
+    {
+        var (coordinator, executor, _, _) = Build(
+            ComputerUseMethod.UiAutomation,
+            ComputerUseMethod.ShellSeguro,
+            ComputerUseMethod.Portapapeles);
+
+        var result = coordinator.Execute(Clipboard(), Permissions(), AutonomyLevel.EjecutarUnPaso);
+
+        Assert.True(result.Success);
+        Assert.Equal("texto nuevo", executor.Clipboard);
     }
 
     [Fact]
@@ -170,15 +195,31 @@ public sealed class ComputerUseCoordinatorTests
     [Fact]
     public void AMethodKohanaCannotExecuteYet_IsRefused()
     {
-        var (coordinator, _, _, _) = Build(ComputerUseMethod.UiAutomation);
+        var (coordinator, _, _, _) = Build(ComputerUseMethod.ApiOficial);
 
         var result = coordinator.Execute(
-            new ComputerUseRequest(ComputerUseMethod.UiAutomation, "Pulsar un botón"),
+            new ComputerUseRequest(ComputerUseMethod.ApiOficial, "Pedirlo por la API"),
             Permissions(),
             AutonomyLevel.EjecutarUnPaso);
 
         Assert.False(result.Success);
         Assert.Contains("Todavía no sé ejecutar", result.Detail);
+    }
+
+    [Fact]
+    public void WithoutAnInvoker_UiAutomationCannotBeUsed()
+    {
+        // El invocador es opcional: sin él, el escalón 5 no se puede ejecutar y se dice.
+        var (coordinator, _, _, _) = Build(ComputerUseMethod.UiAutomation);
+
+        var result = coordinator.Execute(
+            new ComputerUseRequest(ComputerUseMethod.UiAutomation, "Pulsar Aceptar",
+                WindowHandle: 42, ControlName: "Aceptar"),
+            Permissions(),
+            AutonomyLevel.EjecutarUnPaso);
+
+        Assert.False(result.Success);
+        Assert.Contains("No tengo forma de pulsar", result.Detail);
     }
 
     // ---------- Portapapeles ----------
@@ -208,7 +249,7 @@ public sealed class ComputerUseCoordinatorTests
             new FakeProbe(ComputerUseMethod.Portapapeles),
             snapshots,
             new FakeAuditLog(),
-            () => Now);
+            clock: () => Now);
 
         var result = coordinator.Execute(Clipboard(), Permissions(), AutonomyLevel.EjecutarUnPaso);
 
@@ -226,7 +267,7 @@ public sealed class ComputerUseCoordinatorTests
             new FakeProbe(ComputerUseMethod.Portapapeles),
             snapshots,
             new FakeAuditLog(),
-            () => Now);
+            clock: () => Now);
 
         Assert.False(coordinator.Execute(Clipboard(), Permissions(), AutonomyLevel.EjecutarUnPaso).Success);
         Assert.Empty(snapshots.Saved);

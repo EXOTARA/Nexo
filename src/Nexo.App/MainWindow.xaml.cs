@@ -380,7 +380,11 @@ public partial class MainWindow : Window
             new WindowsComputerUseExecutor(),
             _computerUseProbe,
             new JsonComputerUseSnapshotStore(),
-            _auditLog);
+            _auditLog,
+
+            // Diseño D19 — el invocador comparte el lector de Lens, pero no la capacidad: leer un
+            // control e invocarlo pasan por interfaces y permisos distintos.
+            new WindowsUiAutomationInvoker(_lensUiAutomationReader));
 
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
@@ -785,6 +789,23 @@ public partial class MainWindow : Window
 
             _settingsView.SetPermissionsStatus(
                 $"«{CapabilityTitleFor(capability)}» quedó en {level}.");
+        };
+
+        // Diseño D19 — las exclusiones por aplicación, ya editables sin abrir settings.json.
+        _settingsView.PermissionExclusionsChanged += lines =>
+        {
+            PermissionExclusionParser.Apply(_preferences.Permissions, lines);
+            _preferences.Permissions.Normalize();
+            SavePreferences();
+
+            var total = _preferences.Permissions.Capabilities.Sum(entry => entry.ExcludedApps.Count);
+            RecordAudit(
+                AuditCapability.Permisos,
+                "Exclusiones por aplicación actualizadas",
+                total == 0 ? "Sin exclusiones." : $"{total} exclusiones activas.",
+                "Cambio explícito del usuario");
+
+            _settingsView.ApplyPermissionSettings(_preferences.Permissions);
         };
 
         // Diseño D18 — subir hasta "ejecutar un paso" en el equipo se confirma aparte del permiso:

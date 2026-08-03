@@ -10,7 +10,9 @@ public sealed record ComputerUseRequest(
     string? ClipboardText = null,
     string? SafeCommandId = null,
     string? TargetApp = null,
-    IReadOnlyList<MandatoryConfirmation>? Categories = null)
+    IReadOnlyList<MandatoryConfirmation>? Categories = null,
+    long WindowHandle = 0,
+    string? ControlName = null)
 {
     public IReadOnlyList<MandatoryConfirmation> MandatoryCategories => Categories ?? [];
 }
@@ -81,6 +83,7 @@ public sealed class ComputerUseCoordinator
     private readonly IComputerUseMethodProbe _probe;
     private readonly IComputerUseSnapshotStore _snapshots;
     private readonly IAuditLog _audit;
+    private readonly IUiAutomationInvoker? _invoker;
     private readonly Func<DateTimeOffset> _clock;
 
     public ComputerUseCoordinator(
@@ -88,12 +91,18 @@ public sealed class ComputerUseCoordinator
         IComputerUseMethodProbe probe,
         IComputerUseSnapshotStore snapshots,
         IAuditLog audit,
+        IUiAutomationInvoker? invoker = null,
         Func<DateTimeOffset>? clock = null)
     {
         _executor = executor;
         _probe = probe;
         _snapshots = snapshots;
         _audit = audit;
+
+        // Opcional a propósito: sin invocador, el escalón 5 simplemente no se puede ejecutar y el
+        // coordinador lo dice. Es preferible a exigir un doble vacío en todos los sitios que solo
+        // usan portapapeles y comandos.
+        _invoker = invoker;
         _clock = clock ?? (() => DateTimeOffset.Now);
     }
 
@@ -135,11 +144,19 @@ public sealed class ComputerUseCoordinator
             return $"No puedo usar {ComputerUseMethodText.Describe(request.Method)} en este equipo.";
         }
 
-        if (!ComputerUseMethodPolicy.IsSafestAvailable(request.Method, available, simulatedInputAllowed))
+        // Diseño D19 — la comparación se hace entre métodos capaces del MISMO objetivo. Compararla
+        // contra todos los disponibles rechazaba copiar al portapapeles "porque UI Automation es más
+        // seguro", cuando UI Automation no sabe copiar. El orden sigue siendo estricto; lo que se
+        // corrigió es el conjunto sobre el que se aplica.
+        var goal = ComputerUseGoals.ForMethod(request.Method);
+        var capable = goal is null ? available : ComputerUseGoals.CapableMethods(goal.Value);
+        var candidates = available.Where(capable.Contains).ToArray();
+
+        if (!ComputerUseMethodPolicy.IsSafestAvailable(request.Method, candidates, simulatedInputAllowed))
         {
             // Sin esto, el orden estricto de D17 sería decorativo.
-            return $"Hay una forma más segura de hacer esto que {ComputerUseMethodText.Describe(request.Method)}, " +
-                   "así que no uso ésa.";
+            return $"Hay una forma más segura de {(goal is null ? "hacer esto" : ComputerUseGoals.Describe(goal.Value))} " +
+                   $"que {ComputerUseMethodText.Describe(request.Method)}, así que no uso ésa.";
         }
 
         return null;
@@ -160,6 +177,7 @@ public sealed class ComputerUseCoordinator
 
         return request.Method switch
         {
+            ComputerUseMethod.UiAutomation => ExecuteUiAutomation(request, level),
             ComputerUseMethod.Portapapeles => ExecuteClipboard(request, level),
             ComputerUseMethod.ShellSeguro => ExecuteSafeCommand(request, level),
             _ => Refuse(
@@ -167,6 +185,35 @@ public sealed class ComputerUseCoordinator
                 level,
                 $"Todavía no sé ejecutar por {ComputerUseMethodText.Describe(request.Method)}.")
         };
+    }
+
+    /// <summary>
+    /// Diseño D19 — pulsar un control. **Sin snapshot y sin reversión**, y se dice: pulsar un botón
+    /// ajeno no tiene vuelta atrás que Kohana pueda garantizar. Por eso el plan lo declara
+    /// irreversible y por eso cada uno se confirma; prometer una reversión que no existe sería peor
+    /// que no ofrecer la acción.
+    /// </summary>
+    private ComputerUseResult ExecuteUiAutomation(ComputerUseRequest request, AutonomyLevel level)
+    {
+        if (_invoker is null)
+        {
+            return Refuse(request, level, "No tengo forma de pulsar controles en este equipo.");
+        }
+
+        if (request.WindowHandle == 0 || string.IsNullOrWhiteSpace(request.ControlName))
+        {
+            return Refuse(request, level, "No me dijiste qué control pulsar ni en qué ventana.");
+        }
+
+        var step = _invoker.Invoke(request.WindowHandle, request.ControlName);
+        if (!step.Success)
+        {
+            return Refuse(request, level, step.Detail);
+        }
+
+        Record("Control pulsado", $"{request.ControlName} — {request.Description}", level, string.Empty, null);
+
+        return ComputerUseResult.Done(step.Detail, string.Empty, Guid.Empty);
     }
 
     private ComputerUseResult ExecuteClipboard(ComputerUseRequest request, AutonomyLevel level)

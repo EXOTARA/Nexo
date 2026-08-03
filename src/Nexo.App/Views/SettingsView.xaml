@@ -659,6 +659,22 @@
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>
 
+            <StackPanel Margin="20,12,0,0">
+                <TextBlock Margin="0,0,0,5" Text="Aplicaciones excluidas" FontWeight="SemiBold" />
+                <TextBlock Margin="0,0,0,6"
+                           Text="Una por línea, con el formato capacidad: aplicación. Si la aplicación coincide, Kohana no la toca aunque tengas la capacidad permitida. Ejemplo: Lens: bitwarden"
+                           TextWrapping="Wrap"
+                           Style="{StaticResource MutedTextStyle}" />
+                <TextBox x:Name="PermissionExclusionsBox"
+                         MinHeight="62"
+                         MaxHeight="120"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto"
+                         LostFocus="PermissionExclusionsBox_LostFocus"
+                         AutomationProperties.Name="Aplicaciones excluidas por capacidad" />
+            </StackPanel>
+
             <TextBlock x:Name="PermissionsStatusText"
                        Margin="20,4,0,0"
                        Text=""
