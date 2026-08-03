@@ -59,6 +59,20 @@
 
 - Esquema de preferencias v20 → v22. Al actualizar, actuar sobre el equipo llega bloqueado y el resto de permisos en «preguntar».
 
+### Agregado (Diseños D19, D20 y D21 — sin integrar a release)
+
+- Kohana puede pulsar un control concreto de otra aplicación, y se niega si hay varios con el mismo nombre o si la ventana es sensible.
+- Las aplicaciones excluidas se editan en Personalizar, con el formato `capacidad: aplicación`.
+- Comando para ver todo lo que Kohana guarda en tu equipo, qué es cada cosa y si está cifrada.
+- Copia de seguridad verificada de tus datos antes de actualizar, y comando para restaurarla.
+- Comando que enseña qué se borraría y qué se conservaría al desinstalar, antes de desinstalar nada.
+- Diagnóstico exportable para soporte, sin tus datos dentro y con una lista de lo que dejó fuera.
+- Informe de privacidad: qué se guarda, dónde, cifrado o no, y cómo borrarlo.
+
+### Corregido
+
+- La regla de «usa siempre el método más seguro disponible» comparaba métodos que no sirven para lo mismo, y desde que UI Automation está disponible impedía copiar al portapapeles. Ahora se compara solo entre métodos capaces del mismo objetivo.
+
 # Changelog
 
 Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.

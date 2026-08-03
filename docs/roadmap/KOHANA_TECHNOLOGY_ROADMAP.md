@@ -190,15 +190,17 @@ frase suelta. Sin integrar a release y pendiente de validación manual).
 
 ## Fase 7 — Safe Computer Use
 
-**Estado: Parcial** (Diseños D16 + D17 + D18 en `design/kohana-sprints-d7-d9`. Las dos condiciones
-que esta fase ponía para habilitarse ya existen: el **Permission Broker** (D16) y el **Audit Log**
-(D13). D17 implementa el orden estricto de métodos —nunca se baja de escalón habiendo uno más
-seguro disponible, y ratón/teclado exigen habilitarse a propósito— y los niveles 1–3. D18 abre el
-**nivel 4**: una acción confirmada cada vez, verificada releyendo, reversible donde se puede
-garantizar, y siempre auditada. **Solo dos de los ocho métodos están implementados** —portapapeles y
-una lista de comandos de solo lectura—; los cuatro primeros no se declaran disponibles porque Kohana
-no sabe ejecutarlos, y ratón/teclado no está implementado en absoluto. Sin integrar a release y
-pendiente de validación manual).
+**Estado: Parcial** (Diseños D16 + D17 + D18 + D19 en `design/kohana-sprints-d7-d9`. Las dos
+condiciones que esta fase ponía para habilitarse ya existen: el **Permission Broker** (D16) y el
+**Audit Log** (D13). D17 implementa el orden estricto de métodos —nunca se baja de escalón habiendo
+uno más seguro disponible, y ratón/teclado exigen habilitarse a propósito— y los niveles 1–3. D18
+abre el **nivel 4**: una acción confirmada cada vez, verificada releyendo, reversible donde se puede
+garantizar, y siempre auditada. D19 sube **UI Automation** al conjunto ejecutable, con negativa ante
+ambigüedad, y corrige el alcance de la regla del "más seguro disponible", que ahora se aplica entre
+métodos capaces del mismo objetivo. **Tres de los ocho métodos están implementados** —UI Automation,
+una lista de comandos de solo lectura y el portapapeles—; los cuatro primeros no se declaran
+disponibles porque Kohana no sabe ejecutarlos, y ratón/teclado no está implementado en absoluto. Sin
+integrar a release y pendiente de validación manual).
 
 - Objetivo: permitir que Kohana ejecute acciones reales sobre el equipo, siempre por el camino más
   seguro disponible primero.
@@ -219,12 +221,13 @@ pendiente de validación manual).
 - Sprints sugeridos: "Computer Use: niveles Ver/Guiar/Proponer" (hecho en D17), "Computer Use:
   ejecución y auditoría" (hecho en D18, en el nivel 4).
 
-> **Distancia real al criterio de terminado (D18).** El criterio pide los seis niveles *"para al
-> menos una herramienta de cada categoría de la lista de preferencia"*, y ahí es donde queda lo
-> gordo: hay herramienta para **dos** categorías de ocho (shell seguro y portapapeles), y los
-> niveles llegan hasta el 4 de 6. Lo que sí está terminado es la parte que decide: el orden de
-> preferencia, el broker, la auditoría y la reversión. Añadir un método por arriba no exige tocar
-> ninguna de esas piezas — la política lo elegirá sola en cuanto exista.
+> **Distancia real al criterio de terminado (actualizado en D19).** El criterio pide los seis
+> niveles *"para al menos una herramienta de cada categoría de la lista de preferencia"*, y ahí es
+> donde queda lo gordo: hay herramienta para **tres** categorías de ocho (UI Automation, shell seguro
+> y portapapeles), y los niveles llegan hasta el 4 de 6. Lo que sí está terminado es la parte que
+> decide: el orden de preferencia, el broker, la auditoría y la reversión. D19 lo demostró sin
+> quererlo — añadir UI Automation no exigió tocar la política ni el coordinador; bastó con
+> declararlo disponible y la escalera lo eligió sola.
 
 ## Fase 8 — Skills Platform
 
@@ -253,7 +256,15 @@ release y pendiente de validación manual).
 
 ## Fase 9 — Productization
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseños D20 + D21 en `design/kohana-sprints-d7-d9`. `KohanaDataInventory`
+describe todo lo que Kohana guarda y de él cuelgan las tres piezas: copia **verificada** de los datos
+antes de actualizar, con vuelta atrás y con la regla de que un archivo no verificado impide declarar
+segura la actualización; plan de desinstalación que separa la app de tus datos y enseña las dos
+listas; y paquete de soporte exportable, redactado con las dos herramientas y que enumera lo que
+dejó fuera, más un informe de privacidad que dice qué se guarda, dónde, cifrado o no y cómo borrarlo.
+**Lo que falta es lo que no depende del código de la app**: instalar, actualizar y desinstalar de
+verdad siguen siendo del instalador, y el criterio de terminado pide las tres verificadas de punta a
+punta en una máquina limpia. Sin integrar a release y pendiente de validación manual).
 
 - Objetivo: llevar Kohana de "build interno validado por el usuario" a producto distribuible.
 - Valor: onboarding, actualización y soporte reales para usuarios que no son parte del desarrollo.
@@ -269,8 +280,15 @@ release y pendiente de validación manual).
   apruebe.
 - Criterio de terminado: instalación, actualización y desinstalación limpias verificadas de punta a
   punta, con diagnóstico exportable para soporte.
-- Sprints sugeridos: "Productization: instalador y actualizador", "Productization: diagnóstico y
-  soporte".
+- Sprints sugeridos: "Productization: instalador y actualizador" (D20 hizo la mitad reversible: la
+  copia verificada y el plan de desinstalación; el instalador en sí sigue pendiente),
+  "Productization: diagnóstico y soporte" (hecho en D21).
+
+> **Distancia real al criterio de terminado (D21).** El diagnóstico exportable está. Lo que falta es
+> la otra mitad de la frase — *"instalación, actualización y desinstalación limpias verificadas de
+> punta a punta"* —, y no se cierra escribiendo más código de la aplicación: exige instalar,
+> actualizar y desinstalar en una máquina limpia y comprobar el resultado. Es trabajo de validación,
+> no de implementación, y conviene no confundirlo con lo segundo.
 
 ---
 

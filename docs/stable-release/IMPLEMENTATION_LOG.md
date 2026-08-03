@@ -3153,3 +3153,130 @@ Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 
 - El panel de permisos no muestra el detalle de las exclusiones, solo cuántas hay.
 
 **No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D19, D20 y D21 — quinto bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (misma rama, sobre `9ca424c`).
+D19 sube un escalón de la escalera de métodos que la entrega anterior dejó casi vacía por arriba, y
+D20/D21 abren la **Fase 9 — Productization**, la última fase que no se había empezado.
+
+### D19 — UI Automation ejecutable (escalón 5) y exclusiones con interfaz
+
+Kohana ya leía UI Automation desde D5.3, para Lens. Leer un control e invocarlo **no son la misma
+capacidad**, así que el invocador tiene su propia interfaz, igual que el proyecto separó lector y
+escritor. El comentario que `UiAutomationElement` lleva desde D5.3 —que nunca incluiría una acción
+para invocarlo— sigue siendo cierto: la acción no vive en el elemento, vive detrás de su propia
+interfaz y su propio permiso.
+
+La regla de la política es **ante la duda, no se pulsa**. Sin coincidencia no se aproxima nada
+(aproximar un nombre es pulsar un botón que nadie pidió). Con VARIAS coincidencias tampoco se pulsa:
+una ventana con tres "Aceptar" no tiene un "el Aceptar", y elegir el primero del árbol es elegir al
+azar con apariencia de criterio. Solo se invocan tipos de control que se pulsan. La ventana pasa por
+la misma exclusión de ventanas sensibles que usa Lens.
+
+El invocador **vuelve a resolver el control contra el árbol de AHORA**, no contra lo que se leyó al
+proponer: entre proponer y confirmar puede aparecer un diálogo o reordenarse una lista, y pulsar por
+una posición leída antes es cómo se acaba pulsando otra cosa. Y vuelve a comprobar la ambigüedad,
+porque la lectura del lector está acotada en profundidad y anchura mientras que el árbol real no.
+
+**Defecto real que destapó añadir el escalón.** La regla "no uses un método menos seguro habiendo
+uno más seguro disponible" comparaba TODOS los métodos disponibles entre sí. En cuanto UI Automation
+(5) pasó a estar disponible, el coordinador empezó a rechazar copiar al portapapeles (7) y ejecutar
+un comando de diagnóstico (6) "porque hay algo más seguro" — cuando UI Automation no sabe hacer
+ninguna de las dos. La comparación solo significa algo **entre métodos capaces de lo mismo**. La
+corrección no fue relajar la regla sino aplicarla donde tiene sentido: orden estricto, dentro del
+conjunto de métodos capaces de ESE objetivo (`ComputerUseGoal`). Lo atraparon dos pruebas
+existentes al fallar.
+
+También cierra el pendiente de D16: las exclusiones por aplicación se editan en Personalizar y no
+solo en `settings.json`. Eran la parte del modelo de confianza que más se usa a diario, así que
+dejarlas sin interfaz las volvía teóricas. Las líneas mal escritas se ignoran pero **se cuentan y se
+dicen**: una exclusión que la persona cree puesta y no lo está es una protección que no existe.
+Aplicar **reemplaza** en vez de acumular, porque si no, quitar una exclusión desde la interfaz sería
+imposible.
+
+### D20 — Copia verificada antes de actualizar, y desinstalar sin sorpresas
+
+`KohanaDataInventory` existe porque tres cosas lo necesitaban y ninguna podía inventárselo: la copia
+previa (¿qué hay que copiar?), la desinstalación (¿qué es la app y qué son tus datos?) y el informe
+de privacidad de D21. Escrito una vez, para que nadie mantenga su propia lista y se quede corta justo
+cuando importa. **Se mantiene a mano a propósito**: enumerar la carpeta estaría siempre al día pero
+no sabría decir qué es cada archivo ni si es personal, y sin eso el inventario no sirve para lo único
+que existe. Que añadir un archivo obligue a describirlo es la característica, no el coste.
+
+El roadmap nombra el riesgo de esta fase sin rodeos: *"un actualizador mal diseñado puede romper
+instalaciones existentes — requiere el mismo rigor de reversibilidad que la Fase 4"*. Así que se
+aplica el mismo patrón: copiar ANTES, verificar releyendo, y **si algún archivo no queda verificado,
+la actualización no se declara segura**. Eso último no es prudencia de más: el único momento en que
+la copia importa es cuando algo salió mal, y ahí ya no hay ocasión de comprobarla. La verificación
+compara SHA-256, no tamaños — dos archivos del mismo tamaño pueden ser distintos, y comprobar el
+tamaño da por buena justo la corrupción que más se parece a un archivo sano. Un archivo que aún no
+existe no es un fallo: quien nunca activó la memoria no tiene memoria que copiar.
+
+La desinstalación separa "la app" de "tus datos" y enseña **las dos listas**. Limpia no significa
+borrarlo todo, significa que nadie se lleva una sorpresa — y desinstalar un programa y descubrir
+después que se llevó años de notas es la sorpresa más cara que puede dar un instalador. Al revés
+también cuenta: dejar datos personales sin decirlo es dejar un rastro que la persona creía
+eliminado. Una elección no reconocida conserva los datos, fallando hacia el lado que no destruye
+nada.
+
+**Acoplamiento corregido de paso:** al escribir la prueba de la copia se rompió una invariante que
+`ValidationProfileIsolationTests` documenta —que ninguna otra prueba de ese ensamblado muta la raíz
+de datos global—. El arreglo no fue serializar las pruebas sino dar al servicio una raíz explícita,
+como ya la aceptan todos los stores del proyecto. La testabilidad era el síntoma; el acoplamiento
+era el problema.
+
+### D21 — Paquete de soporte exportable e informe de privacidad
+
+El paquete se trata como lo que es: **un envío**. Sale del equipo y llega a otra persona, así que
+vale la misma disciplina que el contexto de memoria (D10) o el del proyecto (D12).
+
+Todo lo que entra se redacta con **las dos herramientas, no una**: el redactor de datos personales y
+el escáner de secretos de código. Buscan formas distintas y un detalle de diagnóstico puede traer de
+las dos. Las rutas pierden el nombre de la carpeta de usuario: es la fuga fácil de pasar por alto,
+porque sin eso cada línea con una ruta revela cómo se llama la persona — no es el dato más sensible
+del mundo, pero es un dato personal que se cuela sin que nadie lo haya decidido, y ésos son los que
+más veces se escapan.
+
+No entra contenido personal: ni memoria, ni conversaciones, ni código del proyecto. Del registro
+entra QUÉ se hizo, que es lo útil para soporte, no sobre qué. Y el archivo **enumera lo que dejó
+fuera** e invita a leerlo antes de mandarlo: un paquete que omite en silencio obliga a confiar; uno
+que enumera sus omisiones se puede revisar, y quien lo manda debería poder revisarlo.
+
+El informe de privacidad responde qué se guarda, dónde, si está cifrado y cómo borrarlo. Construido
+sobre el inventario y no sobre una lista propia, que es el punto: si alguien añade un archivo y no lo
+describe, no aparece — y esa omisión se ve al leer el informe en vez de quedarse escondida en el
+código. Nunca enseña contenido: enseñar tus datos para demostrar que se guardan sería una
+contradicción con patas.
+
+**Build y pruebas (Release), acumulado D19-D21:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 1146 superadas
+  Nexo.Windows.Tests.dll ->  216 superadas
+  Nexo.App.Tests.dll     ->  166 superadas
+Total: 1528 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **Sigue sin validación manual del usuario**, acumulada desde D10. D14 escribe archivos, D18 lanza
+  procesos y **D19 pulsa botones en otras aplicaciones**: son los tres que más piden probarse a mano.
+- **La instalación y la actualización de verdad siguen siendo del instalador.** D20 garantiza que
+  haya una copia verificada de la que volver; no automatiza actualizar ni desinstalar. El criterio de
+  terminado de la Fase 9 pide las tres cosas verificadas de punta a punta, y eso exige probar el
+  instalador en una máquina limpia.
+- La escalera de métodos sigue con **tres de ocho** implementados. Los cuatro de arriba (API oficial,
+  App Actions, MCP, integración nativa) no existen; ratón y teclado tampoco, y es donde debe estar.
+- Los niveles 5 y 6 siguen cerrados para todas las capacidades.
+- Faltan cuatro de los seis packs, y los packs siguen sin interfaz propia.
+- La restauración de una copia exige reiniciar Kohana a mano: no se recargan las preferencias en
+  caliente.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
