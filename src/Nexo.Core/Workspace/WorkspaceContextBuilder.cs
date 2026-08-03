@@ -18,10 +18,18 @@ public static class WorkspaceContextBuilder
 
     public const int MaximumCharacters = 4000;
 
+    /// <summary>
+    /// <paramref name="editRequested"/> decide cuál de las dos frases contradictorias no se manda.
+    /// Antes se enviaba siempre "no puedes modificar archivos", incluso cuando la propia consulta
+    /// era una petición de cambio con el formato KOHANA-EDIT en el mismo mensaje — instrucciones que
+    /// se contradicen entre sí en el mismo contexto son exactamente el tipo de cosa que un modelo
+    /// puede resolver mal, y no hacía falta correr ese riesgo.
+    /// </summary>
     public static string? BuildStructure(
         string authorizedRoot,
         IReadOnlyList<WorkspaceFile> files,
-        AutonomyLevel level)
+        AutonomyLevel level,
+        bool editRequested = false)
     {
         if (string.IsNullOrWhiteSpace(authorizedRoot) || files is null || files.Count == 0)
         {
@@ -32,8 +40,11 @@ public static class WorkspaceContextBuilder
         builder.Append("Proyecto autorizado: ").AppendLine(Path.GetFileName(
             Path.TrimEndingDirectorySeparator(authorizedRoot)));
         builder.Append("Nivel de autonomía: ").AppendLine(WorkspaceAutonomyPolicy.Describe(level));
-        builder.AppendLine(
-            "No puedes modificar archivos: describe, explica y guía, pero los cambios los aplica la persona.");
+        builder.AppendLine(editRequested
+            ? "Te están pidiendo un cambio concreto. Si propones uno, usa EXACTAMENTE el formato " +
+              "KOHANA-EDIT que se describe más abajo."
+            : "No puedes modificar archivos: describe, explica y guía, pero los cambios los aplica " +
+              "la persona.");
         builder.AppendLine("Archivos del proyecto:");
 
         var listed = 0;
@@ -94,5 +105,28 @@ public static class WorkspaceContextBuilder
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// La instrucción que acompaña a <see cref="BuildFileExcerpts"/> cuando lo que sigue es una
+    /// petición de cambio. Sin esto, un modelo puede tratar el contenido mostrado como referencia y
+    /// no como lo que tiene que conservar — que es exactamente lo que causó la pérdida de datos que
+    /// esta clase corrige: pedir un cambio pequeño acabó sustituyendo el archivo entero.
+    /// </summary>
+    public static string EditPreservationNotice(IReadOnlyList<WorkspaceFile> resolvedTargets)
+    {
+        if (resolvedTargets is null || resolvedTargets.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var names = string.Join(", ", resolvedTargets.Select(file => file.RelativePath));
+
+        return
+            $"El contenido de arriba ({names}) es el archivo ACTUAL, completo. Si propones un " +
+            "cambio con KOHANA-EDIT sobre alguno de esos archivos, tu bloque tiene que ser ese " +
+            "contenido COMPLETO con el cambio pedido aplicado — nunca solo la parte nueva ni un " +
+            "archivo distinto que empiece de cero. Si no puedes conservarlo entero, no propongas el " +
+            "cambio y explica por qué en tu respuesta.";
     }
 }

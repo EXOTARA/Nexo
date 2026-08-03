@@ -186,6 +186,15 @@ public partial class MainWindow : Window
     /// </summary>
     private string? _pendingWorkspaceContext;
 
+    /// <summary>
+    /// Corrección de un defecto real (probado a mano tras D14): rutas de archivos existentes cuyo
+    /// contenido SÍ viajó en <see cref="_pendingWorkspaceContext"/> de esta consulta. Es la
+    /// salvaguarda contra la sustitución accidental de un archivo que el modelo nunca llegó a ver:
+    /// <see cref="OfferWorkspaceEdit"/> se niega a aplicar un cambio a un archivo existente que no
+    /// esté en este conjunto, en vez de confiar en que el modelo lo haya conservado bien.
+    /// </summary>
+    private HashSet<string> _pendingWorkspaceEditKnownContentPaths = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Diseño D13 — la paleta no acepta argumentos: la consulta de búsqueda llega por chat.</summary>
     private bool _awaitingWorkspaceSearchQuery;
 
@@ -2969,7 +2978,46 @@ public partial class MainWindow : Window
 
         var files = _workspaceReader.ListFiles(workspace.AuthorizedPath, maximumFiles: 500);
         var structure = WorkspaceContextBuilder.BuildStructure(
-            workspace.AuthorizedPath, files, workspace.AutonomyLevel);
+            workspace.AuthorizedPath, files, workspace.AutonomyLevel, editRequested: true);
+
+        // Corrección de un defecto real: antes de esto, el modelo nunca veía el contenido ACTUAL
+        // del archivo que se le pedía cambiar — solo su nombre en la lista. Como KOHANA-EDIT exige
+        // el archivo COMPLETO, sin el original solo podía inventarlo, y eso es justo lo que pasó al
+        // probarlo a mano: "agrega un comentario al README" sustituyó el archivo entero por una
+        // línea. Aquí se resuelve por NOMBRE (nunca por IA) a qué archivos existentes se refiere la
+        // instrucción, y se lee su contenido de verdad para incluirlo.
+        var resolvedTargets = WorkspaceEditTargetResolver.Resolve(prompt, files);
+        var knownContentPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (resolvedTargets.Count > 0)
+        {
+            var reads = resolvedTargets
+                .Select(target => _workspaceReader.ReadFile(workspace.AuthorizedPath, target.FullPath))
+                .Where(result => result.Success)
+                .ToArray();
+
+            foreach (var read in reads)
+            {
+                knownContentPaths.Add(read.RelativePath);
+            }
+
+            var excerpts = WorkspaceContextBuilder.BuildFileExcerpts(reads);
+            if (!string.IsNullOrWhiteSpace(excerpts))
+            {
+                structure = string.IsNullOrWhiteSpace(structure)
+                    ? excerpts
+                    : structure + Environment.NewLine + excerpts;
+
+                structure += Environment.NewLine +
+                    WorkspaceContextBuilder.EditPreservationNotice(
+                        resolvedTargets.Where(target => knownContentPaths.Contains(target.RelativePath)).ToArray());
+            }
+        }
+
+        // La salvaguarda de verdad no es esta lista — es que OfferWorkspaceEdit se niegue a
+        // aplicar un cambio sobre un archivo existente cuyo contenido no viajó en este contexto.
+        // Esto solo decide qué archivos SÍ pudieron incluirse.
+        _pendingWorkspaceEditKnownContentPaths = knownContentPaths;
 
         _pendingWorkspaceContext = string.IsNullOrWhiteSpace(structure)
             ? WorkspaceEditParser.ModelInstructions
@@ -2992,12 +3040,17 @@ public partial class MainWindow : Window
     /// </summary>
     private void OfferWorkspaceEdit(string answer)
     {
+        // Un solo turno: los archivos cuyo contenido viajó en ESTE contexto no valen para el
+        // siguiente. Se captura y se limpia aquí, antes de cualquier retorno anticipado.
+        var knownContentPaths = _pendingWorkspaceEditKnownContentPaths;
+        _pendingWorkspaceEditKnownContentPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         if (_preferences.Workspace.AutonomyLevel == AutonomyLevel.ColaborarConConfirmaciones)
         {
             var sequence = WorkspaceEditParser.ParseSequence(answer);
             if (sequence.Count > 1)
             {
-                RunWorkspaceEditSequence(sequence);
+                RunWorkspaceEditSequence(sequence, knownContentPaths);
                 return;
             }
         }
@@ -3032,6 +3085,20 @@ public partial class MainWindow : Window
 
         var fullPath = Path.Combine(workspace.AuthorizedPath, edit.RelativePath);
         var exists = File.Exists(fullPath);
+
+        // La salvaguarda de verdad contra el defecto real que esto corrige: un archivo que YA
+        // EXISTÍA y cuyo contenido no viajó en el contexto de este turno no se aplica, sin importar
+        // qué tan razonable parezca el cambio propuesto. Confiar en que el modelo conservó un
+        // archivo que nunca vio es exactamente la apuesta que perdió al probarlo a mano.
+        if (exists && !knownContentPaths.Contains(edit.RelativePath))
+        {
+            _assistantView.AddKohanaMessage(
+                $"No apliqué el cambio a «{edit.RelativePath}»: no tenía el contenido actual de " +
+                "ese archivo en esta consulta, así que no puedo garantizar que lo conservara. " +
+                "Pídemelo otra vez nombrando el archivo tal cual (por ejemplo «modifica " +
+                $"{edit.RelativePath}») para que lo lea antes de proponer el cambio.");
+            return;
+        }
 
         var confirmation = MessageBox.Show(
             this,
@@ -3068,7 +3135,9 @@ public partial class MainWindow : Window
     /// criterio que Kohana no tiene. Que el nivel 5 pregunte en cada archivo no lo vuelve inútil —
     /// sigue ahorrando redactar y encadenar los cambios uno a uno.
     /// </summary>
-    private void RunWorkspaceEditSequence(IReadOnlyList<WorkspaceEdit> edits)
+    private void RunWorkspaceEditSequence(
+        IReadOnlyList<WorkspaceEdit> edits,
+        HashSet<string> knownContentPaths)
     {
         var workspace = _preferences.Workspace;
         var checkpoints = new List<Guid>();
@@ -3080,6 +3149,18 @@ public partial class MainWindow : Window
             CanRevert: true,
             Execute: () =>
             {
+                // Misma salvaguarda que en el cambio suelto: un archivo existente cuyo contenido no
+                // viajó en el contexto de este turno no se toca, ni siquiera dentro de una secuencia
+                // ya confirmada. Que falle AQUÍ hace que el coordinador de secuencias lo trate como
+                // cualquier otro paso fallido: se detiene y se ofrece deshacer lo anterior.
+                var fullPath = Path.Combine(workspace.AuthorizedPath, edit.RelativePath);
+                if (File.Exists(fullPath) && !knownContentPaths.Contains(edit.RelativePath))
+                {
+                    return SequenceStepResult.Failed(
+                        "No tenía el contenido actual de ese archivo en esta consulta, así que no " +
+                        "puedo garantizar que lo conservara.");
+                }
+
                 var result = _workspaceEditCoordinator.Apply(edit, workspace);
                 if (result.Success)
                 {
