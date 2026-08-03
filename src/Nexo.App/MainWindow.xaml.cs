@@ -48,6 +48,7 @@ using Nexo.Core.Workspace;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Ambient;
 using Nexo.Windows.Audit;
+using Nexo.Windows.Diagnostics;
 using Nexo.Windows.ComputerUse;
 using Nexo.Windows.Automation;
 using Nexo.Windows.Assistant;
@@ -196,6 +197,9 @@ public partial class MainWindow : Window
 
     /// <summary>Diseño D20 (Fase 9) — copia verificada de los datos, para poder volver.</summary>
     private readonly FileSystemDataBackupService _backupService = new();
+
+    /// <summary>Diseño D21 (Fase 9) — el mismo diagnóstico que ve la ventana, para poder exportarlo.</summary>
+    private readonly NexoDiagnosticService _diagnosticService = new();
 
     private readonly UpdateSafetyCoordinator _updateSafety;
 
@@ -2363,6 +2367,32 @@ public partial class MainWindow : Window
                 ? KohanaCommandAvailability.Available
                 : KohanaCommandAvailability.Unavailable("Todavía no hay ninguna copia guardada."));
 
+        // Diseño D21 — el criterio de terminado de la Fase 9 pide "diagnóstico exportable para
+        // soporte". Exportar es enviar, así que el archivo se redacta y dice qué dejó fuera.
+        yield return new KohanaCommandDescriptor(
+            "support.export",
+            "Exportar un diagnóstico para soporte",
+            "Guarda un archivo con versiones, estado y actividad reciente. Sin tus datos, y te dice qué dejó fuera.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ExportSupportBundle();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["soporte", "diagnostico", "exportar", "ayuda", "problema"]);
+
+        yield return new KohanaCommandDescriptor(
+            "privacy.report",
+            "Ver el informe de privacidad",
+            "Qué guarda Kohana, dónde, si está cifrado y cómo borrarlo.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowPrivacyReport();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["privacidad", "datos", "cifrado", "borrar"]);
+
         yield return new KohanaCommandDescriptor(
             "uninstall.plan",
             "Ver qué pasaría al desinstalar Kohana",
@@ -2458,6 +2488,93 @@ public partial class MainWindow : Window
         }
 
         RefreshAuditPanel();
+    }
+
+    /// <summary>
+    /// Diseño D21 — genera el paquete de soporte y deja que la persona elija dónde guardarlo.
+    /// Exportar es enviar: el contenido va redactado y el archivo dice qué dejó fuera, para que se
+    /// pueda revisar antes de mandárselo a nadie.
+    /// </summary>
+    private async void ExportSupportBundle()
+    {
+        NexoDiagnosticSnapshot snapshot;
+        try
+        {
+            snapshot = await _diagnosticService.CaptureAsync(
+                _preferences,
+                _voiceCoordinator.GetInputDevices(),
+                _voiceCoordinator.IsVoiceInputReady,
+                _voiceCoordinator.IsWakeWordReady,
+                _voiceCoordinator.IsWakeWordListening,
+                trayActive: true,
+                _startupService.IsEnabled(),
+                _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        var bundle = SupportBundleBuilder.Build(snapshot, _auditLog.Read(), File.Exists);
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Guardar el diagnóstico para soporte",
+            FileName = $"kohana-soporte-{DateTimeOffset.Now:yyyyMMdd-HHmm}.txt",
+            Filter = "Archivo de texto (*.txt)|*.txt",
+            DefaultExt = ".txt"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(dialog.FileName, bundle);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            ShowFlowNotice(CapsuleKind.Warning, "No pude guardarlo", exception.Message);
+            return;
+        }
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Diagnóstico exportado",
+            PathRedactor.Shorten(dialog.FileName),
+            "Exportación pedida por el usuario");
+
+        _assistantView.AddKohanaMessage(
+            $"Guardé el diagnóstico en {dialog.FileName}." + Environment.NewLine +
+            "Ábrelo y léelo entero antes de mandárselo a nadie: al final dice qué dejé fuera.");
+        NavigateTo("Assistant", animate: true);
+
+        ShowFlowNotice(CapsuleKind.Success, "Diagnóstico guardado", "Sin tus datos personales dentro.");
+    }
+
+    private void ShowPrivacyReport()
+    {
+        var report = PrivacyReportBuilder.Build(
+            NexoDataPaths.RootDirectory,
+            File.Exists,
+            path =>
+            {
+                try
+                {
+                    return new FileInfo(path).Length;
+                }
+                catch (Exception exception) when (
+                    exception is IOException or UnauthorizedAccessException)
+                {
+                    return 0;
+                }
+            });
+
+        _assistantView.AddKohanaMessage(report);
+        NavigateTo("Assistant", animate: true);
     }
 
     private void ShowUninstallPlan()
