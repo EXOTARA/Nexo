@@ -899,21 +899,51 @@ public partial class MainWindow : Window
                 (int)level);
         };
 
-        // Diseño D13 (Fase 5 — Project Companion)
-        _settingsView.WorkspaceAuthorizeRequested += (_, _) =>
-        {
-            AuthorizeWorkspaceFolder();
-            _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
-        };
+        // Diseño D13 (Fase 5 — Project Companion). El refresco del panel vive dentro de
+        // AuthorizeWorkspaceFolder/RevokeWorkspace, no aquí: autorizar también se puede desde la
+        // paleta de comandos, y cuando el refresco colgaba de estos dos manejadores esa ruta dejaba
+        // la tarjeta diciendo "No hay ninguna carpeta autorizada" con los niveles deshabilitados,
+        // aunque la carpeta sí estaba autorizada — y sin niveles no había forma de subir a
+        // «Ejecutar un paso», que es justo lo que la propia tarjeta te manda a hacer.
+        _settingsView.WorkspaceAuthorizeRequested += (_, _) => AuthorizeWorkspaceFolder();
 
-        _settingsView.WorkspaceRevokeRequested += (_, _) =>
-        {
-            RevokeWorkspace();
-            _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
-        };
+        _settingsView.WorkspaceRevokeRequested += (_, _) => RevokeWorkspace();
 
         _settingsView.WorkspaceAutonomyLevelChanged += level =>
         {
+            var previousLevel = _preferences.Workspace.AutonomyLevel;
+            if (previousLevel == level)
+            {
+                return;
+            }
+
+            // Misma política de mínimo privilegio que el nivel del equipo y que los permisos por
+            // capacidad (D16): ampliar exige confirmación nueva, restringir no. Faltaba justo aquí,
+            // y es donde más pesa: subir a «Ejecutar un paso» o «Colaborar» es lo que deja a Kohana
+            // escribir en archivos del usuario, mientras que ampliar una capacidad cualquiera ya se
+            // confirmaba desde D16.
+            if (level > previousLevel)
+            {
+                var confirmation = MessageBox.Show(
+                    this,
+                    $"Vas a subir lo que Kohana puede hacer en tu proyecto de {previousLevel} a {level}." +
+                        Environment.NewLine + Environment.NewLine +
+                        (level >= AutonomyLevel.EjecutarUnPaso
+                            ? "Podrá MODIFICAR archivos de esa carpeta. Te confirmaré cada cambio " +
+                              "antes de aplicarlo, y guardaré una copia previa para poder deshacerlo."
+                            : "Seguirá sin modificar ningún archivo.") +
+                        Environment.NewLine + Environment.NewLine + "¿Lo subo?",
+                    "Subir el nivel en el proyecto",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (confirmation != MessageBoxResult.Yes)
+                {
+                    _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
+                    return;
+                }
+            }
+
             _preferences.Workspace.AutonomyLevel = level;
             _preferences.Workspace.Normalize();
             SavePreferences();
@@ -2234,6 +2264,7 @@ public partial class MainWindow : Window
             "Proyecto autorizado",
             $"Puedo leer {Path.GetFileName(Path.TrimEndingDirectorySeparator(chosen))}. Solo lectura.");
         ShowWorkspaceStatus();
+        _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
     }
 
     /// <summary>
@@ -3324,6 +3355,7 @@ public partial class MainWindow : Window
             CapsuleKind.Success,
             "Acceso revocado",
             "Ya no puedo leer esa carpeta.");
+        _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
         return CommandExecutionResult.Success("Ya no puedo leer esa carpeta.");
     }
 
