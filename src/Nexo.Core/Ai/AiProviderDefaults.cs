@@ -15,21 +15,21 @@ public static class AiProviderDefaults
 
             AiProviderKind.Ollama => new AiProviderPreset(
                 "Ollama",
-                "http://localhost:11434/v1",
+                "http://127.0.0.1:11434/v1",
                 string.Empty,
                 string.Empty,
                 RequiresApiKey: false),
 
             AiProviderKind.LMStudio => new AiProviderPreset(
                 "LM Studio",
-                "http://localhost:1234/v1",
+                "http://127.0.0.1:1234/v1",
                 string.Empty,
                 string.Empty,
                 RequiresApiKey: false),
 
             AiProviderKind.OpenAICompatible => new AiProviderPreset(
                 "Compatible con OpenAI",
-                "http://localhost:1234/v1",
+                "http://127.0.0.1:1234/v1",
                 string.Empty,
                 string.Empty,
                 RequiresApiKey: false),

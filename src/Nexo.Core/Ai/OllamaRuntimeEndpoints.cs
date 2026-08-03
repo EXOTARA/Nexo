@@ -2,10 +2,10 @@ namespace Nexo.Core.Ai;
 
 public static class OllamaRuntimeEndpoints
 {
-    public const string ExternalBaseUrl = "http://localhost:11434/v1";
-    public const string ExternalTagsEndpoint = "http://localhost:11434/api/tags";
-    public const string ManagedBaseUrl = "http://localhost:11435/v1";
-    public const string ManagedTagsEndpoint = "http://localhost:11435/api/tags";
+    public const string ExternalBaseUrl = "http://127.0.0.1:11434/v1";
+    public const string ExternalTagsEndpoint = "http://127.0.0.1:11434/api/tags";
+    public const string ManagedBaseUrl = "http://127.0.0.1:11435/v1";
+    public const string ManagedTagsEndpoint = "http://127.0.0.1:11435/api/tags";
 
     public static bool IsManagedBaseUrl(string? baseUrl)
     {
