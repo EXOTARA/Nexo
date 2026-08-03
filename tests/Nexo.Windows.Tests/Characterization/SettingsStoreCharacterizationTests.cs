@@ -47,11 +47,10 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
         Assert.False(File.Exists(_settingsPath));
         Assert.False(preferences.HasCompletedOnboarding);
 
-        // HALLAZGO DE LA FASE 1.1 — asimetría real de `JsonSettingsStore.Load`.
-        // La ruta de éxito llama a `preferences.Normalize()`; las rutas de "archivo ausente"
-        // y de "archivo corrupto" devuelven `new ShellPreferences()` **sin normalizar**.
-        // Por eso el esquema sale en 0 y no en 17.
-        Assert.Equal(0, preferences.SchemaVersion);
+        // Una instalación nueva declara el esquema actual, no el 0. Las migraciones sirven para
+        // actualizar archivos viejos; aquí no hay nada que migrar, y decir "versión 0" hacía que
+        // el siguiente `Save` reejecutara todas las migraciones y borrara lo recién elegido.
+        Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
     }
 
     [Fact]
@@ -125,8 +124,9 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
         Assert.False(preferences.HasCompletedOnboarding);
         Assert.True(preferences.MinimizeToTray);
 
-        // Misma asimetría que en el archivo ausente: la ruta de recuperación no normaliza.
-        Assert.Equal(0, preferences.SchemaVersion);
+        // Igual que en el archivo ausente: tras perder el archivo no hay nada que migrar, así que
+        // se parte del esquema actual y el siguiente `Save` conserva lo que se le asigne.
+        Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
     }
 
     [Fact]
@@ -147,18 +147,18 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
     }
 
     [Fact]
-    public void AfterCorruption_TheNextSaveReplaysEveryMigrationFromZero_KnownDefect()
+    public void AfterCorruption_TheNextSaveKeepsWhatWasJustAssigned()
     {
-        // HALLAZGO DE LA FASE 1.1 — consecuencia directa de la asimetría anterior.
+        // Esta prueba congelaba un defecto de la Fase 1.1: `Load` devolvía `SchemaVersion = 0`
+        // tras un archivo corrupto, el siguiente `Save` reejecutaba todas las migraciones desde
+        // cero —incluida la de v10, `HasCompletedOnboarding = false`— y perdía lo asignado justo
+        // antes de guardar. Se dio por aceptable razonando solo sobre el caso de corrupción, donde
+        // los datos ya estaban ilegibles.
         //
-        // Tras un archivo corrupto, `Load` devuelve preferencias con `SchemaVersion = 0`.
-        // El siguiente `Save` llama a `Normalize()`, que **reejecuta todas las migraciones
-        // desde 0**, incluida la de v10 (`HasCompletedOnboarding = false`). El resultado es
-        // que un valor asignado justo antes de guardar se pierde en el mismo ciclo.
-        //
-        // Tras un archivo corrupto los valores por defecto son aceptables, así que esto no
-        // pierde datos del usuario (ya estaban ilegibles). Pero sí significa que el shell no
-        // puede marcar el onboarding como completado en ese mismo arranque.
+        // El razonamiento dejaba fuera el caso que de verdad importa y que comparte exactamente la
+        // misma raíz: la **instalación nueva**. Ahí no hay archivo, `Load` devolvía lo mismo, y las
+        // elecciones del asistente de bienvenida (proveedor de IA, modelo, onboarding completado)
+        // se borraban en el primer guardado — el asistente reaparecía al siguiente arranque.
         File.WriteAllText(_settingsPath, "{ roto ");
         var store = new JsonSettingsStore(_settingsPath);
 
@@ -169,7 +169,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
         var reloaded = new JsonSettingsStore(_settingsPath).Load();
 
         Assert.Equal(ShellPreferences.CurrentSchemaVersion, reloaded.SchemaVersion);
-        Assert.False(reloaded.HasCompletedOnboarding);
+        Assert.True(reloaded.HasCompletedOnboarding);
     }
 
     [Fact]
