@@ -60,7 +60,7 @@ public sealed class WorkspaceEditImpactAnalyzerTests
     {
         var impact = WorkspaceEditImpactAnalyzer.Compare("x\nx\nx\n", "x\nx\n");
 
-        Assert.Equal(1, impact.RemovedLines.Count);
+        Assert.Single(impact.RemovedLines);
     }
 
     [Fact]
