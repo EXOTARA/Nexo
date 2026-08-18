@@ -1,0 +1,76 @@
+<Window x:Class="Nexo.App.DashboardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:Nexo.App.Views"
+        Title="Kohana Panel"
+        SizeToContent="Height"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Deactivated="Window_Deactivated"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+    <!--
+        Diseño D44 — el cajón cuelga del borde de arriba: recto arriba, redondeado abajo. Redondear
+        las cuatro esquinas lo convertiría en una tarjeta flotante, y entonces el gesto de sacarlo
+        desde el borde dejaría de explicarse solo.
+
+        El margen lateral e inferior es el sitio de la sombra. Sin él, Windows la recorta contra el
+        borde de la ventana y queda un canto gris recto — el mismo defecto que ya se corrigió en el
+        mando de volumen (D40).
+    -->
+    <!--
+        Diseño D58 — la sombra se dibuja aparte del contenido, y esa es toda la diferencia.
+
+        Un Effect no cuesta por sí mismo: cuesta cada vez que hay que volver a calcularlo. Y WPF
+        tiene que recalcularlo **cuando cambia cualquier cosa dentro del elemento que lo lleva**,
+        porque el desenfoque se aplica al resultado de pintar todo el subárbol. Con la sombra puesta
+        en el borde que contiene la vista, cada fotograma del anillo del espectro —sesenta por
+        segundo mientras suena música— obligaba a volver a desenfocar un panel del ancho entero del
+        monitor. Y todo esto por software, porque una ventana con AllowsTransparency no la acelera
+        la tarjeta.
+
+        Ahora la sombra la proyecta un borde vacío del mismo tamaño que va detrás. No tiene hijos,
+        así que nada de lo que pase dentro la invalida, y con BitmapCache el desenfoque se calcula
+        una vez y se reutiliza. El contenido va en un borde hermano, idéntico y sin efecto.
+
+        En pantalla no cambia nada: el borde de delante es opaco y tapa exactamente la parte de la
+        sombra que antes quedaba debajo.
+    -->
+    <Grid x:Name="PanelBorder"
+          Margin="34,0,34,34"
+          Opacity="0"
+          RenderTransformOrigin="0.5,0">
+        <Grid.RenderTransform>
+            <TransformGroup>
+                <ScaleTransform x:Name="PanelScale" ScaleX="1" ScaleY="1" />
+                <TranslateTransform x:Name="PanelTranslate" Y="0" />
+            </TransformGroup>
+        </Grid.RenderTransform>
+
+        <Border Background="{DynamicResource BrushSidebarSurface}"
+                CornerRadius="0,0,34,34"
+                CacheMode="BitmapCache"
+                SnapsToDevicePixels="True">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="32" ShadowDepth="10" Opacity="0.45" Color="Black" />
+            </Border.Effect>
+        </Border>
+
+        <Border Background="{DynamicResource BrushSidebarSurface}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1,0,1,1"
+                CornerRadius="0,0,34,34"
+                SnapsToDevicePixels="True">
+            <views:DashboardView x:Name="Dashboard" />
+        </Border>
+    </Grid>
+</Window>

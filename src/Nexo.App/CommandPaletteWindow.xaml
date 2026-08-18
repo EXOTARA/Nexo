@@ -114,7 +114,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="Transparent"
                                 BorderThickness="1"
-                                CornerRadius="12">
+                                CornerRadius="{DynamicResource RadiusMedium}">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center" />
                         </Border>
@@ -203,7 +203,7 @@
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource BrushAccent}"
-                                   FontSize="19"
+                                   FontSize="{DynamicResource FontSizeTitle2}"
                                    FontWeight="SemiBold" />
                     </Border>
 
@@ -219,7 +219,7 @@
                                  BorderThickness="0"
                                  Foreground="{DynamicResource BrushTextPrimary}"
                                  CaretBrush="{DynamicResource BrushAccent}"
-                                 FontSize="19"
+                                 FontSize="{DynamicResource FontSizeTitle2}"
                                  FontWeight="Normal"
                                  TextChanged="PromptTextBox_TextChanged"
                                  SelectionBrush="{DynamicResource BrushAccentSoft}" />
@@ -228,7 +228,7 @@
                                    Margin="2,11,0,0"
                                    VerticalAlignment="Top"
                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="19"
+                                   FontSize="{DynamicResource FontSizeTitle2}"
                                    IsHitTestVisible="False" />
                     </Grid>
 
@@ -240,7 +240,7 @@
                             CornerRadius="9">
                         <TextBlock Text="Esc"
                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="11" />
+                                   FontSize="{DynamicResource FontSizeCaption}" />
                     </Border>
 
                     <Button Grid.Column="3"
@@ -250,7 +250,7 @@
                             Style="{StaticResource PaletteIconButtonStyle}"
                             Content="❈"
                             FontFamily="Segoe UI Symbol"
-                            FontSize="17"
+                            FontSize="{DynamicResource FontSizeTitle3}"
                             ToolTip="Movimiento y apariencia"
                             Click="CustomizeButton_Click" />
                 </Grid>
@@ -296,12 +296,12 @@
                                             Background="#66222938"
                                             BorderBrush="#20FFFFFF"
                                             BorderThickness="1"
-                                            CornerRadius="12">
+                                            CornerRadius="{DynamicResource RadiusMedium}">
                                         <TextBlock Text="{Binding Glyph}"
                                                    HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"
                                                    Foreground="{DynamicResource BrushAccent}"
-                                                   FontSize="15"
+                                                   FontSize="{DynamicResource FontSizeBody}"
                                                    FontWeight="SemiBold" />
                                     </Border>
 
@@ -310,12 +310,12 @@
                                                 VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Title}"
                                                    Foreground="{DynamicResource BrushTextPrimary}"
-                                                   FontSize="14"
+                                                   FontSize="{DynamicResource FontSizeBody}"
                                                    FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding Subtitle}"
                                                    Margin="0,3,0,0"
                                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                                   FontSize="11.5"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
                                                    TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
 
@@ -327,7 +327,7 @@
                                             Visibility="{Binding ShortcutVisibility}">
                                         <TextBlock Text="{Binding ShortcutHint}"
                                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                                   FontSize="11" />
+                                                   FontSize="{DynamicResource FontSizeCaption}" />
                                     </Border>
                                 </Grid>
                             </DataTemplate>
@@ -351,12 +351,12 @@
                                 <TextBlock x:Name="InputModeText"
                                            Text="Escribe para buscar o preguntar"
                                            Foreground="{DynamicResource BrushTextSecondary}"
-                                           FontSize="11.5" />
+                                           FontSize="{DynamicResource FontSizeCaption}" />
                             </StackPanel>
                             <TextBlock Margin="0,5,0,0"
                                        Text="↑↓ elegir   ·   Tab completar   ·   Enter ejecutar o enviar   ·   Shift + Enter nueva línea"
                                        Foreground="{DynamicResource BrushTextTertiary}"
-                                       FontSize="10.5" />
+                                       FontSize="{DynamicResource FontSizeCaption}" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1"
@@ -365,11 +365,11 @@
                             <TextBlock x:Name="TimingText"
                                        HorizontalAlignment="Right"
                                        Foreground="{DynamicResource BrushTextSecondary}"
-                                       FontSize="10.5" />
+                                       FontSize="{DynamicResource FontSizeCaption}" />
                             <TextBlock Margin="0,4,0,0"
                                        Text="Ctrl + Enter fuerza consulta"
                                        Foreground="{DynamicResource BrushTextTertiary}"
-                                       FontSize="10.5" />
+                                       FontSize="{DynamicResource FontSizeCaption}" />
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -398,7 +398,7 @@
                         <StackPanel>
                             <TextBlock Text="Movimiento"
                                        FontWeight="SemiBold"
-                                       FontSize="14" />
+                                       FontSize="{DynamicResource FontSizeBody}" />
                             <TextBlock Text="Sutil por defecto; cambia la sensación sin recargar Kohana."
                                        Margin="0,3,0,0"
                                        Style="{StaticResource MutedTextStyle}" />

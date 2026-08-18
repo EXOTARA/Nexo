@@ -135,11 +135,24 @@ public sealed class ValidationProfileIsolationTests : IDisposable
         ambientManager.Load();
         ambientManager.Begin("solicitud", context: null, DateTimeOffset.Now);
 
+        // Diseño D11/D13 — el Audit Log es un store más y tiene que quedar dentro del perfil
+        // aislado: un registro que se escapara a la carpeta real mezclaría lo probado con lo que la
+        // persona hizo de verdad en su equipo.
+        new Nexo.Windows.Audit.JsonKohanaAuditLog().Append(
+            new Nexo.Core.Audit.AuditEntry
+            {
+                At = DateTimeOffset.Now,
+                Capability = Nexo.Core.Audit.AuditCapability.Optimizacion,
+                Action = "Aplicado (Jugar)",
+                Detail = "prueba"
+            });
+
         Assert.True(File.Exists(Path.Combine(root, "tasks.json")));
         Assert.True(File.Exists(Path.Combine(root, "focus.json")));
         Assert.True(File.Exists(Path.Combine(root, "routines.json")));
         Assert.True(File.Exists(Path.Combine(root, "settings.json")));
         Assert.True(File.Exists(Path.Combine(root, "ambient-requests.json")));
+        Assert.True(File.Exists(Path.Combine(root, "audit.json")));
     }
 
     [Fact]

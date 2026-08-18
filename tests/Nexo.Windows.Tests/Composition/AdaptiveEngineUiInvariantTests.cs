@@ -34,15 +34,21 @@ public sealed class AdaptiveEngineUiInvariantTests
     }
 
     [Fact]
-    public void SettingsView_DoesNotReuseTheResourceGovernorSectionTitle()
+    public void SettingsView_KeepsTheResourceGovernorAndThePerformanceModeApart()
     {
-        // La sección existente "Rendimiento adaptativo" pertenece al Resource Governor (modo
-        // Normal/Ocupado/Juego, reactivo). La nueva sección de modos usa un título distinto
-        // ("Modo de rendimiento") para no confundir ambos conceptos.
+        // Son dos conceptos distintos que viven en el mismo apartado: el Resource Governor reacciona
+        // solo al uso real del equipo (Normal/Ocupado/Juego), mientras que el modo de rendimiento es
+        // una elección de la persona sobre qué recomendar. Compartir un título los confundiría.
+        //
+        // El diseño D26 agrupó Ajustes en secciones desplegables, así que el bloque del gobernador
+        // dejó de tener un título propio: ahora lo encabeza la sección "Rendimiento". Lo que sigue
+        // importando —y lo que fija esta prueba— es que el modo de rendimiento conserve su propio
+        // encabezado dentro de esa sección, y que no lo herede del encabezado de la sección.
         var content = ReadSettingsViewXaml();
 
-        Assert.Equal(1, CountOccurrences(content, "Text=\"Rendimiento adaptativo\""));
-        Assert.Contains("Text=\"Modo de rendimiento\"", content, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(content, "Header=\"Rendimiento\""));
+        Assert.Equal(1, CountOccurrences(content, "Text=\"Modo de rendimiento\""));
+        Assert.Contains("x:Name=\"ResourceGovernorEnabledCheckBox\"", content, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -2,27 +2,70 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <!--
-        Kohana Design System — Espaciado y radios (Fundación 0.1).
+        Kohana Design System — Espaciado y radios (Fundación 0.2, Diseño D45).
 
-        Escala de espaciado (múltiplos coherentes) como Double, para paddings/márgenes que
-        quieran adoptarla, y tokens de CornerRadius que reflejan los radios más repetidos hoy
-        (9, 12, 13, 20). Migrar un literal a su token de igual valor no cambia la apariencia.
+        La versión anterior se construyó al revés: copió los literales que ya usaban las vistas para
+        que tokenizar no cambiara nada. Cumplió su propósito —dar nombres sin arriesgar— pero dejó
+        las fichas guardando exactamente lo que estaba apretado, así que adoptarlas no mejoraba
+        nada. Esta versión es una escala diseñada, y los valores SÍ cambian.
+
+        La base es la rejilla de 8, con el 4 como único medio paso. Los números que no caen en la
+        rejilla (6, 10) se conservan como alias para no romper lo que ya los usa, pero no se deben
+        usar en nada nuevo.
     -->
     <sys:Double x:Key="Space2">2</sys:Double>
     <sys:Double x:Key="Space4">4</sys:Double>
-    <sys:Double x:Key="Space6">6</sys:Double>
     <sys:Double x:Key="Space8">8</sys:Double>
-    <sys:Double x:Key="Space10">10</sys:Double>
     <sys:Double x:Key="Space12">12</sys:Double>
     <sys:Double x:Key="Space16">16</sys:Double>
     <sys:Double x:Key="Space20">20</sys:Double>
     <sys:Double x:Key="Space24">24</sys:Double>
+    <sys:Double x:Key="Space32">32</sys:Double>
+    <sys:Double x:Key="Space40">40</sys:Double>
+    <sys:Double x:Key="Space48">48</sys:Double>
 
-    <CornerRadius x:Key="RadiusSmall">9</CornerRadius>
-    <CornerRadius x:Key="RadiusMedium">12</CornerRadius>
-    <CornerRadius x:Key="RadiusLarge">13</CornerRadius>
-    <CornerRadius x:Key="RadiusPill">20</CornerRadius>
-    <CornerRadius x:Key="RadiusShell">24</CornerRadius>
+    <!-- Fuera de la rejilla; solo para código que ya los usaba. -->
+    <sys:Double x:Key="Space6">6</sys:Double>
+    <sys:Double x:Key="Space10">10</sys:Double>
+
+    <!--
+        Espaciado con nombre por función, que es la parte que se toma de cómo organiza Apple: lo
+        que decide una pantalla no es qué número usas sino que el mismo papel tenga siempre el
+        mismo hueco. Con estos, «respirar más» es cambiar un valor aquí y no visitar cuarenta
+        tarjetas.
+
+        La jerarquía importa y es deliberada: separar dos secciones (32) tiene que ser
+        visiblemente más que separar dos tarjetas (12), y eso más que separar dos líneas dentro de
+        una tarjeta (4). Cuando esos tres huecos se parecen, todo se lee como una lista plana y es
+        exactamente la sensación de «está muy pegado».
+    -->
+    <Thickness x:Key="InsetCard">20</Thickness>
+    <Thickness x:Key="InsetCardCompact">16</Thickness>
+    <Thickness x:Key="InsetPane">24</Thickness>
+    <sys:Double x:Key="GapText">4</sys:Double>
+    <sys:Double x:Key="GapRelated">8</sys:Double>
+    <sys:Double x:Key="GapCard">12</sys:Double>
+    <sys:Double x:Key="GapSection">32</sys:Double>
+
+    <!--
+        Radios. La escala anterior tenía cuatro valores en ocho píxeles de rango (9, 12, 13, 20):
+        demasiado juntos para significar algo distinto, así que la diferencia entre una tarjeta y
+        un campo de texto no se leía. Esta separa de verdad, y sube el radio de tarjeta, que es lo
+        que da el aire redondo de la referencia.
+    -->
+    <CornerRadius x:Key="RadiusSmall">10</CornerRadius>
+    <CornerRadius x:Key="RadiusMedium">14</CornerRadius>
+    <CornerRadius x:Key="RadiusLarge">20</CornerRadius>
+    <CornerRadius x:Key="RadiusXLarge">28</CornerRadius>
+    <CornerRadius x:Key="RadiusPill">22</CornerRadius>
+    <CornerRadius x:Key="RadiusShell">28</CornerRadius>
+
+    <!--
+        Para una píldora de verdad, donde el radio debe ser la mitad del alto sea cual sea. WPF
+        recorta el radio al que quepa, así que un número grande siempre da el extremo redondo sin
+        tener que saber el alto de antemano.
+    -->
+    <CornerRadius x:Key="RadiusFull">999</CornerRadius>
 
     <!--
         Sakura Shell v1 (Diseño D1) — dimensiones de la barra lateral, tokenizadas a partir de

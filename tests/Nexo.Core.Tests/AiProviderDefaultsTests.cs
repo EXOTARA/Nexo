@@ -21,8 +21,8 @@ public sealed class AiProviderDefaultsTests
         var ollama = AiProviderDefaults.Get(AiProviderKind.Ollama);
         var lmStudio = AiProviderDefaults.Get(AiProviderKind.LMStudio);
 
-        Assert.Equal("http://localhost:11434/v1", ollama.BaseUrl);
-        Assert.Equal("http://localhost:1234/v1", lmStudio.BaseUrl);
+        Assert.Equal("http://127.0.0.1:11434/v1", ollama.BaseUrl);
+        Assert.Equal("http://127.0.0.1:1234/v1", lmStudio.BaseUrl);
         Assert.False(ollama.RequiresApiKey);
         Assert.False(lmStudio.RequiresApiKey);
     }

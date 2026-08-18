@@ -57,6 +57,7 @@ public partial class CapsuleWindow : Window
 
         _dismissTimer.Stop();
         _isClosingAnimation = false;
+        IsHitTestVisible = true;
 
         TitleText.Text = title;
         DetailText.Text = detail;
@@ -94,6 +95,12 @@ public partial class CapsuleWindow : Window
     {
         _dismissTimer.Stop();
         _isClosingAnimation = false;
+        IsHitTestVisible = false;
+
+        // La animación de salida se cancela además de ocultar. Sin esto seguía corriendo sobre una
+        // ventana ya escondida y su Completed llegaba después, pisando el estado del mensaje
+        // siguiente si entraba dentro de esos ciento treinta y cinco milisegundos.
+        CapsuleBorder.BeginAnimation(OpacityProperty, null);
         Hide();
     }
 
@@ -105,6 +112,17 @@ public partial class CapsuleWindow : Window
         }
 
         _isClosingAnimation = true;
+
+        // Diseño D57 — deja de aceptar clics en cuanto se decide que se va, no cuando termina
+        // de irse. Es la misma protección que D56 le puso al cajón, y esta ventana se oculta
+        // igual: al acabar la animación de salida. Una animación puede no acabar nunca —basta
+        // con que algo la reemplace a mitad de camino para que su Completed no llegue— y lo que
+        // queda entonces es una ventana mostrada con opacidad cero que sigue quedándose con los
+        // clics de su trozo de pantalla. Invisible y clicable es el peor estado posible de una
+        // ventana: desde fuera se siente como que el ratón dejó de responder ahí, sin nada que
+        // lo explique.
+        IsHitTestVisible = false;
+
         var easing = new CubicEase { EasingMode = EasingMode.EaseIn };
         var duration = TimeSpan.FromMilliseconds(135);
 

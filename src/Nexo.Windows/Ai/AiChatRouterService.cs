@@ -46,7 +46,7 @@ public sealed class AiChatRouterService : IAiChatService, IDisposable
     }
 
     private IAiChatService Resolve(AiProviderConfiguration configuration) =>
-        configuration.Provider == AiProviderKind.Ollama
+        AiProviderDefaults.UsesOllamaProtocol(configuration.Provider)
             ? _ollamaService
             : _compatibleService;
 }

@@ -1,454 +1,1012 @@
 <UserControl x:Class="Nexo.App.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Nexo.App.Views.Controls">
+    <!--
+        Diseño D26 — Ajustes por apartados que se abren, no por lista infinita.
+
+        Antes esto era un único StackPanel con quince bloques encadenados: todo visible a la vez,
+        todo con el mismo peso visual, y la única forma de encontrar algo era desplazarse leyendo.
+        Ahora lo primero que se ve es la lista corta de apartados con una línea que dice qué hay
+        dentro de cada uno; el detalle aparece solo donde se pide.
+
+        Todos los nombres de elementos y los manejadores se conservan intactos: este rediseño cambia
+        cómo se agrupa y se revela el contenido, no qué hace ningún control.
+    -->
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,0,4,0">
-            <TextBlock Margin="0,0,0,18"
-                       Text="Los cambios se aplican al momento y se guardan en este equipo."
-                       Style="{StaticResource MutedTextStyle}" />
-
-            <TextBlock Text="Posición" FontWeight="SemiBold" />
-            <Grid Margin="0,9,0,18">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Button x:Name="LeftButton" Margin="0,0,5,0"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Content="Izquierda" Click="LeftButton_Click" />
-                <Button x:Name="RightButton" Grid.Column="1" Margin="5,0,0,0"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Content="Derecha" Click="RightButton_Click" />
-            </Grid>
-
-            <Grid Margin="0,0,0,18">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Ancho" FontWeight="SemiBold" />
-                <TextBlock x:Name="WidthValueText" Grid.Column="1"
-                           Foreground="{DynamicResource BrushTextSecondary}" />
-                <Slider x:Name="WidthSlider" Grid.Row="1" Grid.ColumnSpan="2"
-                        Margin="0,8,0,0" Minimum="680" Maximum="820"
-                        TickFrequency="10" IsSnapToTickEnabled="True"
-                        ValueChanged="WidthSlider_ValueChanged"
-                        Style="{StaticResource NexoSliderStyle}" />
-            </Grid>
-
-            <Grid Margin="0,0,0,18">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Transparencia" FontWeight="SemiBold" />
-                <TextBlock x:Name="OpacityValueText" Grid.Column="1"
-                           Foreground="{DynamicResource BrushTextSecondary}" />
-                <Slider x:Name="OpacitySlider" Grid.Row="1" Grid.ColumnSpan="2"
-                        Margin="0,8,0,0" Minimum="0.82" Maximum="1"
-                        TickFrequency="0.02" IsSnapToTickEnabled="True"
-                        ValueChanged="OpacitySlider_ValueChanged"
-                        Style="{StaticResource NexoSliderStyle}" />
-            </Grid>
-
-            <TextBlock Text="Color de acento" FontWeight="SemiBold" />
-            <UniformGrid Columns="4" Margin="0,9,0,18">
-                <Button Margin="0,0,5,0" Height="36" Background="#8B6CFF"
-                        ToolTip="Violeta" Click="AccentButton_Click" Tag="#8B6CFF"
-                        Style="{StaticResource PrimaryButtonStyle}" />
-                <Button Margin="5,0" Height="36" Background="#4D8DFF"
-                        ToolTip="Azul" Click="AccentButton_Click" Tag="#4D8DFF"
-                        Style="{StaticResource PrimaryButtonStyle}" />
-                <Button Margin="5,0" Height="36" Background="#35C58A"
-                        ToolTip="Verde" Click="AccentButton_Click" Tag="#35C58A"
-                        Style="{StaticResource PrimaryButtonStyle}" />
-                <Button Margin="5,0,0,0" Height="36" Background="#F06CA8"
-                        ToolTip="Rosa" Click="AccentButton_Click" Tag="#F06CA8"
-                        Style="{StaticResource PrimaryButtonStyle}" />
-            </UniformGrid>
-
-            <CheckBox x:Name="AnimationsCheckBox"
-                      Content="Usar animaciones ligeras"
-                      Checked="AnimationsCheckBox_Changed"
-                      Unchecked="AnimationsCheckBox_Changed" />
-
-            <WrapPanel Margin="0,14,0,0">
-                <Button x:Name="ResetAppearanceButton"
-                        Content="Restaurar apariencia"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Click="ResetAppearanceButton_Click"
-                        ToolTip="Devuelve posición, ancho, transparencia, acento y animaciones a sus valores originales"
-                        AutomationProperties.Name="Restaurar apariencia"
-                        AutomationProperties.HelpText="Solo afecta a la apariencia. No borra tareas, rutinas, historial ni la configuración de voz, IA o motores." />
-            </WrapPanel>
-            <TextBlock x:Name="ResetAppearanceHintText"
-                       Margin="0,8,0,0"
-                       Text="Solo cambia la apariencia. Tus tareas, rutinas y la configuración de voz, IA y motores no se tocan."
+        <StackPanel Margin="0,0,6,0">
+            <TextBlock Margin="0,0,0,14"
+                       Text="Abre el apartado que necesites. Los cambios se aplican al momento y se guardan en este equipo."
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
 
-            <TextBlock Margin="0,20,0,9" Text="Integración con Windows" FontWeight="SemiBold" />
-            <CheckBox x:Name="StartWithWindowsCheckBox"
-                      Margin="0,0,0,8"
-                      Content="Iniciar Kohana con Windows"
-                      Checked="StartWithWindowsCheckBox_Changed"
-                      Unchecked="StartWithWindowsCheckBox_Changed" />
-            <TextBlock Margin="24,0,0,10"
-                       Text="Se iniciará en segundo plano y podrás abrirlo con Alt + A o desde la bandeja."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-            <CheckBox x:Name="MinimizeToTrayCheckBox"
-                      Margin="0,0,0,8"
-                      Content="Ocultar en la bandeja al cerrar"
-                      Checked="MinimizeToTrayCheckBox_Changed"
-                      Unchecked="MinimizeToTrayCheckBox_Changed" />
-            <CheckBox x:Name="WindowsNotificationsCheckBox"
-                      Margin="0,0,0,8"
-                      Content="Mostrar notificaciones de Windows"
-                      Checked="WindowsNotificationsCheckBox_Changed"
-                      Unchecked="WindowsNotificationsCheckBox_Changed" />
-            <CheckBox x:Name="NotificationSoundsCheckBox"
-                      Content="Reproducir sonido en recordatorios y sesiones terminadas"
-                      Checked="NotificationSoundsCheckBox_Changed"
-                      Unchecked="NotificationSoundsCheckBox_Changed" />
-            <TextBlock x:Name="WindowsIntegrationStatusText"
-                       Margin="24,8,0,0"
-                       Text="Kohana seguirá activa mientras esté visible en la bandeja."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-            <WrapPanel Margin="0,12,0,0">
-                <Button Content="Abrir diagnóstico"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Click="DiagnosticsButton_Click" />
-                <Button Margin="9,0,0,0"
-                        Content="Repetir configuración inicial"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Click="OnboardingButton_Click" />
-            </WrapPanel>
-
-            <TextBlock Margin="0,20,0,9" Text="Vista rápida" FontWeight="SemiBold" />
-            <CheckBox x:Name="PeekEnabledCheckBox" Margin="0,0,0,8"
-                      Content="Activar Peek con Alt + Shift + A"
-                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Enabled" />
-            <CheckBox x:Name="PeekCpuCheckBox" Margin="0,0,0,8"
-                      Content="Mostrar CPU"
-                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Cpu" />
-            <CheckBox x:Name="PeekMemoryCheckBox" Margin="0,0,0,8"
-                      Content="Mostrar RAM"
-                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Memory" />
-            <CheckBox x:Name="PeekGpuCheckBox" Margin="0,0,0,8"
-                      Content="Mostrar GPU"
-                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Gpu" />
-            <CheckBox x:Name="PeekDiskCheckBox" Margin="0,0,0,8"
-                      Content="Mostrar disco del sistema"
-                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Disk" />
-            <CheckBox x:Name="PeekTopProcessCheckBox"
-                      Content="Mostrar proceso con mayor uso de memoria"
-                      Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="TopProcess" />
-
-            <TextBlock Margin="0,20,0,9" Text="Asistente" FontWeight="SemiBold" />
-            <CheckBox x:Name="SaveConversationHistoryCheckBox"
-                      Content="Guardar el historial de conversación"
-                      Checked="SaveConversationHistoryCheckBox_Changed"
-                      Unchecked="SaveConversationHistoryCheckBox_Changed" />
-            <TextBlock Margin="24,6,0,0"
-                       Text="Desactivado por defecto: Kohana conserva solo los 8 mensajes más recientes durante la sesión y los elimina al cerrar."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-
-            <TextBlock Margin="0,20,0,9" Text="Inteligencia artificial" FontWeight="SemiBold" />
-            <TextBlock Margin="0,0,0,8"
-                       Text="Proveedor"
-                       Style="{StaticResource MutedTextStyle}" />
-            <WrapPanel>
-                <RadioButton x:Name="AiDisabledRadioButton"
-                             Margin="0,0,14,8"
-                             GroupName="AiProvider"
-                             Content="Desactivada"
-                             Tag="Disabled"
-                             Checked="AiProviderRadioButton_Checked" />
-                <RadioButton x:Name="AiOpenAiRadioButton"
-                             Margin="0,0,14,8"
-                             GroupName="AiProvider"
-                             Content="OpenAI"
-                             Tag="OpenAI"
-                             Checked="AiProviderRadioButton_Checked" />
-                <RadioButton x:Name="AiOllamaRadioButton"
-                             Margin="0,0,14,8"
-                             GroupName="AiProvider"
-                             Content="Ollama"
-                             Tag="Ollama"
-                             Checked="AiProviderRadioButton_Checked" />
-                <RadioButton x:Name="AiLmStudioRadioButton"
-                             Margin="0,0,14,8"
-                             GroupName="AiProvider"
-                             Content="LM Studio"
-                             Tag="LMStudio"
-                             Checked="AiProviderRadioButton_Checked" />
-                <RadioButton x:Name="AiCompatibleRadioButton"
-                             Margin="0,0,0,8"
-                             GroupName="AiProvider"
-                             Content="Compatible"
-                             Tag="OpenAICompatible"
-                             Checked="AiProviderRadioButton_Checked" />
-            </WrapPanel>
-
-            <TextBlock Margin="0,5,0,6" Text="URL base" FontWeight="SemiBold" />
-            <TextBox x:Name="AiBaseUrlTextBox"
-                     Style="{StaticResource CompactTextBoxStyle}"
-                     Tag="BaseUrl"
-                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
-
-            <TextBlock Margin="0,12,0,6" Text="Modelo" FontWeight="SemiBold" />
-            <TextBox x:Name="AiModelTextBox"
-                     Style="{StaticResource CompactTextBoxStyle}"
-                     Tag="Model"
-                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
-
-            <TextBlock Margin="0,12,0,6" Text="Variable de entorno de la clave" FontWeight="SemiBold" />
-            <TextBox x:Name="AiApiKeyVariableTextBox"
-                     Style="{StaticResource CompactTextBoxStyle}"
-                     Tag="ApiKeyVariable"
-                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
-            <TextBlock Margin="0,6,0,0"
-                       Text="Kohana guarda solo el nombre de la variable, nunca la clave. OpenAI usa OPENAI_API_KEY; los proveedores locales normalmente no requieren una."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-
-            <CheckBox x:Name="ShareSystemMetricsWithAiCheckBox"
-                      Margin="0,12,0,0"
-                      Content="Compartir CPU, RAM, GPU y proceso principal con la IA"
-                      Checked="ShareSystemMetricsWithAiCheckBox_Changed"
-                      Unchecked="ShareSystemMetricsWithAiCheckBox_Changed" />
-            <TextBlock Margin="24,6,0,0"
-                       Text="Desactivado por defecto. Solo se adjunta una captura resumida cuando haces una consulta abierta."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-
-            <CheckBox x:Name="VisionEnabledCheckBox"
-                      Margin="0,12,0,0"
-                      Content="Permitir capturas bajo demanda con Kohana Vision"
-                      Checked="VisionEnabledCheckBox_Changed"
-                      Unchecked="VisionEnabledCheckBox_Changed" />
-            <TextBlock Margin="24,6,0,0"
-                       Text="Kohana solo captura después de que eliges una ventana o monitor y confirmas la vista previa. La imagen no se guarda en el historial."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-
-            <WrapPanel Margin="0,12,0,0">
-                <Button x:Name="AiTestConnectionButton"
-                        Content="Probar conexión"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Click="AiTestConnectionButton_Click" />
-                <Button x:Name="ManageModelsButton"
-                        Margin="9,0,0,0"
-                        Content="Administrar modelos"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Click="ManageModelsButton_Click" />
-            </WrapPanel>
-            <TextBlock x:Name="AiConnectionStatusText"
-                       Margin="0,8,0,0"
-                       Text="La IA está desactivada."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-
-            <TextBlock Margin="0,20,0,9" Text="Voz" FontWeight="SemiBold" />
-            <CheckBox x:Name="SpeakVoiceResponsesCheckBox"
-                      Content="Leer en voz alta las confirmaciones de voz"
-                      Checked="SpeakVoiceResponsesCheckBox_Changed"
-                      Unchecked="SpeakVoiceResponsesCheckBox_Changed" />
-
-            <TextBlock Margin="0,14,0,6"
-                       Text="Micrófono"
-                       FontWeight="SemiBold" />
-            <ComboBox x:Name="VoiceInputDeviceComboBox"
-                      MinHeight="34"
-                      DisplayMemberPath="Name"
-                      SelectedValuePath="DeviceNumber"
-                      SelectionChanged="VoiceInputDeviceComboBox_SelectionChanged" />
-            <TextBlock x:Name="VoiceInputDeviceStatusText"
-                       Margin="0,6,0,0"
-                       Text="Kohana usa el micrófono predeterminado de Windows."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-
-            <CheckBox x:Name="WakeWordEnabledCheckBox"
-                      Margin="0,12,0,0"
-                      Content="Activar Kohana mediante una frase de voz (experimental)"
-                      Checked="WakeWordEnabledCheckBox_Changed"
-                      Unchecked="WakeWordEnabledCheckBox_Changed" />
-
-            <StackPanel Margin="24,10,0,0">
-                <TextBlock Margin="0,0,0,7"
-                           Text="Frase de activación"
-                           FontWeight="SemiBold" />
-                <WrapPanel>
-                    <RadioButton x:Name="WakeWordKohanaRadioButton"
-                                 GroupName="WakeWordPhrase"
-                                 Content="Kohana"
-                                 Tag="Kohana"
-                                 Checked="WakeWordPhraseRadioButton_Checked" />
-                    <RadioButton x:Name="WakeWordOyeKohanaRadioButton"
-                                 Margin="18,0,0,0"
-                                 GroupName="WakeWordPhrase"
-                                 Content="Oye Kohana · recomendado"
-                                 Tag="OyeKohana"
-                                 Checked="WakeWordPhraseRadioButton_Checked" />
-                    <RadioButton x:Name="WakeWordHeyKohanaRadioButton"
-                                 Margin="18,0,0,0"
-                                 GroupName="WakeWordPhrase"
-                                 Content="Ey / Hey Kohana"
-                                 Tag="HeyKohana"
-                                 Checked="WakeWordPhraseRadioButton_Checked" />
-                </WrapPanel>
-
-                <TextBlock Margin="0,14,0,6"
-                           Text="Sensibilidad"
-                           FontWeight="SemiBold" />
-                <ComboBox x:Name="WakeWordSensitivityComboBox"
-                          Width="220"
-                          HorizontalAlignment="Left"
-                          SelectionChanged="WakeWordSensitivityComboBox_SelectionChanged">
-                    <ComboBoxItem Content="Precisa · menos activaciones accidentales" Tag="Strict" />
-                    <ComboBoxItem Content="Equilibrada · recomendada" Tag="Balanced" />
-                    <ComboBoxItem Content="Alta · reconoce más variantes" Tag="High" />
-                </ComboBox>
-
-                <StackPanel Margin="0,12,0,0">
-                    <WrapPanel>
-                        <Button x:Name="WakeWordTestButton"
-                                Content="Probar frase"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                Click="WakeWordTestButton_Click" />
-                        <Button x:Name="WakeWordUseObservedAliasButton"
-                                Margin="8,0,0,0"
-                                Content="Usar lo escuchado"
-                                IsEnabled="False"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                Click="WakeWordUseObservedAliasButton_Click" />
-                        <Button x:Name="WakeWordClearAliasesButton"
-                                Margin="8,0,0,0"
-                                Content="Borrar aliases"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                Click="WakeWordClearAliasesButton_Click" />
-                    </WrapPanel>
-                    <TextBlock x:Name="WakeWordTestStatusText"
-                               Margin="0,9,0,0"
-                               Text="Di la frase seleccionada cuando inicie la prueba."
+            <!-- ══════════════════════════ Apariencia ══════════════════════════ -->
+            <controls:SettingsSection Header="Apariencia"
+                                      Description="Lado, tamaño, transparencia, color y animaciones">
+                <StackPanel>
+                    <TextBlock Text="Lado de la pantalla" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,3,0,0"
+                               Text="El menú de navegación se mueve contigo: siempre queda en el lado interior, mirando al centro de la pantalla."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="WakeWordAliasesText"
-                               Margin="0,5,0,0"
-                               Text="Aliases personales: ninguno"
+                    <Grid Margin="0,9,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="LeftButton" Margin="0,0,5,0"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Content="Izquierda" Click="LeftButton_Click" />
+                        <Button x:Name="RightButton" Grid.Column="1" Margin="5,0,0,0"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Content="Derecha" Click="RightButton_Click" />
+                    </Grid>
+
+                    <Grid Margin="0,0,0,18">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Ancho" FontWeight="SemiBold" />
+                        <TextBlock x:Name="WidthValueText" Grid.Column="1"
+                                   Foreground="{DynamicResource BrushTextSecondary}" />
+                        <Slider x:Name="WidthSlider" Grid.Row="1" Grid.ColumnSpan="2"
+                                Margin="0,8,0,0" Minimum="460" Maximum="820"
+                                TickFrequency="10" IsSnapToTickEnabled="True"
+                                ValueChanged="WidthSlider_ValueChanged"
+                                Style="{StaticResource NexoSliderStyle}" />
+                    </Grid>
+
+                    <Grid Margin="0,0,0,18">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Transparencia" FontWeight="SemiBold" />
+                        <TextBlock x:Name="OpacityValueText" Grid.Column="1"
+                                   Foreground="{DynamicResource BrushTextSecondary}" />
+                        <Slider x:Name="OpacitySlider" Grid.Row="1" Grid.ColumnSpan="2"
+                                Margin="0,8,0,0" Minimum="0.82" Maximum="1"
+                                TickFrequency="0.02" IsSnapToTickEnabled="True"
+                                ValueChanged="OpacitySlider_ValueChanged"
+                                Style="{StaticResource NexoSliderStyle}" />
+                    </Grid>
+
+                    <TextBlock Text="Tema" FontWeight="SemiBold" />
+                    <CheckBox x:Name="AccentFromWallpaperCheckBox"
+                              Margin="0,7,0,0"
+                              Content="Tomar el color de mi fondo de escritorio"
+                              Checked="AccentSourceCheckBox_Changed"
+                              Unchecked="AccentSourceCheckBox_Changed" />
+                    <TextBlock Margin="24,3,0,7"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}"
+                               Text="Kohana mira tu fondo, saca el color que lo define y se pinta con él. Si cambias de fondo, cambia sola. Un fondo en blanco y negro no tiene color que tomar, así que en ese caso conserva el tema que tengas puesto." />
+
+                    <CheckBox x:Name="AccentFollowsWindowsCheckBox"
+                              Content="Usar el color de acento de Windows"
+                              Checked="AccentSourceCheckBox_Changed"
+                              Unchecked="AccentSourceCheckBox_Changed" />
+                    <TextBlock Margin="24,3,0,9"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}"
+                               Text="El mismo que ya usa Windows en bordes de ventana y mosaicos." />
+
+                    <!--
+                        Diseño D29 — cada tarjeta es un tema completo, no un botón de color: al
+                        elegirlo, una pizca del mismo tono se filtra también al fondo y a las
+                        tarjetas (ver ApplyAccent en MainWindow.xaml.cs), así que la app entera
+                        cambia de humor, no solo los botones. Reutiliza AccentButton_Click —el
+                        mismo evento de siempre— porque elegir un tema y elegir un color a mano
+                        siempre fueron, por debajo, la misma acción: fijar el acento.
+                    -->
+                    <StackPanel x:Name="ThemeGalleryPanel" Margin="0,0,0,18">
+                        <Button x:Name="ThemeSakuraButton"
+                                Margin="0,0,0,7" Padding="13,11" HorizontalContentAlignment="Stretch"
+                                Click="AccentButton_Click" Tag="#8B6CFF"
+                                Style="{StaticResource ThemeCardButtonStyle}"
+                                AutomationProperties.Name="Tema Sakura">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0" Width="22" Height="22" Fill="#8B6CFF"
+                                         VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock Text="Sakura" FontWeight="SemiBold" />
+                                    <TextBlock Text="El look clásico de Kohana desde el primer día."
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource MutedTextStyle}" />
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                        <Button x:Name="ThemeOceanoButton"
+                                Margin="0,0,0,7" Padding="13,11" HorizontalContentAlignment="Stretch"
+                                Click="AccentButton_Click" Tag="#4D8DFF"
+                                Style="{StaticResource ThemeCardButtonStyle}"
+                                AutomationProperties.Name="Tema Océano">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0" Width="22" Height="22" Fill="#4D8DFF"
+                                         VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock Text="Océano" FontWeight="SemiBold" />
+                                    <TextBlock Text="Frío y directo, para quien prefiere ir al grano."
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource MutedTextStyle}" />
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                        <Button x:Name="ThemeBosqueButton"
+                                Margin="0,0,0,7" Padding="13,11" HorizontalContentAlignment="Stretch"
+                                Click="AccentButton_Click" Tag="#35C58A"
+                                Style="{StaticResource ThemeCardButtonStyle}"
+                                AutomationProperties.Name="Tema Bosque">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0" Width="22" Height="22" Fill="#35C58A"
+                                         VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock Text="Bosque" FontWeight="SemiBold" />
+                                    <TextBlock Text="Tranquilo y verde, como el panel que te gustó."
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource MutedTextStyle}" />
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                        <Button x:Name="ThemeCerezoButton"
+                                Padding="13,11" HorizontalContentAlignment="Stretch"
+                                Click="AccentButton_Click" Tag="#F06CA8"
+                                Style="{StaticResource ThemeCardButtonStyle}"
+                                AutomationProperties.Name="Tema Cerezo">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0" Width="22" Height="22" Fill="#F06CA8"
+                                         VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock Text="Cerezo" FontWeight="SemiBold" />
+                                    <TextBlock Text="El tono floral original, más cálido."
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource MutedTextStyle}" />
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+
+                    <CheckBox x:Name="EdgeRevealCheckBox"
+                              Margin="0,0,0,10"
+                              Content="Aparecer al llevar el ratón al borde"
+                              Checked="EdgeRevealCheckBox_Changed"
+                              Unchecked="EdgeRevealCheckBox_Changed" />
+                    <TextBlock Margin="24,0,0,14"
+                               Text="Deja el ratón un instante contra el borde donde está Kohana y se abre sola. No reacciona en las esquinas —ahí están el menú Inicio y el reloj— ni cuando tienes algo a pantalla completa."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <CheckBox x:Name="AnimationsCheckBox"
+                              Content="Usar animaciones"
+                              Checked="AnimationsCheckBox_Changed"
+                              Unchecked="AnimationsCheckBox_Changed" />
+                    <TextBlock Margin="24,4,0,0"
+                               Text="Kohana también respeta la opción de Windows en Accesibilidad → Efectos visuales: si la apagaste ahí, no hace falta apagarla aquí."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <TextBlock Margin="0,18,0,4" Text="Qué aparece en el rail" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,0,0,9"
+                               Text="Kohana arranca con el rail al mínimo: chat, sistema y esta pantalla. Todo lo demás sigue estando y se abre desde la paleta con Ctrl + Espacio o pidiéndoselo a Kohana. Marca aquí lo que quieras tener siempre a un clic."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <CheckBox x:Name="HomeModuleCheckBox" Content="Inicio"
+                              Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Home" />
+                    <CheckBox x:Name="TasksModuleCheckBox" Content="Hoy"
+                              Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Tasks" />
+                    <CheckBox x:Name="FocusModuleCheckBox" Content="Enfoque"
+                              Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Focus" />
+                    <CheckBox x:Name="RoutinesModuleCheckBox" Content="Rutinas"
+                              Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Routines" />
+                    <CheckBox x:Name="AudioModuleCheckBox" Content="Audio"
+                              Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />
+                    <CheckBox x:Name="CaptureModuleCheckBox" Content="Captura"
+                              Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Capture" />
+                    <CheckBox x:Name="SystemModuleCheckBox" Content="Sistema"
+                              Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="System" />
+
+                    <WrapPanel Margin="0,18,0,0">
+                        <Button x:Name="ResetAppearanceButton"
+                                Content="Restaurar apariencia"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="ResetAppearanceButton_Click"
+                                ToolTip="Devuelve posición, ancho, transparencia, acento y animaciones a sus valores originales"
+                                AutomationProperties.Name="Restaurar apariencia"
+                                AutomationProperties.HelpText="Solo afecta a la apariencia. No borra tareas, rutinas, historial ni la configuración de voz, IA o motores." />
+                    </WrapPanel>
+                    <TextBlock x:Name="ResetAppearanceHintText"
+                               Margin="0,8,0,0"
+                               Text="Solo cambia la apariencia. Tus tareas, rutinas y la configuración de voz, IA y motores no se tocan."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
                 </StackPanel>
-            </StackPanel>
+            </controls:SettingsSection>
 
-            <TextBlock Margin="24,8,0,0"
-                       Text="La escucha se realiza localmente. En español, Kohana suele reconocerse como ‘cojana’ o ‘kojana’. La prueba muestra exactamente qué entendió Vosk y permite guardar una variante personal. Whisper solo se carga después de detectar la frase."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
+            <!-- ══════════════════════ Inteligencia artificial ══════════════════════ -->
+            <controls:SettingsSection x:Name="AiSettingsSection"
+                                      Header="Inteligencia artificial"
+                                      Description="Elige dónde piensa Kohana: en tu equipo o en la nube">
+                <StackPanel>
+                    <TextBlock Text="Proveedor" FontWeight="SemiBold" />
+                    <!--
+                        ItemTemplate explícita en vez de DisplayMemberPath. Esa propiedad funciona
+                        haciendo que WPF genere una plantilla interna de forma perezosa, y esa
+                        plantilla no llega a SelectionBoxItemTemplate con una plantilla de ComboBox
+                        propia: el resultado era que la caja mostraba el objeto en crudo
+                        ("AiProviderChoice { Kind = Disabled, … }") en lugar del nombre.
+                    -->
+                    <ComboBox x:Name="AiProviderComboBox"
+                              Margin="0,7,0,0"
+                              MinHeight="34"
+                              SelectionChanged="AiProviderComboBox_SelectionChanged"
+                              AutomationProperties.Name="Proveedor de inteligencia artificial">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
 
-            <TextBlock Margin="0,20,0,9"
-                       Text="Rendimiento adaptativo"
-                       FontWeight="SemiBold" />
-            <CheckBox x:Name="ResourceGovernorEnabledCheckBox"
-                      Content="Adaptar Kohana al uso de CPU, GPU y pantalla completa"
-                      Checked="ResourceGovernorCheckBox_Changed"
-                      Unchecked="ResourceGovernorCheckBox_Changed" />
-            <CheckBox x:Name="PauseWakeWordInGameModeCheckBox"
-                      Margin="24,9,0,0"
-                      Content="Pausar la activación por voz en Modo Juego"
-                      Checked="ResourceGovernorCheckBox_Changed"
-                      Unchecked="ResourceGovernorCheckBox_Changed" />
-            <CheckBox x:Name="ProtectVisionWhenBusyCheckBox"
-                      Margin="24,9,0,0"
-                      Content="Pausar Mirar cuando el equipo esté ocupado"
-                      Checked="ResourceGovernorCheckBox_Changed"
-                      Unchecked="ResourceGovernorCheckBox_Changed" />
-            <TextBlock Margin="24,8,0,0"
-                       Text="Los comandos locales siempre permanecen disponibles. Kohana vuelve al modo normal automáticamente."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
+                    <Border Margin="0,10,0,0"
+                            Padding="12"
+                            Background="{DynamicResource BrushSurface}"
+                            CornerRadius="{DynamicResource RadiusMedium}">
+                        <StackPanel>
+                            <TextBlock x:Name="AiProviderBadgeText"
+                                       Text=""
+                                       FontSize="{DynamicResource FontSizeCaption}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushAccent}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="AiProviderSummaryText"
+                                       Margin="0,5,0,0"
+                                       Text=""
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                    </Border>
 
-            <TextBlock Margin="0,20,0,9"
-                       Text="Modo de rendimiento"
-                       FontWeight="SemiBold" />
-            <TextBlock Margin="0,0,0,10"
-                       Text="Ajusta qué recomienda Kohana para voz, palabra de activación y modelos de lenguaje según el hardware detectado. Cambiar el modo no reemplaza motores, no descarga modelos ni reinicia servicios: solo actualiza la recomendación."
-                       TextWrapping="Wrap"
-                       Style="{StaticResource MutedTextStyle}" />
-            <StackPanel>
-                <RadioButton x:Name="PerformanceModeAutomaticRadioButton"
-                             GroupName="HardwarePerformanceMode"
-                             Tag="Automatic"
-                             Checked="HardwarePerformanceModeRadioButton_Checked"
-                             AutomationProperties.Name="Modo de rendimiento: Automático">
-                    <StackPanel Margin="0,0,0,10">
-                        <TextBlock Text="Automático" FontWeight="SemiBold" />
-                        <TextBlock Margin="0,2,0,0"
-                                   Text="Kohana adapta sus recomendaciones al hardware detectado."
+                    <!--
+                        La clave se pide aquí y se guarda cifrada con DPAPI, fuera de settings.json.
+                        Antes solo se aceptaba el nombre de una variable de entorno, lo que dejaba
+                        toda la nube fuera del alcance de cualquiera que no programe — justo las
+                        opciones que salvan a un equipo sin recursos para la IA local.
+                    -->
+                    <StackPanel x:Name="AiApiKeyPanel" Margin="0,14,0,0" Visibility="Collapsed">
+                        <TextBlock Text="Clave de acceso" FontWeight="SemiBold" />
+                        <PasswordBox x:Name="AiApiKeyPasswordBox"
+                                     Margin="0,7,0,0"
+                                     MinHeight="34"
+                                     PasswordChanged="AiApiKeyPasswordBox_PasswordChanged"
+                                     AutomationProperties.Name="Clave de acceso del proveedor" />
+                        <TextBlock x:Name="AiApiKeyStatusText"
+                                   Margin="0,6,0,0"
+                                   Text=""
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <WrapPanel Margin="0,9,0,0">
+                            <Button x:Name="AiGetApiKeyButton"
+                                    Content="Conseguir una clave"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Click="AiGetApiKeyButton_Click" />
+                            <Button x:Name="AiForgetApiKeyButton"
+                                    Margin="9,0,0,0"
+                                    Content="Borrar la clave"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Click="AiForgetApiKeyButton_Click" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <TextBlock Margin="0,14,0,6" Text="Modelo" FontWeight="SemiBold" />
+                    <TextBox x:Name="AiModelTextBox"
+                             Style="{StaticResource CompactTextBoxStyle}"
+                             Tag="Model"
+                             LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+
+                    <WrapPanel Margin="0,14,0,0">
+                        <Button x:Name="AiTestConnectionButton"
+                                Content="Probar conexión"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="AiTestConnectionButton_Click" />
+                        <Button x:Name="ManageModelsButton"
+                                Margin="9,0,0,0"
+                                Content="Administrar modelos"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="ManageModelsButton_Click" />
+                    </WrapPanel>
+                    <TextBlock x:Name="AiConnectionStatusText"
+                               Margin="0,8,0,0"
+                               Text="La IA está desactivada."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <CheckBox x:Name="ShareSystemMetricsWithAiCheckBox"
+                              Margin="0,16,0,0"
+                              Content="Compartir CPU, RAM, GPU y proceso principal con la IA"
+                              Checked="ShareSystemMetricsWithAiCheckBox_Changed"
+                              Unchecked="ShareSystemMetricsWithAiCheckBox_Changed" />
+                    <TextBlock Margin="24,5,0,0"
+                               Text="Desactivado por defecto. Solo se adjunta una captura resumida cuando haces una consulta abierta."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <CheckBox x:Name="VisionEnabledCheckBox"
+                              Margin="0,12,0,0"
+                              Content="Permitir capturas bajo demanda con Kohana Vision"
+                              Checked="VisionEnabledCheckBox_Changed"
+                              Unchecked="VisionEnabledCheckBox_Changed" />
+                    <TextBlock Margin="24,5,0,0"
+                               Text="Kohana solo captura después de que eliges una ventana o monitor y confirmas la vista previa. La imagen no se guarda en el historial."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <CheckBox x:Name="SaveConversationHistoryCheckBox"
+                              Margin="0,12,0,0"
+                              Content="Guardar el historial de conversación"
+                              Checked="SaveConversationHistoryCheckBox_Changed"
+                              Unchecked="SaveConversationHistoryCheckBox_Changed" />
+                    <TextBlock Margin="24,5,0,0"
+                               Text="Desactivado por defecto: Kohana conserva solo los 8 mensajes más recientes durante la sesión y los elimina al cerrar."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <!--
+                        La dirección y la variable de entorno son lo que casi nadie necesita tocar,
+                        así que van un nivel más adentro. Antes eran los dos primeros campos que se
+                        encontraba cualquiera al llegar a este apartado.
+                    -->
+                    <controls:SettingsSection Margin="0,16,0,0"
+                                              Header="Ajustes avanzados"
+                                              Description="Dirección del servicio y variable de entorno">
+                        <StackPanel>
+                            <TextBlock Margin="0,0,0,6" Text="Dirección del servicio" FontWeight="SemiBold" />
+                            <TextBox x:Name="AiBaseUrlTextBox"
+                                     Style="{StaticResource CompactTextBoxStyle}"
+                                     Tag="BaseUrl"
+                                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+                            <TextBlock x:Name="AiBaseUrlHintText"
+                                       Margin="0,6,0,0"
+                                       Text=""
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+
+                            <TextBlock Margin="0,12,0,6" Text="Variable de entorno de la clave" FontWeight="SemiBold" />
+                            <TextBox x:Name="AiApiKeyVariableTextBox"
+                                     Style="{StaticResource CompactTextBoxStyle}"
+                                     Tag="ApiKeyVariable"
+                                     LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
+                            <TextBlock Margin="0,6,0,0"
+                                       Text="Alternativa para quien ya tenga la clave en una variable de entorno de Windows. Si escribiste una clave arriba, esa tiene preferencia."
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+                        </StackPanel>
+                    </controls:SettingsSection>
+                </StackPanel>
+            </controls:SettingsSection>
+
+            <!-- ══════════════════════════ Voz ══════════════════════════ -->
+            <controls:SettingsSection Header="Voz"
+                                      Description="Micrófono, respuestas habladas y frase de activación">
+                <StackPanel>
+                    <CheckBox x:Name="SpeakVoiceResponsesCheckBox"
+                              Content="Leer en voz alta las confirmaciones de voz"
+                              Checked="SpeakVoiceResponsesCheckBox_Changed"
+                              Unchecked="SpeakVoiceResponsesCheckBox_Changed" />
+
+                    <TextBlock Margin="0,14,0,6" Text="Micrófono" FontWeight="SemiBold" />
+                    <ComboBox x:Name="VoiceInputDeviceComboBox"
+                              MinHeight="34"
+                              SelectedValuePath="DeviceNumber"
+                              SelectionChanged="VoiceInputDeviceComboBox_SelectionChanged">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock x:Name="VoiceInputDeviceStatusText"
+                               Margin="0,6,0,0"
+                               Text="Kohana usa el micrófono predeterminado de Windows."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <CheckBox x:Name="WakeWordEnabledCheckBox"
+                              Margin="0,14,0,0"
+                              Content="Activar Kohana mediante una frase de voz (experimental)"
+                              Checked="WakeWordEnabledCheckBox_Changed"
+                              Unchecked="WakeWordEnabledCheckBox_Changed" />
+
+                    <StackPanel Margin="24,10,0,0">
+                        <TextBlock Margin="0,0,0,7" Text="Frase de activación" FontWeight="SemiBold" />
+                        <WrapPanel>
+                            <RadioButton x:Name="WakeWordKohanaRadioButton"
+                                         GroupName="WakeWordPhrase"
+                                         Content="Kohana"
+                                         Tag="Kohana"
+                                         Checked="WakeWordPhraseRadioButton_Checked" />
+                            <RadioButton x:Name="WakeWordOyeKohanaRadioButton"
+                                         Margin="18,0,0,0"
+                                         GroupName="WakeWordPhrase"
+                                         Content="Oye Kohana · recomendado"
+                                         Tag="OyeKohana"
+                                         Checked="WakeWordPhraseRadioButton_Checked" />
+                            <RadioButton x:Name="WakeWordHeyKohanaRadioButton"
+                                         Margin="18,0,0,0"
+                                         GroupName="WakeWordPhrase"
+                                         Content="Ey / Hey Kohana"
+                                         Tag="HeyKohana"
+                                         Checked="WakeWordPhraseRadioButton_Checked" />
+                        </WrapPanel>
+
+                        <TextBlock Margin="0,14,0,6" Text="Sensibilidad" FontWeight="SemiBold" />
+                        <ComboBox x:Name="WakeWordSensitivityComboBox"
+                                  Width="220"
+                                  HorizontalAlignment="Left"
+                                  SelectionChanged="WakeWordSensitivityComboBox_SelectionChanged">
+                            <ComboBoxItem Content="Precisa · menos activaciones accidentales" Tag="Strict" />
+                            <ComboBoxItem Content="Equilibrada · recomendada" Tag="Balanced" />
+                            <ComboBoxItem Content="Alta · reconoce más variantes" Tag="High" />
+                        </ComboBox>
+
+                        <WrapPanel Margin="0,12,0,0">
+                            <Button x:Name="WakeWordTestButton"
+                                    Content="Probar frase"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Click="WakeWordTestButton_Click" />
+                            <Button x:Name="WakeWordUseObservedAliasButton"
+                                    Margin="8,0,0,0"
+                                    Content="Usar lo escuchado"
+                                    IsEnabled="False"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Click="WakeWordUseObservedAliasButton_Click" />
+                            <Button x:Name="WakeWordClearAliasesButton"
+                                    Margin="8,0,0,0"
+                                    Content="Borrar aliases"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Click="WakeWordClearAliasesButton_Click" />
+                        </WrapPanel>
+                        <TextBlock x:Name="WakeWordTestStatusText"
+                                   Margin="0,9,0,0"
+                                   Text="Di la frase seleccionada cuando inicie la prueba."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <TextBlock x:Name="WakeWordAliasesText"
+                                   Margin="0,5,0,0"
+                                   Text="Aliases personales: ninguno"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="La escucha se realiza localmente. En español, Kohana suele reconocerse como ‘cojana’ o ‘kojana’. La prueba muestra exactamente qué entendió Vosk y permite guardar una variante personal. Whisper solo se carga después de detectar la frase."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                     </StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="PerformanceModeEcoRadioButton"
-                             GroupName="HardwarePerformanceMode"
-                             Tag="Eco"
-                             Checked="HardwarePerformanceModeRadioButton_Checked"
-                             AutomationProperties.Name="Modo de rendimiento: Ahorro">
-                    <StackPanel Margin="0,0,0,10">
-                        <TextBlock Text="Ahorro" FontWeight="SemiBold" />
-                        <TextBlock Margin="0,2,0,0"
-                                   Text="Prioriza menor consumo de CPU, memoria y batería."
+                </StackPanel>
+            </controls:SettingsSection>
+
+            <!-- ══════════════════════ Dictado global ══════════════════════ -->
+            <controls:SettingsSection Header="Dictado global"
+                                      Description="Kohana Flow: dicta en cualquier aplicación con Ctrl + Shift + D">
+                <StackPanel>
+                    <CheckBox x:Name="FlowEnabledCheckBox"
+                              Content="Activar el dictado global (Ctrl + Shift + D)"
+                              Checked="FlowEnabledCheckBox_Changed"
+                              Unchecked="FlowEnabledCheckBox_Changed" />
+                    <TextBlock Margin="24,4,0,0"
+                               Text="Pulsa una vez para empezar a dictar y otra vez para escribir el texto en la aplicación que tengas activa. Si cambias de ventana mientras dictas, Kohana no escribe nada."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <StackPanel Margin="24,12,0,0">
+                        <TextBlock Margin="0,0,0,7" Text="Estilo del dictado" FontWeight="SemiBold" />
+                        <WrapPanel>
+                            <RadioButton x:Name="FlowModeTextoRadioButton"
+                                         GroupName="FlowMode"
+                                         Content="Texto"
+                                         Tag="Texto"
+                                         Checked="FlowModeRadioButton_Checked"
+                                         AutomationProperties.Name="Estilo de dictado: Texto" />
+                            <RadioButton x:Name="FlowModeCorreoRadioButton"
+                                         Margin="18,0,0,0"
+                                         GroupName="FlowMode"
+                                         Content="Correo"
+                                         Tag="Correo"
+                                         Checked="FlowModeRadioButton_Checked"
+                                         AutomationProperties.Name="Estilo de dictado: Correo" />
+                            <RadioButton x:Name="FlowModeCodigoRadioButton"
+                                         Margin="18,0,0,0"
+                                         GroupName="FlowMode"
+                                         Content="Código"
+                                         Tag="Codigo"
+                                         Checked="FlowModeRadioButton_Checked"
+                                         AutomationProperties.Name="Estilo de dictado: Código" />
+                        </WrapPanel>
+                        <TextBlock Margin="0,6,0,0"
+                                   Text="Texto y Correo ponen mayúscula al inicio de cada oración; Código no la pone y entiende símbolos como llaves, corchetes y flecha."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                     </StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="PerformanceModeBalancedRadioButton"
-                             GroupName="HardwarePerformanceMode"
-                             Tag="Balanced"
-                             Checked="HardwarePerformanceModeRadioButton_Checked"
-                             AutomationProperties.Name="Modo de rendimiento: Equilibrado">
-                    <StackPanel Margin="0,0,0,10">
-                        <TextBlock Text="Equilibrado" FontWeight="SemiBold" />
-                        <TextBlock Margin="0,2,0,0"
-                                   Text="Busca buena velocidad y calidad sin usar recursos excesivos."
+
+                    <StackPanel Margin="24,14,0,0">
+                        <TextBlock Margin="0,0,0,5" Text="Diccionario personal" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,0,0,6"
+                                   Text="Una línea por corrección, con el formato dicho=escrito. Ejemplo: cojana=Kohana"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <TextBox x:Name="FlowDictionaryBox"
+                                 MinHeight="62"
+                                 MaxHeight="120"
+                                 AcceptsReturn="True"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 LostFocus="FlowDictionaryBox_LostFocus"
+                                 AutomationProperties.Name="Diccionario personal de dictado" />
+                    </StackPanel>
+
+                    <StackPanel Margin="24,12,0,0">
+                        <TextBlock Margin="0,0,0,5" Text="Atajos" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,0,0,6"
+                                   Text="Una línea por atajo, con el mismo formato. Lo escrito se inserta tal cual. Ejemplo: mi correo=adler@ejemplo.com"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <TextBox x:Name="FlowSnippetsBox"
+                                 MinHeight="62"
+                                 MaxHeight="120"
+                                 AcceptsReturn="True"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 LostFocus="FlowSnippetsBox_LostFocus"
+                                 AutomationProperties.Name="Atajos de dictado" />
+                        <TextBlock x:Name="FlowListsStatusText"
+                                   Margin="0,6,0,0"
+                                   Text=""
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                </StackPanel>
+            </controls:SettingsSection>
+
+            <!-- ══════════════════════ Permisos ══════════════════════ -->
+            <controls:SettingsSection Header="Permisos"
+                                      Description="Qué puede hacer Kohana en tu equipo, capacidad por capacidad">
+                <StackPanel>
+                    <TextBlock Text="Cada capacidad pide su permiso por separado: darle uno no le da los demás. Hay cosas que Kohana te pregunta siempre, aunque las tengas permitidas — borrar algo sin recuperación, tocar credenciales, enviar algo fuera de tu equipo o pedir permisos de administrador."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <ItemsControl x:Name="PermissionsItemsControl" Margin="0,12,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,9">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Detail}"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource MutedTextStyle}" />
+                                    </StackPanel>
+                                    <ComboBox Grid.Column="1"
+                                              Width="128"
+                                              Margin="11,0,0,0"
+                                              VerticalAlignment="Center"
+                                              ItemsSource="{Binding Levels}"
+                                              SelectedItem="{Binding Level, Mode=TwoWay}"
+                                              AutomationProperties.Name="{Binding Title}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <StackPanel x:Name="ComputerUseAutonomyPanel" Margin="0,12,0,0">
+                        <TextBlock Margin="0,0,0,5" Text="Hasta dónde puede llegar en el equipo" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,0,0,7"
+                                   Text="Aunque le permitas actuar, Kohana elige siempre la forma más segura disponible y nunca usa ratón y teclado simulados salvo que no quede otra."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <RadioButton x:Name="ComputerUseVerRadioButton" Margin="0,0,0,6"
+                                     GroupName="ComputerUseLevel" Tag="Ver"
+                                     Content="Ver — describe lo que hay, sin proponer nada"
+                                     Checked="ComputerUseLevelRadioButton_Checked" />
+                        <RadioButton x:Name="ComputerUseGuiarRadioButton" Margin="0,0,0,6"
+                                     GroupName="ComputerUseLevel" Tag="Guiar"
+                                     Content="Guiar — te dice qué harías tú, y lo haces tú"
+                                     Checked="ComputerUseLevelRadioButton_Checked" />
+                        <RadioButton x:Name="ComputerUseProponerRadioButton" Margin="0,0,0,6"
+                                     GroupName="ComputerUseLevel" Tag="Proponer"
+                                     Content="Proponer — redacta el plan y el método, sin ejecutarlo"
+                                     Checked="ComputerUseLevelRadioButton_Checked" />
+                        <RadioButton x:Name="ComputerUseEjecutarRadioButton"
+                                     GroupName="ComputerUseLevel" Tag="EjecutarUnPaso"
+                                     Content="Ejecutar un paso — hace una acción cada vez, y la confirmas tú"
+                                     Checked="ComputerUseLevelRadioButton_Checked" />
+                        <TextBlock Margin="0,7,0,0"
+                                   Text="Encadenar varias acciones seguidas todavía no está disponible."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                     </StackPanel>
-                </RadioButton>
-                <RadioButton x:Name="PerformanceModeMaximumRadioButton"
-                             GroupName="HardwarePerformanceMode"
-                             Tag="Maximum"
-                             Checked="HardwarePerformanceModeRadioButton_Checked"
-                             AutomationProperties.Name="Modo de rendimiento: Máximo">
+
+                    <StackPanel Margin="0,14,0,0">
+                        <TextBlock Margin="0,0,0,5" Text="Aplicaciones excluidas" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,0,0,6"
+                                   Text="Una por línea, con el formato capacidad: aplicación. Si la aplicación coincide, Kohana no la toca aunque tengas la capacidad permitida. Ejemplo: Lens: bitwarden"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <TextBox x:Name="PermissionExclusionsBox"
+                                 MinHeight="62"
+                                 MaxHeight="120"
+                                 AcceptsReturn="True"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 LostFocus="PermissionExclusionsBox_LostFocus"
+                                 AutomationProperties.Name="Aplicaciones excluidas por capacidad" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="PermissionsStatusText"
+                               Margin="0,8,0,0"
+                               Text=""
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed"
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+            </controls:SettingsSection>
+
+            <!-- ══════════════════════ Proyecto autorizado ══════════════════════ -->
+            <controls:SettingsSection Header="Proyecto autorizado"
+                                      Description="La carpeta que Kohana puede leer y hasta dónde puede llegar en ella">
+                <StackPanel>
+                    <TextBlock x:Name="WorkspacePathText"
+                               Text="No hay ninguna carpeta autorizada."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <TextBlock Margin="0,6,0,0"
+                               Text="Kohana solo puede leer la carpeta que autorices. No lee archivos de credenciales ni carpetas de dependencias, y oculta lo que parezca un secreto antes de enviar nada."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <StackPanel x:Name="WorkspaceAutonomyPanel" Margin="0,12,0,0">
+                        <TextBlock Margin="0,0,0,7" Text="Hasta dónde puede llegar" FontWeight="SemiBold" />
+                        <RadioButton x:Name="WorkspaceLevelVerRadioButton" Margin="0,0,0,6"
+                                     GroupName="WorkspaceLevel" Tag="Ver"
+                                     Content="Ver — lee y describe, sin sugerir cambios"
+                                     Checked="WorkspaceLevelRadioButton_Checked" />
+                        <RadioButton x:Name="WorkspaceLevelGuiarRadioButton" Margin="0,0,0,6"
+                                     GroupName="WorkspaceLevel" Tag="Guiar"
+                                     Content="Guiar — te dice qué harías tú, y lo haces tú"
+                                     Checked="WorkspaceLevelRadioButton_Checked" />
+                        <RadioButton x:Name="WorkspaceLevelProponerRadioButton" Margin="0,0,0,6"
+                                     GroupName="WorkspaceLevel" Tag="Proponer"
+                                     Content="Proponer — redacta el plan de un cambio, sin aplicarlo"
+                                     Checked="WorkspaceLevelRadioButton_Checked" />
+                        <RadioButton x:Name="WorkspaceLevelEjecutarRadioButton" Margin="0,0,0,6"
+                                     GroupName="WorkspaceLevel" Tag="EjecutarUnPaso"
+                                     Content="Ejecutar un paso — aplica un cambio cada vez, y lo confirmas tú"
+                                     Checked="WorkspaceLevelRadioButton_Checked" />
+                        <RadioButton x:Name="WorkspaceLevelColaborarRadioButton"
+                                     GroupName="WorkspaceLevel" Tag="ColaborarConConfirmaciones"
+                                     Content="Colaborar — encadena varios cambios y se para en los de riesgo"
+                                     Checked="WorkspaceLevelRadioButton_Checked" />
+                        <TextBlock Margin="0,7,0,0"
+                                   Text="Ejecutar una secuencia entera sin preguntar por el camino no está disponible. Cualquier cambio guarda antes una copia del archivo, así que siempre se puede deshacer."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+
+                    <WrapPanel Margin="0,12,0,0">
+                        <Button Content="Autorizar una carpeta"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="WorkspaceAuthorizeButton_Click" />
+                        <Button x:Name="WorkspaceRevokeButton"
+                                Margin="9,0,0,0"
+                                Content="Revocar el acceso"
+                                IsEnabled="False"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="WorkspaceRevokeButton_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </controls:SettingsSection>
+
+            <!-- ══════════════════════ Memoria personal ══════════════════════ -->
+            <controls:SettingsSection Header="Memoria personal"
+                                      Description="Qué recuerda Kohana entre sesiones, y por cuánto tiempo">
+                <StackPanel>
+                    <CheckBox x:Name="MemoryEnabledCheckBox"
+                              Content="Dejar que Kohana recuerde cosas entre sesiones"
+                              Checked="MemoryEnabledCheckBox_Changed"
+                              Unchecked="MemoryEnabledCheckBox_Changed" />
+                    <TextBlock Margin="24,4,0,0"
+                               Text="Está desactivada por omisión. Nada se guarda sin que lo pidas, y todo lo guardado se puede ver y borrar aunque después la desactives."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <StackPanel x:Name="MemoryCategoriesPanel" Margin="24,12,0,0">
+                        <TextBlock Margin="0,0,0,7" Text="Qué puede recordar" FontWeight="SemiBold" />
+                        <CheckBox x:Name="MemoryPreferencesCheckBox" Margin="0,0,0,7"
+                                  Content="Tus preferencias (por ejemplo: «prefiero respuestas cortas»)"
+                                  Checked="MemoryCategoryCheckBox_Changed"
+                                  Unchecked="MemoryCategoryCheckBox_Changed" Tag="Preferencias" />
+                        <CheckBox x:Name="MemoryConversationCheckBox" Margin="0,0,0,7"
+                                  Content="El contexto de tus conversaciones"
+                                  Checked="MemoryCategoryCheckBox_Changed"
+                                  Unchecked="MemoryCategoryCheckBox_Changed" Tag="Conversacion" />
+                        <CheckBox x:Name="MemoryHabitsCheckBox"
+                                  Content="Tus hábitos de uso"
+                                  Checked="MemoryCategoryCheckBox_Changed"
+                                  Unchecked="MemoryCategoryCheckBox_Changed" Tag="Habitos" />
+                        <TextBlock Margin="0,6,0,0"
+                                   Text="Cada una se activa por separado: aceptar una no autoriza las demás."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+
+                    <StackPanel Margin="24,14,0,0">
+                        <TextBlock Margin="0,0,0,5" Text="Retención" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,0,0,6"
+                                   Text="Días que se conserva cada recuerdo. Al bajarla, lo más viejo desaparece de inmediato, no la próxima vez."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <TextBox x:Name="MemoryRetentionBox"
+                                 Width="90"
+                                 HorizontalAlignment="Left"
+                                 LostFocus="MemoryRetentionBox_LostFocus"
+                                 AutomationProperties.Name="Días de retención de la memoria" />
+                    </StackPanel>
+
+                    <StackPanel Margin="24,12,0,0">
+                        <TextBlock Margin="0,0,0,5" Text="Nunca recordar" FontWeight="SemiBold" />
+                        <TextBlock Margin="0,0,0,6"
+                                   Text="Una palabra o frase por línea. Si aparece en el texto, Kohana no lo guarda aunque la memoria esté activada."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource MutedTextStyle}" />
+                        <TextBox x:Name="MemoryExclusionsBox"
+                                 MinHeight="62"
+                                 MaxHeight="120"
+                                 AcceptsReturn="True"
+                                 TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 LostFocus="MemoryExclusionsBox_LostFocus"
+                                 AutomationProperties.Name="Exclusiones de la memoria" />
+                    </StackPanel>
+
+                    <WrapPanel Margin="24,12,0,0">
+                        <Button Content="Ver lo que recuerda"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="MemoryShowButton_Click" />
+                        <Button Margin="9,0,0,0"
+                                Content="Olvidar todo"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="MemoryForgetAllButton_Click" />
+                    </WrapPanel>
+                    <TextBlock x:Name="MemoryStatusText"
+                               Margin="24,6,0,0"
+                               Text=""
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed"
+                               Style="{StaticResource MutedTextStyle}" />
+                </StackPanel>
+            </controls:SettingsSection>
+
+            <!-- ══════════════════════ Packs ══════════════════════ -->
+            <controls:SettingsSection Header="Packs de Kohana"
+                                      Description="Configuraciones preparadas para estudiar, programar, atender o crear">
+                <StackPanel>
+                    <TextBlock Text="Un pack deja configuradas de una vez varias cosas que ya sabe hacer Kohana. No activa ningún permiso por su cuenta: si le hace falta alguno, te lo dice. Solo puede haber uno activo, y desactivarlo devuelve tus ajustes a como estaban."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <ItemsControl x:Name="SkillPackItemsControl" Margin="0,12,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,9" Padding="14"
+                                        Background="{DynamicResource BrushSurface}" CornerRadius="{DynamicResource RadiusMedium}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,3,0,0"
+                                                       Text="{Binding Purpose}"
+                                                       TextWrapping="Wrap"
+                                                       Style="{StaticResource MutedTextStyle}" />
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Text="{Binding StateLine}"
+                                                       TextWrapping="Wrap"
+                                                       Style="{StaticResource MutedTextStyle}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                Margin="11,0,0,0"
+                                                VerticalAlignment="Center"
+                                                MinWidth="104"
+                                                Content="{Binding ButtonText}"
+                                                Tag="{Binding Id}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Click="SkillPackButton_Click" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </controls:SettingsSection>
+
+            <!-- ══════════════════════ Rendimiento ══════════════════════ -->
+            <controls:SettingsSection Header="Rendimiento"
+                                      Description="Cómo se adapta Kohana cuando el equipo va justo">
+                <StackPanel>
+                    <CheckBox x:Name="ResourceGovernorEnabledCheckBox"
+                              Content="Adaptar Kohana al uso de CPU, GPU y pantalla completa"
+                              Checked="ResourceGovernorCheckBox_Changed"
+                              Unchecked="ResourceGovernorCheckBox_Changed" />
+                    <CheckBox x:Name="PauseWakeWordInGameModeCheckBox"
+                              Margin="24,9,0,0"
+                              Content="Pausar la activación por voz en Modo Juego"
+                              Checked="ResourceGovernorCheckBox_Changed"
+                              Unchecked="ResourceGovernorCheckBox_Changed" />
+                    <CheckBox x:Name="ProtectVisionWhenBusyCheckBox"
+                              Margin="24,9,0,0"
+                              Content="Pausar Mirar cuando el equipo esté ocupado"
+                              Checked="ResourceGovernorCheckBox_Changed"
+                              Unchecked="ResourceGovernorCheckBox_Changed" />
+                    <TextBlock Margin="24,8,0,0"
+                               Text="Los comandos locales siempre permanecen disponibles. Kohana vuelve al modo normal automáticamente."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <TextBlock Margin="0,18,0,6" Text="Modo de rendimiento" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,0,0,10"
+                               Text="Ajusta qué recomienda Kohana para voz, palabra de activación y modelos de lenguaje según el hardware detectado. Cambiar el modo no reemplaza motores, no descarga modelos ni reinicia servicios: solo actualiza la recomendación."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
                     <StackPanel>
-                        <TextBlock Text="Máximo" FontWeight="SemiBold" />
-                        <TextBlock Margin="0,2,0,0"
-                                   Text="Prioriza calidad cuando el hardware y los motores disponibles lo permiten."
-                                   TextWrapping="Wrap"
-                                   Style="{StaticResource MutedTextStyle}" />
+                        <RadioButton x:Name="PerformanceModeAutomaticRadioButton"
+                                     GroupName="HardwarePerformanceMode"
+                                     Tag="Automatic"
+                                     Checked="HardwarePerformanceModeRadioButton_Checked"
+                                     AutomationProperties.Name="Modo de rendimiento: Automático">
+                            <StackPanel Margin="0,0,0,10">
+                                <TextBlock Text="Automático" FontWeight="SemiBold" />
+                                <TextBlock Margin="0,2,0,0"
+                                           Text="Kohana adapta sus recomendaciones al hardware detectado."
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="PerformanceModeEcoRadioButton"
+                                     GroupName="HardwarePerformanceMode"
+                                     Tag="Eco"
+                                     Checked="HardwarePerformanceModeRadioButton_Checked"
+                                     AutomationProperties.Name="Modo de rendimiento: Ahorro">
+                            <StackPanel Margin="0,0,0,10">
+                                <TextBlock Text="Ahorro" FontWeight="SemiBold" />
+                                <TextBlock Margin="0,2,0,0"
+                                           Text="Prioriza menor consumo de CPU, memoria y batería."
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="PerformanceModeBalancedRadioButton"
+                                     GroupName="HardwarePerformanceMode"
+                                     Tag="Balanced"
+                                     Checked="HardwarePerformanceModeRadioButton_Checked"
+                                     AutomationProperties.Name="Modo de rendimiento: Equilibrado">
+                            <StackPanel Margin="0,0,0,10">
+                                <TextBlock Text="Equilibrado" FontWeight="SemiBold" />
+                                <TextBlock Margin="0,2,0,0"
+                                           Text="Busca buena velocidad y calidad sin usar recursos excesivos."
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="PerformanceModeMaximumRadioButton"
+                                     GroupName="HardwarePerformanceMode"
+                                     Tag="Maximum"
+                                     Checked="HardwarePerformanceModeRadioButton_Checked"
+                                     AutomationProperties.Name="Modo de rendimiento: Máximo">
+                            <StackPanel>
+                                <TextBlock Text="Máximo" FontWeight="SemiBold" />
+                                <TextBlock Margin="0,2,0,0"
+                                           Text="Prioriza calidad cuando el hardware y los motores disponibles lo permiten."
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </RadioButton>
                     </StackPanel>
-                </RadioButton>
-            </StackPanel>
+                </StackPanel>
+            </controls:SettingsSection>
 
-            <TextBlock Margin="0,20,0,9" Text="Módulos visibles" FontWeight="SemiBold" />
-            <CheckBox x:Name="AudioModuleCheckBox" Margin="0,0,0,8" Content="Audio"
-                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Audio" />
-            <CheckBox x:Name="CaptureModuleCheckBox" Margin="0,0,0,8" Content="Captura"
-                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="Capture" />
-            <CheckBox x:Name="SystemModuleCheckBox" Content="Sistema"
-                      Checked="ModuleCheckBox_Changed" Unchecked="ModuleCheckBox_Changed" Tag="System" />
+            <!-- ══════════════════════ Windows y vista rápida ══════════════════════ -->
+            <controls:SettingsSection Header="Windows"
+                                      Description="Inicio automático, bandeja, notificaciones y vista rápida">
+                <StackPanel>
+                    <CheckBox x:Name="StartWithWindowsCheckBox"
+                              Margin="0,0,0,8"
+                              Content="Iniciar Kohana con Windows"
+                              Checked="StartWithWindowsCheckBox_Changed"
+                              Unchecked="StartWithWindowsCheckBox_Changed" />
+                    <TextBlock Margin="24,0,0,10"
+                               Text="Se iniciará en segundo plano y podrás abrirlo con Alt + A o desde la bandeja."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+                    <CheckBox x:Name="MinimizeToTrayCheckBox"
+                              Margin="0,0,0,8"
+                              Content="Ocultar en la bandeja al cerrar"
+                              Checked="MinimizeToTrayCheckBox_Changed"
+                              Unchecked="MinimizeToTrayCheckBox_Changed" />
+                    <CheckBox x:Name="WindowsNotificationsCheckBox"
+                              Margin="0,0,0,8"
+                              Content="Mostrar notificaciones de Windows"
+                              Checked="WindowsNotificationsCheckBox_Changed"
+                              Unchecked="WindowsNotificationsCheckBox_Changed" />
+                    <CheckBox x:Name="NotificationSoundsCheckBox"
+                              Content="Reproducir sonido en recordatorios y sesiones terminadas"
+                              Checked="NotificationSoundsCheckBox_Changed"
+                              Unchecked="NotificationSoundsCheckBox_Changed" />
+                    <TextBlock x:Name="WindowsIntegrationStatusText"
+                               Margin="24,8,0,0"
+                               Text="Kohana seguirá activa mientras esté visible en la bandeja."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <TextBlock Margin="0,18,0,9" Text="Vista rápida" FontWeight="SemiBold" />
+                    <CheckBox x:Name="PeekEnabledCheckBox" Margin="0,0,0,8"
+                              Content="Activar Peek con Alt + Shift + A"
+                              Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Enabled" />
+                    <CheckBox x:Name="PeekCpuCheckBox" Margin="24,0,0,8"
+                              Content="Mostrar CPU"
+                              Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Cpu" />
+                    <CheckBox x:Name="PeekMemoryCheckBox" Margin="24,0,0,8"
+                              Content="Mostrar RAM"
+                              Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Memory" />
+                    <CheckBox x:Name="PeekGpuCheckBox" Margin="24,0,0,8"
+                              Content="Mostrar GPU"
+                              Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Gpu" />
+                    <CheckBox x:Name="PeekDiskCheckBox" Margin="24,0,0,8"
+                              Content="Mostrar disco del sistema"
+                              Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="Disk" />
+                    <CheckBox x:Name="PeekTopProcessCheckBox" Margin="24,0,0,0"
+                              Content="Mostrar proceso con mayor uso de memoria"
+                              Checked="PeekCheckBox_Changed" Unchecked="PeekCheckBox_Changed" Tag="TopProcess" />
+
+                    <WrapPanel Margin="0,18,0,0">
+                        <Button Content="Abrir diagnóstico"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="DiagnosticsButton_Click" />
+                        <Button Margin="9,0,0,0"
+                                Content="Repetir configuración inicial"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OnboardingButton_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </controls:SettingsSection>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

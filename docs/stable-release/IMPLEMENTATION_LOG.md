@@ -10,12 +10,12 @@
 
 | Campo | Valor |
 |---|---|
-| **Fase actual** | **Diseño D6 — Kohana Flow, APROBADO** (D6.1-D6.3 probados y validados manualmente por el usuario, integrados en `release/kohana-1.0-rc` vía `merge: integrate approved Kohana Flow D6`) |
-| **Siguiente fase** | D7 (pulido de Flow + píldora con streaming), D8 (Fase 4 — optimización adaptativa) y D9 (Fase 6 — memoria opt-in), encargados juntos por el usuario |
-| **Rama** | `release/kohana-1.0-rc` — D6 se integró vía `merge --no-ff` desde `design/kohana-flow-v1` |
+| **Fase actual** | **Diseños D7, D8 y D9** implementados y probados en `design/kohana-sprints-d7-d9`; sin integrar a `release/kohana-1.0-rc` todavía |
+| **Siguiente fase** | Smoke test manual del usuario sobre los tres, luego integración a release |
+| **Rama** | `design/kohana-sprints-d7-d9`, creada desde `release/kohana-1.0-rc` (`56e0d3a`, D6 ya integrado) |
 | **Versión base** | **0.9.5-beta** (verificada en `Directory.Build.props`) |
 | **Última actualización** | 2026-07-30 |
-| **Bloqueador activo** | Ninguno. D6 aprobado por el usuario tras probar el dictado a mano e integrado a release |
+| **Bloqueador activo** | Ninguno. Falta que el usuario pruebe D7/D8/D9 a mano antes de declararlos aprobados |
 
 ### ✅ Baseline medido — 2026-07-23
 
@@ -2602,3 +2602,807 @@ no tienen interfaz de edición — se editan a mano en `settings.json`. Se atien
 > **Diseño D6 (D6.1-D6.3, Kohana Flow) queda aprobado** e integrado en `release/kohana-1.0-rc` vía
 > `merge: integrate approved Kohana Flow D6`. Build Release 0 warnings, 1176 pruebas, 0 fallidas
 > tras el merge. Fase 3 pasa a **Implementada** en el roadmap.
+
+---
+
+## Diseños D7, D8 y D9 — tres sprints encargados juntos
+
+**Rama:** `design/kohana-sprints-d7-d9`, creada desde `release/kohana-1.0-rc` (`56e0d3a`).
+El usuario pidió explícitamente hacer tres sprints en vez de uno.
+
+### D7 — Píldora con streaming y ajustes de Flow
+
+**Streaming (idea propuesta por el propio usuario tras probar Lens).** `AmbientRequestManager` gana
+un estado `Streaming` —estado propio, no una variante de `Thinking`: quien presenta necesita
+distinguir "todavía no hay nada que enseñar" de "esto que se ve aún no está completo"— más
+`BeginStreaming`/`AppendStreamedText`/`CompleteStreamedResult`. Lens pasa de `SendAsync` a
+`StreamAsync`, así que la respuesta aparece conforme el modelo la escribe.
+
+Dos decisiones deliberadas: **no** se persiste en cada fragmento (una respuesta larga dispararía
+cientos de escrituras del archivo de historial por una sola solicitud; se guarda cuando hay algo
+definitivo), y si el proveedor se corta a mitad, **lo ya recibido se conserva y se muestra** en vez
+de descartarse en silencio, avisando de que quedó incompleta.
+
+La píldora suma una aparición suave (solo en el primer despliegue — animar cada refresco parpadearía
+sin parar mientras el texto llega), un cuerpo desplazable con tope de 220 px para que una respuesta
+larga no la estire fuera de pantalla, y seguimiento automático del final del texto. Nunca se
+autodescarta mientras está recibiendo.
+
+**Ajustes de Flow.** Interfaz para activar/desactivar el dictado, elegir estilo
+(texto/correo/código) y editar el diccionario y los atajos que D6 dejó editables solo a mano. El
+atajo global ahora se registra y libera en vivo, sin reiniciar. El parser ignora líneas mal escritas
+en silencio para que una sola no rompa el resto, pero la interfaz **sí dice cuántas ignoró**: una
+línea sin "=" que simplemente no hace nada parecería que la función está rota.
+
+### D8 — Optimización adaptativa (Fase 4)
+
+Siete comandos (jugar, programar, edición de video, videollamada, batería, general, restaurar) que
+leen el `HardwareCapabilityProfile` REAL y proponen solo lo que ese hardware justifica.
+
+La regla del roadmap gobierna todo el planificador: *"no es una lista genérica de tweaks de internet
+— cada cambio debe justificarse con una medición real del equipo"*. Por eso **cuando falta el dato,
+el cambio NO se propone**: pasa a `SkippedForMissingData` con el motivo. Sin saber si hay batería no
+se toca el plan de energía; sin saber la RAM no se dice nada de memoria; sin saber la GPU nada de
+gráficos. Pedir "optimizar para batería" en un equipo de escritorio no propone ahorro y explica por
+qué. Los umbrales de memoria cambian según el escenario (12 GB sobran para una videollamada y se
+quedan cortos para editar video) en vez de un número fijo, que sería justo el truco genérico que la
+fase prohíbe.
+
+Todo **propone** primero; aplicar es una confirmación aparte. Kohana solo aplica lo que puede
+revertir con certeza — hoy únicamente el plan de energía, vía API documentada de Win32
+(`PowerGet`/`PowerSetActiveScheme`), sin trucos de registro ni procesos lanzados, por la
+preocupación ya registrada sobre falsos positivos de antivirus. Lo demás son consejos que ejecuta la
+persona. **Aplicar poco y poder deshacerlo siempre es mejor que aplicar mucho sin garantía de vuelta
+atrás**: el roadmap trata la reversión como requisito, no como aspiración.
+
+Tres decisiones de orden que importan: el snapshot se escribe en disco ANTES de tocar nada (si algo
+falla a media aplicación, la vuelta atrás ya existe); se persiste en disco y no en memoria (una
+caída después de aplicar no debe llevarse el deshacer); si no se puede leer el plan de energía
+actual **no se aplica nada**, porque no habría manera de volver.
+
+### D9 — Memoria opt-in (Fase 6)
+
+El criterio de terminado de la fase es literal: *"controles de exclusión y retención funcionando
+ANTES de que exista cualquier almacenamiento de memoria de facto"*. Por eso `MemoryPolicy` vive
+aparte del almacén y es la única puerta: no hay ningún camino que guarde saltándose los controles.
+
+Cuatro razones para no recordar, en orden: memoria apagada (lo está por omisión), categoría concreta
+no activada, coincidencia con una exclusión del usuario, o contenido sensible evidente —reutilizando
+el mismo `SensitiveContentRedactor` de Lens en vez de duplicar heurísticas, para que una contraseña
+dictada sin querer no acabe guardada aunque todo esté activado.
+
+Tres categorías independientes (preferencias, conversación, hábitos): aceptar una no autoriza las
+otras. Apagar el interruptor general apaga también las categorías, porque si no, reactivar la
+memoria resucitaría en silencio permisos que la persona creía revocados. La retención se aplica
+**también al leer**, no solo al escribir: bajar la retención de 90 a 7 días es una orden, no una
+preferencia a futuro. Hay además un tope duro de entradas, porque una memoria sin límite es justo el
+riesgo de "acumulación silenciosa" que el roadmap señala.
+
+Almacenamiento cifrado en reposo con DPAPI (`CurrentUser`), la decisión ya registrada en la sesión
+de roadmap: cifra de verdad sin obligar a inventar una contraseña. Consecuencia asumida: el archivo
+no es portable entre equipos ni cuentas — para memoria personal, que no se pueda leer desde otra
+cuenta es la propiedad buscada, no un defecto. Búsqueda literal primero, sin índice semántico, según
+lo ya decidido.
+
+"Ver lo que Kohana recuerda" y "olvidar todo" funcionan **aunque la memoria esté apagada**: revocar y
+auditar deben poder hacerse siempre; si apagar bloqueara el borrado, lo ya guardado quedaría atrapado
+justo cuando la persona quiere deshacerse de ello.
+
+**Corrección detectada al escribir el escalón de migración:** el rung v19 quedó insertado ANTES del
+v18, de modo que un archivo en v17 habría saltado la migración de las listas de Flow. Se detectó
+revisando el orden y se reordenó para que la escalera siga siendo estrictamente ascendente.
+
+**Build y pruebas (Release), acumulado D7-D9:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental → Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    → 860 superadas
+  Nexo.Windows.Tests.dll → 190 superadas
+  Nexo.App.Tests.dll     → 166 superadas
+Total: 1216 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado con arranques manuales que la app sigue iniciando tras cada sprint.
+
+**Pendiente, no bloqueante:** la memoria tiene comandos y controles pero todavía no hay interfaz de
+ajustes para activarla (se activa editando `settings.json`), ni escritura automática de recuerdos
+desde la conversación — hoy la memoria existe, se protege y se consulta, pero solo se llena por
+código. La optimización aplica un único ajuste real (plan de energía); ampliar el conjunto exige
+poder revertir cada nuevo cambio con la misma certeza.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D10, D11 y D12 — segundo bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (continúa la misma rama, sobre `3abf93a`).
+El usuario volvió a pedir explícitamente tres sprints en una sola entrega. Los tres cierran
+pendientes que las fases anteriores habían dejado nombrados por escrito, en vez de abrir frentes
+nuevos: D10 y D11 completan lo que D9 y D8 dejaron a medias, y D12 arranca la Fase 5 por el nivel
+más bajo del modelo de confianza.
+
+### D10 — La memoria se llena, se usa y se configura (Fase 6)
+
+D9 dejó la memoria protegida pero inerte: solo la llenaba el código y solo se activaba editando
+`settings.json`.
+
+`MemoryCandidateDetector` lee UNA frase y decide si contiene algo recordable. Dos límites
+deliberados, los dos por la regla del roadmap de que la memoria no puede convertirse en vigilancia
+permanente. **Solo reconoce frases literales**: no infiere del resto de la conversación, porque
+deducir que alguien "parece preferir X" tras mencionarlo tres veces es exactamente la observación
+silenciosa que la fase prohíbe, y además sería adivinar. Y **nunca produce la categoría `Habitos`**:
+un hábito es conducta observada a lo largo del tiempo, no algo que se lea en una oración suelta. La
+categoría existe y se respeta, pero solo puede llenarla algo que mida conducta de verdad, y eso
+todavía no existe.
+
+Dos caminos con reglas distintas. El **explícito** ("recuerda que ...") guarda: la persona acaba de
+dar la orden, y preguntarle "¿seguro?" sería ruido; si la política lo rechaza, **se dice por qué**,
+porque un "recuerda que ..." que no guarda nada y no explica nada parecería que funcionó. El
+**observado** (una preferencia dicha de paso) no se guarda nunca solo: se propone y hace falta un
+sí, y la propuesta caduca con la frase siguiente para que un "sí" dicho por otra cosa no la capture.
+La política se consulta ANTES de proponer, para no preguntar por algo que una exclusión rechazaría
+igualmente.
+
+`MemoryContextBuilder` es lo que hace útil a la memoria — guardarla sin usarla no da continuidad
+ninguna. Se trata como un envío, que es lo que es cuando el proveedor es remoto: solo categorías
+activas EN ESE MOMENTO (desactivar una deja de usarla en el acto, aunque sus entradas sobrevivan;
+borrarlas al mover un interruptor sería destruir datos, y para eso está "olvidar"), redacción
+repetida a la salida, y tope de cantidad y tamaño. Si no cabe ni una entrada tampoco se manda el
+encabezado: anunciar una memoria vacía es peor que no mandar nada.
+
+Interfaz en Personalizar con los cuatro controles de la fase (interruptor general, tres categorías,
+retención y exclusiones). Apagar el general desmarca también las categorías en la vista, igual que
+hace `Normalize` con los datos: si no, reactivar la memoria parecería restaurar permisos que ya no
+existen. "Ver lo que recuerda" y "olvidar todo" siguen activos con la memoria apagada.
+
+**Defecto encontrado al probar:** `SensitiveContentRedactor` solo conocía la forma de formulario
+("contraseña: 1234"), no la hablada ("mi contraseña es 1234"). La memoria y el dictado guardan
+prosa, así que una contraseña dicha en voz alta pasaba de largo. Ampliado — sí redacta de más en
+frases como "la clave es importante", que es el intercambio que esa clase ya declara aceptar.
+
+### D11 — Optimización verificada, reversible y auditada (Fase 4)
+
+D8 aplicaba una sola cosa y se fiaba de que hubiera funcionado.
+
+**Verificar es releer.** Que `PowerSetActiveScheme` devuelva 0 significa que Windows aceptó la
+llamada, no que el plan activo sea ahora el pedido: una directiva de grupo o una utilidad del
+fabricante pueden reponer el suyo. Sin la relectura, Kohana podía anunciar "listo" sobre un cambio
+que no ocurrió y ofrecer después deshacer algo que nunca se hizo. Los dos fallos se informan por
+separado a propósito: "Windows lo rechazó" y "Windows lo aceptó pero el plan activo sigue siendo
+otro" son problemas distintos.
+
+**Segundo objetivo real: el consumo de la propia Kohana.** Cumple las dos condiciones que la fase
+exige a la vez — es un cambio que se nota (los motores locales de voz e IA son lo más caro que corre
+aquí) y vive en el archivo de preferencias, así que revertirlo es reescribir el valor anterior. Es
+además el más honesto disponible: antes de pedirle a la persona que cierre sus programas, la
+aplicación que se aparta primero es Kohana. Sigue exigiendo medición como todo lo demás: sin el
+número de procesadores lógicos no se propone nada, y en un equipo holgado se omite con el motivo,
+porque ahí bajarlo sería un gesto vacío que solo empeora sus propios motores. Programar queda fuera
+a propósito: ahí Kohana es la herramienta que se está usando.
+
+Con dos objetivos, el fallo parcial deja de ser un detalle, así que la orquestación se mudó de
+`MainWindow` a `OptimizationCoordinator`, en Core, donde se prueba con dobles. Tres reglas: no se
+toca nada si falta el valor anterior de algún objetivo (sin él, deshacer no existiría); el snapshot
+llega al disco antes del primer cambio; y **si un paso falla, se deshacen los anteriores**, porque
+un plan a medias deja el equipo en un estado que nadie pidió y que nadie sabría describir. Cuando la
+propia reversión falla, se dice en voz alta en vez de fingir éxito. Un deshacer fallido conserva el
+snapshot para poder reintentarlo.
+
+Registro de auditoría en disco, de solo añadir, con tope de 50 entradas y recorte solo por
+antigüedad: poder quitar UNA entrada convertiría el registro en una versión de los hechos. Sin
+cifrar a propósito — no contiene datos personales, y que se pueda abrir con cualquier editor es
+parte de que sea de la persona. Consultable desde un comando y desde el panel nuevo.
+
+Sistema gana un panel de optimización con los mismos siete escenarios que ya existían como comandos
+—mismo camino, la interfaz no aplica nada por su cuenta—. El botón de deshacer se desactiva cuando
+no hay snapshot: ofrecer "deshacer" sin nada que deshacer haría dudar de si lo anterior se aplicó.
+
+### D12 — Workspace autorizado y modo Guiar (Fase 5)
+
+Primer sprint del acompañante de proyecto, y **no escribe nada**. El modelo de confianza es
+explícito: *"ninguna capacidad nueva puede empezar en el nivel 6: cada una debe demostrarse en los
+niveles 1–3 antes de solicitar el salto a ejecución"*. `IWorkspaceReader` no tiene ningún método de
+escritura, y eso es el diseño, no un pendiente: mientras la capacidad viva en los niveles 1–3 no
+debe existir siquiera la forma de llamar a una escritura. El nivel 4 exige antes lo que ese mismo
+modelo pide y aquí no existe todavía: snapshot previo por archivo y el Audit Log orientado al
+usuario.
+
+`WorkspacePathPolicy` es la pieza de seguridad del sprint. La contención se comprueba sobre rutas ya
+RESUELTAS, no sobre las cadenas que llegan: una comprobación textual la burla cualquier `..\..\`, y
+también los enlaces simbólicos y las uniones de directorio de Windows, que apuntan fuera sin que la
+ruta lo aparente. La comparación exige separador, así que `C:\...\Proyecto` no contiene a
+`C:\...\Proyecto-privado`. Y las extensiones son una **lista de permitidos**: con una lista de
+prohibidos, cada extensión nueva del mundo entraría por defecto.
+
+Los archivos de secretos (`.env*`, `id_rsa`, `*.pem`, `*.pfx`, `secrets.json`...) se niegan **por
+nombre, antes de abrirlos**: leer el contenido para decidir si contiene secretos ya sería haberlo
+leído. Las carpetas de dependencias y de compilación se saltan, aunque un nombre excluido en la raíz
+autorizada no bloquea nada — si alguien autoriza una carpeta llamada `build`, su proyecto se llama
+build.
+
+`WorkspaceSecretScanner` atrapa lo que queda, y es una clase aparte de `SensitiveContentRedactor` en
+vez de un reemplazo: aquélla busca datos personales en texto de pantalla; ésta, asignaciones de
+configuración, cadenas de conexión y bloques de clave privada con la forma que tienen en un archivo
+de código. Se usan las dos. Conserva el nombre de la variable y tira el valor: saber que existe
+`ApiKey` ayuda a explicar un proyecto, su valor no. Las asignaciones exigen un valor de 8 caracteres
+o más para no redactar los marcadores vacíos del código de ejemplo, cuya redacción solo escondería
+que el hueco está vacío.
+
+Explicar un proyecto envía **estructura, no código**. Mandar un proyecto entero a un proveedor
+remoto para que diga de qué va es desproporcionado; el árbol de archivos lo explica casi igual de
+bien y sale del equipo una fracción. El contexto del proyecto se consume en UNA consulta y se apaga:
+ésa es la garantía de que autorizar una carpeta no convierte cada pregunta posterior en un envío de
+código.
+
+Autorizar y revocar están al mismo nivel y en el mismo sitio: un permiso que cuesta más quitar que
+dar no es un permiso, es una trampa. La confirmación dice qué se concede Y qué no. Preferencias al
+esquema v20, y el escalón **revoca**: nadie hereda una carpeta autorizada al actualizar, por el
+mismo motivo que la memoria en v19 — una migración no es un consentimiento.
+
+De paso, la auditoría de D11 se añadió a la prueba de aislamiento de perfiles de validación: un
+store que se escapara a la carpeta real mezclaría lo probado con lo que la persona hizo de verdad en
+su equipo.
+
+**Build y pruebas (Release), acumulado D10-D12:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 959 superadas
+  Nexo.Windows.Tests.dll -> 190 superadas
+  Nexo.App.Tests.dll     -> 166 superadas
+Total: 1315 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando tras los tres sprints (arranque real del ejecutable
+publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **Sin validación manual del usuario.** Se comprobó que la app arranca, no que los paneles nuevos
+  (memoria en Personalizar, optimización en Sistema) se vean y se usen bien. Los tres sprints
+  quedan pendientes de la misma prueba a mano que aprobó D4, D5 y D6.
+- La memoria sigue sin categoría `Habitos` llena: hace falta algo que mida conducta de verdad.
+- La optimización aplica dos objetivos reales (plan de energía y consumo de Kohana). Ampliar el
+  conjunto exige poder revertir cada nuevo cambio con la misma certeza.
+- El workspace no tiene interfaz propia: se autoriza, se consulta y se revoca desde la paleta de
+  comandos. Tampoco hay selección de nivel de autonomía en la interfaz (se queda en `Guiar`).
+- La búsqueda en el proyecto (`IWorkspaceReader.Search`) está implementada y probada por contrato,
+  pero todavía no tiene comando que la exponga.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D13, D14 y D15 — tercer bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (misma rama, sobre `446c3a2`).
+Tercera vez que el usuario pide tres sprints en una entrega. El arco tiene un orden deliberado: D13
+construye la pieza que el modelo de confianza exige antes de poder escribir, D14 usa esa pieza para
+abrir el nivel 4, y D15 empaqueta lo que ya existe sin añadir capacidad nueva.
+
+### D13 — Audit Log orientado al usuario (capa 11)
+
+El modelo de confianza es explícito en que los logs de diagnóstico por subsistema
+(`command-center.log` y compañía) **no cumplen este propósito**: son técnicos, escritos para depurar,
+no para que alguien entienda qué pasó con su equipo. Esto construye el que sí pide.
+
+Cada entrada trae los cuatro datos que ese documento nombra literalmente —qué se hizo, cuándo, con
+qué permiso y cómo revertirlo— **como campos separados**, no como prosa dentro de un mensaje. Si
+"cómo revertirlo" formara parte de la frase, nada obligaría a rellenarlo y la primera acción
+irreversible pasaría desapercibida. Las entradas sin vuelta atrás lo dicen en voz alta; callarlo
+haría parecer que todo se puede deshacer.
+
+El registro propio de la optimización (D11) desaparece: un registro por capacidad obliga a la
+persona a saber de antemano en cuál mirar, y "¿qué ha hecho Kohana en mi equipo?" es una sola
+pregunta. Lo ya escrito **se importa** en vez de abandonarse —una entrada de auditoría que
+desaparece porque el formato cambió es justo lo que un registro no puede permitirse—, y la
+importación ocurre una sola vez.
+
+Las decisiones de permisos también se registran ahora: autorizar una carpeta, revocarla, cambiar su
+nivel de autonomía, borrar la memoria. Conceder un permiso es la decisión de la que cuelgan todas
+las demás, así que es lo primero que debería estar en el registro.
+
+Sistema gana la tarjeta "Qué ha hecho Kohana", poblada al abrir: un panel vacío se leería como "no
+hay registro" cuando lo que pasa es que nadie lo ha pedido. Personalizar gana la tarjeta del
+proyecto —autorizar y revocar uno al lado del otro, más hasta dónde puede llegar Kohana—, y solo
+deja elegir niveles que la política ofrece de verdad, para que la interfaz no pueda conceder lo que
+el modelo de confianza aún no permite.
+
+También cierra el pendiente de D12: la búsqueda en el proyecto ya tiene comando. La paleta no acepta
+argumentos, así que la consulta se pide por conversación —una frase, cancelable— y se vuelve a
+comprobar la autorización antes de buscar, porque revocar tiene que surtir efecto en el acto,
+incluso a media conversación.
+
+### D14 — Checkpoints y "ejecutar un paso" (Fase 5, nivel 4)
+
+Primera vez que Kohana escribe en archivos de la persona, así que casi todo el sprint es sobre
+cuándo se niega.
+
+**El nivel 4 se abre porque las dos cosas que lo bloqueaban ya existen**, no porque haya pasado un
+sprint: el checkpoint reversible por archivo y el Audit Log de D13. Los niveles 5 y 6 siguen
+cerrados —encadenar pasos y automatizar una secuencia son problemas distintos de "hacer un cambio
+confirmado", y ninguno se ha demostrado—. El nivel **por omisión no sube**: que escribir sea posible
+no significa que deba estar encendido, y una actualización no toma esa decisión por nadie.
+
+Orden en `WorkspaceEditCoordinator`, y cada paso sostiene algo: nivel de autonomía suficiente; la
+MISMA `WorkspacePathPolicy` que gobierna la lectura (darle a la escritura sus propias reglas de
+contención sería la forma más fácil de que una de las dos se quedara atrás); el checkpoint, que
+además **se comprueba persistido antes de tocar el archivo**, porque un cambio sin vuelta atrás es
+exactamente lo que el nivel 4 prohíbe; la escritura; la verificación releyendo; y si el archivo no
+quedó como se pidió, se deshace —un archivo a medio escribir es peor que uno sin tocar—. La
+reversión también se verifica: "lo dejé como estaba" es la frase que no puede decirse a la ligera,
+así que si tampoco cuajó, se dice y se pide mirarlo.
+
+**Deshacer se niega si el archivo cambió después de que Kohana lo escribiera.** Es el peor daño que
+esta capacidad podría causar y el único que no sería un fallo sino una decisión de diseño: revertir
+entonces no devolvería el archivo, destruiría lo que la persona hizo después. Por eso el checkpoint
+guarda también lo que Kohana ESCRIBIÓ, no solo lo que había antes; suena redundante y es la pieza
+que hace posible la comprobación.
+
+`WorkspaceEditParser` es estricto a propósito: **el formato es exacto o no hay cambio**. Un parser
+tolerante que adivina rutas o recompone bloques a medias acaba escribiendo en el archivo equivocado,
+y ese error no lo ve nadie hasta que ya ocurrió. Dos propuestas en una respuesta significan que no
+se aplica ninguna (el nivel 4 es literalmente un paso). Un bloque sin cerrar es una respuesta
+truncada. Un bloque vacío vaciaría el archivo en silencio. Todo se rechaza; rechazar es barato.
+
+La oferta de escribir se arma para UNA respuesta y se apaga en el `finally`, así que una respuesta
+cortada, cancelada o fallida no puede producir un cambio, y una posterior que por casualidad
+contuviera el formato tampoco. El permiso se vuelve a comprobar entre el comando y la respuesta. Los
+intentos rechazados también se auditan: saber que Kohana intentó tocar un archivo y no pudo es de lo
+que una auditoría existe para contar.
+
+### D15 — Kohana Study y Kohana Dev (Fase 8)
+
+El criterio de terminado de la fase es literal: al menos dos packs completos usando **exclusivamente**
+capacidades ya implementadas en fases anteriores. Ningún pack inventa nada; si algo no existe, no
+entra en un pack.
+
+La regla que sostiene la fase es que cada pack hereda los permisos de las capacidades que combina y
+no introduce excepciones. En consecuencia un pack **solo escribe preferencias**: nunca concede un
+permiso. Encender la memoria, autorizar una carpeta o activar Vision siguen necesitando su propia
+decisión; el pack se limita a decir que le harían falta y dónde se dan. Un pack que encendiera
+permisos sería una forma de concederlos sin pedirlos, disfrazada de comodidad.
+
+**Defecto real que atrapó una prueba:** llamar a `preferences.Normalize()` después de aplicar un
+pack arrastra la escalera de migración por `SchemaVersion`, y sobre unas preferencias que aún no
+hubieran pasado por ella eso **reactivaba Vision** — es decir, concedía un permiso que la persona
+tenía apagado. Se quitó, por el mismo motivo ya registrado en `ResetVisualPreferences`: migrar no es
+tarea de un pack, y los valores recién escritos ya son válidos porque el `Write` de cada ajuste solo
+acepta valores reconocidos.
+
+El riesgo que el roadmap señala para esta fase es la fragmentación ("si cada pack termina con su
+propia lógica en vez de reutilizar capacidades comunes"). Por eso un pack aquí no es código, es una
+LISTA: no puede hacer nada que Personalizar no pueda hacer ya, solo lo deja puesto de una vez. Los
+ajustes se leen y se escriben como texto, que es lo que hace que el estado anterior quepa en un JSON
+legible y que deshacer signifique "volver a escribir lo que había".
+
+Un pack activo a la vez. Dos superpuestos dejarían un estado que ninguno de los dos describe, y
+"¿qué tengo activado?" dejaría de tener respuesta. Cambiar de pack restaura primero los ajustes de
+la persona; si no, el snapshot del segundo guardaría los del primero como si fueran suyos.
+
+La vista previa enseña lo que cambiaría **y** lo que falta, con el mismo peso: enseñar solo lo que
+gana la persona sería vender el pack, no explicarlo. Los ajustes que ya están como el pack los
+quiere no se listan.
+
+**Build y pruebas (Release), acumulado D13-D15:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 1013 superadas
+  Nexo.Windows.Tests.dll ->  206 superadas
+  Nexo.App.Tests.dll     ->  166 superadas
+Total: 1385 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **Sigue sin validación manual del usuario**, ahora acumulada desde D10. Se comprueba que la app
+  arranca, no que los paneles nuevos se vean y se usen bien. **D14 escribe en archivos reales**: es
+  el sprint que más pide una prueba a mano antes de integrarse.
+- Los packs no tienen interfaz propia: se activan y desactivan desde la paleta de comandos.
+- Solo hay dos packs de los seis que nombra el roadmap (faltan Support, Creator, Access y Meeting).
+- El cambio en el proyecto reemplaza el archivo COMPLETO, no aplica parches. Es lo que permite
+  verificar releyendo, pero obliga al modelo a reescribir archivos enteros y limita el tamaño.
+- Los niveles 5 y 6 de autonomía siguen cerrados.
+- La auditoría se lee, pero todavía no se puede deshacer una acción DESDE el panel: el
+  `RevertToken` existe en la entrada y no tiene botón.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D16, D17 y D18 — cuarto bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (misma rama, sobre `e7afebe`).
+Cuarta entrega de tres sprints. El arco lo dicta el propio roadmap: la Fase 7 dice que Computer Use
+*"requiere el Permission Broker y el Audit Log completos antes de habilitarse"*. El Audit Log llegó
+en D13, así que D16 construye la otra mitad, D17 abre la fase por los niveles 1–3, y D18 abre el
+nivel 4 cuando ya existe todo lo que hace falta para ejecutar sin dejar el equipo a medias.
+
+### D16 — Permission Broker
+
+Capacidades con permiso **independiente**, porque el modelo de confianza lo exige: *"cada capacidad
+de la matriz tiene su propio permiso, independiente de las demás — habilitar Lens no habilita
+Computer Use"*. Un enum por capacidad en vez de banderas de un permiso general, que es como se acaba
+concediendo de más sin querer.
+
+**El orden de las comprobaciones ES la política**, y por eso es lo que fijan las pruebas:
+
+1. **Exclusión por aplicación**, primero, porque el modelo dice que vale *"incluso si la capacidad en
+   general está habilitada"*: tiene que ganarle a Permitido.
+2. **Bloqueado** → denegado. Denegar gana a preguntar: confirmar algo que de todas formas no va a
+   ocurrir enseña a aceptar por costumbre.
+3. **Las siete categorías de confirmación obligatoria**, que preguntan *sea cual sea el nivel*. Estar
+   en Permitido no las salta; ése es todo el motivo de que existan.
+4. **Permitido** → adelante.
+5. **Cualquier otra cosa** → preguntar. Falla cerrado.
+
+Los valores por omisión son la parte que más importa: Computer Use llega **Bloqueado** —el permiso
+más alto del roadmap no se concede por instalar Kohana— y el resto llega **Preguntar**, no
+Permitido. El escalón v21 los reconstruye así al actualizar, por el mismo motivo que v19 y v20: una
+migración no es un consentimiento. Un `settings.json` escrito a mano tampoco se lo salta —los
+duplicados se resuelven por el **más restrictivo**, porque resolverlos "por la última línea" dejaría
+que añadir una línea ampliara permisos sin que nadie lo confirmara.
+
+Ampliar un permiso vuelve a preguntar (política de mínimo privilegio del modelo); restringir, no.
+
+Se cableó a dos caminos reales en vez de dejarlo como andamio: borrar la memoria pasa por el broker
+en lugar de por su diálogo propio (borrado irreversible es una de las siete categorías, así que
+pregunta aunque la memoria esté permitida), y los cambios en el proyecto comprueban denegación antes
+de ofrecerse. Cada concesión, negativa y rechazo va al Audit Log: un "sí" que no deja rastro es
+indistinguible de un permiso que nadie dio.
+
+### D17 — Computer Use en los niveles 1–3
+
+**La escalera de métodos es la política.** El roadmap fija el orden y explica por qué: *"automatizar
+mouse/teclado es frágil e inseguro si se usa como primera opción en vez de último recurso — de ahí
+el orden estricto"*. El enum se numera de forma que **menor es más seguro**, para que elegir sea
+comparar números y no recordar una lista; un orden que hay que recordar es un orden que alguien se
+salta.
+
+No se baja de escalón mientras haya uno más arriba disponible: si existe la API oficial no se usa UI
+Automation aunque "también funcione". Es toda la diferencia entre una automatización que sobrevive a
+una actualización y una que no. Ratón y teclado simulados exigen haberlos habilitado a propósito:
+que estén disponibles no basta, porque son el único método que no puede comprobar qué hizo.
+
+**Disponibilidad y preferencia son interfaces separadas**, porque son preguntas distintas y
+confundirlas es como se acaba prometiendo lo que no hay. La respuesta honesta hoy es: dos métodos.
+El portapapeles y una lista corta de comandos de solo lectura. Los cuatro de arriba no se declaran
+disponibles porque Kohana no sabe ejecutarlos, y declarar un método inexistente llevaría a elegirlo
+y fallar después. UI Automation ya se usa para LEER en Lens, pero leer un control e invocarlo no son
+la misma capacidad.
+
+La lista de comandos es de permitidos, fija y sin ninguna entrada del usuario ni del modelo: en
+cuanto un argumento venga de fuera deja de ser esta lista y pasa a ser ejecución arbitraria. **Dos
+candidatos se descartaron al escribirla y el motivo quedó anotado en el archivo** para que no
+vuelvan solos: `powercfg /batteryreport` ESCRIBE un archivo y rompe la invariante de "solo leen", y
+`wmic` está en la lista de intérpretes de `ShellExecutionPolicy`, así que meterlo aquí contradiría
+una política que Kohana ya aplica en otro sitio. Una lista de permitidos solo vale si se defiende
+cuando estorba.
+
+No se ejecuta nada. El plan se arma **aunque algo lo bloquee**, y entonces trae el motivo: un plan
+que no llega a formarse deja a la persona sin saber qué haría falta para que sí, y explicarlo es
+justo lo que "proponer" significa.
+
+**Unificación de la escalera de autonomía.** Nació en D12 como `WorkspaceAutonomyLevel` y Computer
+Use necesitaba los mismos seis niveles. Dos copias del mismo concepto son el riesgo de fragmentación
+que el roadmap nombra: se separan en cuanto una crece, y entonces "nivel 4" significa cosas
+distintas según a quién se pregunte. La escalera es del modelo de confianza, no de ninguna capacidad.
+
+### D18 — Nivel 4: ejecutar una acción confirmada
+
+El nivel 4 se abre porque existen las tres cosas que el modelo pide antes de ejecutar: el broker
+(D16), el Audit Log (D13) y una reversión real para el único método que la admite —el portapapeles
+guarda lo que había—. Los comandos de la lista no necesitan reversión porque no cambian nada, y eso
+lo **defiende** `SafeShellCatalog`, no una promesa.
+
+Mismo esqueleto que `WorkspaceEditCoordinator` de D14, a propósito: los dos resuelven el mismo
+problema —ejecutar un paso confirmado sin quedarse a medias— y darle a cada capacidad el suyo es
+como acaban divergiendo las garantías.
+
+Lo específico de esta fase: **pedir un método menos seguro cuando hay uno mejor se rechaza**. Sin
+eso, el orden estricto de D17 sería decorativo — bastaría con pedir el método cómodo para saltárselo.
+
+El portapapeles se verifica releyendo, y deshacer **se niega si cambió después de que Kohana lo
+pusiera**: misma regla que D14 con los archivos y por el mismo motivo, deshacer no puede destruir lo
+que hizo la persona después. Los comandos se lanzan **sin shell**, con ejecutable y argumentos tal
+cual vienen del catálogo: no se compone ninguna cadena, así que no hay nada que escapar.
+
+Computer Use tiene **su propio nivel de autonomía**, no el del proyecto. Compartirlo haría que subir
+el del proyecto concediera también éste, que es justo lo que "habilitar Lens no habilita Computer
+Use" prohíbe. Ninguno de los dos valores por omisión sube: ejecutar es posible, estar encendido es
+otra decisión, y el permiso sigue llegando Bloqueado — hacen falta **dos** decisiones, no una.
+Escalón v22 para el campo nuevo, porque sin él un archivo anterior lo dejaría en 0, que no es ningún
+nivel válido.
+
+También cierra el pendiente de D13: el panel de auditoría ya tiene el botón de deshacer que sus
+entradas sabían describir desde entonces. Un "cómo deshacerlo" que obliga a ir a buscar el comando
+correcto es media promesa. El despacho es por capacidad: el registro dice QUÉ se puede deshacer, pero
+quien sabe CÓMO sigue siendo la capacidad que lo hizo.
+
+**Build y pruebas (Release), acumulado D16-D18:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 1077 superadas
+  Nexo.Windows.Tests.dll ->  206 superadas
+  Nexo.App.Tests.dll     ->  166 superadas
+Total: 1449 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **Sigue sin validación manual del usuario**, acumulada desde D10. D14 escribe archivos y D18
+  ejecuta procesos: son los dos sprints que más piden una prueba a mano antes de integrarse.
+- **Ningún método de los cuatro primeros está implementado.** Kohana elige bien entre lo que hay,
+  pero lo que hay son dos métodos de los ocho. La escalera funciona; falta llenarla por arriba.
+- Ratón y teclado simulados **no están implementados** y no hay interruptor para habilitarlos: la
+  política los contempla y los rechaza, que es donde deben estar hasta que exista una razón.
+- Las exclusiones por aplicación existen en el modelo y en el broker, pero **no tienen interfaz**:
+  se editan a mano en `settings.json`.
+- Los niveles 5 y 6 siguen cerrados para todas las capacidades.
+- El panel de permisos no muestra el detalle de las exclusiones, solo cuántas hay.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D19, D20 y D21 — quinto bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (misma rama, sobre `9ca424c`).
+D19 sube un escalón de la escalera de métodos que la entrega anterior dejó casi vacía por arriba, y
+D20/D21 abren la **Fase 9 — Productization**, la última fase que no se había empezado.
+
+### D19 — UI Automation ejecutable (escalón 5) y exclusiones con interfaz
+
+Kohana ya leía UI Automation desde D5.3, para Lens. Leer un control e invocarlo **no son la misma
+capacidad**, así que el invocador tiene su propia interfaz, igual que el proyecto separó lector y
+escritor. El comentario que `UiAutomationElement` lleva desde D5.3 —que nunca incluiría una acción
+para invocarlo— sigue siendo cierto: la acción no vive en el elemento, vive detrás de su propia
+interfaz y su propio permiso.
+
+La regla de la política es **ante la duda, no se pulsa**. Sin coincidencia no se aproxima nada
+(aproximar un nombre es pulsar un botón que nadie pidió). Con VARIAS coincidencias tampoco se pulsa:
+una ventana con tres "Aceptar" no tiene un "el Aceptar", y elegir el primero del árbol es elegir al
+azar con apariencia de criterio. Solo se invocan tipos de control que se pulsan. La ventana pasa por
+la misma exclusión de ventanas sensibles que usa Lens.
+
+El invocador **vuelve a resolver el control contra el árbol de AHORA**, no contra lo que se leyó al
+proponer: entre proponer y confirmar puede aparecer un diálogo o reordenarse una lista, y pulsar por
+una posición leída antes es cómo se acaba pulsando otra cosa. Y vuelve a comprobar la ambigüedad,
+porque la lectura del lector está acotada en profundidad y anchura mientras que el árbol real no.
+
+**Defecto real que destapó añadir el escalón.** La regla "no uses un método menos seguro habiendo
+uno más seguro disponible" comparaba TODOS los métodos disponibles entre sí. En cuanto UI Automation
+(5) pasó a estar disponible, el coordinador empezó a rechazar copiar al portapapeles (7) y ejecutar
+un comando de diagnóstico (6) "porque hay algo más seguro" — cuando UI Automation no sabe hacer
+ninguna de las dos. La comparación solo significa algo **entre métodos capaces de lo mismo**. La
+corrección no fue relajar la regla sino aplicarla donde tiene sentido: orden estricto, dentro del
+conjunto de métodos capaces de ESE objetivo (`ComputerUseGoal`). Lo atraparon dos pruebas
+existentes al fallar.
+
+También cierra el pendiente de D16: las exclusiones por aplicación se editan en Personalizar y no
+solo en `settings.json`. Eran la parte del modelo de confianza que más se usa a diario, así que
+dejarlas sin interfaz las volvía teóricas. Las líneas mal escritas se ignoran pero **se cuentan y se
+dicen**: una exclusión que la persona cree puesta y no lo está es una protección que no existe.
+Aplicar **reemplaza** en vez de acumular, porque si no, quitar una exclusión desde la interfaz sería
+imposible.
+
+### D20 — Copia verificada antes de actualizar, y desinstalar sin sorpresas
+
+`KohanaDataInventory` existe porque tres cosas lo necesitaban y ninguna podía inventárselo: la copia
+previa (¿qué hay que copiar?), la desinstalación (¿qué es la app y qué son tus datos?) y el informe
+de privacidad de D21. Escrito una vez, para que nadie mantenga su propia lista y se quede corta justo
+cuando importa. **Se mantiene a mano a propósito**: enumerar la carpeta estaría siempre al día pero
+no sabría decir qué es cada archivo ni si es personal, y sin eso el inventario no sirve para lo único
+que existe. Que añadir un archivo obligue a describirlo es la característica, no el coste.
+
+El roadmap nombra el riesgo de esta fase sin rodeos: *"un actualizador mal diseñado puede romper
+instalaciones existentes — requiere el mismo rigor de reversibilidad que la Fase 4"*. Así que se
+aplica el mismo patrón: copiar ANTES, verificar releyendo, y **si algún archivo no queda verificado,
+la actualización no se declara segura**. Eso último no es prudencia de más: el único momento en que
+la copia importa es cuando algo salió mal, y ahí ya no hay ocasión de comprobarla. La verificación
+compara SHA-256, no tamaños — dos archivos del mismo tamaño pueden ser distintos, y comprobar el
+tamaño da por buena justo la corrupción que más se parece a un archivo sano. Un archivo que aún no
+existe no es un fallo: quien nunca activó la memoria no tiene memoria que copiar.
+
+La desinstalación separa "la app" de "tus datos" y enseña **las dos listas**. Limpia no significa
+borrarlo todo, significa que nadie se lleva una sorpresa — y desinstalar un programa y descubrir
+después que se llevó años de notas es la sorpresa más cara que puede dar un instalador. Al revés
+también cuenta: dejar datos personales sin decirlo es dejar un rastro que la persona creía
+eliminado. Una elección no reconocida conserva los datos, fallando hacia el lado que no destruye
+nada.
+
+**Acoplamiento corregido de paso:** al escribir la prueba de la copia se rompió una invariante que
+`ValidationProfileIsolationTests` documenta —que ninguna otra prueba de ese ensamblado muta la raíz
+de datos global—. El arreglo no fue serializar las pruebas sino dar al servicio una raíz explícita,
+como ya la aceptan todos los stores del proyecto. La testabilidad era el síntoma; el acoplamiento
+era el problema.
+
+### D21 — Paquete de soporte exportable e informe de privacidad
+
+El paquete se trata como lo que es: **un envío**. Sale del equipo y llega a otra persona, así que
+vale la misma disciplina que el contexto de memoria (D10) o el del proyecto (D12).
+
+Todo lo que entra se redacta con **las dos herramientas, no una**: el redactor de datos personales y
+el escáner de secretos de código. Buscan formas distintas y un detalle de diagnóstico puede traer de
+las dos. Las rutas pierden el nombre de la carpeta de usuario: es la fuga fácil de pasar por alto,
+porque sin eso cada línea con una ruta revela cómo se llama la persona — no es el dato más sensible
+del mundo, pero es un dato personal que se cuela sin que nadie lo haya decidido, y ésos son los que
+más veces se escapan.
+
+No entra contenido personal: ni memoria, ni conversaciones, ni código del proyecto. Del registro
+entra QUÉ se hizo, que es lo útil para soporte, no sobre qué. Y el archivo **enumera lo que dejó
+fuera** e invita a leerlo antes de mandarlo: un paquete que omite en silencio obliga a confiar; uno
+que enumera sus omisiones se puede revisar, y quien lo manda debería poder revisarlo.
+
+El informe de privacidad responde qué se guarda, dónde, si está cifrado y cómo borrarlo. Construido
+sobre el inventario y no sobre una lista propia, que es el punto: si alguien añade un archivo y no lo
+describe, no aparece — y esa omisión se ve al leer el informe en vez de quedarse escondida en el
+código. Nunca enseña contenido: enseñar tus datos para demostrar que se guardan sería una
+contradicción con patas.
+
+**Build y pruebas (Release), acumulado D19-D21:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 1146 superadas
+  Nexo.Windows.Tests.dll ->  216 superadas
+  Nexo.App.Tests.dll     ->  166 superadas
+Total: 1528 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **Sigue sin validación manual del usuario**, acumulada desde D10. D14 escribe archivos, D18 lanza
+  procesos y **D19 pulsa botones en otras aplicaciones**: son los tres que más piden probarse a mano.
+- **La instalación y la actualización de verdad siguen siendo del instalador.** D20 garantiza que
+  haya una copia verificada de la que volver; no automatiza actualizar ni desinstalar. El criterio de
+  terminado de la Fase 9 pide las tres cosas verificadas de punta a punta, y eso exige probar el
+  instalador en una máquina limpia.
+- La escalera de métodos sigue con **tres de ocho** implementados. Los cuatro de arriba (API oficial,
+  App Actions, MCP, integración nativa) no existen; ratón y teclado tampoco, y es donde debe estar.
+- Los niveles 5 y 6 siguen cerrados para todas las capacidades.
+- Faltan cuatro de los seis packs, y los packs siguen sin interfaz propia.
+- La restauración de una copia exige reiniciar Kohana a mano: no se recargan las preferencias en
+  caliente.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**
+
+---
+
+## Diseños D22, D23 y D24 — sexto bloque de tres sprints seguidos
+
+**Rama:** `design/kohana-sprints-d7-d9` (misma rama, sobre `810a2e5`).
+D22 ataca de frente la deuda que lleva acumulándose desde D10 —la validación manual que no ha
+ocurrido—, D23 cierra los seis packs de la Fase 8 y D24 abre el nivel 5 del modelo de confianza donde
+puede cumplirse.
+
+### D22 — Autocomprobación en el equipo de la persona
+
+**Por qué, teniendo 1500 pruebas:** las pruebas corren en la máquina de desarrollo, sobre el código
+de ese momento. Esto corre aquí, ahora, sobre el binario instalado. No las repite por gusto: repite
+exactamente aquéllas que, si fallaran en un equipo concreto, significarían que **una promesa de
+Kohana no se está cumpliendo en ESE equipo**.
+
+Once comprobaciones puras (migraciones que no borran lo configurado, nada peligroso activado de
+fábrica, las siete confirmaciones obligatorias imposibles de saltar, exclusiones que ganan a un
+permiso, redacción de datos personales y de secretos de código, contención del proyecto, archivos de
+credenciales rechazados, comandos que solo leen, orden de métodos, packs que no conceden permisos,
+inventario completo) y cinco sobre disco (ajustes que van y vuelven, registro que escribe, memoria
+**de verdad cifrada** —el archivo NO debe contener el texto—, copia que se verifica, carpeta de datos
+escribible).
+
+Las de disco corren en una carpeta temporal propia, nunca sobre datos reales: una autocomprobación
+que ensucia lo que comprueba no sirve de nada. Y cada una aísla su fallo, porque un informe que se
+detiene en el primero esconde los demás, que es justo lo contrario de lo que necesita quien está
+intentando entender por qué algo no va.
+
+**Lo que más importa del sprint es la última sección del informe: qué NO comprueba.** Un verde total
+invita a concluir "está todo bien", y sería falso — nada de esto mira la interfaz, ni si el dictado
+escribe en la ventana correcta, ni si la píldora roba el foco. Si el informe no lo dijera, la primera
+persona que lo leyera sacaría la conclusión equivocada, y la culpa sería del informe. Acorta la
+validación manual; no la sustituye.
+
+De paso, la versión actual de la escalera de migración pasa a tener nombre
+(`ShellPreferences.CurrentSchemaVersion`). Existía solo como número suelto repetido en el último
+escalón y en una veintena de pruebas, y un número repetido es un número que se olvida de actualizar
+en algún sitio; ahora un escalón nuevo que olvide subirla falla en la suite y no en el equipo de
+alguien.
+
+### D23 — Los seis packs y su panel (Fase 8)
+
+D15 cumplió el criterio de la fase con dos; el roadmap nombra seis. **Support, Creator, Access y
+Meeting** completan el conjunto.
+
+Todos se construyen igual y desde la misma regla: un pack es una **lista** de ajustes que ya
+existían, no código. Una prueba nueva lo obliga — los ajustes de cada pack tienen que ir y volver
+sobre unas preferencias normales, así que un pack que se inventara algo fallaría ahí y no en
+ejecución. Otra comprueba que **todos** son reversibles, no solo los dos primeros.
+
+**Access** es el que merece nombrarse: es el pack que más cambia el día a día de quien lo necesita y
+el que menos añade. Responder en voz alta, escuchar la palabra de activación, sin animaciones,
+dictado encendido. Todo existía ya; solo estaba repartido en cuatro sitios de Personalizar, que es
+exactamente el problema que la fase existe para resolver en alguien que no quiere aprenderse cómo se
+llama cada capacidad.
+
+**Meeting** es el único que solo APAGA cosas, y lo declara como su requisito: no pide ningún permiso
+nuevo, así que se puede activar sin conceder nada. Decirlo es parte de explicarlo.
+
+El panel lista los seis con su estado, y cada fila dice qué le **falta** al pack antes de activarlo:
+enterarse después de que necesitaba un permiso que no diste es enterarse tarde.
+
+### D24 — Nivel 5: colaborar con confirmaciones
+
+`SequenceCoordinator` implementa las cuatro obligaciones que el modelo de confianza pone para la
+recuperación tras fallo, y están numeradas en el código porque son la razón de que la clase exista:
+
+1. **Detener** al primer fallo. No se sigue "a ver si los demás van".
+2. **Constancia del punto exacto** en el Audit Log: qué paso, qué posición ocupaba y cuántos se
+   habían aplicado.
+3. **Ofrecer revertir** lo ya aplicado, en orden inverso.
+4. **Nunca reintentar automáticamente.** No hay camino de reintento en esta clase, ni con espera ni
+   sin ella.
+
+Y la que da nombre al nivel: los puntos de riesgo se confirman **de uno en uno, a mitad de la
+secuencia**, aunque la secuencia entera ya esté aprobada. Aprobar "haz estas cinco cosas" no es
+aprobar la tercera si la tercera borra algo. La confirmación es un callback y no una bandera porque
+la respuesta hay que **pedirla en ese momento**: preguntarlo todo al principio es aprobar por
+adelantado, que es el nivel 6.
+
+La reversión se **ofrece**, no se impone: revertir sin preguntar también sería decidir por la
+persona, solo que hacia el otro lado. Y cuando algo no se pudo revertir, el resultado tiene nombre
+propio (`DetenidaSinPoderRevertir`) en vez de mezclarse con el caso bueno — dar por buena una
+reversión que no cuajó es el fallo que merece nombrarse aparte.
+
+**El nivel 5 se abre para el acompañante de proyecto y NO para Computer Use**, y esa asimetría es el
+argumento, no una precaución genérica: cada paso de proyecto es una edición con su copia previa por
+archivo, así que la obligación 3 se puede cumplir; de los métodos implementados de Computer Use solo
+el portapapeles sabe volver atrás, de modo que una secuencia que mezclara pulsar controles con
+cualquier otra cosa no podría cumplirla. Abrir el nivel ahí sería prometer una recuperación que no
+existe. **El nivel 6 sigue cerrado en todas partes.**
+
+`ParseSequence` es un método aparte de `Parse` y no un parámetro: si fuera un parámetro, un descuido
+en la llamada convertiría un paso confirmado en cinco. Un bloque mal formado invalida la secuencia
+entera, porque saltarse el que no se entiende es peor en una secuencia — los pasos siguientes pueden
+darlo por hecho.
+
+**Build y pruebas (Release), acumulado D22-D24:**
+
+```
+dotnet build Nexo.slnx -c Release --no-incremental -> Compilación correcta. 0 Advertencia(s). 0 Errores.
+dotnet test  Nexo.slnx -c Release --no-build
+  Nexo.Core.Tests.dll    -> 1183 superadas
+  Nexo.Windows.Tests.dll ->  216 superadas
+  Nexo.App.Tests.dll     ->  166 superadas
+Total: 1565 pruebas, 0 fallidas, 0 omitidas, 0 warnings. Suite repetida 3 veces sin flakiness.
+```
+
+Confirmado que la app sigue arrancando (arranque real del ejecutable publicado, 12 s en pie).
+
+**Pendiente, no bloqueante:**
+
+- **La validación manual sigue sin hacerse.** D22 la acorta —ahora hay un comando que comprueba la
+  maquinaria en el equipo real— pero no la sustituye, y lo dice él mismo. Sigue haciendo falta que
+  una persona use Kohana un rato: interfaz, dictado, píldora y voz.
+- Instalar, actualizar y desinstalar de punta a punta en una máquina limpia sigue pendiente (Fase 9).
+- La escalera de métodos sigue en tres de ocho.
+- El **nivel 6** sigue cerrado en todas partes, y debería seguir así hasta que exista una razón mejor
+  que "ya tocaba".
+- Computer Use no encadena pasos, por diseño y no por olvido: sus métodos no saben deshacerse.
+- El nivel 5 del proyecto pregunta en **cada** archivo, porque marcar unos como riesgo y otros no
+  exigiría un criterio que Kohana no tiene.
+
+**No se hizo push, no se abrió PR, no se hizo merge a `release/kohana-1.0-rc` ni a `main`.**

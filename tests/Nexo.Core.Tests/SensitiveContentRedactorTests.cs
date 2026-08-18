@@ -40,6 +40,22 @@ public sealed class SensitiveContentRedactorTests
         Assert.Matches("(?i)(password|contraseña|clave)", result);
     }
 
+    /// <summary>
+    /// Diseño D10 — la forma hablada. La memoria y el dictado guardan prosa, no campos de
+    /// formulario: sin esto, "mi contraseña es hunter2" se guardaba tal cual.
+    /// </summary>
+    [Theory]
+    [InlineData("mi contraseña es hunter2")]
+    [InlineData("la clave es abc123")]
+    [InlineData("mi password era hunter2")]
+    public void Redact_SpokenPasswordForm_IsAlsoRedacted(string text)
+    {
+        var result = SensitiveContentRedactor.Redact(text);
+
+        Assert.Contains(SensitiveContentRedactor.Placeholder, result);
+        Assert.True(SensitiveContentRedactor.ContainsSensitiveContent(text));
+    }
+
     [Fact]
     public void Redact_Ssn_IsRedacted()
     {

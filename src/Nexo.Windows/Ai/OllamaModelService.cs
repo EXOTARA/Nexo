@@ -226,7 +226,7 @@ public sealed class OllamaModelService : IOllamaModelService, IDisposable
         var normalized = AiProviderDefaults.NormalizeBaseUrl(baseUrl);
         if (string.IsNullOrWhiteSpace(normalized))
         {
-            normalized = "http://localhost:11434";
+            normalized = "http://127.0.0.1:11434";
         }
 
         if (normalized.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))

@@ -50,7 +50,7 @@ VersionInfoVersion={#MyNumericVersion}
 VersionInfoCompany=EXOTARA
 VersionInfoDescription=Instalador de Kohana
 VersionInfoProductName=Kohana
-VersionInfoProductVersion={#MyAppVersion}
+VersionInfoProductVersion={#MyNumericVersion}
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"

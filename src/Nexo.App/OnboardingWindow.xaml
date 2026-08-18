@@ -32,12 +32,12 @@
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="KOHANA"
                                    Foreground="{DynamicResource BrushAccent}"
-                                   FontSize="13"
+                                   FontSize="{DynamicResource FontSizeCallout}"
                                    FontWeight="Bold" />
                         <TextBlock Text="Tu Windows, en flor."
                                    Margin="0,1,0,0"
                                    Foreground="{DynamicResource BrushTextTertiary}"
-                                   FontSize="10.5" />
+                                   FontSize="{DynamicResource FontSizeCaption}" />
                     </StackPanel>
                 </StackPanel>
                 <TextBlock x:Name="StepTitleText"
@@ -56,12 +56,12 @@
             <Grid>
                 <StackPanel x:Name="WelcomePanel">
                     <TextBlock Text="Tu asistente local para Windows"
-                               FontSize="24"
+                               FontSize="{DynamicResource FontSizeTitle1}"
                                FontWeight="SemiBold" />
                     <TextBlock Margin="0,12,0,0"
                                Text="Kohana puede responder con IA local, escuchar órdenes, analizar una ventana, administrar tareas, temporizadores y rutinas sin obligarte a usar servicios de pago."
                                TextWrapping="Wrap"
-                               FontSize="14" />
+                               FontSize="{DynamicResource FontSizeBody}" />
                     <Border Margin="0,22,0,0" Style="{StaticResource SubtleCardStyle}">
                         <StackPanel>
                             <TextBlock Text="Durante esta configuración" FontWeight="SemiBold" />
@@ -77,17 +77,23 @@
                 </StackPanel>
 
                 <StackPanel x:Name="VoicePanel" Visibility="Collapsed">
-                    <TextBlock Text="Voz" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock Text="Voz" FontSize="{DynamicResource FontSizeTitle1}" FontWeight="SemiBold" />
                     <TextBlock Margin="0,6,0,18"
                                Text="Elige el micrófono que usarán Mic y la frase de activación. El audio se procesa localmente."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
                     <TextBlock Text="Micrófono" FontWeight="SemiBold" />
+                    <!-- ItemTemplate explícita: ver la nota del selector de proveedor en SettingsView.xaml. -->
                     <ComboBox x:Name="MicrophoneComboBox"
                               Margin="0,8,0,0"
                               MinHeight="38"
-                              DisplayMemberPath="Name"
-                              SelectedValuePath="DeviceNumber" />
+                              SelectedValuePath="DeviceNumber">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                     <TextBlock x:Name="MicrophoneStatusText"
                                Margin="0,7,0,0"
                                TextWrapping="Wrap"
@@ -101,7 +107,7 @@
                 </StackPanel>
 
                 <StackPanel x:Name="AiPanel" Visibility="Collapsed">
-                    <TextBlock Text="IA local" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock Text="IA local" FontSize="{DynamicResource FontSizeTitle1}" FontWeight="SemiBold" />
                     <TextBlock Margin="0,6,0,16"
                                Text="Kohana puede preparar su propia IA local sin pedirte instalar programas ni usar PowerShell."
                                TextWrapping="Wrap"
@@ -180,7 +186,7 @@
                 </StackPanel>
 
                 <StackPanel x:Name="PrivacyPanel" Visibility="Collapsed">
-                    <TextBlock Text="Privacidad y Windows" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock Text="Privacidad y Windows" FontSize="{DynamicResource FontSizeTitle1}" FontWeight="SemiBold" />
                     <TextBlock Margin="0,6,0,18"
                                Text="Elige qué funciones quedan activas. Las capturas siempre requieren una acción explícita y una vista previa."
                                TextWrapping="Wrap"

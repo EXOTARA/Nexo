@@ -2,62 +2,37 @@
 
 **Tu Windows, en flor.**
 
-Kohana es un agente personal nativo para Windows. Combina comandos locales, voz, visión, tareas, rutinas, métricas del equipo e inteligencia artificial en una interfaz ligera que puede permanecer activa en segundo plano.
+Kohana es un agente personal nativo para Windows. Combina comandos locales, voz, visión, memoria
+personal, automatización de proyectos y del equipo, e inteligencia artificial en una interfaz
+ligera que puede permanecer activa en segundo plano — siempre con permisos comprensibles y
+confirmación para cualquier acción sensible.
 
 > El producto ya se presenta como **Kohana**. Los nombres internos `Nexo.App`, `Nexo.Core`, `Nexo.Windows` y `Nexo.slnx` se conservan temporalmente para reducir el riesgo del cambio de marca.
 
 ## Estado
 
-La versión actual es `0.9.5-beta — Voice Reliability v3 + Kohana Runtime v1`.
+El ejecutable publicado reporta `0.9.5-beta`. La rama `design/kohana-sprints-d7-d9` contiene
+diseño hasta **D24**, con memoria personal, optimización verificada del equipo, un acompañante de
+proyecto que lee y modifica archivos con confirmación, permisos por capacidad, acción controlada
+sobre el equipo, seis packs y una autocomprobación interna — nada de esto integrado todavía a
+`release/kohana-1.0-rc` ni a `main`.
 
-Esta etapa incorpora:
+**→ La lista completa, con cómo activar cada cosa y ejemplos de uso, está en
+[`docs/product/KOHANA_CAPABILITIES_GUIDE.md`](docs/product/KOHANA_CAPABILITIES_GUIDE.md).**
 
-- Identidad pública centralizada como Kohana.
-- Diseño **Sakura Fluent** con grafito, rosa sakura e iconografía floral vectorial.
-- Nuevo icono para la aplicación, la bandeja, el portable y el instalador.
-- Ejecutable público `Kohana.exe`.
-- Palabras de activación `Kohana`, `Oye Kohana` y `Hey Kohana`.
-- Pronunciaciones españolas `cojana` y `kojana`, diagnóstico visible de Vosk y aliases personales.
-- Migración conservadora de `%LocalAppData%\Nexo` a `%LocalAppData%\Kohana`.
-- Publicación portable e instalador renombrados como Kohana.
+Resumen de lo que ya funciona:
 
-## Capacidades actuales
-
-### Windows y productividad
-
-- Barra lateral modular, Inicio tipo bento y modo Peek.
-- Atajos globales `Alt + A`, `Alt + Shift + A`, `Ctrl + Espacio` y `Ctrl + Shift + Espacio`.
-- Bandeja del sistema, inicio opcional con Windows e instancia única.
-- Tareas, recordatorios, sesiones de enfoque y rutinas locales.
-- Acciones seguras para abrir aplicaciones, carpetas y terminales.
-- Mezclador real de volumen general y por aplicación.
-- Métricas de CPU, RAM, GPU, VRAM, almacenamiento y proceso principal.
-- Resource Governor con modos Normal, Busy y Game.
-
-### Voz e IA
-
-- Push-to-talk local con Whisper.
-- Wake word local con Vosk.
-- Búfer previo para decir la activación y la orden de corrido.
-- Proveedores OpenAI, Ollama, LM Studio y endpoints compatibles.
-- Runtime privado de Ollama administrado por Kohana.
-- Streaming de respuestas y contexto de sistema opcional.
-- Comandos conocidos resueltos localmente antes de consultar un modelo.
-
-### Runtime y estado
-
-- Panel unificado en Sistema para voz, IA, Vision y rendimiento.
-- Reinicio de voz y acceso directo a Diagnóstico.
-- Registro textual de intentos de wake word sin conservar audio.
-
-### Vision y privacidad
-
-- Captura bajo demanda de ventanas y monitores.
-- Look Mode temporal para consultar la ventana activa.
-- Vista previa antes de compartir una imagen.
-- Bloqueo inicial de gestores de contraseñas y ventanas sensibles.
-- Diagnóstico técnico visual con evidencia y comprobación.
-- Capturas mantenidas en memoria y fuera del historial de texto.
+- Identidad pública centralizada como Kohana, con diseño **Sakura Fluent**.
+- Shell modular (Inicio, Asistente, Tareas, Enfoque, Automatizaciones, Sistema, Personalizar…) con Peek, bandeja e instancia única.
+- Voz local: wake word con Vosk, dictado con Whisper, dictado **global** en cualquier aplicación (Kohana Flow).
+- Kohana Lens: lee la pantalla bajo demanda, con redacción automática de datos sensibles.
+- **Memoria personal**, apagada por omisión, cifrada con DPAPI, con control explícito por categoría.
+- **Optimización del equipo** que solo aplica lo que puede revertir con certeza, verificando cada cambio.
+- **Acompañante de proyecto**: autoriza una carpeta, explica, busca, y modifica archivos con copia previa y verificación.
+- **Permisos por capacidad** (Bloqueado / Preguntar / Permitido) con confirmaciones que no se saltan nunca.
+- **Actuar sobre el equipo**, siempre por el método más seguro disponible entre los implementados.
+- **Seis packs** (Study, Dev, Support, Creator, Access, Meeting) que combinan lo anterior sin conceder permisos por su cuenta.
+- Registro de actividad único, copia de seguridad verificada, diagnóstico exportable redactado y una autocomprobación que revisa la maquinaria en tu propio equipo.
 
 ## Datos y migración
 
@@ -129,6 +104,22 @@ Con Inno Setup 6 instalado:
 
 Consulta `docs/PUBLISHING.md`, `docs/KOHANA_BRAND_FOUNDATION.md` y `RELEASE_CHECKLIST.md` antes de publicar.
 
+## Documentación
+
+| Para… | Documento |
+|---|---|
+| Ver qué hace cada capacidad y cómo activarla | [`docs/product/KOHANA_CAPABILITIES_GUIDE.md`](docs/product/KOHANA_CAPABILITIES_GUIDE.md) |
+| Entender el porqué de cada decisión de diseño | [`docs/stable-release/IMPLEMENTATION_LOG.md`](docs/stable-release/IMPLEMENTATION_LOG.md) |
+| Ver el estado por fase del roadmap | [`docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md`](docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md) |
+| Permisos, niveles de autonomía y confirmaciones obligatorias | [`docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md`](docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md) |
+| Validar manualmente antes de integrar | [`artifacts/Kohana-Guia-De-Validacion-Manual-D13-D24.md`](artifacts/Kohana-Guia-De-Validacion-Manual-D13-D24.md) |
+
 ## Dirección final
 
-Kohana evolucionará hacia un agente completo para Windows con memoria controlable, acciones aprobables, skills, automatizaciones persistentes, navegador aislado, servicios conectados, agentes especializados y dispositivos emparejados. La prioridad será mantener una instalación sencilla, privacidad visible y control humano sobre cada acción sensible.
+Memoria controlable, acciones aprobables por capacidad, skills empaquetadas en packs, y acción
+directa sobre el equipo ya existen en la rama de diseño — ver la tabla de arriba para el estado
+real de cada una. Lo que sigue: automatizaciones persistentes programadas, navegador aislado,
+servicios conectados (correo, calendario, mensajería), agentes especializados y dispositivos
+emparejados. La prioridad se mantiene: instalación sencilla, privacidad visible y control humano
+sobre cada acción sensible — el modelo de confianza que hace cumplir esa prioridad no es aspiracional,
+está en el código y probado.

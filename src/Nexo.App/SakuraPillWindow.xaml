@@ -32,6 +32,9 @@
                               Opacity="0.38"
                               Color="#000000" />
         </Border.Effect>
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="PillTranslate" Y="0" />
+        </Border.RenderTransform>
 
         <StackPanel>
             <Grid>
@@ -57,19 +60,29 @@
                 <StackPanel Grid.Column="1" Margin="10,0,6,0">
                     <TextBlock x:Name="StatusTextBlock"
                                Text="Escuchando…"
-                               FontSize="11.5"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource BrushTextSecondary}" />
-                    <TextBlock x:Name="ShortTextBlock"
-                               Margin="0,3,0,0"
-                               Text=""
-                               FontSize="13.5"
-                               TextWrapping="Wrap"
-                               Foreground="{DynamicResource BrushTextPrimary}" />
+                    <!--
+                        Diseño D7 — mientras la respuesta se escribe, este bloque es el que crece.
+                        Se limita la altura y se permite desplazamiento para que una respuesta larga
+                        no estire la píldora fuera de la pantalla.
+                    -->
+                    <ScrollViewer x:Name="ShortTextScroller"
+                                  MaxHeight="220"
+                                  Margin="0,3,0,0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock x:Name="ShortTextBlock"
+                                   Text=""
+                                   FontSize="{DynamicResource FontSizeCallout}"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushTextPrimary}" />
+                    </ScrollViewer>
                     <TextBlock x:Name="ErrorTextBlock"
                                Margin="0,3,0,0"
                                Text=""
-                               FontSize="12.5"
+                               FontSize="{DynamicResource FontSizeFootnote}"
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushDanger}"
                                Visibility="Collapsed" />
@@ -85,14 +98,14 @@
                         ToolTip="Cerrar"
                         AutomationProperties.Name="Cerrar la solicitud ambiental"
                         Click="CloseButton_Click">
-                    <TextBlock Text="&#10005;" FontSize="11" HorizontalAlignment="Center" />
+                    <TextBlock Text="&#10005;" FontSize="{DynamicResource FontSizeCaption}" HorizontalAlignment="Center" />
                 </Button>
             </Grid>
 
             <TextBlock x:Name="ExpandedTextBlock"
                        Margin="44,8,0,0"
                        Text=""
-                       FontSize="12.5"
+                       FontSize="{DynamicResource FontSizeFootnote}"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSecondary}"
                        Visibility="Collapsed" />
@@ -109,14 +122,14 @@
                 <Button x:Name="ExpandToggleButton"
                         Style="{StaticResource SecondaryButtonStyle}"
                         Padding="10,4"
-                        FontSize="12"
+                        FontSize="{DynamicResource FontSizeFootnote}"
                         Click="ExpandToggleButton_Click"
                         Visibility="Collapsed" />
                 <Button x:Name="UndoButton"
                         Margin="8,0,0,0"
                         Style="{StaticResource SecondaryButtonStyle}"
                         Padding="10,4"
-                        FontSize="12"
+                        FontSize="{DynamicResource FontSizeFootnote}"
                         Content="Deshacer"
                         AutomationProperties.Name="Deshacer la última solicitud ambiental"
                         Click="UndoButton_Click"

@@ -25,8 +25,12 @@ public sealed class ManagedOllamaSupervisor : IDisposable
     {
         ArgumentNullException.ThrowIfNull(preferences);
 
-        _enabled = preferences.AiProvider == AiProviderKind.Ollama &&
-                   OllamaRuntimeEndpoints.IsManagedBaseUrl(preferences.AiBaseUrl);
+        // La condición era `AiProvider == Ollama && IsManagedBaseUrl(...)`, y ahí estaba el defecto
+        // que dejó a un equipo con el modelo descargado y sin forma de usarlo: elegir "Ollama" en
+        // Ajustes escribía la dirección del Ollama externo (11434), así que IsManagedBaseUrl daba
+        // falso, el supervisor no arrancaba nunca, y Kohana hablaba a un puerto donde no había nada.
+        // Ahora el proveedor administrado es un valor propio y no depende de que la URL coincida.
+        _enabled = AiProviderDefaults.IsManagedByKohana(preferences.AiProvider);
         return _enabled;
     }
 

@@ -4,50 +4,81 @@ using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Nexo.App.Ambient;
+using Nexo.Core.Documents;
 using Nexo.App.Automation;
 using Nexo.App.DailyFlow;
+using Nexo.App.Motion;
+using Nexo.App.Optimization;
+using Nexo.Windows.Display;
+using Nexo.Windows.Documents;
+using Nexo.Windows.Metrics;
+using Nexo.Windows.Shell;
 using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
 using Nexo.Core.Ambient;
 using Nexo.Core.Assistant;
+using Nexo.Core.Audit;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Automation;
 using Nexo.Core.Audio;
 using Nexo.Core.Commands;
 using Nexo.Core.Commands.CommandCenter;
+using Nexo.Core.ComputerUse;
+using Nexo.Core.Diagnostics;
+using Nexo.Core.Display;
 using Nexo.Core.Flow;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
+using Nexo.Core.Media;
+using Nexo.Core.Memory;
 using Nexo.Core.Metrics;
+using Nexo.Core.Optimization;
+using Nexo.Core.Permissions;
+using Nexo.Core.Productization;
+using Nexo.Core.SelfCheck;
+using Nexo.Core.Sequences;
 using Nexo.Core.Resources;
 using Nexo.Core.Settings;
 using Nexo.Core.Shell;
+using Nexo.Core.Skills;
 using Nexo.Core.Tasks;
 using Nexo.Core.Voice;
 using Nexo.Core.Vision;
+using Nexo.Core.Workspace;
 using Nexo.Windows.Ai;
 using Nexo.Windows.Ambient;
+using Nexo.Windows.Audit;
+using Nexo.Windows.Diagnostics;
+using Nexo.Windows.ComputerUse;
 using Nexo.Windows.Automation;
 using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Flow;
 using Nexo.Windows.Focus;
-using Nexo.Windows.Metrics;
+using Nexo.Windows.Media;
+using Nexo.Windows.Memory;
+using Nexo.Windows.Optimization;
+using Nexo.Windows.Productization;
+using Nexo.Windows.SelfCheck;
 using Nexo.Windows.Resources;
 using Nexo.Windows.Settings;
+using Nexo.Windows.Skills;
 using Nexo.Windows.Tasks;
 using Nexo.Windows.Voice;
 using Nexo.Windows.Vision;
 using Nexo.Windows.WindowsIntegration;
+using Nexo.Windows.Workspace;
 using NexoFocusManager = Nexo.Core.Focus.FocusManager;
 
 namespace Nexo.App;
@@ -62,12 +93,29 @@ public partial class MainWindow : Window
     /// <summary>Diseño D6.3 (Fase 3 — Kohana Flow) — atajo global de dictado.</summary>
     private const int FlowHotkeyId = 0x4E5C;
 
+    /// <summary>
+    /// Diseño D58 — Escape cierra el shell aunque el teclado esté en otra aplicación.
+    ///
+    /// Hacía falta clicar Kohana antes de poder cerrarla con Escape, y el motivo no era el atajo
+    /// sino Windows: el bloqueo de primer plano se niega a dar el foco a una ventana que nadie ha
+    /// clicado, así que <c>Activate()</c> no basta y las teclas se quedaban en la aplicación de
+    /// antes. Como el manejador de Escape cuelga de la ventana, nunca se enteraba.
+    ///
+    /// **Se registra solo mientras el shell está en pantalla y se suelta al ocultarse.** Un Escape
+    /// global permanente se lo quitaría a todo el sistema, que es justo lo que no se hizo con
+    /// Ctrl+K por la misma razón. Mientras Kohana está delante, Escape es suyo; en cuanto se va,
+    /// vuelve a quien lo tuviera.
+    /// </summary>
+    private const int EscapeHotkeyId = 0x4E5D;
+
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
     private const uint VirtualKeyA = 0x41;
     private const uint VirtualKeySpace = 0x20;
     private const uint VirtualKeyD = 0x44;
+    private const uint VirtualKeyEscape = 0x1B;
+    private const uint ModNone = 0x0000;
     private const int WmHotkey = 0x0312;
     private const int WmPowerBroadcast = 0x0218;
     private const int PbtApmResumeSuspend = 0x0007;
@@ -129,6 +177,98 @@ public partial class MainWindow : Window
     private readonly WindowsUiAutomationReader _lensUiAutomationReader = new();
     private readonly LensHighlightOverlay _lensHighlightOverlay = new();
 
+    /// <summary>Diseño D8 (Fase 4) — optimización adaptativa del equipo.</summary>
+    private readonly WindowsOptimizationApplier _optimizationApplier = new();
+    private readonly JsonOptimizationSnapshotStore _optimizationSnapshotStore = new();
+    /// <summary>
+    /// Diseño D13 — el Audit Log único: qué hizo Kohana, cuándo, con qué permiso y cómo deshacerlo.
+    /// Lo comparten todas las capacidades; un registro por capacidad obligaría a la persona a saber
+    /// de antemano en cuál mirar.
+    /// </summary>
+    private readonly JsonKohanaAuditLog _auditLog = new();
+
+    /// <summary>
+    /// Diseño D11 (Fase 4) — orquesta aplicar, verificar, deshacer y registrar. Se crea en el
+    /// constructor porque necesita las preferencias ya cargadas para el objetivo "consumo de
+    /// Kohana".
+    /// </summary>
+    private readonly OptimizationCoordinator _optimizationCoordinator;
+
+    /// <summary>Diseño D9 (Fase 6) — memoria opt-in, cifrada en reposo.</summary>
+    private readonly MemoryManager _memoryManager = new(new DpapiMemoryStore());
+
+    /// <summary>
+    /// Diseño D10 — recuerdo propuesto que espera un sí. Nunca se guarda solo: mientras vive aquí
+    /// no está en la memoria.
+    /// </summary>
+    private MemoryCandidate? _pendingMemoryCandidate;
+
+    /// <summary>Diseño D12 (Fase 5) — lectura de solo-lectura del proyecto autorizado.</summary>
+    private readonly FileSystemWorkspaceReader _workspaceReader = new();
+
+    /// <summary>
+    /// Diseño D12 — contexto del proyecto para la SIGUIENTE consulta, y solo para ésa. No se manda
+    /// en todas: el proyecto solo sale del equipo cuando la persona pidió algo sobre el proyecto.
+    /// </summary>
+    private string? _pendingWorkspaceContext;
+
+    /// <summary>
+    /// Corrección de un defecto real (probado a mano tras D14): rutas de archivos existentes cuyo
+    /// contenido SÍ viajó en <see cref="_pendingWorkspaceContext"/> de esta consulta. Es la
+    /// salvaguarda contra la sustitución accidental de un archivo que el modelo nunca llegó a ver:
+    /// <see cref="OfferWorkspaceEdit"/> se niega a aplicar un cambio a un archivo existente que no
+    /// esté en este conjunto, en vez de confiar en que el modelo lo haya conservado bien.
+    /// </summary>
+    private HashSet<string> _pendingWorkspaceEditKnownContentPaths = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Diseño D13 — la paleta no acepta argumentos: la consulta de búsqueda llega por chat.</summary>
+    private bool _awaitingWorkspaceSearchQuery;
+
+    /// <summary>Diseño D17 (Fase 7) — qué métodos puede usar Kohana para actuar en este equipo.</summary>
+    private readonly WindowsComputerUseMethodProbe _computerUseProbe = new();
+
+    /// <summary>Diseño D17 — igual que la búsqueda: lo que se quiere hacer llega por chat.</summary>
+    private bool _awaitingComputerUseIntent;
+
+    /// <summary>Diseño D18 (Fase 7, nivel 4) — el único camino por el que Kohana actúa en el equipo.</summary>
+    private readonly ComputerUseCoordinator _computerUseCoordinator;
+
+    /// <summary>Diseño D20 (Fase 9) — copia verificada de los datos, para poder volver.</summary>
+    private readonly FileSystemDataBackupService _backupService = new();
+
+    /// <summary>Diseño D21 (Fase 9) — el mismo diagnóstico que ve la ventana, para poder exportarlo.</summary>
+    private readonly NexoDiagnosticService _diagnosticService = new();
+
+    /// <summary>Diseño D22 — comprobaciones que tocan disco, en una carpeta temporal aparte.</summary>
+    private readonly WindowsSelfCheckProbes _selfCheckProbes = new();
+
+    /// <summary>Diseño D24 (nivel 5) — encadena pasos parando en los puntos de riesgo.</summary>
+    private readonly SequenceCoordinator _sequenceCoordinator;
+
+    private readonly UpdateSafetyCoordinator _updateSafety;
+
+    /// <summary>Diseño D14 — igual que la búsqueda: la instrucción del cambio llega por chat.</summary>
+    private bool _awaitingWorkspaceEditInstruction;
+
+    /// <summary>
+    /// Diseño D14 — la SIGUIENTE respuesta de la IA puede traer un cambio propuesto. Solo esa: sin
+    /// esta marca, cualquier respuesta que por casualidad contuviera el formato ofrecería escribir
+    /// en el proyecto, y nadie lo habría pedido.
+    /// </summary>
+    private bool _pendingWorkspaceEditRequested;
+
+    /// <summary>
+    /// Diseño D14 (Fase 5, nivel 4) — checkpoints y escritura. Existen siempre, pero
+    /// <see cref="WorkspaceEditCoordinator"/> se niega a escribir por debajo del nivel 4, así que
+    /// tenerlos construidos no concede nada.
+    /// </summary>
+    private readonly JsonWorkspaceCheckpointStore _workspaceCheckpointStore = new();
+
+    private readonly WorkspaceEditCoordinator _workspaceEditCoordinator;
+
+    /// <summary>Diseño D15 (Fase 8) — packs que dejan configuradas capacidades ya existentes.</summary>
+    private readonly SkillPackCoordinator _skillPackCoordinator;
+
     /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
 
@@ -156,6 +296,7 @@ public partial class MainWindow : Window
     private readonly SettingsView _settingsView = new();
     private readonly PeekWindow _peekWindow = new();
     private readonly CapsuleWindow _capsuleWindow = new();
+    private readonly AnswerPillWindow _answerPillWindow = new();
     private readonly CommandPaletteWindow _commandPaletteWindow;
 
     /// <summary>
@@ -197,10 +338,65 @@ public partial class MainWindow : Window
     private readonly bool _startHidden;
     private readonly ManagedOllamaSupervisor? _managedOllamaSupervisor;
 
+    /// <summary>
+    /// Diseño D25 — claves de los proveedores de nube, cifradas con DPAPI y fuera de
+    /// <c>settings.json</c>. Se lee al construir cada petición, no se guarda en un campo suelto:
+    /// una clave copiada a una variable vive lo que viva el objeto, y esto vive lo que dura la app.
+    /// </summary>
+    private readonly IAiApiKeyStore _apiKeyStore = new DpapiAiApiKeyStore();
+    private readonly WindowsDocumentDropService _documentDropService = new();
+
+    /// <summary>Diseño D27 — el borde de la pantalla como forma de llamar a Kohana.</summary>
+    private readonly WindowsEdgeRevealWatcher _edgeRevealWatcher = new();
+
+    /// <summary>
+    /// Diseño D35 — el mismo vigilante, configurado en el borde contrario. Se reutiliza tal cual en
+    /// vez de escribir otro: la política de franja estrecha, esquinas excluidas y permanencia mínima
+    /// es la que hace que un borde no estorbe, y vale igual para los mandos que para Kohana.
+    /// </summary>
+    private readonly WindowsEdgeRevealWatcher _quickControlsWatcher = new();
+
+    /// <summary>
+    /// Diseño D42 — velocidad de red y espacio de disco para las cápsulas de rendimiento. Guarda la
+    /// lectura anterior para poder calcular una velocidad, así que tiene que ser el mismo objeto
+    /// entre refrescos.
+    /// </summary>
+    private readonly WindowsThroughputSource _throughputSource = new();
+
+    /// <summary>
+    /// Diseño D43 — la sesión de medios de Windows para la pestaña Media. Se guarda entre refrescos
+    /// porque cachea la portada de la pista actual y el gestor de WinRT, que cuesta pedir.
+    /// </summary>
+    private readonly IMediaSessionReader _mediaSessionReader = new WindowsMediaSessionReader();
+
+    /// <summary>
+    /// Diseño D44 — el cajón del panel y el vigilante del borde de arriba que lo baja. Se crean con
+    /// la ventana y no al primer uso: la primera apertura tiene que caer ya medida, y construir la
+    /// vista entera en ese instante metería un tirón justo en la animación que la presenta.
+    /// </summary>
+    private readonly DashboardWindow _dashboardWindow = new();
+
+    private readonly WindowsTopRevealWatcher _topRevealWatcher = new();
+
+    private readonly QuickControlsWindow _quickControlsWindow = new();
+    private readonly DdcDisplayBrightnessService _brightnessService = new();
+
     private HwndSource? _windowSource;
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
     private ResourceGovernorDecision _resourceDecision = ResourceGovernorDecision.Normal;
     private bool _isHiding;
+
+    // Diseño D58 — lo que se abre por roce tiene que saber retirarse solo.
+    private readonly DispatcherTimer _unattendedWatch = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(250)
+    };
+
+    private bool _openedByHover;
+    private bool _escapeHotkeyHeld;
+    private bool _touchedSinceReveal;
+    private DateTimeOffset? _pointerOutsideSince;
+
     private bool _isClosed;
     private bool _allowExit;
     private bool _exitRequested;
@@ -211,6 +407,12 @@ public partial class MainWindow : Window
     private bool _voicePromptActive;
     private bool _managedAiRuntimeFailureNotified;
     private bool _promptFromCommandPalette;
+
+    /// <summary>Si la respuesta en curso va a la píldora de esquina en vez de a la ventana.</summary>
+    private bool _answerInPill;
+
+    /// <summary>Motivo por el que la respuesta en curso no llegó, para enseñarlo en la píldora.</summary>
+    private string? _pillFailure;
     private bool _sideRailExpanded;
     private bool _visualContextPersistent;
     private bool _silentVisualContext;
@@ -267,6 +469,44 @@ public partial class MainWindow : Window
         _ambientRequestManager = new AmbientRequestManager(_ambientRequestStore);
         _ambientRequestManager.Load();
         _flowTextInserter = new WindowsFlowTextInserter(_ambientContextProvider);
+        _memoryManager.Load();
+
+        // Diseño D11 — el coordinador necesita las preferencias ya cargadas: el segundo objetivo
+        // que aplica de verdad es el modo de rendimiento de la propia Kohana.
+        _optimizationCoordinator = new OptimizationCoordinator(
+            _optimizationApplier,
+            new PreferencesKohanaFootprintApplier(
+                _preferences,
+                () =>
+                {
+                    SavePreferences();
+                    RefreshAdaptiveEnginePlan();
+                }),
+            _optimizationSnapshotStore,
+            _auditLog);
+
+        _workspaceEditCoordinator = new WorkspaceEditCoordinator(
+            new FileSystemWorkspaceWriter(),
+            _workspaceCheckpointStore,
+            _auditLog);
+
+        _skillPackCoordinator = new SkillPackCoordinator(
+            new JsonSkillPackSnapshotStore(),
+            _auditLog);
+
+        _computerUseCoordinator = new ComputerUseCoordinator(
+            new WindowsComputerUseExecutor(),
+            _computerUseProbe,
+            new JsonComputerUseSnapshotStore(),
+            _auditLog,
+
+            // Diseño D19 — el invocador comparte el lector de Lens, pero no la capacidad: leer un
+            // control e invocarlo pasan por interfaces y permisos distintos.
+            new WindowsUiAutomationInvoker(_lensUiAutomationReader));
+
+        _updateSafety = new UpdateSafetyCoordinator(_backupService, _auditLog);
+        _sequenceCoordinator = new SequenceCoordinator(_auditLog);
+
         _tasksView = new TasksView(_taskManager);
         _focusView = new FocusView(
             _focusManager,
@@ -309,6 +549,8 @@ public partial class MainWindow : Window
         _assistantView.VoiceInputStopped += AssistantView_VoiceInputStopped;
         _assistantView.VisionCaptureRequested += AssistantView_VisionCaptureRequested;
         _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
+        _assistantView.ImagePasted += AssistantView_ImagePasted;
+        _assistantView.DocumentSaveRequested += AssistantView_DocumentSaveRequested;
         _tasksView.TasksChanged += TasksView_TasksChanged;
         _tasksView.FocusRequested += TasksView_FocusRequested;
         _focusView.FocusChanged += FocusView_FocusChanged;
@@ -323,6 +565,15 @@ public partial class MainWindow : Window
         _captureView.CaptureRequested += CaptureView_CaptureRequested;
         _commandPaletteWindow.PromptSubmitted += CommandPaletteWindow_PromptSubmitted;
         _commandPaletteWindow.WorkspaceRequested += CommandPaletteWindow_WorkspaceRequested;
+
+        // La píldora contesta de reojo; si la respuesta merece leerse entera, esto es la puerta a
+        // Kohana. Es una puerta y no un salto automático: abrirla sola volvería a arrastrar a la
+        // persona fuera de donde estaba, que es justo lo que la píldora vino a evitar.
+        _answerPillWindow.OpenInKohanaRequested += (_, _) =>
+        {
+            ShowAnimated();
+            NavigateTo("Assistant", animate: true);
+        };
         _homeView.CommandRequested += HomeView_CommandRequested;
         _homeView.TasksRequested += HomeView_TasksRequested;
         _homeView.FocusRequested += HomeView_FocusRequested;
@@ -336,6 +587,44 @@ public partial class MainWindow : Window
         _systemView.RestartVoiceRequested += async (_, _) => await RestartWakeWordAsync();
         _systemView.DiagnosticsRequested += (_, _) => ShowDiagnostics();
         _systemView.HardwareCapabilityRefreshRequested += async (_, _) => await RefreshHardwareCapabilityAsync();
+
+        // Diseño D11 (Fase 4) — los mismos siete escenarios que ya existían como comandos, ahora
+        // también en Sistema. Comparten camino: la interfaz no aplica nada por su cuenta.
+        _systemView.OptimizationScenarioRequested += async scenario =>
+            await ProposeOptimizationAsync(scenario);
+        _systemView.OptimizationUndoRequested += (_, _) => RestoreOptimization();
+        _systemView.OptimizationAuditRequested += (_, _) => ShowOptimizationAudit();
+        _systemView.AuditRefreshRequested += (_, _) => RefreshAuditPanel();
+        _systemView.AuditRevertRequested += RevertAuditEntry;
+
+        // Diseño D43 — los tres controles del reproductor. Tras dar la orden se vuelve a leer sin
+        // esperar al siguiente refresco: entre pulsar pausa y que el icono cambie hay medio segundo
+        // largo, y en ese hueco parece que el botón no hizo nada.
+        _dashboardWindow.View.MediaPlayPauseRequested += async (_, _) =>
+            await RunMediaCommandAsync(_mediaSessionReader.TogglePlayPauseAsync);
+        _dashboardWindow.View.MediaNextRequested += async (_, _) =>
+            await RunMediaCommandAsync(_mediaSessionReader.SkipNextAsync);
+        _dashboardWindow.View.MediaPreviousRequested += async (_, _) =>
+            await RunMediaCommandAsync(_mediaSessionReader.SkipPreviousAsync);
+
+        // Diseño D44 — el centro del borde de arriba baja el cajón. El aviso llega desde un hilo de
+        // fondo, así que hay que volver al de la interfaz antes de tocar la ventana.
+        _topRevealWatcher.RevealRequested += HandleTopRevealRequested;
+        _dashboardWindow.View.PanelImagePickRequested += (_, _) => PickPanelImage();
+        _dashboardWindow.View.SetPanelImage(_preferences.PanelImagePath);
+
+        _dashboardWindow.Dismissed += (_, _) => _topRevealWatcher.SuppressBriefly();
+
+        // Diseño D53 — pulsar un resumen del cajón trae la ventana principal al módulo que sea. El
+        // cajón se recoge primero: dejarlo colgando sobre la vista que acaba de abrir taparía justo
+        // lo que se ha pedido ver.
+        _dashboardWindow.View.ModuleRequested += (_, module) =>
+        {
+            _dashboardWindow.Dismiss();
+            ShowAnimated();
+            NavigateTo(module, animate: true);
+        };
+        _topRevealWatcher.Configure(_preferences.EdgeRevealEnabled);
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -347,6 +636,12 @@ public partial class MainWindow : Window
 
         WireSettingsEvents();
         _settingsView.ApplyPreferences(_preferences);
+
+        // Diseño D13 — la auditoría se enseña ya poblada. Un panel vacío al abrir haría pensar que
+        // no hay registro, cuando lo que pasa es que nadie lo ha pedido todavía.
+        RefreshAuditPanel();
+        RefreshSkillPackPanel();
+        _systemView.SetOptimizationStatus(detail: null, _optimizationCoordinator.HasSomethingToUndo);
         UpdateAiProviderStatus();
         ApplyPreferences();
         _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
@@ -354,6 +649,15 @@ public partial class MainWindow : Window
         ConfigureVoiceInputDevices();
         NavigateTo(ShellNavigationPolicy.DefaultDestination, animate: false);
         SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
+        _edgeRevealWatcher.RevealRequested += HandleEdgeRevealRequested;
+        _quickControlsWatcher.RevealRequested += HandleQuickControlsRequested;
+        _quickControlsWindow.ControlChanged += QuickControlsWindow_ControlChanged;
+
+        // Diseño D28 — con el acento siguiendo a Windows, cambiar de fondo de escritorio (con
+        // "Color de acento automático" activo) debe verse en Kohana sin reabrirla. UserPreferenceChanged
+        // es el evento que ya usa el propio Windows para avisar de esto — nadie más lo dispara.
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemUserPreferenceChanged;
+
         UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
         RefreshRuntimeDashboard();
         _ = RefreshHardwareCapabilityAsync();
@@ -382,6 +686,15 @@ public partial class MainWindow : Window
         };
         _focusTickTimer.Tick += (_, _) => CheckFocusTimer();
 
+        _unattendedWatch.Tick += (_, _) => CheckUnattendedReveal();
+
+        // Cualquier señal de que hay alguien delante cancela la retirada. Se escuchan en modo
+        // Preview porque los controles hijos se quedan con los eventos normales: un clic dentro del
+        // chat nunca llegaría a la ventana.
+        PreviewMouseDown += (_, _) => _touchedSinceReveal = true;
+        PreviewKeyDown += (_, _) => _touchedSinceReveal = true;
+        PreviewTextInput += (_, _) => _touchedSinceReveal = true;
+
         _visualContextExpiryTimer.Interval = TimeSpan.FromMinutes(2);
         _visualContextExpiryTimer.Tick += (_, _) =>
         {
@@ -395,6 +708,11 @@ public partial class MainWindow : Window
         _settingsView.PositionChanged += position =>
         {
             _preferences.Position = position;
+            ApplyShellSide();
+            _edgeRevealWatcher.Configure(_preferences.EdgeRevealEnabled, position);
+            _quickControlsWatcher.Configure(
+                _preferences.EdgeRevealEnabled,
+                QuickControlsPolicy.ControlsEdgeFor(position));
             PositionWindow();
             _peekWindow.HideImmediately();
             SavePreferences();
@@ -423,9 +741,29 @@ public partial class MainWindow : Window
             SavePreferences();
         };
 
+        _settingsView.AccentSourceChanged += source =>
+        {
+            _preferences.AccentSource = source;
+            ApplyEffectiveAccent();
+            UpdateNavigationState(_currentDestination);
+            SavePreferences();
+        };
+
         _settingsView.AnimationsChanged += enabled =>
         {
             _preferences.AnimationsEnabled = enabled;
+            KohanaMotion.AnimationsEnabled = ShellAnimationsAllowed;
+            SavePreferences();
+        };
+
+        _settingsView.EdgeRevealChanged += enabled =>
+        {
+            _preferences.EdgeRevealEnabled = enabled;
+            _edgeRevealWatcher.Configure(enabled, _preferences.Position);
+            _topRevealWatcher.Configure(enabled);
+            _quickControlsWatcher.Configure(
+                enabled,
+                QuickControlsPolicy.ControlsEdgeFor(_preferences.Position));
             SavePreferences();
         };
 
@@ -514,12 +852,294 @@ public partial class MainWindow : Window
         _settingsView.WakeWordAliasesClearRequested += async (_, _) =>
             await ClearWakeWordAliasesAsync();
 
+        // Diseño D7 (Fase 3 — Kohana Flow)
+        _settingsView.FlowEnabledChanged += enabled =>
+        {
+            _preferences.FlowEnabled = enabled;
+            SavePreferences();
+            ApplyFlowHotkeyRegistration();
+        };
+
+        _settingsView.FlowModeChanged += mode =>
+        {
+            _preferences.FlowMode = mode;
+            SavePreferences();
+        };
+
+        _settingsView.FlowDictionaryChanged += lines =>
+        {
+            _preferences.FlowDictionary = [.. lines];
+            SavePreferences();
+        };
+
+        _settingsView.FlowSnippetsChanged += lines =>
+        {
+            _preferences.FlowSnippets = [.. lines];
+            SavePreferences();
+        };
+
+        // Diseño D10 (Fase 6 — Context and Memory)
+        _settingsView.MemoryEnabledChanged += enabled =>
+        {
+            _preferences.Memory.Enabled = enabled;
+
+            // Normalize() apaga también las categorías cuando el interruptor general se apaga. Se
+            // llama aquí, y no solo al guardar, para que la política vea el estado correcto en la
+            // siguiente frase aunque el guardado tarde.
+            _preferences.Memory.Normalize();
+            SavePreferences();
+            _settingsView.ApplyMemorySettings(_preferences.Memory);
+            _settingsView.SetMemoryStatus(enabled
+                ? "Memoria activada. Elige qué categorías puede recordar."
+                : "Memoria desactivada. Lo ya guardado sigue ahí hasta que lo borres.");
+        };
+
+        _settingsView.MemoryCategoryChanged += (category, enabled) =>
+        {
+            switch (category)
+            {
+                case MemoryCategory.Preferencias:
+                    _preferences.Memory.RememberPreferences = enabled;
+                    break;
+                case MemoryCategory.Conversacion:
+                    _preferences.Memory.RememberConversation = enabled;
+                    break;
+                case MemoryCategory.Habitos:
+                    _preferences.Memory.RememberHabits = enabled;
+                    break;
+            }
+
+            SavePreferences();
+        };
+
+        _settingsView.MemoryRetentionChanged += days =>
+        {
+            _preferences.Memory.RetentionDays = days;
+            SavePreferences();
+
+            // La retención se aplica al leer, así que basta con pedir la lista para que lo que ya
+            // caducó desaparezca ahora mismo y no en la próxima escritura.
+            var remaining = _memoryManager.GetAll(_preferences.Memory, DateTimeOffset.Now).Count;
+            _settingsView.SetMemoryStatus(
+                $"Retención de {days} días. Quedan {remaining} recuerdos guardados.");
+        };
+
+        _settingsView.MemoryExclusionsChanged += lines =>
+        {
+            _preferences.Memory.Exclusions = [.. lines];
+            _preferences.Memory.Normalize();
+            SavePreferences();
+            _settingsView.SetMemoryStatus(
+                _preferences.Memory.Exclusions.Count == 0
+                    ? "Sin exclusiones."
+                    : $"{_preferences.Memory.Exclusions.Count} exclusiones activas. " +
+                      "No afectan a lo ya guardado: para eso, usa «olvidar todo».");
+        };
+
+        _settingsView.MemoryShowRequested += (_, _) =>
+        {
+            ShowMemoryContents();
+            NavigateTo("Assistant", animate: true);
+        };
+
+        _settingsView.MemoryForgetAllRequested += (_, _) =>
+        {
+            var result = ForgetAllMemory();
+            _settingsView.SetMemoryStatus(result.Message);
+        };
+
+        // Diseño D16 — cambiar un permiso es la decisión de la que cuelgan las demás, así que se
+        // confirma al ampliar y se registra siempre.
+        _settingsView.CapabilityPermissionChanged += (capability, level) =>
+        {
+            var permission = _preferences.Permissions.For(capability);
+            var previous = permission.Level;
+
+            if (previous == level)
+            {
+                return;
+            }
+
+            // Política de mínimo privilegio: ampliar exige una confirmación nueva; restringir, no.
+            if (PermissionBroker.RequiresNewConfirmation(previous, level))
+            {
+                var confirmation = MessageBox.Show(
+                    this,
+                    $"Vas a ampliar el permiso de «{CapabilityText.Describe(capability)}» " +
+                        $"de {previous} a {level}." + Environment.NewLine + Environment.NewLine +
+                        "Aunque lo permitas, seguiré preguntándote antes de borrar algo sin " +
+                        "recuperación, tocar credenciales, enviar algo fuera de tu equipo o pedir " +
+                        "permisos de administrador." + Environment.NewLine + Environment.NewLine +
+                        "¿Lo amplío?",
+                    "Ampliar un permiso",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (confirmation != MessageBoxResult.Yes)
+                {
+                    _settingsView.ApplyPermissionSettings(_preferences.Permissions);
+                    _settingsView.SetPermissionsStatus("No cambié ese permiso.");
+                    return;
+                }
+            }
+
+            permission.Level = level;
+            SavePreferences();
+
+            RecordAudit(
+                AuditCapability.Permisos,
+                $"Permiso cambiado ({capability})",
+                $"{previous} → {level}",
+                "Cambio explícito del usuario");
+
+            _settingsView.SetPermissionsStatus(
+                $"«{CapabilityTitleFor(capability)}» quedó en {level}.");
+        };
+
+        // Diseño D23 — los packs, ya activables desde Personalizar y no solo desde la paleta.
+        _settingsView.SkillPackActivationRequested += id =>
+        {
+            ApplySkillPack(SkillPackCatalog.Get(id));
+            RefreshSkillPackPanel();
+        };
+
+        _settingsView.SkillPackDeactivationRequested += (_, _) =>
+        {
+            RevertSkillPack();
+            RefreshSkillPackPanel();
+        };
+
+        // Diseño D19 — las exclusiones por aplicación, ya editables sin abrir settings.json.
+        _settingsView.PermissionExclusionsChanged += lines =>
+        {
+            PermissionExclusionParser.Apply(_preferences.Permissions, lines);
+            _preferences.Permissions.Normalize();
+            SavePreferences();
+
+            var total = _preferences.Permissions.Capabilities.Sum(entry => entry.ExcludedApps.Count);
+            RecordAudit(
+                AuditCapability.Permisos,
+                "Exclusiones por aplicación actualizadas",
+                total == 0 ? "Sin exclusiones." : $"{total} exclusiones activas.",
+                "Cambio explícito del usuario");
+
+            _settingsView.ApplyPermissionSettings(_preferences.Permissions);
+        };
+
+        // Diseño D18 — subir hasta "ejecutar un paso" en el equipo se confirma aparte del permiso:
+        // son dos decisiones distintas y la más arriesgada del roadmap merece las dos.
+        _settingsView.ComputerUseAutonomyLevelChanged += level =>
+        {
+            var previous = _preferences.ComputerUseAutonomyLevel;
+            if (previous == level)
+            {
+                return;
+            }
+
+            if (level > previous)
+            {
+                var confirmation = MessageBox.Show(
+                    this,
+                    $"Vas a subir lo que Kohana puede hacer en tu equipo de {previous} a {level}." +
+                        Environment.NewLine + Environment.NewLine +
+                        (level == AutonomyLevel.EjecutarUnPaso
+                            ? "Podrá ejecutar UNA acción cada vez, y te la confirmaré antes. Sigo " +
+                              "eligiendo siempre la forma más segura disponible, y sigo sin usar " +
+                              "ratón y teclado simulados."
+                            : "Seguirá sin ejecutar nada.") +
+                        Environment.NewLine + Environment.NewLine + "¿Lo subo?",
+                    "Subir el nivel en el equipo",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (confirmation != MessageBoxResult.Yes)
+                {
+                    _settingsView.ApplyComputerUseAutonomyLevel(previous);
+                    return;
+                }
+            }
+
+            _preferences.ComputerUseAutonomyLevel = level;
+            SavePreferences();
+
+            RecordAudit(
+                AuditCapability.Permisos,
+                "Nivel en el equipo cambiado",
+                $"{previous} → {level}",
+                "Elección explícita del usuario",
+                (int)level);
+        };
+
+        // Diseño D13 (Fase 5 — Project Companion). El refresco del panel vive dentro de
+        // AuthorizeWorkspaceFolder/RevokeWorkspace, no aquí: autorizar también se puede desde la
+        // paleta de comandos, y cuando el refresco colgaba de estos dos manejadores esa ruta dejaba
+        // la tarjeta diciendo "No hay ninguna carpeta autorizada" con los niveles deshabilitados,
+        // aunque la carpeta sí estaba autorizada — y sin niveles no había forma de subir a
+        // «Ejecutar un paso», que es justo lo que la propia tarjeta te manda a hacer.
+        _settingsView.WorkspaceAuthorizeRequested += (_, _) => AuthorizeWorkspaceFolder();
+
+        _settingsView.WorkspaceRevokeRequested += (_, _) => RevokeWorkspace();
+
+        _settingsView.WorkspaceAutonomyLevelChanged += level =>
+        {
+            var previousLevel = _preferences.Workspace.AutonomyLevel;
+            if (previousLevel == level)
+            {
+                return;
+            }
+
+            // Misma política de mínimo privilegio que el nivel del equipo y que los permisos por
+            // capacidad (D16): ampliar exige confirmación nueva, restringir no. Faltaba justo aquí,
+            // y es donde más pesa: subir a «Ejecutar un paso» o «Colaborar» es lo que deja a Kohana
+            // escribir en archivos del usuario, mientras que ampliar una capacidad cualquiera ya se
+            // confirmaba desde D16.
+            if (level > previousLevel)
+            {
+                var confirmation = MessageBox.Show(
+                    this,
+                    $"Vas a subir lo que Kohana puede hacer en tu proyecto de {previousLevel} a {level}." +
+                        Environment.NewLine + Environment.NewLine +
+                        (level >= AutonomyLevel.EjecutarUnPaso
+                            ? "Podrá MODIFICAR archivos de esa carpeta. Te confirmaré cada cambio " +
+                              "antes de aplicarlo, y guardaré una copia previa para poder deshacerlo."
+                            : "Seguirá sin modificar ningún archivo.") +
+                        Environment.NewLine + Environment.NewLine + "¿Lo subo?",
+                    "Subir el nivel en el proyecto",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (confirmation != MessageBoxResult.Yes)
+                {
+                    _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
+                    return;
+                }
+            }
+
+            _preferences.Workspace.AutonomyLevel = level;
+            _preferences.Workspace.Normalize();
+            SavePreferences();
+
+            // Cambiar hasta dónde puede llegar Kohana es una decisión de permisos, así que se
+            // registra igual que autorizar la carpeta.
+            RecordAudit(
+                AuditCapability.Permisos,
+                "Nivel de autonomía del proyecto cambiado",
+                WorkspaceAutonomyPolicy.Describe(_preferences.Workspace.AutonomyLevel),
+                "Elección explícita del usuario",
+                (int)_preferences.Workspace.AutonomyLevel);
+        };
+
         _settingsView.AiProviderChanged += provider =>
         {
+            // Diseño D58 — antes de irse, se apunta el modelo que estaba en uso para el proveedor
+            // que se abandona; al llegar, se recupera el suyo. Sin esto, cambiar de proveedor y
+            // volver devolvía el modelo de fábrica en vez del que la persona había elegido.
+            RememberModelForCurrentProvider();
+
             var preset = AiProviderDefaults.Get(provider);
             _preferences.AiProvider = provider;
             _preferences.AiBaseUrl = preset.BaseUrl;
-            _preferences.AiModel = preset.DefaultModel;
+            _preferences.AiModel = RecallModelFor(provider, preset.DefaultModel);
             _preferences.AiApiKeyEnvironmentVariable = preset.ApiKeyEnvironmentVariable;
             UpdateAiProviderStatus();
             SavePreferences();
@@ -534,9 +1154,36 @@ public partial class MainWindow : Window
             ConfigureManagedOllamaSupervisor();
         };
 
+        // Diseño D25 — la clave nunca pasa por ShellPreferences ni por settings.json: va derecha al
+        // almacén cifrado y se lee otra vez solo al construir cada petición.
+        _settingsView.ApiKeyChanged += (provider, apiKey) =>
+        {
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                _apiKeyStore.Remove(provider);
+            }
+            else
+            {
+                _apiKeyStore.Write(provider, apiKey);
+            }
+
+            // No SetStoredApiKeyPresence aquí: esa versión vacía la caja, y esto se dispara en
+            // cada pulsación mientras la persona sigue escribiendo o acaba de pegar. Solo se
+            // refresca el texto de ayuda; la caja se limpia únicamente al cambiar de proveedor.
+            _settingsView.UpdateApiKeyStatusText(
+                !string.IsNullOrWhiteSpace(_apiKeyStore.Read(provider)));
+        };
+
+        _settingsView.ApiKeyRequested += provider =>
+            _settingsView.SetStoredApiKeyPresence(
+                !string.IsNullOrWhiteSpace(_apiKeyStore.Read(provider)));
+
+        _settingsView.ApiKeyPageRequested += OpenExternalPage;
+
         _settingsView.AiModelChanged += model =>
         {
             _preferences.AiModel = model.Trim();
+            RememberModelForCurrentProvider();
             UpdateAiProviderStatus();
             SavePreferences();
         };
@@ -654,7 +1301,7 @@ public partial class MainWindow : Window
             PositionWindow();
             _peekWindow.HideImmediately();
             ApplyShellOpacity();
-            ApplyAccent(_preferences.AccentColor);
+            ApplyEffectiveAccent();
             SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
             UpdateNavigationState(_currentDestination);
 
@@ -667,11 +1314,48 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// Abre en el navegador la página donde se consigue la clave del proveedor. La dirección viene
+    /// siempre de <see cref="AiProviderDefaults"/> —una constante del programa—, nunca de algo que
+    /// alguien haya escrito o que haya llegado en una respuesta: <c>UseShellExecute</c> con una
+    /// cadena arbitraria lanzaría cualquier cosa que Windows sepa abrir, no solo páginas.
+    /// </summary>
+    private void OpenExternalPage(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception exception) when (
+            exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "No pude abrir el navegador",
+                uri.AbsoluteUri,
+                _preferences.Position);
+        }
+    }
+
     private void ShowModelManager()
     {
-        var baseUrl = _preferences.AiProvider == AiProviderKind.Ollama
+        // El administrador de modelos habla con el motor que esté configurado ahora. Si el proveedor
+        // activo no es de los que usan Ollama, se cae al administrado por Kohana —el que la propia
+        // aplicación puede instalar—, no al externo, que puede no existir en este equipo.
+        var isOllamaProvider = AiProviderDefaults.UsesOllamaProtocol(_preferences.AiProvider);
+        var providerKind = isOllamaProvider
+            ? _preferences.AiProvider
+            : AiProviderKind.KohanaLocal;
+        var baseUrl = isOllamaProvider
             ? _preferences.AiBaseUrl
-            : AiProviderDefaults.Get(AiProviderKind.Ollama).BaseUrl;
+            : AiProviderDefaults.Get(AiProviderKind.KohanaLocal).BaseUrl;
+
         var window = new ModelManagerWindow(baseUrl, _preferences.AiModel)
         {
             Owner = this
@@ -683,8 +1367,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        _preferences.AiProvider = AiProviderKind.Ollama;
-        _preferences.AiBaseUrl = AiProviderDefaults.Get(AiProviderKind.Ollama).BaseUrl;
+        _preferences.AiProvider = providerKind;
+        _preferences.AiBaseUrl = baseUrl;
         _preferences.AiModel = window.SelectedModel;
         _preferences.AiApiKeyEnvironmentVariable = string.Empty;
         _settingsView.ApplyPreferences(_preferences);
@@ -742,6 +1426,195 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Diseño D27 — el vigilante avisa desde un hilo de fondo, así que hay que volver al hilo de la
+    /// interfaz antes de tocar la ventana. Las condiciones se comprueban aquí y no en el vigilante
+    /// porque son estado del shell, no geometría del ratón: el vigilante sabe dónde está el cursor
+    /// y nada más.
+    /// </summary>
+    private void HandleEdgeRevealRequested()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (IsVisible || _isHiding || !_preferences.EdgeRevealEnabled)
+            {
+                return;
+            }
+
+            // Con algo a pantalla completa —un juego, un vídeo, una presentación— el shell no se
+            // asoma solo. Es la misma condición que ya silencia el resto de avisos pasajeros, y
+            // aparecer encima de una partida por rozar el borde sería el peor momento posible.
+            if (_resourceDecision.SuppressTransientOverlays)
+            {
+                return;
+            }
+
+            RememberForegroundWindow();
+
+            // Diseño D58 — esta apertura no la pidió nadie: basta con rozar el borde. Se marca como
+            // tal para que sepa retirarse si resulta que fue un accidente.
+            _openedByHover = true;
+            ShowAnimated();
+        });
+    }
+
+    /// <summary>
+    /// Diseño D58 — retira el shell si se abrió por roce y nadie ha aparecido.
+    ///
+    /// Se sondea la posición del cursor en vez de escuchar <c>MouseLeave</c> por la misma razón que
+    /// en el cajón: la ventana está llena de controles hijos y salir de uno para entrar en otro
+    /// genera un MouseLeave por el camino, así que el evento miente.
+    /// </summary>
+    /// <summary>
+    /// Toma Escape mientras el shell está delante. Si el registro falla —otra aplicación lo tiene—
+    /// no se avisa de nada: Escape desde dentro sigue funcionando y el botón de cerrar también, así
+    /// que no hay nada roto que contar.
+    /// </summary>
+    private void AcquireEscapeHotkey()
+    {
+        if (_escapeHotkeyHeld || _isClosed)
+        {
+            return;
+        }
+
+        var windowHandle = new WindowInteropHelper(this).Handle;
+        if (windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        _escapeHotkeyHeld = RegisterHotKey(
+            windowHandle, EscapeHotkeyId, ModNone, VirtualKeyEscape);
+    }
+
+    private void ReleaseEscapeHotkey()
+    {
+        if (!_escapeHotkeyHeld)
+        {
+            return;
+        }
+
+        _escapeHotkeyHeld = false;
+
+        var windowHandle = new WindowInteropHelper(this).Handle;
+        if (windowHandle != IntPtr.Zero)
+        {
+            UnregisterHotKey(windowHandle, EscapeHotkeyId);
+        }
+    }
+
+    private void CheckUnattendedReveal()
+    {
+        if (!_openedByHover || _isHiding || _isClosed || !IsVisible)
+        {
+            _unattendedWatch.Stop();
+            return;
+        }
+
+        _pointerOutsideSince = IsPointerOverShell()
+            ? null
+            : _pointerOutsideSince ?? DateTimeOffset.UtcNow;
+
+        if (UnattendedRevealPolicy.ShouldRetract(
+                _openedByHover,
+                _pointerOutsideSince,
+                DateTimeOffset.UtcNow,
+                hasUserAttention: _touchedSinceReveal))
+        {
+            HideAnimated();
+        }
+    }
+
+    private bool IsPointerOverShell()
+    {
+        if (!GetCursorPos(out var cursor) || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            // Sin saber dónde está el puntero se prefiere dejarlo abierto: retirar algo por si acaso
+            // hace desaparecer lo que alguien puede estar mirando.
+            return true;
+        }
+
+        try
+        {
+            var topLeft = PointToScreen(new Point(0, 0));
+            var bottomRight = PointToScreen(new Point(ActualWidth, ActualHeight));
+
+            // Un margen de holgura para que el propio borde sensible cuente como «dentro»: si no, el
+            // píxel entre la franja y la ventana empezaría la cuenta atrás con el ratón pegado a ella.
+            const double slack = 12;
+
+            return cursor.X >= topLeft.X - slack &&
+                   cursor.X <= bottomRight.X + slack &&
+                   cursor.Y >= topLeft.Y - slack &&
+                   cursor.Y <= bottomRight.Y + slack;
+        }
+        catch (InvalidOperationException)
+        {
+            // La ventana puede perder su origen entre medias; se trata como «no sabemos».
+            return true;
+        }
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out ShellCursorPoint point);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ShellCursorPoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    /// <summary>
+    /// Diseño D35 — el borde contrario a Kohana enseña volumen y brillo. Se lee el estado real justo
+    /// antes de abrir y no se cachea: el volumen lo cambia cualquier cosa —la rueda del teclado, otro
+    /// programa, el propio Windows— y un panel que apareciera con el valor de hace un rato mostraría
+    /// una barra que no coincide con lo que se oye.
+    /// </summary>
+    private void HandleQuickControlsRequested()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_quickControlsWindow.IsVisible || !_preferences.EdgeRevealEnabled)
+            {
+                return;
+            }
+
+            // Misma condición que para el shell: con algo a pantalla completa, nada se asoma solo.
+            if (_resourceDecision.SuppressTransientOverlays)
+            {
+                return;
+            }
+
+            var audio = _audioMixerService.ReadSnapshot();
+            var brightness = _brightnessService.ReadSnapshot();
+
+            _quickControlsWindow.ShowControls(
+                _preferences.Position,
+                audio.MasterVolumePercent,
+                audio.IsAvailable,
+                brightness.Percent,
+                brightness.IsAvailable);
+        });
+    }
+
+    private void QuickControlsWindow_ControlChanged(
+        object? sender,
+        QuickControlChangedEventArgs e)
+    {
+        switch (e.Kind)
+        {
+            case QuickControlKind.Volume:
+                _audioMixerService.SetMasterVolume(e.Percent);
+                break;
+
+            case QuickControlKind.Brightness:
+                _brightnessService.TrySetBrightness(e.Percent);
+                break;
+        }
+    }
+
+    /// <summary>
     /// Diseño D1 (Sakura Shell): las animaciones del shell respetan tanto la preferencia propia
     /// de Kohana como la preferencia de Windows (Configuración de accesibilidad → Efectos
     /// visuales). Si cualquiera de las dos está desactivada, los cambios de estado se aplican
@@ -770,19 +1643,27 @@ public partial class MainWindow : Window
         {
             SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
             SideRailBorder.Width = targetWidth;
+            ResetNavigationLabelEntrance();
+            UpdateNavigationState(_currentDestination);
             return;
         }
 
         var currentWidth = SideRailBorder.ActualWidth > 0
             ? SideRailBorder.ActualWidth
             : SideRailBorder.Width;
-        var easing = (CubicEase)FindResource("MotionEaseOut");
+
+        // Diseño D36 — la curva de resorte y no la de siempre: al abrir, el rail pasa un punto de
+        // su ancho final y vuelve, que es lo que da la sensación de burbuja del boceto en vez de la
+        // de un panel que se estira. Al cerrar se usa la curva que acelera, porque lo que se retira
+        // no pide atención y rebotar al plegarse se lee como un error.
         var animation = new DoubleAnimation(
             currentWidth,
             targetWidth,
-            (Duration)FindResource("MotionBase"))
+            expanded ? KohanaMotion.Emphasized : KohanaMotion.Exit)
         {
-            EasingFunction = easing
+            EasingFunction = expanded
+                ? KohanaMotion.SubtleSpringCurve
+                : KohanaMotion.AccelerateCurve
         };
         animation.Completed += (_, _) =>
         {
@@ -790,7 +1671,60 @@ public partial class MainWindow : Window
             SideRailBorder.Width = targetWidth;
         };
         SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, animation);
+
+        AnimateNavigationLabels(expanded);
+        UpdateNavigationState(_currentDestination);
     }
+
+    /// <summary>
+    /// Los nombres entran escalonados detrás del ancho, uno tras otro de arriba abajo. Que aparezcan
+    /// todos a la vez en el instante en que hay sitio delata que solo se estaba cambiando un número;
+    /// escalonados, el rail parece llenarse. Al plegar no hay escalonado: los nombres ya no caben y
+    /// esperarlos solo retrasaría el gesto.
+    /// </summary>
+    private void AnimateNavigationLabels(bool expanded)
+    {
+        var labels = NavigationLabels();
+
+        if (!expanded)
+        {
+            foreach (var label in labels)
+            {
+                label.BeginAnimation(OpacityProperty, null);
+                label.Opacity = 1;
+            }
+
+            return;
+        }
+
+        for (var index = 0; index < labels.Count; index++)
+        {
+            var label = labels[index];
+            label.BeginAnimation(OpacityProperty, null);
+            label.Opacity = 0;
+            label.Animate(
+                OpacityProperty,
+                1,
+                KohanaMotion.Reveal,
+                KohanaMotion.DecelerateCurve,
+                KohanaMotion.StaggerAt(index));
+        }
+    }
+
+    private void ResetNavigationLabelEntrance()
+    {
+        foreach (var label in NavigationLabels())
+        {
+            label.BeginAnimation(OpacityProperty, null);
+            label.Opacity = 1;
+        }
+    }
+
+    private IReadOnlyList<TextBlock> NavigationLabels() =>
+    [
+        HomeNavLabel, AssistantNavLabel, TasksNavLabel, FocusNavLabel, RoutinesNavLabel,
+        AudioNavLabel, CaptureNavLabel, SystemNavLabel, SettingsNavLabel
+    ];
 
     private void ApplySideRailButtonLayout(bool expanded)
     {
@@ -801,7 +1735,12 @@ public partial class MainWindow : Window
         SideRailToggleButton.Width = buttonWidth;
         SettingsNavButton.Width = buttonWidth;
         SideRailBrandText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        SideRailChevronRotate.Angle = expanded ? 180 : 0;
+
+        // El chevrón apunta hacia donde el rail va a crecer, y eso depende del lado en que esté.
+        // La flecha dibujada mira a la derecha, así que 0° sirve para "abrirá hacia la derecha".
+        SideRailChevronRotate.Angle = RailIsOnLeft
+            ? (expanded ? 180 : 0)
+            : (expanded ? 0 : 180);
 
         foreach (var label in new[]
                  {
@@ -1060,6 +1999,12 @@ public partial class MainWindow : Window
             keywords: ["ambiental", "historial", "solicitudes", "pill", "sakura"]));
 
         registry.RegisterRange(BuildLensCommands());
+        registry.RegisterRange(BuildOptimizationCommands());
+        registry.RegisterRange(BuildMemoryCommands());
+        registry.RegisterRange(BuildWorkspaceCommands());
+        registry.RegisterRange(BuildSkillPackCommands());
+        registry.RegisterRange(BuildComputerUseCommands());
+        registry.RegisterRange(BuildProductizationCommands());
 
         registry.Register(new KohanaCommandDescriptor(
             "tasks.create",
@@ -1159,6 +2104,1887 @@ public partial class MainWindow : Window
                     ? KohanaCommandAvailability.Available
                     : KohanaCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso."));
         }
+    }
+
+    /// <summary>
+    /// Diseño D8 (Fase 4) — un comando por escenario. Todos PROPONEN: muestran el plan y lo que
+    /// cambiaría, sin tocar nada. Aplicar es un segundo paso explícito, porque cambiar la
+    /// configuración del sistema es, en el modelo de confianza, riesgo alto con snapshot previo
+    /// obligatorio.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildOptimizationCommands()
+    {
+        (OptimizationScenario Scenario, string Id, string Title)[] presets =
+        [
+            (OptimizationScenario.Jugar, "optimize.jugar", "Optimizar para jugar"),
+            (OptimizationScenario.Programar, "optimize.programar", "Optimizar para programar"),
+            (OptimizationScenario.EdicionVideo, "optimize.video", "Optimizar para editar video"),
+            (OptimizationScenario.Videollamada, "optimize.videollamada", "Optimizar para videollamada"),
+            (OptimizationScenario.Bateria, "optimize.bateria", "Optimizar para batería"),
+            (OptimizationScenario.General, "optimize.general", "Optimizar para uso general")
+        ];
+
+        foreach (var (scenario, id, title) in presets)
+        {
+            yield return new KohanaCommandDescriptor(
+                id,
+                title,
+                "Revisa tu hardware real y propone los cambios que tengan sentido. No aplica nada sin que lo confirmes.",
+                KohanaCommandCategory.System,
+                _ => ProposeOptimizationAsync(scenario),
+                keywords: ["optimizar", "rendimiento", "equipo", "pc", title.ToLowerInvariant()]);
+        }
+
+        yield return new KohanaCommandDescriptor(
+            "optimize.restaurar",
+            "Deshacer la última optimización",
+            "Devuelve el equipo al estado guardado antes del último plan aplicado.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(RestoreOptimization()),
+            keywords: ["deshacer", "restaurar", "optimizacion", "revertir"],
+            availability: () => _optimizationCoordinator.HasSomethingToUndo
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna optimización aplicada que deshacer."));
+
+        // Diseño D11 — la auditoría es consultable desde el mismo sitio que todo lo demás. Un
+        // registro que solo se puede leer abriendo un archivo a mano no lo lee nadie.
+        yield return new KohanaCommandDescriptor(
+            "optimize.historial",
+            "Ver el historial de optimizaciones",
+            "Muestra qué se aplicó, qué se deshizo y qué falló, con su fecha.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowOptimizationAudit();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["historial", "auditoria", "optimizacion", "registro"]);
+
+        // Diseño D13 — el registro completo, no solo el de una capacidad. "¿Qué ha hecho Kohana en
+        // mi equipo?" es una pregunta sola, y no debería obligar a saber en qué apartado mirar.
+        yield return new KohanaCommandDescriptor(
+            "audit.show",
+            "Ver todo lo que Kohana ha hecho",
+            "El registro completo: qué hizo, cuándo, con qué permiso y cómo deshacerlo.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowFullAudit();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["auditoria", "registro", "actividad", "historial", "privacidad"]);
+    }
+
+    private void RefreshAuditPanel() => _systemView.UpdateAudit(_auditLog.Read());
+
+    /// <summary>
+    /// Diseño D18 — deshacer una acción concreta desde el registro. El despacho es por capacidad, y
+    /// cada una usa su propio camino de reversión: el registro dice QUÉ se puede deshacer, pero
+    /// quien sabe CÓMO sigue siendo la capacidad que lo hizo.
+    /// </summary>
+    private void RevertAuditEntry(AuditEntry entry)
+    {
+        if (!entry.CanRevert)
+        {
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"{entry.Detail}{Environment.NewLine}{Environment.NewLine}{entry.RevertHint}" +
+                $"{Environment.NewLine}{Environment.NewLine}¿Lo deshago?",
+            "Deshacer",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var detail = entry.Capability switch
+        {
+            AuditCapability.Optimizacion => _optimizationCoordinator.Restore().Detail,
+
+            AuditCapability.Proyecto when Guid.TryParse(entry.RevertToken, out var checkpointId) =>
+                _workspaceEditCoordinator.Revert(checkpointId, _preferences.Workspace).Detail,
+
+            AuditCapability.Permisos when Guid.TryParse(entry.RevertToken, out var snapshotId) =>
+                _computerUseCoordinator.Revert(snapshotId, _preferences.ComputerUseAutonomyLevel).Detail,
+
+            // Desactivar un pack toca preferencias con efectos vivos, así que va por su propio
+            // camino y no por el genérico: reaplicarlas es parte de deshacerlo.
+            AuditCapability.Permisos when Enum.TryParse<SkillPackId>(entry.RevertToken, out _) =>
+                RevertSkillPack().Message ?? "Pack desactivado.",
+
+            _ => "Esa acción no sé deshacerla desde aquí."
+        };
+
+        _assistantView.AddKohanaMessage(detail);
+        ShowFlowNotice(CapsuleKind.Information, "Deshacer", detail);
+        RefreshAuditPanel();
+    }
+
+    private static string CapabilityTitleFor(KohanaCapability capability) =>
+        CapabilityText.Describe(capability);
+
+    /// <summary>
+    /// Diseño D16 — el único punto por el que una capacidad pide permiso. Devuelve true si puede
+    /// seguir. Cuando el broker pide confirmación, se pregunta aquí y la respuesta queda registrada:
+    /// un "sí" que no deja rastro es indistinguible de un permiso que nadie dio.
+    /// </summary>
+    private bool TryGetPermission(PermissionRequest request)
+    {
+        var decision = PermissionBroker.Decide(request, _preferences.Permissions);
+
+        if (decision.IsDenied)
+        {
+            _assistantView.AddKohanaMessage(decision.Reason);
+            RecordAudit(
+                AuditCapability.Permisos,
+                $"Acción denegada ({request.Capability})",
+                $"{request.Description} — {decision.Reason}",
+                "Permiso denegado");
+            return false;
+        }
+
+        if (decision.MayProceedWithoutAsking)
+        {
+            return true;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"{request.Description}{Environment.NewLine}{Environment.NewLine}{decision.Reason}" +
+                $"{Environment.NewLine}{Environment.NewLine}¿Lo hago?",
+            $"Permiso: {CapabilityTitleFor(request.Capability)}",
+            MessageBoxButton.YesNo,
+            decision.TriggeredCategories.Count > 0
+                ? MessageBoxImage.Warning
+                : MessageBoxImage.Question);
+
+        var granted = confirmation == MessageBoxResult.Yes;
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            granted
+                ? $"Acción autorizada ({request.Capability})"
+                : $"Acción rechazada ({request.Capability})",
+            request.Description,
+            granted ? "Confirmación explícita del usuario" : "El usuario dijo que no");
+
+        return granted;
+    }
+
+    private void ShowFullAudit()
+    {
+        var entries = _auditLog.Read();
+
+        var message = new StringBuilder();
+        if (entries.Count == 0)
+        {
+            message.Append("Todavía no he hecho nada que valga la pena registrar.");
+        }
+        else
+        {
+            message.AppendLine("Todo lo que he hecho, de lo más reciente a lo más antiguo:");
+            foreach (var entry in entries.Take(25))
+            {
+                message.Append("· ").AppendLine(entry.Describe());
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    /// <summary>
+    /// Diseño D13 — conceder o revocar un permiso es de lo primero que debe quedar registrado: es
+    /// la decisión de la que cuelgan todas las demás.
+    /// </summary>
+    private void RecordAudit(
+        AuditCapability capability,
+        string action,
+        string detail,
+        string permission,
+        int? autonomyLevel = null,
+        string revertHint = "")
+    {
+        _auditLog.Append(new AuditEntry
+        {
+            At = DateTimeOffset.Now,
+            Capability = capability,
+            Action = action,
+            Detail = detail,
+            Permission = permission,
+            AutonomyLevel = autonomyLevel,
+            RevertHint = revertHint
+        });
+
+        RefreshAuditPanel();
+    }
+
+    private void ShowOptimizationAudit()
+    {
+        var entries = _optimizationCoordinator.ReadAudit();
+
+        var message = new StringBuilder();
+        if (entries.Count == 0)
+        {
+            message.Append("Todavía no he aplicado ninguna optimización.");
+        }
+        else
+        {
+            message.AppendLine("Historial de optimizaciones:");
+            foreach (var entry in entries.Take(15))
+            {
+                message.Append("· ").AppendLine(entry.Describe());
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    private async Task<CommandExecutionResult> ProposeOptimizationAsync(OptimizationScenario scenario)
+    {
+        var profile = await _hardwareCapabilityService.RefreshAsync(_lifetimeCancellation.Token);
+        var plan = OptimizationPlanBuilder.Build(scenario, profile);
+
+        ShowOptimizationPlan(plan);
+        return CommandExecutionResult.Success();
+    }
+
+    /// <summary>
+    /// Diseño D8 — enseña el plan y, solo si hay algo que Kohana pueda aplicar Y revertir, ofrece
+    /// aplicarlo. La confirmación es un diálogo explícito: el modelo de confianza no permite pasar
+    /// de proponer a actuar sin que la persona lo diga.
+    /// </summary>
+    private void ShowOptimizationPlan(OptimizationPlan plan)
+    {
+        var message = new StringBuilder();
+        message.AppendLine(plan.Summary);
+
+        foreach (var change in plan.Changes)
+        {
+            message.AppendLine();
+            message.Append(change.Target == OptimizationTarget.Advice ? "· Consejo: " : "· Cambio: ");
+            message.AppendLine(change.Title);
+            message.Append("  ").AppendLine(change.Justification);
+        }
+
+        foreach (var skipped in plan.SkippedForMissingData)
+        {
+            message.AppendLine();
+            message.Append("· No propuesto: ").AppendLine(skipped);
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+
+        if (!plan.RequiresSnapshot)
+        {
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"{plan.Summary}" + Environment.NewLine + Environment.NewLine +
+                "¿Aplico los cambios? Guardaré cómo está ahora para poder deshacerlo.",
+            "Optimizar equipo",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        ApplyOptimization(plan);
+    }
+
+    /// <summary>
+    /// Diseño D11 — el orden (snapshot antes que nada, reversión de lo ya aplicado si un paso falla)
+    /// vive ahora en <see cref="OptimizationCoordinator"/>, en Core, donde se puede probar con
+    /// dobles. Aquí solo queda enseñar el resultado.
+    /// </summary>
+    private void ApplyOptimization(OptimizationPlan plan)
+    {
+        var result = _optimizationCoordinator.Apply(plan);
+
+        ShowFlowNotice(
+            result.IsApplied ? CapsuleKind.Success : CapsuleKind.Warning,
+            result.IsApplied ? "Equipo optimizado" : "No se pudo optimizar",
+            result.Detail);
+
+        _systemView.SetOptimizationStatus(result.Detail, _optimizationCoordinator.HasSomethingToUndo);
+        RefreshAuditPanel();
+    }
+
+    private CommandExecutionResult RestoreOptimization()
+    {
+        var result = _optimizationCoordinator.Restore();
+
+        _systemView.SetOptimizationStatus(result.Detail, _optimizationCoordinator.HasSomethingToUndo);
+        RefreshAuditPanel();
+
+        if (!result.IsApplied)
+        {
+            return CommandExecutionResult.Failure(result.Detail);
+        }
+
+        ShowFlowNotice(CapsuleKind.Success, "Optimización deshecha", result.Detail);
+        return CommandExecutionResult.Success(result.Detail);
+    }
+
+    /// <summary>
+    /// Diseño D9 (Fase 6) — comandos de memoria. "Ver" y "olvidar todo" existen aunque la memoria
+    /// esté apagada: revocar y auditar deben funcionar SIEMPRE. Si apagar la memoria bloqueara el
+    /// borrado, lo ya guardado quedaría atrapado justo cuando la persona quiere deshacerse de ello.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildMemoryCommands()
+    {
+        yield return new KohanaCommandDescriptor(
+            "memory.show",
+            "Ver lo que Kohana recuerda",
+            "Muestra, en texto claro, todo lo que hay guardado en la memoria.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowMemoryContents();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["memoria", "recuerda", "guardado", "privacidad"]);
+
+        yield return new KohanaCommandDescriptor(
+            "memory.forgetAll",
+            "Olvidar todo lo que Kohana recuerda",
+            "Borra por completo la memoria guardada. No se puede deshacer.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(ForgetAllMemory()),
+            keywords: ["olvidar", "borrar", "memoria", "privacidad"]);
+    }
+
+    /// <summary>
+    /// Diseño D10 (Fase 6) — la memoria ya se llena desde la conversación, que es lo que D9 dejó
+    /// pendiente. Dos caminos con reglas distintas a propósito:
+    ///
+    /// - **Explícito** ("recuerda que ..."): se guarda. La persona acaba de dar la orden; volver a
+    ///   preguntarle "¿seguro?" sería ruido. Si la política lo rechaza, se dice POR QUÉ — un
+    ///   "recuerda que ..." que no guarda nada y no explica nada parecería que funcionó.
+    /// - **Observado** (una preferencia dicha de paso): **nunca** se guarda solo. Se propone y hace
+    ///   falta un sí. Guardar lo que alguien mencionó sin pedirlo es exactamente la vigilancia
+    ///   silenciosa que el roadmap prohíbe para esta fase.
+    ///
+    /// Devuelve true solo cuando la frase ERA la orden de memoria y ya está atendida.
+    /// </summary>
+    private bool TryHandleMemoryPrompt(string prompt)
+    {
+        if (_pendingMemoryCandidate is { } pending)
+        {
+            // Una sola oportunidad: la propuesta caduca con la siguiente frase, sea cual sea. Una
+            // pregunta que sigue viva varios turnos acabaría capturando un "sí" dicho por otra cosa.
+            _pendingMemoryCandidate = null;
+
+            if (IsVoiceConfirmation(SpanishVoiceTranscriptNormalizer.Normalize(prompt)))
+            {
+                SaveMemoryCandidate(pending);
+                return true;
+            }
+        }
+
+        var candidate = MemoryCandidateDetector.Detect(prompt);
+        if (candidate is null)
+        {
+            return false;
+        }
+
+        if (candidate.Source == MemoryCandidateSource.Explicito)
+        {
+            SaveMemoryCandidate(candidate);
+            return true;
+        }
+
+        // Se consulta la política ANTES de proponer: preguntar "¿lo recuerdo?" para después
+        // rechazarlo por una exclusión propia sería hacer perder el tiempo a la persona.
+        var verdict = MemoryPolicy.CanRemember(candidate.Category, candidate.Text, _preferences.Memory);
+        if (!verdict.Success)
+        {
+            // En silencio: nadie pidió recordar nada, así que un aviso aquí sería una interrupción
+            // no solicitada.
+            return false;
+        }
+
+        _pendingMemoryCandidate = candidate;
+        ShowFlowNotice(
+            CapsuleKind.Information,
+            "¿Lo recuerdo?",
+            $"«{candidate.Text}». Responde «sí» para guardarlo.");
+
+        // La frase sigue su curso normal: la propuesta es aparte, no reemplaza la conversación.
+        return false;
+    }
+
+    private void SaveMemoryCandidate(MemoryCandidate candidate)
+    {
+        var result = _memoryManager.Remember(
+            candidate.Category,
+            candidate.Text,
+            _preferences.Memory,
+            DateTimeOffset.Now);
+
+        _assistantView.AddKohanaMessage(result.Success
+            ? $"{result.Message} «{candidate.Text}»"
+            : result.Message);
+
+        ShowFlowNotice(
+            result.Success ? CapsuleKind.Success : CapsuleKind.Warning,
+            result.Success ? "Lo recordaré" : "No lo recordé",
+            result.Message);
+    }
+
+    private void ShowMemoryContents()
+    {
+        var settings = _preferences.Memory;
+        var entries = _memoryManager.GetAll(settings, DateTimeOffset.Now);
+
+        var message = new StringBuilder();
+        message.AppendLine(settings.Enabled
+            ? $"Memoria activada · retención de {settings.RetentionDays} días."
+            : "La memoria está desactivada: no estoy guardando nada nuevo.");
+
+        if (entries.Count == 0)
+        {
+            message.Append("No hay nada guardado.");
+        }
+        else
+        {
+            foreach (var entry in entries)
+            {
+                message.AppendLine();
+                message.Append("· [")
+                    .Append(MemoryPolicy.CategoryLabel(entry.Category))
+                    .Append("] ")
+                    .Append(entry.Text);
+            }
+        }
+
+        if (settings.Exclusions.Count > 0)
+        {
+            message.AppendLine();
+            message.Append("Exclusiones activas: ").Append(string.Join(", ", settings.Exclusions));
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+    }
+
+    private CommandExecutionResult ForgetAllMemory()
+    {
+        // Diseño D16 — pasa por el broker en vez de por un diálogo propio. Borrar sin recuperación
+        // es una de las siete categorías de confirmación obligatoria, así que preguntará aunque la
+        // memoria esté permitida: es exactamente lo que el broker existe para garantizar.
+        if (!TryGetPermission(new PermissionRequest(
+                KohanaCapability.Memoria,
+                "Borrar todo lo que Kohana recuerda. No se puede deshacer.",
+                Categories: [MandatoryConfirmation.BorradoIrreversible])))
+        {
+            return CommandExecutionResult.Failure("No borré nada.");
+        }
+
+        var result = _memoryManager.ForgetEverything();
+
+        RecordAudit(
+            AuditCapability.Memoria,
+            "Memoria borrada por completo",
+            result.Message,
+            "Confirmación explícita del usuario");
+
+        ShowFlowNotice(CapsuleKind.Success, "Memoria borrada", result.Message);
+        return CommandExecutionResult.Success(result.Message);
+    }
+
+    /// <summary>
+    /// Diseño D12 (Fase 5 — Project Companion) — cuatro comandos y ni uno que escriba. La capacidad
+    /// vive en los niveles 1–3 del modelo de confianza ("ninguna capacidad nueva puede empezar en el
+    /// nivel 6"), así que Kohana lee, explica y guía; los cambios los aplica la persona.
+    ///
+    /// Autorizar y revocar están al mismo nivel, en el mismo sitio: un permiso que cuesta más
+    /// quitar que dar no es un permiso, es una trampa.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildWorkspaceCommands()
+    {
+        yield return new KohanaCommandDescriptor(
+            "workspace.authorize",
+            "Autorizar una carpeta de proyecto",
+            "Elige la carpeta que Kohana podrá leer. Solo lectura: no modifica archivos.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                AuthorizeWorkspaceFolder();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["proyecto", "carpeta", "workspace", "autorizar", "codigo"]);
+
+        yield return new KohanaCommandDescriptor(
+            "workspace.show",
+            "Ver el proyecto autorizado",
+            "Muestra qué carpeta puede leer Kohana y con qué nivel de autonomía.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowWorkspaceStatus();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["proyecto", "workspace", "permisos", "acceso"]);
+
+        yield return new KohanaCommandDescriptor(
+            "workspace.explain",
+            "Explicar el proyecto autorizado",
+            "Kohana revisa la estructura del proyecto y te la explica. No cambia nada.",
+            KohanaCommandCategory.System,
+            async _ => await ExplainWorkspaceAsync(),
+            keywords: ["proyecto", "explicar", "estructura", "codigo"],
+            availability: () => _preferences.Workspace.HasAuthorizedFolder
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
+
+        // Diseño D13 — la búsqueda existía desde D12 pero sin comando que la expusiera. Devuelve
+        // ruta, línea y la línea encontrada, ya redactada: una coincidencia puede caer justo encima
+        // de un token.
+        yield return new KohanaCommandDescriptor(
+            "workspace.search",
+            "Buscar en el proyecto autorizado",
+            "Busca un texto dentro de los archivos que Kohana puede leer.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                SearchWorkspace();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["buscar", "proyecto", "codigo", "workspace"],
+            availability: () => _preferences.Workspace.HasAuthorizedFolder
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
+
+        // Diseño D14 (Fase 5, nivel 4) — proponer y aplicar UN cambio. Solo aparece cuando el nivel
+        // de autonomía lo permite: un comando visible que siempre responde "no puedo" enseña a
+        // ignorar los mensajes de permisos.
+        yield return new KohanaCommandDescriptor(
+            "workspace.edit",
+            "Pedir un cambio en el proyecto",
+            "Kohana propone el cambio, te lo enseña y solo lo aplica si lo confirmas. Siempre se puede deshacer.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                RequestWorkspaceEdit();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["cambiar", "editar", "proyecto", "codigo", "modificar"],
+            availability: () => !_preferences.Workspace.HasAuthorizedFolder
+                ? KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto.")
+                : WorkspaceAutonomyPolicy.CanWrite(_preferences.Workspace.AutonomyLevel)
+                    ? KohanaCommandAvailability.Available
+                    : KohanaCommandAvailability.Unavailable(
+                        "Sube el nivel de autonomía del proyecto a «Ejecutar un paso» en Personalizar."));
+
+        yield return new KohanaCommandDescriptor(
+            "workspace.undo",
+            "Deshacer el último cambio en el proyecto",
+            "Devuelve el archivo a como estaba antes de que Kohana lo tocara.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(UndoLastWorkspaceEdit()),
+            keywords: ["deshacer", "revertir", "proyecto", "cambio"],
+            availability: () => _workspaceEditCoordinator.Checkpoints.Count > 0
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No he cambiado nada en tu proyecto."));
+
+        yield return new KohanaCommandDescriptor(
+            "workspace.revoke",
+            "Revocar el acceso al proyecto",
+            "Kohana deja de poder leer esa carpeta, en el acto.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(RevokeWorkspace()),
+            keywords: ["revocar", "quitar", "proyecto", "acceso", "privacidad"],
+            availability: () => _preferences.Workspace.HasAuthorizedFolder
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ninguna carpeta autorizada."));
+    }
+
+    private void AuthorizeWorkspaceFolder()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "Elige la carpeta del proyecto que Kohana podrá leer",
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var chosen = dialog.FolderName;
+
+        // Diseño D41 — hay carpetas que no se autorizan: la raíz de una unidad, el perfil entero,
+        // las del sistema. Se comprueba ANTES de la confirmación, porque preguntar «¿lo autorizo?»
+        // para algo que no se va a conceder es hacer perder el tiempo a quien contesta.
+        var rootVerdict = WorkspaceRootPolicy.CanAuthorize(chosen);
+        if (!rootVerdict.IsAllowed)
+        {
+            MessageBox.Show(
+                this,
+                rootVerdict.Message,
+                "Esa carpeta no se puede autorizar",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            _assistantView.AddKohanaMessage(rootVerdict.Message);
+            return;
+        }
+
+        // La confirmación dice qué se concede Y qué no. Un permiso que solo enumera lo que gana
+        // quien lo pide no deja decidir a quien lo da.
+        var confirmation = MessageBox.Show(
+            this,
+            $"Kohana podrá LEER los archivos de:{Environment.NewLine}{chosen}{Environment.NewLine}{Environment.NewLine}" +
+                "No podrá modificarlos ni borrarlos. No leerá .env, claves ni carpetas de dependencias, " +
+                "y ocultará los valores que parezcan secretos antes de enviar nada a la IA." +
+                $"{Environment.NewLine}{Environment.NewLine}Puedes revocarlo cuando quieras. ¿Lo autorizo?",
+            "Autorizar carpeta de proyecto",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _preferences.Workspace.AuthorizedPath = chosen;
+        _preferences.Workspace.AuthorizedAt = DateTimeOffset.Now;
+        _preferences.Workspace.Normalize();
+        SavePreferences();
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Carpeta de proyecto autorizada",
+            chosen,
+            "Autorización explícita del usuario",
+            (int)_preferences.Workspace.AutonomyLevel,
+            "Revocar el acceso al proyecto.");
+
+        ShowFlowNotice(
+            CapsuleKind.Success,
+            "Proyecto autorizado",
+            $"Puedo leer {Path.GetFileName(Path.TrimEndingDirectorySeparator(chosen))}. Solo lectura.");
+        ShowWorkspaceStatus();
+        _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
+    }
+
+    /// <summary>
+    /// Diseño D13 — la paleta de comandos no acepta argumentos, así que la consulta se pide en la
+    /// conversación: el comando deja a Kohana esperando UNA frase, igual que la propuesta de
+    /// recuerdo de D10. Vale una sola, y se cancela como cualquier otra pregunta.
+    /// </summary>
+    private void SearchWorkspace()
+    {
+        _awaitingWorkspaceSearchQuery = true;
+        _assistantView.AddKohanaMessage("¿Qué busco en el proyecto? Escríbelo y lo busco.");
+        NavigateTo("Assistant", animate: true);
+    }
+
+    private bool TryHandleWorkspaceSearchPrompt(string prompt)
+    {
+        if (!_awaitingWorkspaceSearchQuery)
+        {
+            return false;
+        }
+
+        _awaitingWorkspaceSearchQuery = false;
+
+        var normalized = SpanishVoiceTranscriptNormalizer.Normalize(prompt);
+        if (IsVoiceCancellation(normalized))
+        {
+            _assistantView.AddKohanaMessage("De acuerdo, no busco nada.");
+            return true;
+        }
+
+        var workspace = _preferences.Workspace;
+        if (!workspace.HasAuthorizedFolder)
+        {
+            // El acceso pudo revocarse entre el comando y la respuesta. Revocar tiene que surtir
+            // efecto en el acto, incluso a media conversación.
+            _assistantView.AddKohanaMessage("Ya no tengo ninguna carpeta autorizada, así que no busqué nada.");
+            return true;
+        }
+
+        var hits = _workspaceReader.Search(workspace.AuthorizedPath, prompt, maximumHits: 40);
+
+        var message = new StringBuilder();
+        if (hits.Count == 0)
+        {
+            message.Append($"No encontré «{prompt.Trim()}» en el proyecto.");
+        }
+        else
+        {
+            message.AppendLine($"{hits.Count} coincidencias de «{prompt.Trim()}»:");
+            foreach (var hit in hits.Take(25))
+            {
+                message.Append("· ")
+                    .Append(hit.RelativePath)
+                    .Append(':')
+                    .Append(hit.LineNumber)
+                    .Append("  ")
+                    .AppendLine(hit.Line);
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        return true;
+    }
+
+    /// <summary>
+    /// Diseño D17 (Fase 7 — Safe Computer Use) — Kohana dice **qué haría y por qué método**, sin
+    /// hacerlo. El roadmap prohíbe saltarse niveles del modelo de autonomía, y esta capacidad acaba
+    /// de nacer: empieza donde tienen que empezar todas.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildComputerUseCommands()
+    {
+        yield return new KohanaCommandDescriptor(
+            "computeruse.plan",
+            "Proponer cómo hacer algo en el equipo",
+            "Kohana elige la forma más segura de hacerlo y te la explica. No lo ejecuta.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                _awaitingComputerUseIntent = true;
+                _assistantView.AddKohanaMessage(
+                    "¿Qué quieres hacer en el equipo? Te digo cómo lo haría y por qué de esa forma.");
+                NavigateTo("Assistant", animate: true);
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["equipo", "hacer", "accion", "automatizar", "computer use"]);
+
+        yield return new KohanaCommandDescriptor(
+            "computeruse.methods",
+            "Ver cómo puede actuar Kohana en el equipo",
+            "Muestra los métodos disponibles, en orden de más a menos seguro.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowComputerUseMethods();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["metodos", "seguridad", "equipo", "computer use"]);
+
+        // Diseño D18 (Fase 7, nivel 4) — los comandos de la lista de permitidos, uno por uno. Solo
+        // aparecen habilitados cuando el permiso y el nivel lo consienten: un comando visible que
+        // siempre responde "no puedo" enseña a ignorar los mensajes de permisos.
+        foreach (var command in SafeShellCatalog.All)
+        {
+            var current = command;
+
+            yield return new KohanaCommandDescriptor(
+                $"computeruse.run.{current.Id}",
+                current.Title,
+                $"Ejecuta «{current.Executable} {current.Arguments}». Solo lee: no cambia nada del equipo.",
+                KohanaCommandCategory.System,
+                _ =>
+                {
+                    RunSafeCommand(current);
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: ["equipo", "diagnostico", current.Title.ToLowerInvariant()],
+                availability: ComputerUseAvailability);
+        }
+    }
+
+    /// <summary>
+    /// Diseño D20 (Fase 9 — Productization) — actualizar y desinstalar sin sorpresas. Nada de esto
+    /// actualiza ni desinstala: prepara la copia verificada de la que volver, y enseña qué se lleva
+    /// y qué se queda.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildProductizationCommands()
+    {
+        yield return new KohanaCommandDescriptor(
+            "data.inventory",
+            "Ver qué guarda Kohana en tu equipo",
+            "La lista completa: qué es cada archivo, si contiene datos tuyos y si está cifrado.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowDataInventory();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["datos", "privacidad", "guardar", "archivos"]);
+
+        yield return new KohanaCommandDescriptor(
+            "update.prepare",
+            "Preparar una copia antes de actualizar",
+            "Copia tus datos y comprueba que la copia está bien, para poder volver si algo sale mal.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                PrepareUpdateBackup();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["actualizar", "copia", "seguridad", "respaldo"]);
+
+        yield return new KohanaCommandDescriptor(
+            "update.rollback",
+            "Restaurar la última copia de tus datos",
+            "Devuelve tus ajustes, tareas y demás a como estaban en la copia más reciente.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                RestoreLatestBackup();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["restaurar", "copia", "volver", "respaldo"],
+            availability: () => _backupService.ListBackups().Count > 0
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("Todavía no hay ninguna copia guardada."));
+
+        // Diseño D21 — el criterio de terminado de la Fase 9 pide "diagnóstico exportable para
+        // soporte". Exportar es enviar, así que el archivo se redacta y dice qué dejó fuera.
+        yield return new KohanaCommandDescriptor(
+            "support.export",
+            "Exportar un diagnóstico para soporte",
+            "Guarda un archivo con versiones, estado y actividad reciente. Sin tus datos, y te dice qué dejó fuera.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ExportSupportBundle();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["soporte", "diagnostico", "exportar", "ayuda", "problema"]);
+
+        // Diseño D22 — comprobar aquí y ahora, sobre el binario instalado, que las garantías se
+        // cumplen en ESTE equipo.
+        yield return new KohanaCommandDescriptor(
+            "selfcheck.run",
+            "Comprobar que Kohana funciona bien",
+            "Revisa permisos, migraciones, cifrado, copias y redacción en este equipo. No toca tus datos.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                RunSelfCheck();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["comprobar", "revisar", "diagnostico", "funciona", "prueba"]);
+
+        yield return new KohanaCommandDescriptor(
+            "privacy.report",
+            "Ver el informe de privacidad",
+            "Qué guarda Kohana, dónde, si está cifrado y cómo borrarlo.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowPrivacyReport();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["privacidad", "datos", "cifrado", "borrar"]);
+
+        yield return new KohanaCommandDescriptor(
+            "uninstall.plan",
+            "Ver qué pasaría al desinstalar Kohana",
+            "Enseña qué se borraría y qué se conservaría, antes de desinstalar nada.",
+            KohanaCommandCategory.System,
+            _ =>
+            {
+                ShowUninstallPlan();
+                return Task.FromResult(CommandExecutionResult.Success());
+            },
+            keywords: ["desinstalar", "borrar", "quitar", "datos"]);
+    }
+
+    private void ShowDataInventory()
+    {
+        var message = new StringBuilder();
+        message.AppendLine($"Todo lo que guardo está en {NexoDataPaths.RootDirectory}:");
+
+        foreach (var item in KohanaDataInventory.All)
+        {
+            var exists = File.Exists(item.FullPath);
+            message.AppendLine();
+            message.Append("· ").Append(item.Title)
+                .Append(exists ? "" : " (todavía no existe)")
+                .AppendLine();
+            message.Append("  ").AppendLine(item.WhatItHolds);
+            message.Append("  ")
+                .Append(item.IsPersonal ? "Contiene datos tuyos." : "No contiene datos personales.")
+                .AppendLine(item.IsEncrypted ? " Cifrado." : string.Empty);
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    private void PrepareUpdateBackup()
+    {
+        var readiness = _updateSafety.PrepareUpdate();
+
+        var message = new StringBuilder();
+        message.AppendLine(readiness.Detail);
+
+        if (readiness.Backup is { } backup)
+        {
+            foreach (var file in backup.Files.Where(file => file.Copied))
+            {
+                message.Append("· ").Append(file.FileName).Append(" — ").AppendLine(file.Detail);
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+
+        ShowFlowNotice(
+            readiness.CanUpdate ? CapsuleKind.Success : CapsuleKind.Warning,
+            readiness.CanUpdate ? "Copia verificada" : "Copia incompleta",
+            readiness.Detail);
+
+        RefreshAuditPanel();
+    }
+
+    private void RestoreLatestBackup()
+    {
+        var latest = _backupService.ListBackups().FirstOrDefault();
+        if (latest is null)
+        {
+            _assistantView.AddKohanaMessage("Todavía no hay ninguna copia guardada.");
+            return;
+        }
+
+        // Restaurar sobrescribe lo que tengas ahora: es de las cosas que el modelo de confianza
+        // manda confirmar siempre, tenga el permiso que tenga.
+        if (!TryGetPermission(new PermissionRequest(
+                KohanaCapability.Memoria,
+                $"Restaurar la copia «{latest}». Sobrescribe tus ajustes, tareas y memoria actuales.",
+                Categories: [MandatoryConfirmation.BorradoIrreversible])))
+        {
+            return;
+        }
+
+        var result = _updateSafety.Rollback(latest);
+
+        _assistantView.AddKohanaMessage(result.Detail);
+        ShowFlowNotice(
+            result.Success ? CapsuleKind.Success : CapsuleKind.Warning,
+            result.Success ? "Datos restaurados" : "No se pudo restaurar",
+            result.Detail);
+
+        if (result.Success)
+        {
+            _assistantView.AddKohanaMessage(
+                "Reinicia Kohana para que use los datos restaurados.");
+        }
+
+        RefreshAuditPanel();
+    }
+
+    /// <summary>
+    /// Diseño D21 — genera el paquete de soporte y deja que la persona elija dónde guardarlo.
+    /// Exportar es enviar: el contenido va redactado y el archivo dice qué dejó fuera, para que se
+    /// pueda revisar antes de mandárselo a nadie.
+    /// </summary>
+    private async void ExportSupportBundle()
+    {
+        NexoDiagnosticSnapshot snapshot;
+        try
+        {
+            snapshot = await _diagnosticService.CaptureAsync(
+                _preferences,
+                _voiceCoordinator.GetInputDevices(),
+                _voiceCoordinator.IsVoiceInputReady,
+                _voiceCoordinator.IsWakeWordReady,
+                _voiceCoordinator.IsWakeWordListening,
+                trayActive: true,
+                _startupService.IsEnabled(),
+                _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        var bundle = SupportBundleBuilder.Build(snapshot, _auditLog.Read(), File.Exists);
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Guardar el diagnóstico para soporte",
+            FileName = $"kohana-soporte-{DateTimeOffset.Now:yyyyMMdd-HHmm}.txt",
+            Filter = "Archivo de texto (*.txt)|*.txt",
+            DefaultExt = ".txt"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(dialog.FileName, bundle);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            ShowFlowNotice(CapsuleKind.Warning, "No pude guardarlo", exception.Message);
+            return;
+        }
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Diagnóstico exportado",
+            PathRedactor.Shorten(dialog.FileName),
+            "Exportación pedida por el usuario");
+
+        _assistantView.AddKohanaMessage(
+            $"Guardé el diagnóstico en {dialog.FileName}." + Environment.NewLine +
+            "Ábrelo y léelo entero antes de mandárselo a nadie: al final dice qué dejé fuera.");
+        NavigateTo("Assistant", animate: true);
+
+        ShowFlowNotice(CapsuleKind.Success, "Diagnóstico guardado", "Sin tus datos personales dentro.");
+    }
+
+    /// <summary>
+    /// Diseño D22 — corre las comprobaciones y enseña el informe. Las de disco van en una carpeta
+    /// temporal propia: una autocomprobación que ensucia lo que comprueba no sirve de nada.
+    /// </summary>
+    private void RunSelfCheck()
+    {
+        var results = new List<SelfCheckResult>(SelfCheckSuite.RunLogicChecks());
+        results.AddRange(_selfCheckProbes.Run());
+
+        var report = SelfCheckReport.Build(results);
+        _assistantView.AddKohanaMessage(report);
+        NavigateTo("Assistant", animate: true);
+
+        var failed = results.Count(result => result.Status == SelfCheckStatus.Fallo);
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Autocomprobación ejecutada",
+            failed == 0
+                ? $"{results.Count} comprobaciones, ninguna falla."
+                : $"{results.Count} comprobaciones, {failed} fallan.",
+            "Comprobación interna, sin tocar datos personales");
+
+        ShowFlowNotice(
+            failed == 0 ? CapsuleKind.Success : CapsuleKind.Warning,
+            failed == 0 ? "Todo funciona" : $"{failed} comprobaciones fallan",
+            failed == 0
+                ? "Falta la parte que solo puedes comprobar tú usándola."
+                : "Míralas en el chat: están las primeras.");
+    }
+
+    private void ShowPrivacyReport()
+    {
+        var report = PrivacyReportBuilder.Build(
+            NexoDataPaths.RootDirectory,
+            File.Exists,
+            path =>
+            {
+                try
+                {
+                    return new FileInfo(path).Length;
+                }
+                catch (Exception exception) when (
+                    exception is IOException or UnauthorizedAccessException)
+                {
+                    return 0;
+                }
+            });
+
+        _assistantView.AddKohanaMessage(report);
+        NavigateTo("Assistant", animate: true);
+    }
+
+    private void ShowUninstallPlan()
+    {
+        var keep = UninstallPlanner.Build(UninstallDataChoice.Conservar);
+
+        var message = new StringBuilder();
+        message.AppendLine("Si desinstalas Kohana conservando tus datos:");
+        message.AppendLine();
+        message.AppendLine(UninstallPlanner.Describe(keep));
+        message.AppendLine();
+        message.AppendLine(
+            "Si prefieres que no quede nada, borra la carpeta de datos a mano después de " +
+            $"desinstalar: {NexoDataPaths.RootDirectory}");
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    private KohanaCommandAvailability ComputerUseAvailability()
+    {
+        if (_preferences.Permissions.For(KohanaCapability.ComputerUse).Level == PermissionLevel.Bloqueado)
+        {
+            return KohanaCommandAvailability.Unavailable(
+                "Actuar sobre el equipo está bloqueado. Puedes cambiarlo en Personalizar.");
+        }
+
+        return ComputerUseAutonomyPolicy.CanExecute(_preferences.ComputerUseAutonomyLevel)
+            ? KohanaCommandAvailability.Available
+            : KohanaCommandAvailability.Unavailable(
+                "Sube el nivel de autonomía a «Ejecutar un paso» en Personalizar.");
+    }
+
+    /// <summary>
+    /// Diseño D18 — ejecuta un comando de la lista. La confirmación la pide el broker; el
+    /// coordinador comprueba permiso, nivel y método antes de lanzar nada.
+    /// </summary>
+    private void RunSafeCommand(SafeShellCommand command)
+    {
+        if (!TryGetPermission(new PermissionRequest(
+                KohanaCapability.ComputerUse,
+                $"{command.Title} ({command.Executable} {command.Arguments})")))
+        {
+            return;
+        }
+
+        var result = _computerUseCoordinator.Execute(
+            new ComputerUseRequest(
+                ComputerUseMethod.ShellSeguro,
+                command.Title,
+                SafeCommandId: command.Id),
+            _preferences.Permissions,
+            _preferences.ComputerUseAutonomyLevel);
+
+        var message = new StringBuilder();
+        message.AppendLine(result.Detail);
+
+        if (!string.IsNullOrWhiteSpace(result.Output))
+        {
+            message.AppendLine();
+            message.Append(result.Output.Trim());
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+        RefreshAuditPanel();
+    }
+
+    private void ShowComputerUseMethods()
+    {
+        var available = _computerUseProbe.GetAvailableMethods(targetApp: null);
+
+        var message = new StringBuilder();
+        message.AppendLine(
+            "Cuando actúo sobre el equipo, siempre elijo la forma más segura disponible, en este " +
+            "orden. Ratón y teclado simulados van los últimos a propósito: no distinguen ventanas " +
+            "ni pueden comprobar qué hicieron.");
+        message.AppendLine();
+
+        foreach (var method in Enum.GetValues<ComputerUseMethod>().OrderBy(method => (int)method))
+        {
+            message.Append((int)method).Append(". ")
+                .Append(ComputerUseMethodText.Describe(method))
+                .Append(available.Contains(method) ? " — disponible" : " — todavía no implementado")
+                .AppendLine();
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+    }
+
+    /// <summary>
+    /// Diseño D17 — arma el plan y lo enseña. Si algo lo bloquea, se dice **qué** lo bloquea: un
+    /// plan que no llega a formarse deja a la persona sin saber qué haría falta para que sí.
+    /// </summary>
+    private bool TryHandleComputerUseIntent(string prompt)
+    {
+        if (!_awaitingComputerUseIntent)
+        {
+            return false;
+        }
+
+        _awaitingComputerUseIntent = false;
+
+        if (IsVoiceCancellation(SpanishVoiceTranscriptNormalizer.Normalize(prompt)))
+        {
+            _assistantView.AddKohanaMessage("De acuerdo, no propongo nada.");
+            return true;
+        }
+
+        var intent = new ComputerUseIntent(prompt.Trim());
+        var plan = ComputerUsePlanner.Build(
+            intent,
+            _computerUseProbe.GetAvailableMethods(intent.TargetApp),
+            _preferences.Permissions,
+            _preferences.ComputerUseAutonomyLevel);
+
+        var message = new StringBuilder();
+        message.Append("Lo que pides: ").AppendLine(intent.Description);
+        message.AppendLine();
+        message.Append("Cómo lo haría: ").AppendLine(plan.Choice.Reason);
+
+        foreach (var rejection in plan.Choice.Rejected)
+        {
+            message.Append("· Descarté ")
+                .Append(ComputerUseMethodText.Describe(rejection.Method))
+                .Append(": ").AppendLine(rejection.Reason);
+        }
+
+        message.Append("Vuelta atrás: ").AppendLine(plan.ReversalNote);
+
+        if (plan.Blocker is not null)
+        {
+            message.AppendLine();
+            message.Append("Ahora mismo no puedo hacerlo: ").AppendLine(plan.Blocker);
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Plan de acción propuesto",
+            $"{intent.Description} — {plan.Choice.Reason}",
+            "Solo propuesta: no se ejecutó nada",
+            (int)plan.Level);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Diseño D15 (Fase 8 — Skills Platform) — activar un pack deja configuradas de una vez varias
+    /// capacidades que ya existen. Un pack **nunca concede un permiso**: si le falta alguno, lo dice
+    /// y explica dónde se da.
+    /// </summary>
+    private IEnumerable<KohanaCommandDescriptor> BuildSkillPackCommands()
+    {
+        foreach (var pack in SkillPackCatalog.All)
+        {
+            var current = pack;
+
+            yield return new KohanaCommandDescriptor(
+                $"skills.{current.Id}".ToLowerInvariant(),
+                $"Activar {current.Name}",
+                current.Purpose,
+                KohanaCommandCategory.System,
+                _ =>
+                {
+                    ApplySkillPack(current);
+                    return Task.FromResult(CommandExecutionResult.Success());
+                },
+                keywords: ["pack", "modo", "skills", current.Name.ToLowerInvariant()]);
+        }
+
+        yield return new KohanaCommandDescriptor(
+            "skills.off",
+            "Desactivar el pack activo",
+            "Devuelve los ajustes a como estaban antes de activarlo.",
+            KohanaCommandCategory.System,
+            _ => Task.FromResult(RevertSkillPack()),
+            keywords: ["pack", "desactivar", "quitar", "skills"],
+            availability: () => _skillPackCoordinator.ActivePackId is not null
+                ? KohanaCommandAvailability.Available
+                : KohanaCommandAvailability.Unavailable("No hay ningún pack activo."));
+    }
+
+    private void ApplySkillPack(SkillPack pack)
+    {
+        var plan = _skillPackCoordinator.Preview(pack, _preferences);
+
+        var message = new StringBuilder();
+        message.AppendLine(pack.Purpose);
+
+        if (plan.Changes.Count == 0)
+        {
+            message.AppendLine().Append("Ya está todo como lo dejaría este pack.");
+        }
+        else
+        {
+            message.AppendLine();
+            message.AppendLine("Cambiaría estos ajustes:");
+            foreach (var change in plan.Changes)
+            {
+                message.Append("· ").Append(change.Title)
+                    .Append(" (ahora: ").Append(change.Current).AppendLine(")");
+            }
+        }
+
+        // Lo que el pack NO puede hacer se enseña con el mismo peso que lo que sí: enseñar solo lo
+        // que gana la persona sería vender el pack, no explicarlo.
+        if (plan.UnmetRequirements.Count > 0)
+        {
+            message.AppendLine();
+            message.AppendLine("Esto le haría falta y NO lo activo yo, lo decides tú:");
+            foreach (var requirement in plan.UnmetRequirements)
+            {
+                message.Append("· ").Append(requirement.Title).Append(" — ")
+                    .Append(requirement.WhyItMatters).Append(' ')
+                    .AppendLine(requirement.HowToEnable);
+            }
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        NavigateTo("Assistant", animate: true);
+
+        if (!plan.HasSomethingToDo)
+        {
+            return;
+        }
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"Voy a cambiar {plan.Changes.Count} ajustes para dejar {pack.Name} listo." +
+                Environment.NewLine + Environment.NewLine +
+                "No activo ningún permiso: la memoria, Vision y la carpeta de proyecto siguen como " +
+                "las tengas." + Environment.NewLine + Environment.NewLine +
+                "Puedes desactivarlo cuando quieras y todo vuelve a como estaba. ¿Lo activo?",
+            $"Activar {pack.Name}",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var result = _skillPackCoordinator.Apply(pack, _preferences);
+        AfterSkillPackChange(result, result.Success ? "Pack activado" : "No activé el pack");
+    }
+
+    private CommandExecutionResult RevertSkillPack()
+    {
+        var result = _skillPackCoordinator.Revert(_preferences);
+        AfterSkillPackChange(result, result.Success ? "Pack desactivado" : "No había pack activo");
+
+        return result.Success
+            ? CommandExecutionResult.Success(result.Detail)
+            : CommandExecutionResult.Failure(result.Detail);
+    }
+
+    /// <summary>
+    /// Diseño D15 — un pack toca preferencias que ya tienen efectos vivos (el atajo de dictado, el
+    /// plan de motores, los módulos visibles). Se reaplican todas en vez de una lista a mano: una
+    /// lista se queda corta en cuanto un pack cambia un ajuste nuevo.
+    /// </summary>
+    private void RefreshSkillPackPanel() =>
+        _settingsView.ApplySkillPacks(_skillPackCoordinator.ActivePackId, _preferences);
+
+    private void AfterSkillPackChange(SkillPackResult result, string title)
+    {
+        SavePreferences();
+        ApplyPreferences();
+        _settingsView.ApplyPreferences(_preferences);
+        ApplyFlowHotkeyRegistration();
+        RefreshAdaptiveEnginePlan();
+        RefreshAuditPanel();
+        RefreshSkillPackPanel();
+
+        _assistantView.AddKohanaMessage(result.Detail);
+        ShowFlowNotice(result.Success ? CapsuleKind.Success : CapsuleKind.Warning, title, result.Detail);
+    }
+
+    // ---------- Diseño D14 (Fase 5, nivel 4 — "Ejecutar un paso") ----------
+
+    private void RequestWorkspaceEdit()
+    {
+        _awaitingWorkspaceEditInstruction = true;
+        _assistantView.AddKohanaMessage(
+            "¿Qué quieres que cambie? Dímelo y te enseño el cambio antes de tocar nada.");
+        NavigateTo("Assistant", animate: true);
+    }
+
+    /// <summary>
+    /// Diseño D14 — la instrucción va a la IA con el proyecto como contexto y con el formato de
+    /// cambio exigido. La respuesta se parsea; si no cumple el formato exacto se enseña como texto y
+    /// no se escribe nada. Adivinar lo que el modelo quiso decir es como se acaba escribiendo en el
+    /// archivo equivocado.
+    /// </summary>
+    private async Task<bool> TryHandleWorkspaceEditInstructionAsync(string prompt, bool fromVoice)
+    {
+        if (!_awaitingWorkspaceEditInstruction)
+        {
+            return false;
+        }
+
+        _awaitingWorkspaceEditInstruction = false;
+
+        var workspace = _preferences.Workspace;
+        if (IsVoiceCancellation(SpanishVoiceTranscriptNormalizer.Normalize(prompt)))
+        {
+            _assistantView.AddKohanaMessage("De acuerdo, no cambio nada.");
+            return true;
+        }
+
+        // Se vuelve a comprobar aquí: el permiso pudo revocarse o bajarse de nivel entre el comando
+        // y la respuesta, y eso tiene que surtir efecto en el acto.
+        if (!workspace.HasAuthorizedFolder ||
+            !WorkspaceAutonomyPolicy.CanWrite(workspace.AutonomyLevel))
+        {
+            _assistantView.AddKohanaMessage(
+                "Ya no tengo permiso para modificar ese proyecto, así que no cambié nada.");
+            return true;
+        }
+
+        var files = _workspaceReader.ListFiles(workspace.AuthorizedPath, maximumFiles: 500);
+        var structure = WorkspaceContextBuilder.BuildStructure(
+            workspace.AuthorizedPath, files, workspace.AutonomyLevel, editRequested: true);
+
+        // Corrección de un defecto real: antes de esto, el modelo nunca veía el contenido ACTUAL
+        // del archivo que se le pedía cambiar — solo su nombre en la lista. Como KOHANA-EDIT exige
+        // el archivo COMPLETO, sin el original solo podía inventarlo, y eso es justo lo que pasó al
+        // probarlo a mano: "agrega un comentario al README" sustituyó el archivo entero por una
+        // línea. Aquí se resuelve por NOMBRE (nunca por IA) a qué archivos existentes se refiere la
+        // instrucción, y se lee su contenido de verdad para incluirlo.
+        var resolvedTargets = WorkspaceEditTargetResolver.Resolve(prompt, files);
+        var knownContentPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var successfullyRead = new List<WorkspaceFile>();
+
+        if (resolvedTargets.Count > 0)
+        {
+            var reads = new List<WorkspaceReadResult>();
+
+            foreach (var target in resolvedTargets)
+            {
+                var read = _workspaceReader.ReadFile(workspace.AuthorizedPath, target.FullPath);
+                if (!read.Success)
+                {
+                    continue;
+                }
+
+                reads.Add(read);
+                successfullyRead.Add(target);
+
+                // Se guarda como RUTA RESUELTA, no como el texto que produjo Path.GetRelativePath.
+                // La plantilla que ve el modelo (WorkspaceEditParser.ModelInstructions) usa "/"
+                // como separador de ejemplo ("ruta/relativa/del/archivo"), y Path.GetRelativePath
+                // en Windows produce "\". Comparar las cadenas tal cual habría rechazado por error
+                // cualquier archivo dentro de una subcarpeta — que es la mayoría de un proyecto
+                // real — por un choque de formato, no por falta de contenido.
+                knownContentPaths.Add(WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, target.RelativePath));
+            }
+
+            var excerpts = WorkspaceContextBuilder.BuildFileExcerpts(reads);
+            if (!string.IsNullOrWhiteSpace(excerpts))
+            {
+                structure = string.IsNullOrWhiteSpace(structure)
+                    ? excerpts
+                    : structure + Environment.NewLine + excerpts;
+
+                structure += Environment.NewLine +
+                    WorkspaceContextBuilder.EditPreservationNotice(successfullyRead);
+            }
+        }
+
+        // La salvaguarda de verdad no es esta lista — es que OfferWorkspaceEdit se niegue a
+        // aplicar un cambio sobre un archivo existente cuyo contenido no viajó en este contexto.
+        // Esto solo decide qué archivos SÍ pudieron incluirse.
+        _pendingWorkspaceEditKnownContentPaths = knownContentPaths;
+
+        _pendingWorkspaceContext = string.IsNullOrWhiteSpace(structure)
+            ? WorkspaceEditParser.ModelInstructions
+            : structure + Environment.NewLine + WorkspaceEditParser.ModelInstructions;
+
+        _pendingWorkspaceEditRequested = true;
+        await SendPromptToAiAsync(prompt, fromVoice);
+        return true;
+    }
+
+    /// <summary>
+    /// Diseño D14 — vista previa y confirmación. La confirmación dice el archivo, si existe o se
+    /// crearía, y cuánto ocupa lo nuevo: aceptar un cambio sin saber sobre qué archivo cae es
+    /// aceptar a ciegas.
+    /// </summary>
+    /// <summary>
+    /// Diseño D24 — con el nivel 5, una respuesta puede traer varios cambios y se ejecutan como
+    /// secuencia: parada al primer fallo, confirmación en los puntos de riesgo y reversión de lo ya
+    /// aplicado. Por debajo del nivel 5 se sigue exigiendo exactamente uno.
+    /// </summary>
+    private void OfferWorkspaceEdit(string answer)
+    {
+        // Un solo turno: los archivos cuyo contenido viajó en ESTE contexto no valen para el
+        // siguiente. Se captura y se limpia aquí, antes de cualquier retorno anticipado.
+        var knownContentPaths = _pendingWorkspaceEditKnownContentPaths;
+        _pendingWorkspaceEditKnownContentPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (_preferences.Workspace.AutonomyLevel == AutonomyLevel.ColaborarConConfirmaciones)
+        {
+            var sequence = WorkspaceEditParser.ParseSequence(answer);
+            if (sequence.Count > 1)
+            {
+                RunWorkspaceEditSequence(sequence, knownContentPaths);
+                return;
+            }
+        }
+
+        var edit = WorkspaceEditParser.Parse(answer);
+        if (edit is null)
+        {
+            return;
+        }
+
+        var workspace = _preferences.Workspace;
+
+        // Diseño D16 — el broker decide primero si la capacidad puede actuar siquiera. Solo se mira
+        // la denegación: la confirmación de este camino es el diálogo de abajo, que dice qué archivo
+        // y por qué, y preguntar dos veces enseñaría a aceptar sin leer.
+        var permission = PermissionBroker.Decide(
+            new PermissionRequest(KohanaCapability.Proyecto, edit.Description),
+            _preferences.Permissions);
+
+        if (permission.IsDenied)
+        {
+            _assistantView.AddKohanaMessage(permission.Reason);
+            return;
+        }
+
+        var verdict = _workspaceEditCoordinator.CanApply(edit, workspace);
+        if (!verdict.IsAllowed)
+        {
+            _assistantView.AddKohanaMessage($"No puedo aplicar ese cambio: {verdict.Message}");
+            return;
+        }
+
+        // El modelo puede anteponer el nombre de la propia carpeta autorizada (ver
+        // WorkspacePathPolicy.NormalizeRelativePath). Se normaliza ANTES de decidir si el archivo
+        // existe: de esa decisión cuelgan tanto el texto de la confirmación como la salvaguarda de
+        // "no toco un archivo cuyo contenido no vi".
+        edit = edit with
+        {
+            RelativePath = WorkspacePathPolicy.NormalizeRelativePath(
+                workspace.AuthorizedPath, edit.RelativePath)
+        };
+
+        var fullPath = WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, edit.RelativePath);
+        var exists = File.Exists(fullPath);
+
+        // La salvaguarda de verdad contra el defecto real que esto corrige: un archivo que YA
+        // EXISTÍA y cuyo contenido no viajó en el contexto de este turno no se aplica, sin importar
+        // qué tan razonable parezca el cambio propuesto. Confiar en que el modelo conservó un
+        // archivo que nunca vio es exactamente la apuesta que perdió al probarlo a mano.
+        //
+        // La comparación es por ruta RESUELTA (Path.GetFullPath), no por el texto crudo que
+        // escribió el modelo: la plantilla del formato usa "/" de ejemplo y el modelo puede
+        // devolver cualquier estilo de separador, así que comparar cadenas literales habría
+        // rechazado por error archivos cuyo contenido sí se había leído.
+        if (exists && !knownContentPaths.Contains(WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, edit.RelativePath)))
+        {
+            _assistantView.AddKohanaMessage(
+                $"No apliqué el cambio a «{edit.RelativePath}»: no tenía el contenido actual de " +
+                "ese archivo en esta consulta, así que no puedo garantizar que lo conservara. " +
+                "Pídemelo otra vez nombrando el archivo tal cual (por ejemplo «modifica " +
+                $"{edit.RelativePath}») para que lo lea antes de proponer el cambio.");
+            return;
+        }
+
+        // Lo que de verdad hay que poder ver antes de decir que sí no es el tamaño, sino qué se
+        // pierde: el modelo puede leer el archivo entero y aun así devolverlo sin una línea.
+        var removalWarning = DescribeWorkspaceEditRemovals(exists ? fullPath : null, edit.NewContent);
+
+        var confirmation = MessageBox.Show(
+            this,
+            $"{(exists ? "Voy a REEMPLAZAR" : "Voy a CREAR")} este archivo:{Environment.NewLine}" +
+                $"{edit.RelativePath}{Environment.NewLine}{Environment.NewLine}" +
+                $"Motivo: {edit.Description}{Environment.NewLine}" +
+                $"Tamaño del contenido nuevo: {edit.NewContent.Length} caracteres." +
+                (removalWarning is null
+                    ? string.Empty
+                    : Environment.NewLine + Environment.NewLine + removalWarning) +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                "Guardaré una copia previa para que puedas deshacerlo. ¿Lo aplico?",
+            "Aplicar un cambio en el proyecto",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            _assistantView.AddKohanaMessage("No apliqué el cambio.");
+            return;
+        }
+
+        var result = _workspaceEditCoordinator.Apply(edit, workspace);
+
+        _assistantView.AddKohanaMessage(result.Detail);
+        ShowFlowNotice(
+            result.Success ? CapsuleKind.Success : CapsuleKind.Warning,
+            result.Success ? "Cambio aplicado" : "No apliqué el cambio",
+            result.Detail);
+
+        RefreshAuditPanel();
+    }
+
+    /// <summary>
+    /// Diseño D24 — arma la secuencia y la ejecuta. **Todo cambio de archivo es punto de riesgo**:
+    /// tocar el trabajo de alguien lo es por definición, y marcar unos sí y otros no exigiría un
+    /// criterio que Kohana no tiene. Que el nivel 5 pregunte en cada archivo no lo vuelve inútil —
+    /// sigue ahorrando redactar y encadenar los cambios uno a uno.
+    /// </summary>
+    /// <summary>
+    /// Lee el archivo actual y describe qué líneas desaparecerían al aplicar el contenido propuesto.
+    /// Devuelve <c>null</c> si no hay archivo previo o si no se pierde nada. Si el archivo no se
+    /// puede leer, tampoco se inventa un aviso: se avisa de que no se pudo comprobar, porque callar
+    /// aquí se interpretaría como "no se pierde nada".
+    /// </summary>
+    private static string? DescribeWorkspaceEditRemovals(string? currentFullPath, string newContent)
+    {
+        if (string.IsNullOrEmpty(currentFullPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var current = File.ReadAllText(currentFullPath);
+            return WorkspaceEditImpactAnalyzer.DescribeRemovals(
+                WorkspaceEditImpactAnalyzer.Compare(current, newContent));
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return "No pude leer el archivo actual para comprobar qué se pierde con este cambio.";
+        }
+    }
+
+    private void RunWorkspaceEditSequence(
+        IReadOnlyList<WorkspaceEdit> edits,
+        HashSet<string> knownContentPaths)
+    {
+        var workspace = _preferences.Workspace;
+        var checkpoints = new List<Guid>();
+
+        // Misma normalización que en el cambio suelto, y por el mismo motivo: si el prefijo sobrante
+        // llega hasta aquí, File.Exists da false y la salvaguarda de abajo se salta sola.
+        edits = [.. edits.Select(edit => edit with
+        {
+            RelativePath = WorkspacePathPolicy.NormalizeRelativePath(
+                workspace.AuthorizedPath, edit.RelativePath)
+        })];
+
+        var steps = edits.Select(edit => new SequenceStep(
+            edit.RelativePath,
+            $"{edit.RelativePath} — {edit.Description}",
+            IsRiskPoint: true,
+            CanRevert: true,
+            Execute: () =>
+            {
+                // Misma salvaguarda que en el cambio suelto: un archivo existente cuyo contenido no
+                // viajó en el contexto de este turno no se toca, ni siquiera dentro de una secuencia
+                // ya confirmada. Que falle AQUÍ hace que el coordinador de secuencias lo trate como
+                // cualquier otro paso fallido: se detiene y se ofrece deshacer lo anterior.
+                var fullPath = WorkspacePathPolicy.ResolveFullPath(
+                    workspace.AuthorizedPath, edit.RelativePath);
+                if (File.Exists(fullPath) &&
+                    !knownContentPaths.Contains(WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, edit.RelativePath)))
+                {
+                    return SequenceStepResult.Failed(
+                        "No tenía el contenido actual de ese archivo en esta consulta, así que no " +
+                        "puedo garantizar que lo conservara.");
+                }
+
+                var result = _workspaceEditCoordinator.Apply(edit, workspace);
+                if (result.Success)
+                {
+                    checkpoints.Add(result.CheckpointId);
+                }
+
+                return result.Success
+                    ? SequenceStepResult.Ok(result.Detail)
+                    : SequenceStepResult.Failed(result.Detail);
+            },
+            Revert: () =>
+            {
+                var last = checkpoints.LastOrDefault();
+                if (last == Guid.Empty)
+                {
+                    return SequenceStepResult.Failed("No tengo copia previa de ese paso.");
+                }
+
+                checkpoints.Remove(last);
+                var reverted = _workspaceEditCoordinator.Revert(last, workspace);
+
+                return reverted.Success
+                    ? SequenceStepResult.Ok(reverted.Detail)
+                    : SequenceStepResult.Failed(reverted.Detail);
+            })).ToArray();
+
+        var plan = new SequencePlan($"{edits.Count} cambios en el proyecto", steps);
+
+        var start = MessageBox.Show(
+            this,
+            $"Kohana propone {edits.Count} cambios:" + Environment.NewLine +
+                string.Join(Environment.NewLine, edits.Select(edit => $"· {edit.RelativePath}")) +
+                Environment.NewLine + Environment.NewLine + plan.ReversalWarning +
+                Environment.NewLine + Environment.NewLine +
+                "Te preguntaré antes de cada archivo. ¿Empiezo?",
+            "Aplicar varios cambios",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (start != MessageBoxResult.Yes)
+        {
+            _assistantView.AddKohanaMessage("No apliqué ningún cambio.");
+            return;
+        }
+
+        var report = _sequenceCoordinator.Run(
+            plan,
+            workspace.AutonomyLevel,
+            confirmRiskPoint: step =>
+            {
+                // Cada paso enseña lo que se pierde, igual que el cambio suelto. Aquí importa más:
+                // en una secuencia se confirma varias veces seguidas y es donde más fácil es decir
+                // que sí por inercia.
+                var stepEdit = edits.FirstOrDefault(item => item.RelativePath == step.Id);
+                var stepPath = stepEdit is null
+                    ? null
+                    : WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, stepEdit.RelativePath);
+                var stepWarning = stepEdit is not null && File.Exists(stepPath!)
+                    ? DescribeWorkspaceEditRemovals(stepPath, stepEdit.NewContent)
+                    : null;
+
+                return MessageBox.Show(
+                    this,
+                    step.Title +
+                        (stepWarning is null
+                            ? string.Empty
+                            : Environment.NewLine + Environment.NewLine + stepWarning) +
+                        $"{Environment.NewLine}{Environment.NewLine}¿Aplico este?",
+                    "Siguiente cambio",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question) == MessageBoxResult.Yes;
+            },
+            confirmRollback: applied => MessageBox.Show(
+                this,
+                $"Algo falló y hay {applied.Count} cambios ya aplicados." + Environment.NewLine +
+                    Environment.NewLine + "¿Los deshago y lo dejo como estaba?",
+                "Deshacer lo aplicado",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) == MessageBoxResult.Yes);
+
+        var message = new StringBuilder();
+        message.AppendLine(report.Detail);
+        foreach (var line in report.Log)
+        {
+            message.Append("· ").AppendLine(line);
+        }
+
+        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        RefreshAuditPanel();
+
+        ShowFlowNotice(
+            report.Outcome == SequenceOutcome.Completada ? CapsuleKind.Success : CapsuleKind.Warning,
+            report.Outcome == SequenceOutcome.Completada ? "Cambios aplicados" : "Secuencia detenida",
+            report.Detail);
+    }
+
+    private CommandExecutionResult UndoLastWorkspaceEdit()
+    {
+        var result = _workspaceEditCoordinator.RevertLast(_preferences.Workspace);
+
+        _assistantView.AddKohanaMessage(result.Detail);
+        RefreshAuditPanel();
+
+        if (!result.Success)
+        {
+            return CommandExecutionResult.Failure(result.Detail);
+        }
+
+        ShowFlowNotice(CapsuleKind.Success, "Cambio deshecho", result.Detail);
+        return CommandExecutionResult.Success(result.Detail);
+    }
+
+    /// <summary>
+    /// Diseño D41 — el recuento de archivos se hace fuera del hilo de interfaz.
+    ///
+    /// Antes se listaba aquí mismo, y recorrer una carpeta grande deja la ventana congelada hasta
+    /// que termina: Windows llega a ofrecer cerrar el programa. Pasó de verdad. El recorrido ya está
+    /// acotado en el lector, pero incluso acotado es trabajo de disco, y el disco no tiene por qué
+    /// responder rápido.
+    /// </summary>
+    private async void ShowWorkspaceStatus()
+    {
+        var workspace = _preferences.Workspace;
+
+        if (!workspace.HasAuthorizedFolder)
+        {
+            _assistantView.AddKohanaMessage(
+                "No tengo ninguna carpeta de proyecto autorizada. Puedes autorizar una desde la " +
+                "paleta de comandos, y quitármela igual de rápido.");
+            NavigateTo("Assistant", animate: true);
+            return;
+        }
+
+        var message = new StringBuilder();
+        message.AppendLine($"Carpeta autorizada: {workspace.AuthorizedPath}");
+        message.AppendLine(
+            $"Autorizada el {workspace.AuthorizedAt?.ToString("dd/MM/yyyy HH:mm") ?? "—"}.");
+        message.AppendLine(WorkspaceAutonomyPolicy.Describe(workspace.AutonomyLevel));
+        message.AppendLine(
+            "Solo lectura. No leo .env, claves privadas ni carpetas de dependencias, y oculto " +
+            "los valores que parecen secretos antes de enviar nada.");
+        message.Append("Contando archivos legibles…");
+
+        _assistantView.AddKohanaMessage(message.ToString());
+        NavigateTo("Assistant", animate: true);
+
+        var authorizedPath = workspace.AuthorizedPath;
+        var count = await Task.Run(
+            () => _workspaceReader.ListFiles(authorizedPath, maximumFiles: 500).Count);
+
+        if (_isClosed)
+        {
+            return;
+        }
+
+        _assistantView.AddKohanaMessage($"Archivos legibles ahora mismo: {count}.");
+    }
+
+    private CommandExecutionResult RevokeWorkspace()
+    {
+        if (!_preferences.Workspace.HasAuthorizedFolder)
+        {
+            return CommandExecutionResult.Failure("No hay ninguna carpeta autorizada.");
+        }
+
+        var revoked = _preferences.Workspace.AuthorizedPath;
+        _preferences.Workspace.Revoke();
+        _preferences.Workspace.Normalize();
+        SavePreferences();
+
+        RecordAudit(
+            AuditCapability.Permisos,
+            "Acceso al proyecto revocado",
+            revoked,
+            "Revocación explícita del usuario");
+
+        ShowFlowNotice(
+            CapsuleKind.Success,
+            "Acceso revocado",
+            "Ya no puedo leer esa carpeta.");
+        _settingsView.ApplyWorkspaceSettings(_preferences.Workspace);
+        return CommandExecutionResult.Success("Ya no puedo leer esa carpeta.");
+    }
+
+    /// <summary>
+    /// Diseño D12 — explica el proyecto usando la estructura, no el código entero. Mandar un
+    /// proyecto completo a un proveedor remoto para que diga de qué va es desproporcionado; con el
+    /// árbol de archivos se explica casi igual de bien y sale del equipo una fracción de lo mismo.
+    /// </summary>
+    private async Task<CommandExecutionResult> ExplainWorkspaceAsync()
+    {
+        var workspace = _preferences.Workspace;
+        if (!workspace.HasAuthorizedFolder)
+        {
+            return CommandExecutionResult.Failure("Todavía no autorizaste ninguna carpeta de proyecto.");
+        }
+
+        var files = _workspaceReader.ListFiles(workspace.AuthorizedPath, maximumFiles: 500);
+        if (files.Count == 0)
+        {
+            return CommandExecutionResult.Failure(
+                "No encontré archivos legibles en esa carpeta. Puede que sea todo binarios o dependencias.");
+        }
+
+        _pendingWorkspaceContext = WorkspaceContextBuilder.BuildStructure(
+            workspace.AuthorizedPath, files, workspace.AutonomyLevel);
+
+        await ProcessPromptAsync(
+            "Explícame de qué trata este proyecto y por dónde empezaría a leerlo.",
+            fromVoice: false);
+
+        return CommandExecutionResult.Success();
     }
 
     private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
@@ -1463,9 +4289,32 @@ public partial class MainWindow : Window
         _ = InitializeVoiceFeaturesAsync();
     }
 
+    private void OnSystemUserPreferenceChanged(
+        object sender,
+        Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (_isClosed || _preferences.AccentSource == AccentSource.Manual)
+        {
+            return;
+        }
+
+        // Desktop es la categoría con la que Windows avisa de un cambio de fondo de escritorio;
+        // Color, la del acento del sistema. General llega con cambios de tema completos, que
+        // pueden mover cualquiera de los dos.
+        var relevant = e.Category is Microsoft.Win32.UserPreferenceCategory.Color
+            or Microsoft.Win32.UserPreferenceCategory.Desktop
+            or Microsoft.Win32.UserPreferenceCategory.General;
+
+        if (relevant)
+        {
+            Dispatcher.BeginInvoke(ApplyEffectiveAccent);
+        }
+    }
+
     private void Window_Closed(object? sender, EventArgs e)
     {
         _isClosed = true;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnSystemUserPreferenceChanged;
         _clockTimer.Stop();
         _metricsTimer.Stop();
         _taskReminderTimer.Stop();
@@ -1473,6 +4322,10 @@ public partial class MainWindow : Window
         _visualContextExpiryTimer.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
+        _answerPillWindow.HideImmediately();
+        _quickControlsWindow.HideImmediately();
+        _dashboardWindow.PrepareForShutdown();
+        _dashboardWindow.HideImmediately();
         _sakuraPillWindow.Hide();
 
         if (_preferences.SaveConversationHistory)
@@ -1490,6 +4343,14 @@ public partial class MainWindow : Window
         _ambientHistoryWindow?.Close();
         _lensHighlightOverlay.Close();
         _ambientForegroundTracker.Dispose();
+        _edgeRevealWatcher.RevealRequested -= HandleEdgeRevealRequested;
+        _edgeRevealWatcher.Dispose();
+        _topRevealWatcher.RevealRequested -= HandleTopRevealRequested;
+        _topRevealWatcher.Dispose();
+        _dashboardWindow.Close();
+        _quickControlsWatcher.RevealRequested -= HandleQuickControlsRequested;
+        _quickControlsWatcher.Dispose();
+        _brightnessService.Dispose();
         _commandPaletteWindow.Close();
         // MainWindow desuscribe los eventos de wake word (a través del coordinador) y cancela
         // el token de vida, pero NO libera los tres motores de voz: su propiedad y Dispose
@@ -1514,6 +4375,7 @@ public partial class MainWindow : Window
             UnregisterHotKey(windowHandle, CommandPaletteHotkeyId);
             UnregisterHotKey(windowHandle, LookHotkeyId);
             UnregisterHotKey(windowHandle, FlowHotkeyId);
+            UnregisterHotKey(windowHandle, EscapeHotkeyId);
         }
 
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -1561,6 +4423,21 @@ public partial class MainWindow : Window
         {
             RememberForegroundWindow();
             _ = LookAtForegroundWindowAsync();
+            handled = true;
+        }
+        else if (wParam.ToInt32() == EscapeHotkeyId)
+        {
+            // El rail desplegado se recoge primero, igual que con Escape desde dentro: son dos
+            // niveles y saltarse uno cierra más de lo que la persona pidió.
+            if (_sideRailExpanded)
+            {
+                SetSideRailExpanded(expanded: false, animate: true);
+            }
+            else
+            {
+                HideAnimated();
+            }
+
             handled = true;
         }
         else if (wParam.ToInt32() == FlowHotkeyId)
@@ -1724,21 +4601,30 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Si el shell está de verdad a la vista, no solo mostrado con opacidad cero.</summary>
+    private bool IsShellOnScreen => IsVisible && Opacity > 0.1 && !_isHiding;
+
     private void ToggleWindow()
     {
-        if (IsVisible && Opacity > 0.1 && !_isHiding)
+        if (IsShellOnScreen)
         {
             HideAnimated();
             return;
         }
 
         RememberForegroundWindow();
+
+        // Pedido a propósito —atajo o bandeja—, así que se queda hasta que se cierre a propósito.
+        _openedByHover = false;
         ShowAnimated();
     }
 
     private void ShowAnimated()
     {
         _isHiding = false;
+        _touchedSinceReveal = false;
+        _pointerOutsideSince = null;
+        _unattendedWatch.IsEnabled = _openedByHover;
         PositionWindow();
         SetMetricsCadence(isShellVisible: true);
         _ = RefreshMetricsAsync();
@@ -1750,34 +4636,67 @@ public partial class MainWindow : Window
 
         Activate();
         Topmost = true;
+        AcquireEscapeHotkey();
 
         ShellBorder.BeginAnimation(OpacityProperty, null);
         ShellTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+        ShellScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        ShellScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
 
-        if (!_preferences.AnimationsEnabled)
+        if (!ShellAnimationsAllowed)
         {
             ShellTranslate.X = 0;
+            ShellScale.ScaleX = 1;
+            ShellScale.ScaleY = 1;
             ShellBorder.Opacity = 1;
             FocusCurrentView();
             return;
         }
 
-        var offset = _preferences.Position == SidebarPosition.Right ? 34 : -34;
+        // El shell entra desde el borde de la pantalla al que está acoplado y crece un punto al
+        // llegar. El desplazamiento es más largo que antes (48 en vez de 34) porque ahora lo empuja
+        // una curva que cubre casi todo el recorrido pronto: con el desplazamiento corto el gesto
+        // se perdía antes de poder leerse.
+        var offset = _preferences.Position == SidebarPosition.Right ? 48d : -48d;
         ShellTranslate.X = offset;
+        ShellScale.ScaleX = 0.985;
+        ShellScale.ScaleY = 0.985;
         ShellBorder.Opacity = 0;
 
-        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var duration = TimeSpan.FromMilliseconds(170);
+        ShellBorder.Animate(OpacityProperty, 1, KohanaMotion.Reveal, KohanaMotion.DecelerateCurve);
+        ShellTranslate.AnimateTransform(
+            TranslateTransform.XProperty, 0, KohanaMotion.Emphasized, KohanaMotion.EmphasizedCurve);
+        ShellScale.AnimateTransform(
+            ScaleTransform.ScaleXProperty, 1, KohanaMotion.Emphasized, KohanaMotion.SubtleSpringCurve);
+        ShellScale.AnimateTransform(
+            ScaleTransform.ScaleYProperty, 1, KohanaMotion.Emphasized, KohanaMotion.SubtleSpringCurve);
 
-        ShellTranslate.BeginAnimation(
-            TranslateTransform.XProperty,
-            new DoubleAnimation(0, duration) { EasingFunction = easing });
-
-        ShellBorder.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation(1, duration) { EasingFunction = easing });
-
+        StaggerNavigationEntrance();
         FocusCurrentView();
+    }
+
+    /// <summary>
+    /// Diseño D26 — los elementos del rail entran uno detrás de otro en vez de todos a la vez.
+    /// El retardo es corto y tiene tope (ver <see cref="KohanaMotion.MaximumStagger"/>): lo que se
+    /// busca es que el ojo recorra la lista, no que el último botón se haga esperar.
+    /// </summary>
+    private void StaggerNavigationEntrance()
+    {
+        if (!ShellAnimationsAllowed)
+        {
+            return;
+        }
+
+        var fromOffset = RailIsOnLeft ? -14d : 14d;
+        var index = 0;
+
+        foreach (var button in NavigationGrid.Children.OfType<Button>())
+        {
+            var transform = new TranslateTransform();
+            button.RenderTransform = transform;
+            button.EnterFrom(transform, fromOffset, beginTime: KohanaMotion.StaggerAt(index));
+            index++;
+        }
     }
 
     private void HideAnimated()
@@ -1787,17 +4706,30 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!_preferences.AnimationsEnabled)
+        _unattendedWatch.Stop();
+        _openedByHover = false;
+        _pointerOutsideSince = null;
+        ReleaseEscapeHotkey();
+
+        if (!ShellAnimationsAllowed)
         {
+            _edgeRevealWatcher.SuppressBriefly();
             Hide();
             SetMetricsCadence(isShellVisible: false);
             return;
         }
 
         _isHiding = true;
-        var offset = _preferences.Position == SidebarPosition.Right ? 34 : -34;
-        var easing = new CubicEase { EasingMode = EasingMode.EaseIn };
-        var duration = TimeSpan.FromMilliseconds(140);
+
+        // Al ocultarse, el ratón suele seguir justo donde estaba. Sin esta pausa, cerrar Kohana con
+        // el cursor cerca del borde la volvería a abrir de inmediato.
+        _edgeRevealWatcher.SuppressBriefly();
+
+        // La salida es más corta que la entrada y usa la curva que acelera: lo que se retira no
+        // pide atención, y hacerlo esperar solo retrasa lo que la persona quería hacer a continuación.
+        var offset = _preferences.Position == SidebarPosition.Right ? 48d : -48d;
+        var duration = KohanaMotion.Exit;
+        var easing = KohanaMotion.AccelerateCurve;
 
         var slideAnimation = new DoubleAnimation(offset, duration)
         {
@@ -1830,6 +4762,111 @@ public partial class MainWindow : Window
             : workArea.Left + 12;
     }
 
+    /// <summary>
+    /// Diseño D26 — el rail de navegación vive siempre en el lado interior del shell, el que mira
+    /// al centro de la pantalla. Con Kohana acoplada a la derecha eso es el lado izquierdo, que es
+    /// como ha estado siempre; acoplada a la izquierda, el rail pasa a la derecha.
+    ///
+    /// Antes el rail estaba clavado en la columna 0 pasara lo que pasara, así que al mover Kohana
+    /// al borde izquierdo el menú se quedaba donde estaba: pegado al borde de la pantalla, con el
+    /// contenido empujado hacia dentro y el gesto de "abrir el menú" apuntando al lado equivocado.
+    /// </summary>
+    private bool RailIsOnLeft => _preferences.Position == SidebarPosition.Right;
+
+    private void ApplyShellSide()
+    {
+        var railOnLeft = RailIsOnLeft;
+        var flexible = new GridLength(1, GridUnitType.Star);
+
+        Grid.SetColumn(SideRailBorder, railOnLeft ? 0 : 1);
+        Grid.SetColumn(ShellContentGrid, railOnLeft ? 1 : 0);
+
+        ShellFirstColumn.Width = railOnLeft ? GridLength.Auto : flexible;
+        ShellSecondColumn.Width = railOnLeft ? flexible : GridLength.Auto;
+
+        // El rail se ancla al borde por el que crece. Sin esto, al expandirse aparecería el ancho
+        // nuevo por el lado contrario y los iconos darían un salto lateral en mitad de la animación.
+        var railEdge = railOnLeft ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        SideRailBorder.HorizontalAlignment = railEdge;
+        SideRailContentGrid.HorizontalAlignment = railEdge;
+
+        ShellContentGrid.Margin = railOnLeft
+            ? new Thickness(13, 2, 2, 2)
+            : new Thickness(2, 2, 13, 2);
+
+        ApplyToggleButtonSide(railOnLeft);
+        ApplyNavigationItemsSide(railOnLeft);
+        ApplySideRailButtonLayout(_sideRailExpanded);
+    }
+
+    private void ApplyToggleButtonSide(bool railOnLeft)
+    {
+        SideRailToggleIconColumn.Width = railOnLeft ? new GridLength(46) : new GridLength(1, GridUnitType.Star);
+        SideRailToggleTextColumn.Width = railOnLeft ? new GridLength(1, GridUnitType.Star) : new GridLength(46);
+
+        Grid.SetColumn(SideRailToggleIcon, railOnLeft ? 0 : 1);
+        SideRailToggleIcon.HorizontalAlignment = railOnLeft
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Right;
+
+        Grid.SetColumn(SideRailBrandText, railOnLeft ? 1 : 0);
+        SideRailBrandText.Margin = railOnLeft
+            ? new Thickness(10, 0, 0, 0)
+            : new Thickness(0, 0, 10, 0);
+        SideRailBrandText.HorizontalAlignment = railOnLeft
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Right;
+
+        foreach (var child in SideRailBrandText.Children.OfType<TextBlock>())
+        {
+            child.TextAlignment = railOnLeft ? TextAlignment.Left : TextAlignment.Right;
+        }
+    }
+
+    /// <summary>
+    /// Cada botón de navegación es una rejilla de tres columnas: [indicador 4][icono 42][etiqueta *].
+    /// Espejarla mueve el indicador y la etiqueta a los extremos contrarios y deja el icono en su
+    /// sitio, que es la columna del medio. Se fijan valores absolutos en vez de alternarlos, para
+    /// que llamar a esto dos veces seguidas no deshaga el resultado.
+    /// </summary>
+    private void ApplyNavigationItemsSide(bool railOnLeft)
+    {
+        var indicatorWidth = new GridLength(4);
+        var flexible = new GridLength(1, GridUnitType.Star);
+
+        foreach (var (indicator, label) in NavigationRowParts())
+        {
+            if (indicator.Parent is not Grid row || row.ColumnDefinitions.Count != 3)
+            {
+                continue;
+            }
+
+            row.ColumnDefinitions[0].Width = railOnLeft ? indicatorWidth : flexible;
+            row.ColumnDefinitions[2].Width = railOnLeft ? flexible : indicatorWidth;
+
+            Grid.SetColumn(indicator, railOnLeft ? 0 : 2);
+            Grid.SetColumn(label, railOnLeft ? 2 : 0);
+
+            label.Margin = railOnLeft
+                ? new Thickness(10, 0, 0, 0)
+                : new Thickness(0, 0, 10, 0);
+            label.TextAlignment = railOnLeft ? TextAlignment.Left : TextAlignment.Right;
+        }
+    }
+
+    private IEnumerable<(Border Indicator, TextBlock Label)> NavigationRowParts()
+    {
+        yield return (HomeNavIndicator, HomeNavLabel);
+        yield return (AssistantNavIndicator, AssistantNavLabel);
+        yield return (TasksNavIndicator, TasksNavLabel);
+        yield return (FocusNavIndicator, FocusNavLabel);
+        yield return (RoutinesNavIndicator, RoutinesNavLabel);
+        yield return (AudioNavIndicator, AudioNavLabel);
+        yield return (CaptureNavIndicator, CaptureNavLabel);
+        yield return (SystemNavIndicator, SystemNavLabel);
+        yield return (SettingsNavIndicator, SettingsNavLabel);
+    }
+
     private void UpdateClock()
     {
         var now = DateTime.Now;
@@ -1841,6 +4878,177 @@ public partial class MainWindow : Window
             RefreshHomeView();
         }
     }
+
+    /// <summary>
+    /// Diseño D58 — una imagen pegada entra por la misma puerta que una captura.
+    ///
+    /// No se inventa un segundo camino para adjuntar imágenes: es el mismo adjunto pendiente, la
+    /// misma vista previa y el mismo envío. Lo único distinto es de dónde vino, y eso solo cambia
+    /// el nombre que se enseña.
+    /// </summary>
+    private void AssistantView_ImagePasted(object? sender, PastedImageEventArgs e)
+    {
+        // Un proveedor que no ve imágenes se lo dice ahora, no después de escribir la pregunta.
+        // Aceptar el adjunto en silencio y descartarlo al enviar es la peor de las dos.
+        if (_preferences.AiProvider == AiProviderKind.Disabled)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "La IA está desactivada",
+                "Actívala en Personalizar para poder mandarle imágenes.",
+                _preferences.Position);
+            return;
+        }
+
+        _visualContextPersistent = false;
+        _silentVisualContext = false;
+        _visualContextMetadata = null;
+        _pendingVisionAttachment = AiImageAttachment.FromBytes(
+            e.PngBytes,
+            "image/png",
+            e.Title);
+
+        _assistantView.SetVisionAttachment(e.Title, e.PngBytes);
+    }
+
+    /// <summary>
+    /// Apunta el modelo en uso bajo el proveedor actual. Un modelo en blanco se borra en vez de
+    /// guardarse: recordar «nada» impediría que el preset volviera a proponer su valor de fábrica.
+    /// </summary>
+    private void RememberModelForCurrentProvider()
+    {
+        if (_preferences.AiProvider == AiProviderKind.Disabled)
+        {
+            return;
+        }
+
+        _preferences.AiModelsByProvider ??= [];
+        var key = _preferences.AiProvider.ToString();
+        var model = (_preferences.AiModel ?? string.Empty).Trim();
+
+        if (model.Length == 0)
+        {
+            _preferences.AiModelsByProvider.Remove(key);
+        }
+        else
+        {
+            _preferences.AiModelsByProvider[key] = model;
+        }
+    }
+
+    private string RecallModelFor(AiProviderKind provider, string presetDefault)
+    {
+        if (_preferences.AiModelsByProvider is { } remembered &&
+            remembered.TryGetValue(provider.ToString(), out var model) &&
+            !string.IsNullOrWhiteSpace(model))
+        {
+            return model.Trim();
+        }
+
+        return presetDefault;
+    }
+
+    /// <summary>
+    /// Diseño D58 — elegir la imagen del hueco libre del Panel.
+    ///
+    /// Se abre en Imágenes, que es donde está lo que la gente pondría aquí, en vez de en la última
+    /// carpeta que tocara Kohana. Y si ya hay una elegida, se ofrece quitarla: sin esa salida, poner
+    /// una imagen sería una decisión sin vuelta atrás salvo editando un archivo de ajustes.
+    /// </summary>
+    private void PickPanelImage()
+    {
+        if (!string.IsNullOrWhiteSpace(_preferences.PanelImagePath))
+        {
+            var choice = MessageBox.Show(
+                this,
+                "¿Quieres quitar la imagen del panel? Elige «No» para cambiarla por otra.",
+                "Imagen del panel",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+
+            if (choice == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+
+            if (choice == MessageBoxResult.Yes)
+            {
+                _preferences.PanelImagePath = string.Empty;
+                _dashboardWindow.View.SetPanelImage(null);
+                SavePreferences();
+                return;
+            }
+        }
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Elige una imagen para el panel",
+            Filter = "Imágenes|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp|Todos los archivos|*.*",
+            CheckFileExists = true,
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        _preferences.PanelImagePath = dialog.FileName;
+        _dashboardWindow.View.SetPanelImage(dialog.FileName);
+        SavePreferences();
+    }
+
+    /// <summary>
+    /// Diseño D59 — deja una respuesta en el escritorio como documento de Word.
+    ///
+    /// El título sale del primer apartado y no se pregunta. Un cuadro pidiendo nombre convierte
+    /// «guárdame esto» en un formulario, y el nombre correcto casi siempre está ya escrito en la
+    /// propia respuesta; si no acierta, cambiarlo es renombrar un archivo que ya está delante.
+    ///
+    /// Los apartados son los mismos con los que se dibuja la respuesta en el chat. Una respuesta sin
+    /// estructura se guarda como un único bloque en vez de rechazarse: que no tenga apartados no la
+    /// hace menos digna de conservarse.
+    /// </summary>
+    private void AssistantView_DocumentSaveRequested(object? sender, DocumentSaveEventArgs e)
+    {
+        var sections = AnswerSections.Parse(e.Answer);
+        if (sections.Count == 0)
+        {
+            sections = [new AnswerSection(string.Empty, e.Answer.Trim())];
+        }
+
+        var title = sections.FirstOrDefault(section => section.Title.Length > 0)?.Title;
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = "Respuesta de Kohana";
+        }
+
+        var target = DocumentDestination.Resolve(DocumentFolder.Desktop, title, ".docx");
+        var result = _documentDropService.Save(target, WordDocumentBuilder.Build(title, sections));
+
+        if (!result.Saved)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "No pude guardar el documento",
+                result.Message,
+                _preferences.Position);
+            return;
+        }
+
+        // Se enseña el nombre del archivo y el sitio en palabras, no la ruta: quien lo pidió dijo
+        // «el escritorio» y ahí es donde tiene que ir a mirar.
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            "Documento guardado",
+            $"{Path.GetFileName(result.FullPath)} está en el escritorio.",
+            _preferences.Position);
+
+        _homeView.AddRecentAction(
+            "Documento guardado", Path.GetFileName(result.FullPath));
+    }
+
+    private void HideShellButton_Click(object sender, RoutedEventArgs e) => HideAnimated();
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -1933,6 +5141,29 @@ public partial class MainWindow : Window
             // cápsula genérica que parpadee antes de acciones instantáneas.
             await Task.Yield();
 
+            // Diseño D10 — antes de los parsers: "recuerda que prefiero X" es una orden de memoria,
+            // no una consulta a la IA. Va después de AddUserMessage para que la frase quede en la
+            // conversación igual que cualquier otra.
+            if (TryHandleWorkspaceSearchPrompt(prompt))
+            {
+                return;
+            }
+
+            if (TryHandleComputerUseIntent(prompt))
+            {
+                return;
+            }
+
+            if (await TryHandleWorkspaceEditInstructionAsync(prompt, fromVoice))
+            {
+                return;
+            }
+
+            if (TryHandleMemoryPrompt(prompt))
+            {
+                return;
+            }
+
             // La precedencia entre subsistemas vive en `PromptDispatchPolicy`, no aquí.
             // Se evalúan los cuatro parsers y la política decide, de modo que "inicia" deje
             // de significar automáticamente "rutina". Ver defecto D1 de la fase 1.1.
@@ -1977,14 +5208,59 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Diseño D34 — quien pulsó Ctrl+Espacio no quiso abrir Kohana: estaba en otra aplicación y
+    /// preguntó desde ahí. Antes esto traía la ventana entera encima y dejaba la respuesta en la
+    /// pestaña de chat, obligando a volver a donde se estaba. Ahora la respuesta va a una píldora de
+    /// esquina y la ventana se queda como estaba. La conversación se guarda igual, así que sigue
+    /// estando en el chat para quien la busque después.
+    ///
+    /// La píldora se abre y se cierra <b>aquí</b>, envolviendo al método que hace el trabajo, y no
+    /// dentro de él. La primera versión la cerraba en el <c>finally</c> interno y se quedó colgada
+    /// en «Pensando…» la primera vez que se probó: hay cuatro salidas anticipadas antes de ese
+    /// bloque —IA desactivada, Modo Juego, IA local que no arranca, cancelación— y la que saltó fue
+    /// el Modo Juego. Añadir la llamada en cada una habría durado hasta la quinta; envolviendo, no
+    /// hay salida que pueda dejarla abierta, ni siquiera una que se añada más adelante.
+    /// </summary>
     private async Task SendPromptToAiAsync(string prompt, bool fromVoice)
     {
-        if (_promptFromCommandPalette)
+        // Diseño D58 — una pregunta hablada con el shell escondido también merece la píldora.
+        //
+        // Antes solo la usaba la paleta, así que preguntar por voz no abría nada: la respuesta se
+        // escribía en un chat que no estaba a la vista y lo único que se veía era un aviso diciendo
+        // que había respuesta. Es decir, la parte de «preguntar sin manos» funcionaba y la de
+        // «recibir sin manos» no: había que ir a buscarla.
+        //
+        // Con el shell delante no se usa. La respuesta ya se está escribiendo en el chat que la
+        // persona tiene abierto, y una píldora encima sería la misma respuesta dos veces.
+        _answerInPill = _promptFromCommandPalette || (fromVoice && !IsShellOnScreen);
+        if (!_answerInPill)
         {
-            ShowAnimated();
-            NavigateTo("Assistant", animate: true);
+            await SendPromptToAiCoreAsync(prompt, fromVoice);
+            return;
         }
 
+        _pillFailure = null;
+        _answerPillWindow.BeginAnswer(prompt, _preferences.Position);
+
+        try
+        {
+            await SendPromptToAiCoreAsync(prompt, fromVoice);
+        }
+        finally
+        {
+            _answerInPill = false;
+
+            // Si el camino bueno ya la cerró, esto no hace nada. Si no, se cierra con el motivo —o
+            // sin él, pero cerrada— en vez de quedarse pensando encima de lo que se estuviera
+            // haciendo.
+            _answerPillWindow.CompleteAnswer(
+                _pillFailure ?? "No llegó ninguna respuesta.");
+        }
+    }
+
+    private async Task SendPromptToAiCoreAsync(string prompt, bool fromVoice)
+    {
         var configuration = BuildAiConfiguration();
         if (!configuration.IsEnabled)
         {
@@ -1997,6 +5273,7 @@ public partial class MainWindow : Window
                 "Elige un proveedor desde Personalización.",
                 _preferences.Position);
             SpeakVoiceResult("La inteligencia artificial está desactivada.");
+            _pillFailure = "La IA está desactivada. Elígela en Personalización.";
             return;
         }
 
@@ -2008,12 +5285,11 @@ public partial class MainWindow : Window
 
         if (!aiAllowed)
         {
-            PresentResourceRestriction(
-                resourceDecision,
-                usesLocalRuntime
-                    ? "La IA local está pausada para proteger el rendimiento."
-                    : "Las consultas de IA están pausadas durante el Modo Juego.",
-                fromVoice);
+            var restriction = usesLocalRuntime
+                ? "La IA local está pausada para proteger el rendimiento."
+                : "Las consultas de IA están pausadas durante el Modo Juego.";
+            PresentResourceRestriction(resourceDecision, restriction, fromVoice);
+            _pillFailure = restriction;
             return;
         }
 
@@ -2047,12 +5323,17 @@ public partial class MainWindow : Window
             {
                 _assistantView.SetAiActivity(null);
                 SpeakVoiceResult("La inteligencia artificial local no está disponible.");
+                _pillFailure = "La IA local no está disponible.";
                 return;
             }
         }
 
         await _aiGate.WaitAsync(_lifetimeCancellation.Token);
         var streamingStarted = false;
+
+        // Diseño D14 — respuesta que trae un cambio propuesto, si la hubo. Se ofrece fuera del
+        // bloque, con el turno de IA ya liberado.
+        string? proposedEditAnswer = null;
 
         try
         {
@@ -2076,6 +5357,34 @@ public partial class MainWindow : Window
                 systemContext = string.IsNullOrWhiteSpace(systemContext)
                     ? _visualContextMetadata
                     : systemContext + Environment.NewLine + _visualContextMetadata;
+            }
+
+            // Diseño D10 — la memoria se usa, no solo se guarda: sin esto no hay continuidad
+            // ninguna entre sesiones. El constructor decide qué sale (solo categorías activas
+            // ahora, acotado y redactado de nuevo), porque este texto viaja al proveedor.
+            var memoryContext = MemoryContextBuilder.Build(
+                _memoryManager.GetAll(_preferences.Memory, DateTimeOffset.Now),
+                _preferences.Memory,
+                DateTimeOffset.Now);
+
+            if (!string.IsNullOrWhiteSpace(memoryContext))
+            {
+                systemContext = string.IsNullOrWhiteSpace(systemContext)
+                    ? memoryContext
+                    : systemContext + Environment.NewLine + memoryContext;
+            }
+
+            // Diseño D12 — el contexto del proyecto se consume aquí y se apaga. Que dure una sola
+            // consulta es la garantía de que autorizar una carpeta no convierte cada pregunta
+            // posterior en un envío de código.
+            var workspaceContext = _pendingWorkspaceContext;
+            _pendingWorkspaceContext = null;
+
+            if (!string.IsNullOrWhiteSpace(workspaceContext))
+            {
+                systemContext = string.IsNullOrWhiteSpace(systemContext)
+                    ? workspaceContext
+                    : systemContext + Environment.NewLine + workspaceContext;
             }
 
             var images = _pendingVisionAttachment is { } image
@@ -2126,10 +5435,20 @@ public partial class MainWindow : Window
                 }
 
                 _assistantView.AppendKohanaStreamingText(chunk);
+
+                if (_answerInPill)
+                {
+                    _answerPillWindow.AppendAnswer(chunk);
+                }
             }
 
             var finalText = _assistantView.CompleteKohanaStreamingMessage();
             streamingStarted = false;
+
+            if (_answerInPill)
+            {
+                _answerPillWindow.CompleteAnswer();
+            }
 
             if (string.IsNullOrWhiteSpace(finalText))
             {
@@ -2137,11 +5456,16 @@ public partial class MainWindow : Window
                     "El proveedor terminó la respuesta sin enviar texto utilizable.");
             }
 
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Success,
-                "Respuesta lista",
-                SummarizeForCapsule(finalText),
-                _preferences.Position);
+            // El aviso solo cuando la respuesta no se esté enseñando ya. Con la píldora abierta,
+            // anunciar que hay respuesta al lado de la respuesta sobra.
+            if (!_answerInPill)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Success,
+                    "Respuesta lista",
+                    SummarizeForCapsule(finalText),
+                    _preferences.Position);
+            }
 
             if (_visualContextPersistent)
             {
@@ -2156,6 +5480,14 @@ public partial class MainWindow : Window
             {
                 SpeakVoiceResult(finalText);
             }
+
+            // Diseño D14 — solo si esta consulta se pidió para cambiar algo. Se anota y se ofrece
+            // DESPUÉS de soltar el turno de IA: la confirmación es un diálogo modal, y dejar el
+            // turno tomado mientras alguien lo lee bloquearía cualquier otra consulta.
+            if (_pendingWorkspaceEditRequested)
+            {
+                proposedEditAnswer = finalText;
+            }
         }
         catch (AiChatStreamException exception)
         {
@@ -2166,6 +5498,7 @@ public partial class MainWindow : Window
 
             _assistantView.AddKohanaMessage(
                 $"No pude obtener una respuesta: {exception.Message}");
+            _pillFailure = exception.Message;
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "La IA no respondió",
@@ -2196,6 +5529,7 @@ public partial class MainWindow : Window
             const string detail =
                 "La conexión se interrumpió mientras Kohana recibía la respuesta.";
             _assistantView.AddKohanaMessage($"No pude obtener una respuesta: {detail}");
+            _pillFailure = detail;
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "Respuesta interrumpida",
@@ -2204,8 +5538,17 @@ public partial class MainWindow : Window
         }
         finally
         {
+            // Si la respuesta se cortó, se canceló o falló, la oferta de escribir no sobrevive: un
+            // cambio propuesto a partir de media respuesta no es un cambio, es un riesgo.
+            _pendingWorkspaceEditRequested = false;
             _assistantView.SetAiActivity(null);
+
             _aiGate.Release();
+        }
+
+        if (proposedEditAnswer is not null)
+        {
+            OfferWorkspaceEdit(proposedEditAnswer);
         }
     }
 
@@ -2561,9 +5904,7 @@ public partial class MainWindow : Window
         var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
             ? "sin modelo seleccionado"
             : _preferences.AiModel;
-        _runtimeAiStatus = _preferences.AiProvider == AiProviderKind.Ollama
-            ? "Ollama configurado"
-            : $"{providerName} configurado";
+        _runtimeAiStatus = $"{providerName} configurado";
         _runtimeAiHealthy = true;
         _assistantView.SetAiProviderStatus($"{providerName} · {model}");
         RefreshRuntimeDashboard();
@@ -2575,7 +5916,10 @@ public partial class MainWindow : Window
             _preferences.AiProvider,
             _preferences.AiBaseUrl,
             _preferences.AiModel,
-            _preferences.AiApiKeyEnvironmentVariable);
+            _preferences.AiApiKeyEnvironmentVariable)
+        {
+            StoredApiKey = _apiKeyStore.Read(_preferences.AiProvider)
+        };
     }
 
     private static string BuildAiSystemContext(SystemSnapshot snapshot)
@@ -3627,26 +6971,68 @@ public partial class MainWindow : Window
                 [image],
                 lensContext.RequestMode);
 
-            var aiResult = await _aiChatService.SendAsync(BuildAiConfiguration(), aiRequest);
+            // Diseño D7 — se transmite por partes en vez de esperar la respuesta completa: el
+            // usuario ve el texto aparecer conforme la IA lo escribe, que es lo que pidió tras
+            // probar Lens. Si el proveedor falla a mitad, lo ya recibido no se descarta en
+            // silencio: se conserva como resultado parcial y se avisa.
+            _ambientRequestManager.BeginStreaming(DateTimeOffset.Now);
+            CheckAmbientRequest();
 
-            if (!aiResult.IsSuccess)
+            var streamed = new StringBuilder();
+            string? streamFailure = null;
+            try
+            {
+                await foreach (var chunk in _aiChatService.StreamAsync(
+                    BuildAiConfiguration(), aiRequest, _lifetimeCancellation.Token))
+                {
+                    if (string.IsNullOrEmpty(chunk))
+                    {
+                        continue;
+                    }
+
+                    streamed.Append(chunk);
+                    _ambientRequestManager.AppendStreamedText(chunk, DateTimeOffset.Now);
+                    CheckAmbientRequest();
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                streamFailure = exception.Message;
+            }
+
+            if (streamed.Length == 0)
             {
                 _ambientRequestManager.Fail(
-                    string.IsNullOrWhiteSpace(aiResult.Detail)
+                    string.IsNullOrWhiteSpace(streamFailure)
                         ? "No pude analizar la ventana activa."
-                        : aiResult.Detail,
+                        : streamFailure,
                     DateTimeOffset.Now);
             }
             else
             {
-                var result = new AmbientRequestResult(
-                    SummarizeForCapsule(aiResult.Text),
-                    aiResult.Text,
-                    [],
-                    CanUndo: false);
-                _ambientRequestManager.CompleteWithResult(result, DateTimeOffset.Now);
-                ShowLensHighlights(aiResult.Text, redactedOcr, redactedElements, uiaSnapshot);
+                var answer = streamed.ToString();
+                _ambientRequestManager.CompleteStreamedResult(
+                    [], canUndo: false, DateTimeOffset.Now, SummarizeForCapsule);
+                ShowLensHighlights(answer, redactedOcr, redactedElements, uiaSnapshot);
+
+                if (streamFailure is not null)
+                {
+                    ShowFlowNotice(
+                        CapsuleKind.Warning,
+                        "Respuesta incompleta",
+                        "La conexión se cortó mientras respondía; lo que alcanzó a escribir sigue visible.");
+                }
             }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Sin esto, cualquier falla en captura/OCR/UI Automation/redacción (todo lo que pasa
+            // ANTES del try/catch de streaming de más abajo) dejaba la solicitud ambiental
+            // atascada en "Pensando" para siempre, porque KohanaCommandDescriptor.ExecuteAsync
+            // atrapa la excepción a un nivel que no conoce el AmbientRequestManager. Reportado por
+            // Adler: Lens en modo estudio se quedaba en "Pensando…" sin salir nunca de ahí.
+            _ambientRequestManager.Fail(
+                $"No pude analizar la ventana activa: {exception.Message}", DateTimeOffset.Now);
         }
         finally
         {
@@ -3697,6 +7083,30 @@ public partial class MainWindow : Window
     /// minutos es peor experiencia que alternar. El botón de micrófono que ya existía en el
     /// Asistente también es un interruptor, así que esto es consistente con lo que ya había.
     /// </summary>
+    /// <summary>
+    /// Diseño D7 — aplica el atajo global sin reiniciar Kohana: al activarlo desde Ajustes se
+    /// registra en el momento, y al desactivarlo se libera para que otra aplicación pueda usar la
+    /// combinación. Registrar dos veces el mismo id es inofensivo (Windows lo rechaza y se ignora),
+    /// así que se desregistra siempre antes.
+    /// </summary>
+    private void ApplyFlowHotkeyRegistration()
+    {
+        var windowHandle = new WindowInteropHelper(this).Handle;
+        if (windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        UnregisterHotKey(windowHandle, FlowHotkeyId);
+
+        if (_preferences.FlowEnabled &&
+            !RegisterHotKey(windowHandle, FlowHotkeyId, ModControl | ModShift, VirtualKeyD))
+        {
+            _assistantView.AddKohanaMessage(
+                "Ctrl + Shift + D ya está siendo utilizado por otra aplicación; el dictado global no quedó disponible.");
+        }
+    }
+
     private void ToggleFlowDictation()
     {
         if (_isClosed || !_preferences.FlowEnabled)
@@ -4563,20 +7973,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        ModuleHost.Opacity = 0;
-        var transform = new TranslateTransform(14, 0);
+        // El módulo entra desde el lado por el que está el rail, así que el contenido parece salir
+        // de la navegación que se acaba de pulsar. Con el shell acoplado a la izquierda el rail está
+        // a la derecha, y entonces el sentido se invierte: entrar siempre desde el mismo lado
+        // rompería esa relación de causa y efecto.
+        var transform = new TranslateTransform();
         ModuleHost.RenderTransform = transform;
-
-        var easing = (CubicEase)FindResource("MotionEaseOut");
-        var duration = (Duration)FindResource("MotionFast");
-
-        transform.BeginAnimation(
-            TranslateTransform.XProperty,
-            new DoubleAnimation(0, duration) { EasingFunction = easing });
-
-        ModuleHost.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation(1, duration) { EasingFunction = easing });
+        ModuleHost.RenderTransformOrigin = new Point(0.5, 0.5);
+        ModuleHost.EnterFrom(transform, RailIsOnLeft ? 18 : -18);
 
         FocusCurrentView();
     }
@@ -4633,18 +8037,61 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Diseño D36 — el elemento activo se señala distinto según el rail esté plegado o desplegado, y
+    /// la regla está en <see cref="NavigationSelection"/> y no aquí: el rail se pliega desde varios
+    /// sitios —el botón, restaurar apariencia, el arranque— y cada uno tendría que acordarse.
+    /// </summary>
     private void ApplyNavigationItemState(Button button, Border indicator, System.Windows.Shapes.Path icon, TextBlock label, bool selected)
     {
-        button.Background = selected
+        var style = NavigationSelection.For(selected, _sideRailExpanded);
+
+        button.Background = style == NavigationSelectionStyle.Pill
             ? (Brush)FindResource("BrushAccentSoft")
             : Brushes.Transparent;
         button.Foreground = selected
             ? (Brush)FindResource("BrushAccent")
             : (Brush)FindResource("BrushTextSecondary");
 
-        indicator.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        // Plegado, la barrita sobra: el brillo ya dice cuál es el activo, y las dos señales juntas
+        // en una franja tan estrecha se estorban.
+        indicator.Visibility = style == NavigationSelectionStyle.Pill
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
         icon.Style = (Style)FindResource(selected ? "SakuraNavigationIconSelectedStyle" : "SakuraNavigationIconStyle");
         label.FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal;
+
+        ApplyNavigationGlow(icon, style == NavigationSelectionStyle.Glow);
+    }
+
+    /// <summary>
+    /// El brillo es una sombra proyectada sin desplazamiento y del color del acento, que es como se
+    /// consigue un halo en WPF. Se aplica al icono y no al botón porque lo que tiene que brillar es
+    /// el símbolo: puesto en el botón, el halo dibuja el rectángulo del botón y vuelve a ser una
+    /// caja, justo lo que el boceto evita al plegar.
+    /// </summary>
+    private void ApplyNavigationGlow(System.Windows.Shapes.Path icon, bool glowing)
+    {
+        if (!glowing)
+        {
+            icon.Effect = null;
+            return;
+        }
+
+        var accent = ((SolidColorBrush)FindResource("BrushAccent")).Color;
+
+        // El halo se ensancha por encima del ancho del trazo del icono. Con dieciséis se quedaba
+        // pegado a la línea y se leía como un icono de otro color, no como uno encendido; a
+        // veintidós el resplandor se separa lo suficiente para verse como luz alrededor del
+        // símbolo, que es lo que pide el boceto, sin llegar a pintar la caja del botón.
+        icon.Effect = new DropShadowEffect
+        {
+            Color = accent,
+            ShadowDepth = 0,
+            BlurRadius = 22,
+            Opacity = 0.95
+        };
     }
 
     private void UpdateWorkspaceHeader(string destination)
@@ -4679,17 +8126,76 @@ public partial class MainWindow : Window
             DateTimeOffset.Now);
 
         _homeView.Refresh(model);
+
+        // El mismo resumen alimenta el cajón. Sale del mismo cálculo y no de otro propio: dos
+        // cuentas separadas acabarían discrepando, y ver «3 pendientes» arriba y «2» abajo hace
+        // dudar de las dos.
+        _dashboardWindow.UpdateDailySummary(
+            model.TaskValue,
+            model.TaskDetail,
+            model.FocusValue,
+            model.FocusDetail,
+            model.RoutineValue,
+            model.RoutineDetail);
     }
 
     private void ApplyPreferences()
     {
         _preferences.Normalize();
         Width = _preferences.Width;
-        ApplyShellOpacity();
-        ApplyAccent(_preferences.AccentColor);
+
+        // Un único punto donde el vocabulario de movimiento aprende si puede animar. Respeta tanto
+        // la preferencia de Kohana como la de Windows (Accesibilidad → Efectos visuales): quien
+        // apagó las animaciones del sistema no debería tener que apagarlas otra vez aquí.
+        KohanaMotion.AnimationsEnabled = ShellAnimationsAllowed;
+
+        _edgeRevealWatcher.Configure(_preferences.EdgeRevealEnabled, _preferences.Position);
+        _quickControlsWatcher.Configure(
+            _preferences.EdgeRevealEnabled,
+            QuickControlsPolicy.ControlsEdgeFor(_preferences.Position));
+
+        ApplyShellSide();
+
+        // Aplica el tema y, dentro, refresca la opacidad del shell con el fondo ya teñido.
+        ApplyEffectiveAccent();
+
         _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
         ApplyModuleVisibility();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
+    }
+
+    /// <summary>
+    /// Diseño D31 — punto único para decidir qué acento se ve. Cada origen puede fallar por motivos
+    /// legítimos —Windows sin la clave en el registro, un fondo en blanco y negro del que no hay
+    /// color que sacar— y en todos ellos se cae al color manual, que siempre existe. Eso es lo que
+    /// permite prometer que activar cualquiera de las dos opciones nunca deja la aplicación peor de
+    /// como estaba.
+    /// </summary>
+    private void ApplyEffectiveAccent()
+    {
+        var accent = _preferences.AccentSource switch
+        {
+            AccentSource.Windows => WindowsAccentColorReader.TryRead() ?? _preferences.AccentColor,
+            AccentSource.Wallpaper => TryReadWallpaperAccent() ?? _preferences.AccentColor,
+            _ => _preferences.AccentColor
+        };
+
+        ApplyAccent(accent);
+    }
+
+    private static string? TryReadWallpaperAccent()
+    {
+        if (WindowsWallpaperReader.TryReadPixels() is not { } pixels)
+        {
+            return null;
+        }
+
+        // El acento se elige contra el fondo neutro de partida y no contra el que hay pintado
+        // ahora: si se midiera contra el actual, el tema ya teñido movería el listón y el resultado
+        // dependería de qué tema estaba puesto antes.
+        return AccentPicker
+            .Pick(WallpaperPalette.Quantize(pixels), KohanaThemeBuilder.AccentReferenceSurface)
+            ?.ToHex();
     }
 
     private void ApplyShellOpacity()
@@ -4706,45 +8212,92 @@ public partial class MainWindow : Window
             baseColor.B));
     }
 
-    private static void ApplyAccent(string accentHex)
+    /// <summary>
+    /// Diseño D31 — todo el cálculo del tema vive en <see cref="KohanaThemeBuilder"/>, en Nexo.Core.
+    /// Aquí solo queda convertir a brochas de WPF y publicarlas. La razón de moverlo es que el
+    /// acento ya no siempre lo elegimos nosotros: cuando sale del fondo de escritorio, lo pone una
+    /// foto que nadie revisó, y la garantía de que el texto se siga leyendo encima tiene que poder
+    /// comprobarse con una prueba y no mirando la pantalla con cada fondo posible.
+    /// </summary>
+    private void ApplyAccent(string accentHex)
     {
+        RgbColor accent;
         try
         {
-            var accent = (Color)ColorConverter.ConvertFromString(accentHex);
-            var soft = Color.FromArgb(
-                255,
-                (byte)(accent.R * 0.24),
-                (byte)(accent.G * 0.22),
-                (byte)(accent.B * 0.34));
-
-            Application.Current.Resources["BrushAccent"] = new SolidColorBrush(accent);
-            Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush(soft);
-            Application.Current.Resources["BrushAccentBorder"] = new SolidColorBrush(
-                Color.FromArgb(112, accent.R, accent.G, accent.B));
+            accent = RgbColor.FromHex(accentHex);
         }
-        catch (Exception exception) when (exception is FormatException or NotSupportedException)
+        catch (Exception exception) when (exception is FormatException or ArgumentException)
         {
-            Application.Current.Resources["BrushAccent"] = new SolidColorBrush(
-                (Color)ColorConverter.ConvertFromString("#8B6CFF"));
-            Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush(
-                (Color)ColorConverter.ConvertFromString("#2D2748"));
-            Application.Current.Resources["BrushAccentBorder"] = new SolidColorBrush(
-                (Color)ColorConverter.ConvertFromString("#668B6CFF"));
+            accent = RgbColor.FromHex("#8B6CFF");
         }
+
+        var theme = KohanaThemeBuilder.FromAccent(accent);
+        var resources = Application.Current.Resources;
+
+        resources["BrushAccent"] = ToBrush(theme.Accent);
+        resources["BrushAccentSoft"] = ToBrush(theme.AccentSoft);
+        resources["BrushAccentBorder"] = new SolidColorBrush(
+            Color.FromArgb(112, theme.Accent.R, theme.Accent.G, theme.Accent.B));
+        resources["BrushBackground"] = ToBrush(theme.Background);
+        resources["BrushSurface"] = ToBrush(theme.Surface);
+        resources["BrushSurfaceRaised"] = ToBrush(theme.SurfaceRaised);
+        resources["BrushSurfaceHover"] = ToBrush(theme.SurfaceHover);
+        resources["BrushSidebarSurface"] = ToBrush(theme.SidebarSurface);
+        resources["BrushInput"] = ToBrush(theme.Input);
+        resources["BrushBorder"] = ToBrush(theme.Border);
+        resources["BrushFocusRing"] = new SolidColorBrush(
+            Color.FromArgb(112, theme.Accent.R, theme.Accent.G, theme.Accent.B));
+
+        // Rastro del tema original: era un rosa fijo, y con cualquier otro tema aparecía como una
+        // mancha de un color que no pertenecía a nada.
+        resources["BrushSakuraGlow"] = ToBrush(theme.AccentSoft);
+
+        // Imprescindible que sea DESPUÉS de publicar BrushBackground, y no antes: ApplyShellOpacity
+        // no usa la brocha del recurso sino que copia su color en una nueva con la opacidad
+        // aplicada. Esa copia se queda como estaba a menos que se rehaga aquí — era la causa de que
+        // el fondo del shell siguiera morado oscuro mientras el interior sí cambiaba de tema.
+        ApplyShellOpacity();
     }
 
+    private static SolidColorBrush ToBrush(RgbColor color) =>
+        new(Color.FromRgb(color.R, color.G, color.B));
+
+    /// <summary>
+    /// Diseño D52 — el rail solo enseña lo que se ha pedido tener a un clic.
+    ///
+    /// Chat y Personalizar no aparecen aquí porque no se pueden quitar: el primero es la
+    /// aplicación y el segundo es desde donde se devuelven los demás.
+    /// </summary>
     private void ApplyModuleVisibility()
     {
-        AudioNavButton.Visibility = _preferences.ShowAudioModule ? Visibility.Visible : Visibility.Collapsed;
-        CaptureNavButton.Visibility = _preferences.ShowCaptureModule ? Visibility.Visible : Visibility.Collapsed;
-        SystemNavButton.Visibility = _preferences.ShowSystemModule ? Visibility.Visible : Visibility.Collapsed;
+        HomeNavButton.Visibility = Show(_preferences.ShowHomeModule);
+        TasksNavButton.Visibility = Show(_preferences.ShowTasksModule);
+        FocusNavButton.Visibility = Show(_preferences.ShowFocusModule);
+        RoutinesNavButton.Visibility = Show(_preferences.ShowRoutinesModule);
+        AudioNavButton.Visibility = Show(_preferences.ShowAudioModule);
+        CaptureNavButton.Visibility = Show(_preferences.ShowCaptureModule);
+        SystemNavButton.Visibility = Show(_preferences.ShowSystemModule);
         UpdateNavigationColumns();
+
+        static Visibility Show(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void SetModuleVisibility(string module, bool visible)
     {
         switch (module)
         {
+            case "Home":
+                _preferences.ShowHomeModule = visible;
+                break;
+            case "Tasks":
+                _preferences.ShowTasksModule = visible;
+                break;
+            case "Focus":
+                _preferences.ShowFocusModule = visible;
+                break;
+            case "Routines":
+                _preferences.ShowRoutinesModule = visible;
+                break;
             case "Audio":
                 _preferences.ShowAudioModule = visible;
                 break;
@@ -4836,6 +8389,7 @@ public partial class MainWindow : Window
 
             _latestSnapshot = snapshot;
             UpdateMetricControls(snapshot);
+            await RefreshMediaAsync();
             await ApplyResourceGovernorDecisionAsync(decision);
         }
         catch (Exception)
@@ -4860,6 +8414,9 @@ public partial class MainWindow : Window
             }
 
             _systemView.UpdateHardwareCapability(profile);
+            _dashboardWindow.UpdateHardwareNames(
+                profile.Snapshot.Processor.Name,
+                profile.Snapshot.PreferredGraphicsAdapter.Name);
             RefreshAdaptiveEnginePlan();
         }
         catch (OperationCanceledException)
@@ -4926,6 +8483,10 @@ public partial class MainWindow : Window
         if (decision.SuppressTransientOverlays)
         {
             _capsuleWindow.HideImmediately();
+
+            // Diseño D56 — y el cajón, si estaba abierto cuando la pantalla completa empezó. No
+            // basta con no abrirlo: se puede estar mirando el panel y lanzar el juego desde ahí.
+            _dashboardWindow.HideImmediately();
         }
 
         UpdateResourceModeIndicator(decision);
@@ -5054,12 +8615,102 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Diseño D44 — el cajón baja en el monitor donde está el ratón. El área viaja con el aviso
+    /// porque con dos pantallas «arriba y en medio» no es el mismo sitio en cada una, y para cuando
+    /// el hilo de la interfaz atienda el aviso el cursor puede haberse movido ya.
+    /// </summary>
+    private void HandleTopRevealRequested(TopRevealArea area)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_isClosed || !_preferences.EdgeRevealEnabled)
+            {
+                return;
+            }
+
+            // Diseño D56 — con algo a pantalla completa el cajón tampoco se asoma. Es la misma
+            // condición que ya silenciaba el shell y el mando de volumen, y a este se me olvidó
+            // ponérsela.
+            //
+            // El efecto era peor que el de los otros dos, y por eso pasó desapercibido: un juego a
+            // pantalla completa queda por encima, así que el cajón bajaba **sin verse** y aun así
+            // se quedaba con los clics de la zona. Desde el juego eso se siente como que el ratón
+            // deja de responder en una franja de la pantalla, sin nada que explique por qué.
+            if (_resourceDecision.SuppressTransientOverlays)
+            {
+                return;
+            }
+
+            _dashboardWindow.Reveal(area);
+        }));
+    }
+
     private void UpdateMetricControls(SystemSnapshot snapshot)
     {
         HeaderCpuText.Text = FormatPercentage(snapshot.CpuUsagePercent);
         HeaderMemoryText.Text = FormatPercentage(snapshot.MemoryUsagePercent);
         HeaderGpuText.Text = FormatPercentage(snapshot.GpuUsagePercent);
         _systemView.UpdateSnapshot(snapshot);
+        _dashboardWindow.UpdateSnapshot(snapshot);
+
+        var network = _throughputSource.ReadNetwork();
+        var drive = _throughputSource.ReadSystemDrive();
+        _dashboardWindow.UpdateThroughput(
+            network.DownloadBytesPerSecond,
+            network.UploadBytesPerSecond,
+            drive?.UsedBytes,
+            drive?.TotalBytes,
+            drive?.Name);
+
+        // Diseño D44 — el reloj y el tiempo encendido del cajón viajan con las métricas en vez de
+        // llevar temporizador propio: son dos textos que cambian como mucho una vez por minuto.
+        _dashboardWindow.RefreshClock();
+        _dashboardWindow.UpdateSession(
+            Environment.UserName,
+            TimeSpan.FromMilliseconds(Environment.TickCount64));
+    }
+
+    /// <summary>
+    /// Diseño D43 — la lectura de lo que suena. Va aparte de las métricas porque cruza a WinRT y
+    /// puede tardar más que ellas; un fallo aquí no puede dejar sin actualizar el resto del panel.
+    /// </summary>
+    private async Task RefreshMediaAsync()
+    {
+        try
+        {
+            // Con tope de tiempo. Un reproductor que deja de responder no devuelve nunca sus
+            // propiedades, y sin este corte esa espera se quedaría dentro del ciclo de métricas:
+            // el semáforo de refresco no se soltaría y Kohana dejaría de leer el equipo entero por
+            // culpa de una canción.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            var media = await _mediaSessionReader.ReadAsync(timeout.Token);
+            if (!_isClosed)
+            {
+                _dashboardWindow.UpdateMedia(media);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // La lectura tardó demasiado. Se reintenta en el siguiente refresco.
+        }
+        catch (Exception)
+        {
+            // Lo que suena es informativo, igual que las métricas: nunca puede cerrar Kohana.
+        }
+    }
+
+    private async Task RunMediaCommandAsync(Func<Task<bool>> command)
+    {
+        try
+        {
+            await command();
+            await RefreshMediaAsync();
+        }
+        catch (Exception)
+        {
+            // El reproductor puede haberse cerrado justo al pulsar. La siguiente lectura lo dirá.
+        }
     }
 
     private async Task ShowPeekAsync()

@@ -21,7 +21,7 @@ public partial class ModelManagerWindow : Window
     {
         InitializeComponent();
         _baseUrl = string.IsNullOrWhiteSpace(baseUrl)
-            ? "http://localhost:11434/v1"
+            ? "http://127.0.0.1:11434/v1"
             : baseUrl;
         _currentModel = currentModel ?? string.Empty;
         ModelsListBox.ItemsSource = _models;

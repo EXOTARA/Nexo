@@ -60,20 +60,65 @@
     </Style>
 
     <!-- Kohana Core Modules: sober line icons, functional first. -->
-    <Geometry x:Key="IconKohanaHome">M4,11 L12,4 L20,11 M6,10 L6,20 L10,20 L10,15 L14,15 L14,20 L18,20 L18,10</Geometry>
-    <Geometry x:Key="IconKohanaAssistant">M5,4 L19,4 C20.1,4 21,4.9 21,6 L21,15 C21,16.1 20.1,17 19,17 L10,17 L5,21 L5,17 C3.9,17 3,16.1 3,15 L3,6 C3,4.9 3.9,4 5,4 Z M8,10 L8.1,10 M12,10 L12.1,10 M16,10 L16.1,10</Geometry>
-    <Geometry x:Key="IconKohanaTasks">M7,4 L17,4 M8,3 L8,6 M16,3 L16,6 M5,7 L19,7 L19,20 L5,20 Z M8,13 L10.5,15.5 L16,10</Geometry>
-    <Geometry x:Key="IconKohanaFocus">M12,3 A9,9 0 1 1 11.999,3 M12,7 A5,5 0 1 1 11.999,7 M12,11 A1,1 0 1 1 11.999,11</Geometry>
-    <Geometry x:Key="IconKohanaRoutines">M7,5 C10,2.8 15,3 18,6 L20,8 M20,8 L20,4 M20,8 L16,8 M17,19 C14,21.2 9,21 6,18 L4,16 M4,16 L4,20 M4,16 L8,16</Geometry>
-    <Geometry x:Key="IconKohanaAudio">M4,10 L8,10 L13,6 L13,18 L8,14 L4,14 Z M16,9 C17.5,10.5 17.5,13.5 16,15 M18.5,6.5 C22,9.5 22,14.5 18.5,17.5</Geometry>
-    <Geometry x:Key="IconKohanaCapture">M8,4 L5,4 C4.4,4 4,4.4 4,5 L4,8 M16,4 L19,4 C19.6,4 20,4.4 20,5 L20,8 M8,20 L5,20 C4.4,20 4,19.6 4,19 L4,16 M16,20 L19,20 C19.6,20 20,19.6 20,19 L20,16 M8,12 L16,12</Geometry>
-    <Geometry x:Key="IconKohanaSystem">M4,5 L20,5 C21.1,5 22,5.9 22,7 L22,16 C22,17.1 21.1,18 20,18 L4,18 C2.9,18 2,17.1 2,16 L2,7 C2,5.9 2.9,5 4,5 Z M8,21 L16,21 M12,18 L12,21 M5,12 L8,12 L10,9 L13,15 L15,12 L19,12</Geometry>
-    <Geometry x:Key="IconKohanaSettings">M4,6 L20,6 M4,12 L20,12 M4,18 L20,18 M8,4 L8,8 M16,10 L16,14 M10,16 L10,20</Geometry>
+    <Geometry x:Key="IconKohanaHome">M4,11.2 L12,4.5 L20,11.2 M6.3,9.6 L6.3,19.5 L17.7,19.5 L17.7,9.6 M10.2,19.5 L10.2,14.4 L13.8,14.4 L13.8,19.5</Geometry>
+    <Geometry x:Key="IconKohanaAssistant">M4.5,7 C4.5,5.6 5.6,4.5 7,4.5 L17,4.5 C18.4,4.5 19.5,5.6 19.5,7 L19.5,14 C19.5,15.4 18.4,16.5 17,16.5 L10.5,16.5 L6.5,19.8 L6.5,16.5 C5.4,16.4 4.5,15.4 4.5,14 Z</Geometry>
+    <Geometry x:Key="IconKohanaTasks">M9,4.8 L15,4.8 M8.8,3.4 L15.2,3.4 C15.9,3.4 16.4,3.9 16.4,4.6 L16.4,6.2 L7.6,6.2 L7.6,4.6 C7.6,3.9 8.1,3.4 8.8,3.4 Z M16.4,5 L18,5 C18.8,5 19.5,5.7 19.5,6.5 L19.5,18.5 C19.5,19.3 18.8,20 18,20 L6,20 C5.2,20 4.5,19.3 4.5,18.5 L4.5,6.5 C4.5,5.7 5.2,5 6,5 L7.6,5 M8.6,13 L11.1,15.5 L15.6,10.4</Geometry>
+    <Geometry x:Key="IconKohanaFocus">M12,4 A8,8 0 1 1 11.99,4 M12,8.4 A3.6,3.6 0 1 1 11.99,8.4 M12,11.3 A0.7,0.7 0 1 1 11.99,11.3</Geometry>
+    <Geometry x:Key="IconKohanaRoutines">M19.2,10.4 A7.6,7.6 0 0 0 6.4,7.1 M4.8,13.6 A7.6,7.6 0 0 0 17.6,16.9 M6.4,7.1 L6.4,3.6 M6.4,7.1 L9.9,7.1 M17.6,16.9 L17.6,20.4 M17.6,16.9 L14.1,16.9</Geometry>
+    <Geometry x:Key="IconKohanaAudio">M4.5,9.6 L8,9.6 L12.6,5.8 L12.6,18.2 L8,14.4 L4.5,14.4 Z M15.6,9.4 C17,10.8 17,13.2 15.6,14.6 M18.2,6.8 C21,9.7 21,14.3 18.2,17.2</Geometry>
+    <Geometry x:Key="IconKohanaCapture">M4.5,8.4 L4.5,5.7 C4.5,5 5,4.5 5.7,4.5 L8.4,4.5 M15.6,4.5 L18.3,4.5 C19,4.5 19.5,5 19.5,5.7 L19.5,8.4 M19.5,15.6 L19.5,18.3 C19.5,19 19,19.5 18.3,19.5 L15.6,19.5 M8.4,19.5 L5.7,19.5 C5,19.5 4.5,19 4.5,18.3 L4.5,15.6 M12,9.6 A2.4,2.4 0 1 1 11.99,9.6</Geometry>
+    <Geometry x:Key="IconKohanaSystem">M5,4.8 L19,4.8 C19.8,4.8 20.5,5.5 20.5,6.3 L20.5,15.2 C20.5,16 19.8,16.7 19,16.7 L5,16.7 C4.2,16.7 3.5,16 3.5,15.2 L3.5,6.3 C3.5,5.5 4.2,4.8 5,4.8 Z M9,19.9 L15,19.9 M12,16.7 L12,19.9 M6.6,11 L9.2,11 L10.6,8.7 L13.4,13.4 L14.8,11 L17.4,11</Geometry>
+    <Geometry x:Key="IconKohanaSettings">M4.5,6.6 L19.5,6.6 M4.5,12 L19.5,12 M4.5,17.4 L19.5,17.4 M9,4.9 L9,8.3 M16,10.3 L16,13.7 M11,15.7 L11,19.1</Geometry>
 
-    <Geometry x:Key="IconSidebarPanel">M3,4 L21,4 L21,20 L3,20 Z M9,4 L9,20</Geometry>
-    <Geometry x:Key="IconCommandPalette">M9,4 A5,5 0 1 1 8.999,4 M12.6,12.6 L18,18 M5.5,9 L8.5,9</Geometry>
-    <Geometry x:Key="IconKohanaLook">M3,12 C6.2,7.4 17.8,7.4 21,12 C17.8,16.6 6.2,16.6 3,12 Z M9,12 A3,3 0 1 0 15,12 A3,3 0 1 0 9,12</Geometry>
-    <Geometry x:Key="IconKohanaMic">M9,5 C9,3.3 10.3,2 12,2 C13.7,2 15,3.3 15,5 L15,11 C15,12.7 13.7,14 12,14 C10.3,14 9,12.7 9,11 Z M5,10 C5,14.4 8.1,18 12,18 C15.9,18 19,14.4 19,10 M12,18 L12,22 M9,22 L15,22</Geometry>
-    <Geometry x:Key="IconKohanaSend">M3,12 L21,4 L16,21 L11.5,14 Z M11.5,14 L21,4</Geometry>
-    <Geometry x:Key="IconKohanaPlus">M12,5 L12,19 M5,12 L19,12</Geometry>
+    <Geometry x:Key="IconSidebarPanel">M4.5,4.5 L19.5,4.5 L19.5,19.5 L4.5,19.5 Z M9.6,4.5 L9.6,19.5</Geometry>
+    <Geometry x:Key="IconCommandPalette">M10.6,4.6 A5.8,5.8 0 1 1 10.59,4.6 M14.9,14.9 L19.4,19.4</Geometry>
+    <Geometry x:Key="IconKohanaLook">M3.4,12 C6.6,7.4 17.4,7.4 20.6,12 C17.4,16.6 6.6,16.6 3.4,12 Z M12,9.2 A2.8,2.8 0 1 1 11.99,9.2</Geometry>
+    <Geometry x:Key="IconKohanaMic">M12,3.2 C13.5,3.2 14.7,4.4 14.7,5.9 L14.7,11.6 C14.7,13.1 13.5,14.3 12,14.3 C10.5,14.3 9.3,13.1 9.3,11.6 L9.3,5.9 C9.3,4.4 10.5,3.2 12,3.2 Z M5.8,10.8 C5.8,14.7 8.6,17.6 12,17.6 C15.4,17.6 18.2,14.7 18.2,10.8 M12,17.6 L12,20.8 M9,20.8 L15,20.8</Geometry>
+    <Geometry x:Key="IconKohanaSend">M20.4,4 L3.6,11.3 L10.4,13.6 L12.7,20.4 Z M10.4,13.6 L20.4,4</Geometry>
+    <Geometry x:Key="IconKohanaPlus">M12,5.4 L12,18.6 M5.4,12 L18.6,12</Geometry>
+
+    <!--
+        Diseño D58 — cerrar el shell. Es la misma aspa girada que el más de al lado, con el mismo
+        recorrido, para que los dos botones de la cabecera pesen igual: uno abre, otro recoge.
+    -->
+    <Geometry x:Key="IconKohanaClose">M6.7,6.7 L17.3,17.3 M17.3,6.7 L6.7,17.3</Geometry>
+
+    <!--
+        Diseño D42 — iconos de las cápsulas de rendimiento. Mismo lenguaje que los de navegación:
+        geometrías de línea, sin relleno, pensadas para dibujarse con trazo. Cada uno es la silueta
+        que cualquiera reconocería de la pieza, no una abstracción: el procesador es un chip con
+        patas, la gráfica una tarjeta con su ventilador, el disco un cilindro, la red dos flechas
+        opuestas y la memoria un módulo con sus contactos.
+    -->
+    <Geometry x:Key="IconMetricCpu">M7.5,7.5 L16.5,7.5 L16.5,16.5 L7.5,16.5 Z M10.5,10.5 L13.5,10.5 L13.5,13.5 L10.5,13.5 Z M10,4.8 L10,7.5 M14,4.8 L14,7.5 M10,16.5 L10,19.2 M14,16.5 L14,19.2 M4.8,10 L7.5,10 M4.8,14 L7.5,14 M16.5,10 L19.2,10 M16.5,14 L19.2,14</Geometry>
+    <Geometry x:Key="IconMetricGpu">M4,6.6 L20,6.6 C20.6,6.6 21,7 21,7.6 L21,15.4 C21,16 20.6,16.4 20,16.4 L4,16.4 Z M9.4,11.5 A3,3 0 1 1 9.39,11.5 M16.2,10 L18.6,10 M16.2,13 L18.6,13 M6.6,16.4 L6.6,19 M14.6,16.4 L14.6,19</Geometry>
+    <Geometry x:Key="IconMetricDisk">M4.8,7 C4.8,5.5 8,4.3 12,4.3 C16,4.3 19.2,5.5 19.2,7 C19.2,8.5 16,9.7 12,9.7 C8,9.7 4.8,8.5 4.8,7 Z M4.8,7 L4.8,17 C4.8,18.5 8,19.7 12,19.7 C16,19.7 19.2,18.5 19.2,17 L19.2,7 M4.8,12 C4.8,13.5 8,14.7 12,14.7 C16,14.7 19.2,13.5 19.2,12</Geometry>
+    <Geometry x:Key="IconMetricNetwork">M8.4,4.6 L8.4,16.4 M8.4,16.4 L5.2,13.2 M8.4,16.4 L11.6,13.2 M15.6,19.4 L15.6,7.6 M15.6,7.6 L12.4,10.8 M15.6,7.6 L18.8,10.8</Geometry>
+    <Geometry x:Key="IconMetricMemory">M4,8.4 L20,8.4 C20.6,8.4 21,8.8 21,9.4 L21,14.6 C21,15.2 20.6,15.6 20,15.6 L4,15.6 C3.4,15.6 3,15.2 3,14.6 L3,9.4 C3,8.8 3.4,8.4 4,8.4 Z M6.6,15.6 L6.6,18.4 M10.2,15.6 L10.2,18.4 M13.8,15.6 L13.8,18.4 M17.4,15.6 L17.4,18.4 M7.4,11 L7.4,13 M11,11 L11,13 M14.6,11 L14.6,13</Geometry>
+
+    <!--
+        Diseño D43 — iconos de las pestañas del panel superior, calcados de la referencia: la rejilla
+        desigual del panel, la nota con renglones de la lista de reproducción y la aguja del
+        velocímetro del rendimiento.
+    -->
+    <Geometry x:Key="IconTabPanel">M4.6,4.6 L10.2,4.6 L10.2,10.2 L4.6,10.2 Z M13.8,4.6 L19.4,4.6 L19.4,8.2 L13.8,8.2 Z M13.8,11.8 L19.4,11.8 L19.4,19.4 L13.8,19.4 Z M4.6,13.8 L10.2,13.8 L10.2,19.4 L4.6,19.4 Z</Geometry>
+    <Geometry x:Key="IconTabMedia">M4.4,7.2 L12.8,7.2 M4.4,12 L11,12 M4.4,16.8 L11,16.8 M19.6,5.4 L19.6,15.2 M19.6,5.4 L15.4,6.6 M15.4,15.2 A2.1,1.8 0 1 0 19.6,15.2 A2.1,1.8 0 1 0 15.4,15.2</Geometry>
+    <Geometry x:Key="IconTabPerformance">M4.4,17.4 A9.6,9.6 0 1 1 19.6,17.4 M12,12.6 L16.2,8.4</Geometry>
+
+    <!--
+        Diseño D43 — controles del reproductor. El de reproducir y el de pausa son dos geometrías y
+        no una que se transforma: intercambiarlas es un cambio de dato, y animar una en la otra sería
+        un adorno que retrasa saber si la música está sonando.
+    -->
+    <!--
+        Estos cuatro se pintan con relleno y no con trazo, al revés que el resto del juego de
+        iconos: un triángulo de reproducción hueco no se lee como el botón de reproducir de nada.
+        Por eso las barras son rectángulos cerrados y no líneas — una línea suelta no rellena.
+    -->
+    <Geometry x:Key="IconMediaPlay">M8,5 L19,12 L8,19 Z</Geometry>
+    <Geometry x:Key="IconMediaPause">M8.5,5 L11.5,5 L11.5,19 L8.5,19 Z M14.5,5 L17.5,5 L17.5,19 L14.5,19 Z</Geometry>
+    <Geometry x:Key="IconMediaNext">M6,5 L15,12 L6,19 Z M16.5,5 L19,5 L19,19 L16.5,19 Z</Geometry>
+    <Geometry x:Key="IconMediaPrevious">M18,5 L9,12 L18,19 Z M5,5 L7.5,5 L7.5,19 L5,19 Z</Geometry>
+    <Geometry x:Key="IconMediaNote">M6,17 A2.5,2 0 1 0 11,17 L11,6 L18,4.5 L18,14.5 M18,14.5 A2.5,2 0 1 0 15.5,14.5</Geometry>
+    <Geometry x:Key="IconClock">M12,3 A9,9 0 1 1 11.999,3 M12,7 L12,12 L15.5,14</Geometry>
 </ResourceDictionary>

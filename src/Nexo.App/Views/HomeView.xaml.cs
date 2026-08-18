@@ -52,13 +52,36 @@ public partial class HomeView : UserControl
     /// </summary>
     public event EventHandler? CommandCenterRequested;
 
+    /// <summary>
+    /// Diseño D51 — la insignia de pendientes aparece solo cuando hay algo pendiente.
+    ///
+    /// Es la nota del PDF sobre que Pendientes debe ser discreto, y la regla es la de cualquier
+    /// notificación: sin nada que contar, no hay insignia. Enseñar un cero es ocupar sitio para
+    /// decir que no pasa nada.
+    ///
+    /// El recuento llega ya formateado como texto desde el resumen del día, así que aquí no se
+    /// vuelve a interpretar: basta con distinguir «nada» de «algo». Un valor que no sea un número
+    /// —porque el resumen decida decir otra cosa— se enseña igual; lo que se oculta es el cero.
+    /// </summary>
+    private void ApplyTaskBadge(string? value)
+    {
+        var text = value?.Trim() ?? string.Empty;
+
+        var nothingPending =
+            text.Length == 0 ||
+            (int.TryParse(text, out var count) && count == 0);
+
+        TaskCountText.Text = text;
+        TaskCountBadge.Visibility = nothingPending ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     public void Refresh(HomeDashboardViewModel model)
     {
         ArgumentNullException.ThrowIfNull(model);
 
         GreetingText.Text = model.Greeting;
         GreetingDetailText.Text = model.GreetingDetail;
-        TaskCountText.Text = model.TaskValue;
+        ApplyTaskBadge(model.TaskValue);
         TaskDetailText.Text = model.TaskDetail;
         FocusValueText.Text = model.FocusValue;
         FocusDetailText.Text = model.FocusDetail;

@@ -46,13 +46,13 @@
 
     <Style x:Key="MutedTextStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
-        <Setter Property="FontSize" Value="12.5" />
-        <Setter Property="LineHeight" Value="18" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeCallout}" />
+        <Setter Property="LineHeight" Value="{DynamicResource LineHeightBody}" />
     </Style>
 
     <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
-        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeTitle1}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
@@ -60,15 +60,15 @@
         <Setter Property="Background" Value="{DynamicResource BrushSurface}" />
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="18" />
-        <Setter Property="Padding" Value="15" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
+        <Setter Property="Padding" Value="{DynamicResource InsetCard}" />
     </Style>
 
     <Style x:Key="SubtleCardStyle" TargetType="Border" BasedOn="{StaticResource CardStyle}">
         <Setter Property="Background" Value="{DynamicResource BrushSurfaceRaised}" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="15" />
-        <Setter Property="Padding" Value="13" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
+        <Setter Property="Padding" Value="{DynamicResource InsetCard}" />
     </Style>
 
     <Style x:Key="IconButtonStyle" TargetType="Button">
@@ -130,7 +130,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusLarge}">
+                            CornerRadius="{DynamicResource RadiusFull}">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="Center" />
                     </Border>
@@ -278,13 +278,13 @@
 
     <Style x:Key="SakuraPageTitleStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeDisplay}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeTitle1}" />
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style x:Key="SakuraPageSubtitleStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
-        <Setter Property="FontSize" Value="{DynamicResource FontSizeXSmall}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeFootnote}" />
     </Style>
 
     <Style x:Key="SakuraShellCardStyle" TargetType="Border">
@@ -310,7 +310,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusLarge}">
+                            CornerRadius="{DynamicResource RadiusFull}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center" />
                     </Border>
@@ -326,6 +326,44 @@
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="PrimaryBorder" Property="Opacity" Value="0.42" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Diseño D29 — tarjeta de tema en la galería de Apariencia. BorderBrush y BorderThickness se
+        pasan por TemplateBinding a propósito: el código detrás fija esos dos valores directamente
+        en la instancia del botón que corresponde al tema activo —un valor de instancia siempre
+        gana sobre el de un Setter de estilo—, así que resaltar "este es el tema puesto ahora" no
+        necesita un trigger nuevo por cada tema de la galería, solo mirar qué acento coincide.
+    -->
+    <Style x:Key="ThemeCardButtonStyle" TargetType="Button">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        <Setter Property="Background" Value="{DynamicResource BrushSurface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="CardBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource RadiusMedium}">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="CardBorder" Property="Background"
+                                    Value="{DynamicResource BrushSurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="CardBorder" Property="Opacity" Value="0.82" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -365,6 +403,33 @@
         <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
     </Style>
 
+    <!--
+        Diseño D25 — el cuadro de la clave de acceso. No había ningún estilo para PasswordBox porque
+        hasta ahora no había ninguno en la aplicación: la clave se pedía como nombre de una variable
+        de entorno, en un TextBox normal. Sin estilo, Windows lo dibuja con su tema claro, y una caja
+        blanca en mitad del tema oscuro se lee como un error de la aplicación justo en el paso donde
+        alguien está pegando una credencial.
+    -->
+    <Style TargetType="PasswordBox">
+        <Setter Property="Background" Value="{DynamicResource BrushInput}" />
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource BrushAccent}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource BrushAccentSoft}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="13,11" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <!--
+        Diseño D26 — el estilo anterior solo fijaba Foreground, Background y BorderBrush, y eso no
+        basta: la plantilla por omisión de WPF dibuja su propio marco con brochas fijas del tema del
+        sistema e ignora las que se le pasen. El resultado era una caja blanca de Windows con texto
+        casi blanco encima — ilegible sobre el tema oscuro, en todas las listas desplegables de la
+        aplicación. No se veía porque estaban enterradas en el muro de ajustes; al reorganizarlo
+        quedaron a la vista. Para mandar de verdad sobre el color hay que reemplazar la plantilla.
+    -->
     <Style TargetType="ComboBox">
         <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
         <Setter Property="Background" Value="{DynamicResource BrushInput}" />
@@ -372,6 +437,116 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="11,8" />
         <Setter Property="FontSize" Value="13" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton x:Name="OpenToggle"
+                                      Focusable="False"
+                                      ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="Surface"
+                                            Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            BorderThickness="{Binding BorderThickness, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            CornerRadius="{DynamicResource RadiusSmall}"
+                                            SnapsToDevicePixels="True">
+                                        <Path x:Name="Arrow"
+                                              Width="9"
+                                              Height="5.5"
+                                              Margin="0,0,12,0"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Center"
+                                              Data="M0,0 L4.5,5 L9,0"
+                                              Stretch="Fill"
+                                              Stroke="{DynamicResource BrushTextSecondary}"
+                                              StrokeThickness="1.6"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"
+                                              StrokeLineJoin="Round" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Surface" Property="BorderBrush"
+                                                    Value="{DynamicResource BrushAccentBorder}" />
+                                            <Setter TargetName="Arrow" Property="Stroke"
+                                                    Value="{DynamicResource BrushAccent}" />
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Surface" Property="BorderBrush"
+                                                    Value="{DynamicResource BrushAccentBorder}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+
+                        <!--
+                            El margen derecho deja hueco para la flecha; sin él, un nombre de modelo
+                            largo se dibujaría por debajo de ella.
+                        -->
+                        <!--
+                            Los tres enlaces del elemento seleccionado usan Binding con
+                            RelativeSource y no TemplateBinding, y no es indiferente:
+                            SelectionBoxItemTemplate es una propiedad de solo lectura que WPF
+                            rellena DESPUÉS de aplicar la plantilla, y TemplateBinding —que se
+                            resuelve una sola vez y no vuelve a mirar— se queda con el valor vacío
+                            del principio. El efecto era que DisplayMemberPath dejaba de tener
+                            efecto y el desplegable mostraba el objeto en crudo,
+                            "AiProviderChoice { Kind = Disabled, … }", en vez de su nombre.
+                        -->
+                        <!--
+                            Diseño D47 — el color del texto elegido se declara y no se hereda: con
+                            TemplateBinding tomaba el gris apagado del contenedor del desplegable y
+                            quedaba con tan poco contraste que costaba leerlo hasta ampliando la
+                            pantalla.
+                        -->
+                        <ContentPresenter x:Name="SelectedItemPresenter"
+                                          Margin="11,8,30,8"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Left"
+                                          IsHitTestVisible="False"
+                                          Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ContentStringFormat="{Binding SelectionBoxItemStringFormat, RelativeSource={RelativeSource TemplatedParent}}"
+                                          TextElement.Foreground="{DynamicResource BrushTextPrimary}" />
+
+                        <Popup x:Name="PART_Popup"
+                               AllowsTransparency="True"
+                               Placement="Bottom"
+                               PopupAnimation="Fade"
+                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                               MinWidth="{TemplateBinding ActualWidth}"
+                               MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                            <Border Margin="0,4,0,0"
+                                    Padding="4"
+                                    Background="{DynamicResource BrushSurfaceRaised}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="{DynamicResource RadiusMedium}"
+                                    SnapsToDevicePixels="True">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.35" Color="Black" />
+                                </Border.Effect>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ComboBoxItem">
@@ -590,11 +765,227 @@
         </Setter>
     </Style>
 
+    <!--
+        Diseño D47 — la casilla y el botón de opción, escritos de cero.
+
+        Hasta ahora no tenían plantilla: WPF dibujaba la suya, que es el cuadrito gris de la época
+        de Windows 8 y desentona con todo lo demás. El estilo anterior solo cambiaba el color del
+        texto y el cursor, así que el control seguía siendo ajeno a Kohana.
+
+        Las dos formas siguen la regla de siempre: cuadrado redondeado para lo que se puede marcar
+        en cualquier combinación, círculo para elegir una de varias. Es la única señal que
+        distingue «marca los que quieras» de «solo uno», y por eso no se unifican aunque quedaría
+        más limpio.
+
+        El área pulsable abarca la fila entera y no solo el cuadrito de veintidós píxeles: apuntar
+        a un objetivo así de pequeño es justo lo que sobra cuando hay quince opciones que revisar.
+    -->
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="Padding" Value="12,0,0,0" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Border x:Name="Row"
+                            Background="Transparent"
+                            CornerRadius="{DynamicResource RadiusSmall}"
+                            Padding="6,7">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="Box"
+                                    Width="22"
+                                    Height="22"
+                                    VerticalAlignment="Top"
+                                    Background="{DynamicResource BrushInput}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1.5"
+                                    CornerRadius="7"
+                                    SnapsToDevicePixels="True">
+                                <!--
+                                    La marca entra con un golpe de escala de ciento veinte
+                                    milisegundos: lo justo para confirmar que el clic surtió efecto
+                                    sin obligar a esperar a la animación.
+                                -->
+                                <Path x:Name="Check"
+                                      Width="12"
+                                      Height="9"
+                                      Stretch="Uniform"
+                                      Data="M0,4.6 L4,8.6 L11,0.6"
+                                      Stroke="White"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Opacity="0"
+                                      RenderTransformOrigin="0.5,0.5">
+                                    <Path.RenderTransform>
+                                        <ScaleTransform x:Name="CheckScale" ScaleX="0.4" ScaleY="0.4" />
+                                    </Path.RenderTransform>
+                                </Path>
+                            </Border>
+
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Grid>
+                    </Border>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource BrushAccent}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource BrushAccent}" />
+                            <Setter TargetName="Check" Property="Opacity" Value="1" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="CheckScale"
+                                                         Storyboard.TargetProperty="ScaleX"
+                                                         To="1"
+                                                         Duration="0:0:0.12" />
+                                        <DoubleAnimation Storyboard.TargetName="CheckScale"
+                                                         Storyboard.TargetProperty="ScaleY"
+                                                         To="1"
+                                                         Duration="0:0:0.12" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="CheckScale"
+                                                         Storyboard.TargetProperty="ScaleX"
+                                                         To="0.4"
+                                                         Duration="0:0:0.08" />
+                                        <DoubleAnimation Storyboard.TargetName="CheckScale"
+                                                         Storyboard.TargetProperty="ScaleY"
+                                                         To="0.4"
+                                                         Duration="0:0:0.08" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+
+                        <!-- Tercer estado: ni marcado ni sin marcar. Una raya, nunca una palomita. -->
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource BrushAccentSoft}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource BrushAccentBorder}" />
+                            <Setter TargetName="Check" Property="Data" Value="M0,4.6 L11,4.6" />
+                            <Setter TargetName="Check" Property="Stroke" Value="{DynamicResource BrushAccent}" />
+                            <Setter TargetName="Check" Property="Opacity" Value="1" />
+                        </Trigger>
+
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource BrushSurfaceHover}" />
+                        </Trigger>
+
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
+                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource BrushSurfaceHover}" />
+                        </Trigger>
+
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Row" Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="Padding" Value="12,0,0,0" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Row"
+                            Background="Transparent"
+                            CornerRadius="{DynamicResource RadiusSmall}"
+                            Padding="6,7">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid Width="22" Height="22" VerticalAlignment="Top">
+                                <Ellipse x:Name="Ring"
+                                         Fill="{DynamicResource BrushInput}"
+                                         Stroke="{DynamicResource BrushBorder}"
+                                         StrokeThickness="1.5" />
+                                <Ellipse x:Name="Dot"
+                                         Width="10"
+                                         Height="10"
+                                         Fill="White"
+                                         Opacity="0"
+                                         RenderTransformOrigin="0.5,0.5">
+                                    <Ellipse.RenderTransform>
+                                        <ScaleTransform x:Name="DotScale" ScaleX="0.4" ScaleY="0.4" />
+                                    </Ellipse.RenderTransform>
+                                </Ellipse>
+                            </Grid>
+
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Grid>
+                    </Border>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource BrushAccent}" />
+                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource BrushAccent}" />
+                            <Setter TargetName="Dot" Property="Opacity" Value="1" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="DotScale"
+                                                         Storyboard.TargetProperty="ScaleX"
+                                                         To="1"
+                                                         Duration="0:0:0.12" />
+                                        <DoubleAnimation Storyboard.TargetName="DotScale"
+                                                         Storyboard.TargetProperty="ScaleY"
+                                                         To="1"
+                                                         Duration="0:0:0.12" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                        </Trigger>
+
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource BrushSurfaceHover}" />
+                        </Trigger>
+
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource BrushFocusRing}" />
+                            <Setter TargetName="Row" Property="Background" Value="{DynamicResource BrushSurfaceHover}" />
+                        </Trigger>
+
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Row" Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!--

@@ -25,11 +25,11 @@ public sealed class JsonSettingsStore
         {
             if (!File.Exists(_settingsPath))
             {
-                return new ShellPreferences();
+                return CreateFreshPreferences();
             }
 
             var json = File.ReadAllText(_settingsPath);
-            var preferences = JsonSerializer.Deserialize<ShellPreferences>(json) ?? new ShellPreferences();
+            var preferences = JsonSerializer.Deserialize<ShellPreferences>(json) ?? CreateFreshPreferences();
             preferences.Normalize();
             return preferences;
         }
@@ -37,7 +37,7 @@ public sealed class JsonSettingsStore
             exception is JsonException or IOException or UnauthorizedAccessException)
         {
             CorruptFileBackup.TryPreserve(_settingsPath);
-            return new ShellPreferences();
+            return CreateFreshPreferences();
         }
     }
 
@@ -55,4 +55,15 @@ public sealed class JsonSettingsStore
         File.WriteAllText(temporaryPath, json);
         File.Move(temporaryPath, _settingsPath, overwrite: true);
     }
+
+    /// <summary>
+    /// Las migraciones de <see cref="ShellPreferences.Normalize"/> existen para actualizar archivos
+    /// viejos, no para inicializar uno nuevo: arrancan desde la versión que declara el archivo y
+    /// reimponen los valores por omisión de cada versión intermedia. Un objeto recién construido
+    /// declara la versión 0, así que si se guarda tal cual, Normalize lo trata como un archivo
+    /// prehistórico y pisa lo que el usuario acabe de elegir. En una instalación nueva no hay nada
+    /// que migrar, y eso es justo lo que dice esta versión.
+    /// </summary>
+    private static ShellPreferences CreateFreshPreferences() =>
+        new() { SchemaVersion = ShellPreferences.CurrentSchemaVersion };
 }

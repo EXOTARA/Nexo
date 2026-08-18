@@ -1,9 +1,15 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Nexo.Core.Ai;
 using Nexo.Core.AdaptiveEngine;
+using Nexo.Core.Flow;
+using Nexo.Core.Memory;
+using Nexo.Core.Permissions;
 using Nexo.Core.Settings;
+using Nexo.Core.Skills;
 using Nexo.Core.Voice;
+using Nexo.Core.Workspace;
 
 namespace Nexo.App.Views;
 
@@ -15,7 +21,9 @@ public partial class SettingsView : UserControl
     public event Action<double>? WidthChanged;
     public event Action<double>? OpacityChanged;
     public event Action<string>? AccentChanged;
+    public event Action<AccentSource>? AccentSourceChanged;
     public event Action<bool>? AnimationsChanged;
+    public event Action<bool>? EdgeRevealChanged;
     public event Action<string, bool>? ModuleVisibilityChanged;
     public event Action<string, bool>? PeekOptionChanged;
     public event Action<bool>? ConversationHistoryChanged;
@@ -27,7 +35,42 @@ public partial class SettingsView : UserControl
     public event EventHandler? WakeWordTestRequested;
     public event EventHandler? WakeWordAliasFromLastRequested;
     public event EventHandler? WakeWordAliasesClearRequested;
+
+    // Diseño D7 (Fase 3 — Kohana Flow)
+    public event Action<bool>? FlowEnabledChanged;
+    public event Action<FlowMode>? FlowModeChanged;
+    public event Action<IReadOnlyList<string>>? FlowDictionaryChanged;
+    public event Action<IReadOnlyList<string>>? FlowSnippetsChanged;
+
+    // Diseño D10 (Fase 6 — Context and Memory)
+    public event Action<bool>? MemoryEnabledChanged;
+    public event Action<MemoryCategory, bool>? MemoryCategoryChanged;
+    public event Action<int>? MemoryRetentionChanged;
+    public event Action<IReadOnlyList<string>>? MemoryExclusionsChanged;
+    public event EventHandler? MemoryShowRequested;
+    public event EventHandler? MemoryForgetAllRequested;
+
+    // Diseño D16: permisos por capacidad
+    public event Action<KohanaCapability, PermissionLevel>? CapabilityPermissionChanged;
+
+    // Diseño D19: exclusiones por aplicación
+    public event Action<IReadOnlyList<string>>? PermissionExclusionsChanged;
+
+    // Diseño D23 (Fase 8 — Skills Platform)
+    public event Action<SkillPackId>? SkillPackActivationRequested;
+    public event EventHandler? SkillPackDeactivationRequested;
+
+    // Diseño D13 (Fase 5 — Project Companion)
+    public event EventHandler? WorkspaceAuthorizeRequested;
+    public event EventHandler? WorkspaceRevokeRequested;
+    public event Action<AutonomyLevel>? WorkspaceAutonomyLevelChanged;
+
     public event Action<AiProviderKind>? AiProviderChanged;
+
+    // Diseño D25 — la clave viaja al almacén cifrado, nunca a ShellPreferences.
+    public event Action<AiProviderKind, string>? ApiKeyChanged;
+    public event Action<AiProviderKind>? ApiKeyRequested;
+    public event Action<string>? ApiKeyPageRequested;
     public event Action<string>? AiBaseUrlChanged;
     public event Action<string>? AiModelChanged;
     public event Action<string>? AiApiKeyEnvironmentVariableChanged;
@@ -67,6 +110,13 @@ public partial class SettingsView : UserControl
         WidthValueText.Text = $"{preferences.Width:0} px";
         OpacityValueText.Text = $"{preferences.Opacity:P0}";
         AnimationsCheckBox.IsChecked = preferences.AnimationsEnabled;
+        EdgeRevealCheckBox.IsChecked = preferences.EdgeRevealEnabled;
+        ApplyAccentSourceToControls(preferences.AccentSource);
+        HighlightSelectedTheme(preferences.AccentColor);
+        HomeModuleCheckBox.IsChecked = preferences.ShowHomeModule;
+        TasksModuleCheckBox.IsChecked = preferences.ShowTasksModule;
+        FocusModuleCheckBox.IsChecked = preferences.ShowFocusModule;
+        RoutinesModuleCheckBox.IsChecked = preferences.ShowRoutinesModule;
         AudioModuleCheckBox.IsChecked = preferences.ShowAudioModule;
         CaptureModuleCheckBox.IsChecked = preferences.ShowCaptureModule;
         SystemModuleCheckBox.IsChecked = preferences.ShowSystemModule;
@@ -85,6 +135,17 @@ public partial class SettingsView : UserControl
         WakeWordHeyKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
         SelectWakeWordSensitivity(preferences.WakeWordSensitivity);
         SetWakeWordAliases(preferences.WakeWordAliases);
+
+        FlowEnabledCheckBox.IsChecked = preferences.FlowEnabled;
+        FlowModeTextoRadioButton.IsChecked = preferences.FlowMode == FlowMode.Texto;
+        FlowModeCorreoRadioButton.IsChecked = preferences.FlowMode == FlowMode.Correo;
+        FlowModeCodigoRadioButton.IsChecked = preferences.FlowMode == FlowMode.Codigo;
+        FlowDictionaryBox.Text = string.Join(Environment.NewLine, preferences.FlowDictionary);
+        FlowSnippetsBox.Text = string.Join(Environment.NewLine, preferences.FlowSnippets);
+        ApplyMemorySettings(preferences.Memory);
+        ApplyPermissionSettings(preferences.Permissions);
+        ApplyComputerUseAutonomyLevel(preferences.ComputerUseAutonomyLevel);
+        ApplyWorkspaceSettings(preferences.Workspace);
         ApplyAiProviderSelection(preferences.AiProvider);
         AiBaseUrlTextBox.Text = preferences.AiBaseUrl;
         AiModelTextBox.Text = preferences.AiModel;
@@ -111,6 +172,12 @@ public partial class SettingsView : UserControl
         UpdateAiOptionsAvailability();
 
         _isApplyingPreferences = false;
+
+        // Después de bajar la bandera, no antes: quien atiende este evento vuelve a llamar a
+        // SetStoredApiKeyPresence, que la maneja por su cuenta, y anidarlas la dejaría en falso a
+        // mitad de esta rutina — el resto de asignaciones empezarían a disparar eventos de cambio
+        // como si la persona los hubiera tocado.
+        ApiKeyRequested?.Invoke(preferences.AiProvider);
     }
 
     private void LeftButton_Click(object sender, RoutedEventArgs e)
@@ -157,7 +224,87 @@ public partial class SettingsView : UserControl
     {
         if (sender is Button { Tag: string accent })
         {
+            // AccentChanged primero: su manejador en MainWindow aplica el acento nuevo al recurso
+            // BrushAccent de forma síncrona, y el resaltado de abajo lee ese mismo recurso —si se
+            // invirtiera el orden, la tarjeta se resaltaría con el color de acento saliente.
             AccentChanged?.Invoke(accent);
+            HighlightSelectedTheme(accent);
+        }
+    }
+
+    /// <summary>
+    /// Resalta la tarjeta cuyo acento coincide con el guardado, y solo esa: BorderBrush y
+    /// BorderThickness se fijan directamente en cada botón, ganándole al valor por defecto del
+    /// estilo. Ningún color a mano fuera de la galería coincide con ninguna tarjeta, así que las
+    /// cuatro se quedan sin resaltar —eso es correcto, no un caso sin cubrir.
+    /// </summary>
+    private void HighlightSelectedTheme(string accentHex)
+    {
+        var cards = new (Button Button, string AccentHex)[]
+        {
+            (ThemeSakuraButton, "#8B6CFF"),
+            (ThemeOceanoButton, "#4D8DFF"),
+            (ThemeBosqueButton, "#35C58A"),
+            (ThemeCerezoButton, "#F06CA8")
+        };
+
+        foreach (var (button, cardAccentHex) in cards)
+        {
+            var isSelected = string.Equals(cardAccentHex, accentHex, StringComparison.OrdinalIgnoreCase);
+            button.BorderThickness = new Thickness(isSelected ? 2 : 1);
+            button.BorderBrush = isSelected
+                ? (Brush)FindResource("BrushAccent")
+                : (Brush)FindResource("BrushBorder");
+        }
+    }
+
+    /// <summary>
+    /// Las dos casillas describen un solo ajuste con tres estados, así que se excluyen entre sí:
+    /// marcar una desmarca la otra. Con dos banderas independientes existiría el estado "las dos
+    /// activas", que no significa nada y habría que resolver a la fuerza en algún sitio.
+    /// </summary>
+    private void AccentSourceCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var source = sender switch
+        {
+            var s when ReferenceEquals(s, AccentFromWallpaperCheckBox) &&
+                       AccentFromWallpaperCheckBox.IsChecked == true => AccentSource.Wallpaper,
+            var s when ReferenceEquals(s, AccentFollowsWindowsCheckBox) &&
+                       AccentFollowsWindowsCheckBox.IsChecked == true => AccentSource.Windows,
+            _ => AccentSource.Manual
+        };
+
+        ApplyAccentSourceToControls(source);
+        AccentSourceChanged?.Invoke(source);
+    }
+
+    private void ApplyAccentSourceToControls(AccentSource source)
+    {
+        // Se guarda y se restaura en vez de bajar la bandera al final: esto se llama también desde
+        // dentro de ApplyPreferences, que ya la tiene levantada, y dejarla en falso a media rutina
+        // haría que el resto de asignaciones dispararan eventos de cambio como si alguien las
+        // hubiera tocado a mano.
+        var wasApplying = _isApplyingPreferences;
+        _isApplyingPreferences = true;
+        AccentFromWallpaperCheckBox.IsChecked = source == AccentSource.Wallpaper;
+        AccentFollowsWindowsCheckBox.IsChecked = source == AccentSource.Windows;
+        _isApplyingPreferences = wasApplying;
+
+        // La galería solo tiene sentido cuando el color lo elige la persona: con el acento atado al
+        // fondo o a Windows, pulsar una tarjeta no haría nada visible y se leería como un fallo.
+        ThemeGalleryPanel.IsEnabled = source == AccentSource.Manual;
+    }
+
+    private void EdgeRevealCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            EdgeRevealChanged?.Invoke(EdgeRevealCheckBox.IsChecked == true);
         }
     }
 
@@ -373,6 +520,7 @@ public partial class SettingsView : UserControl
         AiModelTextBox.Text = preset.DefaultModel;
         AiApiKeyVariableTextBox.Text = preset.ApiKeyEnvironmentVariable;
         _isApplyingPreferences = false;
+        DescribeAiProvider(provider);
         UpdateAiOptionsAvailability();
         SetAiConnectionStatus(
             provider == AiProviderKind.Disabled
@@ -417,24 +565,90 @@ public partial class SettingsView : UserControl
         }
 
         AiTestConnectionButton.IsEnabled = !inProgress &&
-            AiDisabledRadioButton.IsChecked != true;
+            SelectedAiProvider != AiProviderKind.Disabled;
         AiTestConnectionButton.Content = inProgress
             ? "Probando…"
             : "Probar conexión";
         ManageModelsButton.IsEnabled = !inProgress &&
-            AiOllamaRadioButton.IsChecked == true;
+            AiProviderDefaults.UsesOllamaProtocol(SelectedAiProvider);
     }
 
-    private void AiProviderRadioButton_Checked(object sender, RoutedEventArgs e)
+    private void AiProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isApplyingPreferences || sender is not RadioButton { Tag: string providerTag })
+        if (_isApplyingPreferences ||
+            AiProviderComboBox.SelectedItem is not AiProviderChoice choice)
         {
             return;
         }
 
-        var provider = ParseAiProvider(providerTag);
-        AiProviderChanged?.Invoke(provider);
-        ApplyAiProviderDefaults(provider);
+        AiProviderChanged?.Invoke(choice.Kind);
+        ApplyAiProviderDefaults(choice.Kind);
+        ApiKeyRequested?.Invoke(choice.Kind);
+    }
+
+    private void AiApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        ApiKeyChanged?.Invoke(SelectedAiProvider, AiApiKeyPasswordBox.Password);
+    }
+
+    private void AiGetApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        var url = AiProviderDefaults.Get(SelectedAiProvider).ApiKeyUrl;
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            ApiKeyPageRequested?.Invoke(url);
+        }
+    }
+
+    private void AiForgetApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        AiApiKeyPasswordBox.Clear();
+        ApiKeyChanged?.Invoke(SelectedAiProvider, string.Empty);
+    }
+
+    /// <summary>
+    /// Muestra si hay clave guardada sin mostrar la clave. El cuadro de contraseña se deja vacío a
+    /// propósito incluso cuando hay una guardada: rellenarlo con la clave real la pondría en pantalla
+    /// —y en cualquier captura— cada vez que alguien abre Ajustes.
+    /// </summary>
+    /// <summary>
+    /// Se usa al cambiar de proveedor o al abrir el apartado: la caja pasa a referirse a la clave
+    /// de otro proveedor, así que se vacía a propósito —nunca se vuelve a mostrar una clave ya
+    /// guardada, ni siquiera la suya propia— y el texto de ayuda dice si ya hay algo guardado.
+    /// </summary>
+    public void SetStoredApiKeyPresence(bool hasKey)
+    {
+        if (AiApiKeyStatusText is null)
+        {
+            return;
+        }
+
+        _isApplyingPreferences = true;
+        AiApiKeyPasswordBox.Clear();
+        _isApplyingPreferences = false;
+
+        UpdateApiKeyStatusText(hasKey);
+    }
+
+    /// <summary>
+    /// Diseño D26 — igual que <see cref="SetStoredApiKeyPresence"/> pero sin vaciar la caja. Antes,
+    /// PasswordChanged llamaba a SetStoredApiKeyPresence nada más guardar cada pulsación, y esa
+    /// llamada limpiaba la caja de inmediato: pegar la clave se veía como si no hiciera nada, y
+    /// escribir algo después —pensando que había fallado— sobrescribía la clave buena con una a
+    /// medias. Mientras la persona está escribiendo, solo se refleja si ya quedó algo guardado; la
+    /// caja se vacía únicamente cuando cambia de proveedor, en SetStoredApiKeyPresence.
+    /// </summary>
+    public void UpdateApiKeyStatusText(bool hasKey)
+    {
+        AiApiKeyStatusText.Text = hasKey
+            ? "Hay una clave guardada en este equipo, cifrada con tu cuenta de Windows. Escribe una nueva solo si quieres reemplazarla."
+            : "Pega aquí tu clave. Se guarda cifrada en este equipo y nunca se escribe en el archivo de ajustes.";
+        AiForgetApiKeyButton.IsEnabled = hasKey;
     }
 
     private void AiTextBox_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
@@ -492,20 +706,99 @@ public partial class SettingsView : UserControl
     private void ResetAppearanceButton_Click(object sender, RoutedEventArgs e) =>
         ResetAppearanceRequested?.Invoke(this, EventArgs.Empty);
 
-    private static AiProviderKind ParseAiProvider(string providerTag)
+    /// <summary>
+    /// Diseño D25 — el selector de proveedor se construye desde
+    /// <see cref="AiProviderDefaults.SelectableOrder"/> en vez de una lista escrita a mano en el
+    /// XAML. Eran cinco botones de radio; ahora hay diez proveedores y la mitad son de nube, así
+    /// que duplicar la lista en la interfaz garantizaba que un día se quedara corta.
+    /// </summary>
+    private sealed record AiProviderChoice(AiProviderKind Kind, string DisplayName);
+
+    private void PopulateAiProviders()
     {
-        return Enum.TryParse<AiProviderKind>(providerTag, ignoreCase: true, out var provider)
-            ? provider
-            : AiProviderKind.Disabled;
+        AiProviderComboBox.ItemsSource = AiProviderDefaults.SelectableOrder
+            .Select(kind => new AiProviderChoice(kind, AiProviderDefaults.Get(kind).DisplayName))
+            .ToArray();
     }
 
     private void ApplyAiProviderSelection(AiProviderKind provider)
     {
-        AiDisabledRadioButton.IsChecked = provider == AiProviderKind.Disabled;
-        AiOpenAiRadioButton.IsChecked = provider == AiProviderKind.OpenAI;
-        AiOllamaRadioButton.IsChecked = provider == AiProviderKind.Ollama;
-        AiLmStudioRadioButton.IsChecked = provider == AiProviderKind.LMStudio;
-        AiCompatibleRadioButton.IsChecked = provider == AiProviderKind.OpenAICompatible;
+        if (AiProviderComboBox.ItemsSource is null)
+        {
+            PopulateAiProviders();
+        }
+
+        AiProviderComboBox.SelectedItem = AiProviderComboBox.Items
+            .OfType<AiProviderChoice>()
+            .FirstOrDefault(choice => choice.Kind == provider);
+
+        DescribeAiProvider(provider);
+    }
+
+    private AiProviderKind SelectedAiProvider =>
+        AiProviderComboBox?.SelectedItem is AiProviderChoice choice
+            ? choice.Kind
+            : AiProviderKind.Disabled;
+
+    /// <summary>
+    /// Explica el proveedor antes de que alguien lo elija: dónde corre y qué cuesta. Son las dos
+    /// preguntas que decidían si el equipo de una persona iba a arrastrarse, y hasta ahora la
+    /// interfaz no contestaba ninguna de las dos — solo mostraba el nombre.
+    /// </summary>
+    private void DescribeAiProvider(AiProviderKind provider)
+    {
+        if (AiProviderSummaryText is null)
+        {
+            return;
+        }
+
+        var preset = AiProviderDefaults.Get(provider);
+
+        var location = preset.Location switch
+        {
+            AiProviderLocation.Local => "En tu equipo",
+            AiProviderLocation.Cloud => "En la nube",
+            _ => string.Empty
+        };
+
+        var cost = preset.Cost switch
+        {
+            AiProviderCost.FreeOnDevice => "gratis, sin cuenta",
+            AiProviderCost.FreeTier => "tiene capa gratuita",
+            AiProviderCost.Paid => "de pago por uso",
+            _ => string.Empty
+        };
+
+        var badge = (location, cost) switch
+        {
+            ("", "") => string.Empty,
+            (_, "") => location,
+            ("", _) => cost,
+            _ => $"{location} · {cost}"
+        };
+
+        AiProviderBadgeText.Text = badge;
+
+        // "Sin inteligencia artificial" no corre en ningún sitio ni cuesta nada, así que no tiene
+        // etiqueta. Un TextBlock vacío sigue ocupando el alto de una línea, y ese hueco en blanco
+        // sobre el texto se lee como un fallo de maquetación.
+        AiProviderBadgeText.Visibility = string.IsNullOrEmpty(badge)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        AiProviderSummaryText.Text = preset.Summary;
+
+        AiApiKeyPanel.Visibility = preset.RequiresApiKey
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        AiGetApiKeyButton.IsEnabled = !string.IsNullOrWhiteSpace(preset.ApiKeyUrl);
+
+        AiBaseUrlHintText.Text = AiProviderDefaults.IsManagedByKohana(provider)
+            ? "La IA local de Kohana siempre vive en esta dirección y la administra la propia aplicación; cambiarla aquí no tiene efecto."
+            : $"Dirección por omisión de {preset.DisplayName}: {preset.BaseUrl}";
+
+        AiBaseUrlTextBox.IsEnabled = provider != AiProviderKind.Disabled &&
+            !AiProviderDefaults.IsManagedByKohana(provider);
     }
 
     private void HardwarePerformanceModeRadioButton_Checked(object sender, RoutedEventArgs e)
@@ -540,13 +833,17 @@ public partial class SettingsView : UserControl
             return;
         }
 
-        var enabled = AiDisabledRadioButton.IsChecked != true;
-        AiBaseUrlTextBox.IsEnabled = enabled;
+        var provider = SelectedAiProvider;
+        var enabled = provider != AiProviderKind.Disabled;
+
+        // La dirección la fija DescribeAiProvider: con la IA local de Kohana no se puede escribir,
+        // porque el motor solo existe donde la propia aplicación lo pone.
         AiModelTextBox.IsEnabled = enabled;
         AiApiKeyVariableTextBox.IsEnabled = enabled;
         ShareSystemMetricsWithAiCheckBox.IsEnabled = enabled;
         AiTestConnectionButton.IsEnabled = enabled;
-        ManageModelsButton.IsEnabled = enabled && AiOllamaRadioButton.IsChecked == true;
+        ManageModelsButton.IsEnabled = enabled &&
+            AiProviderDefaults.UsesOllamaProtocol(provider);
     }
 
     private void WakeWordEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -696,4 +993,464 @@ public partial class SettingsView : UserControl
             ? (System.Windows.Media.Brush)FindResource("BrushAccentSoft")
             : (System.Windows.Media.Brush)FindResource("BrushSurfaceRaised");
     }
+
+    // ---------- Diseño D7 (Fase 3 — Kohana Flow) ----------
+
+    private void FlowEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        FlowEnabledChanged?.Invoke(FlowEnabledCheckBox.IsChecked == true);
+    }
+
+    private void FlowModeRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not RadioButton { Tag: string tag })
+        {
+            return;
+        }
+
+        if (Enum.TryParse<FlowMode>(tag, out var mode))
+        {
+            FlowModeChanged?.Invoke(mode);
+        }
+    }
+
+    private void FlowDictionaryBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var lines = SplitListLines(FlowDictionaryBox.Text);
+        ReportIgnoredLines(lines, "diccionario");
+        FlowDictionaryChanged?.Invoke(lines);
+    }
+
+    private void FlowSnippetsBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var lines = SplitListLines(FlowSnippetsBox.Text);
+        ReportIgnoredLines(lines, "atajos");
+        FlowSnippetsChanged?.Invoke(lines);
+    }
+
+    private static IReadOnlyList<string> SplitListLines(string? text) =>
+        (text ?? string.Empty)
+            .ReplaceLineEndings()
+            .Split(
+                Environment.NewLine,
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToArray();
+
+    /// <summary>
+    /// Diseño D7 — el parser ignora en silencio las líneas mal escritas para que una sola no tumbe
+    /// el resto, pero en la interfaz sí conviene decirlo: si alguien escribe "cojana Kohana" (sin
+    /// el igual) y no pasa nada, parecería que el diccionario no funciona.
+    /// </summary>
+    private void ReportIgnoredLines(IReadOnlyList<string> lines, string listName)
+    {
+        var accepted = FlowSettingsParser.ParseDictionary(lines).Count;
+        var ignored = lines.Count - accepted;
+
+        if (ignored <= 0)
+        {
+            FlowListsStatusText.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        FlowListsStatusText.Text = ignored == 1
+            ? $"Se ignoró 1 línea del {listName} porque no tiene el formato dicho=escrito."
+            : $"Se ignoraron {ignored} líneas del {listName} porque no tienen el formato dicho=escrito.";
+        FlowListsStatusText.Visibility = Visibility.Visible;
+    }
+
+    // ---------- Diseño D10 (Fase 6 — Context and Memory) ----------
+
+    /// <summary>
+    /// Diseño D10 — la memoria dejó de configurarse a mano en <c>settings.json</c>. Los cuatro
+    /// controles que la fase exige (activar, categorías, retención y exclusiones) viven aquí, junto
+    /// a los dos que tienen que funcionar siempre: ver lo guardado y borrarlo.
+    /// </summary>
+    public void ApplyMemorySettings(MemorySettings? memory)
+    {
+        var settings = memory ?? new MemorySettings();
+
+        MemoryEnabledCheckBox.IsChecked = settings.Enabled;
+        MemoryPreferencesCheckBox.IsChecked = settings.RememberPreferences;
+        MemoryConversationCheckBox.IsChecked = settings.RememberConversation;
+        MemoryHabitsCheckBox.IsChecked = settings.RememberHabits;
+        MemoryRetentionBox.Text = settings.RetentionDays.ToString();
+        MemoryExclusionsBox.Text = string.Join(Environment.NewLine, settings.Exclusions);
+
+        UpdateMemoryCategoriesAvailability(settings.Enabled);
+    }
+
+    /// <summary>
+    /// Los botones de ver y olvidar NO se desactivan con la memoria: revocar y auditar deben poder
+    /// hacerse siempre. Si apagar la memoria bloqueara el borrado, lo ya guardado quedaría atrapado
+    /// justo cuando la persona quiere deshacerse de ello.
+    /// </summary>
+    private void UpdateMemoryCategoriesAvailability(bool enabled)
+    {
+        MemoryCategoriesPanel.IsEnabled = enabled;
+        MemoryCategoriesPanel.Opacity = enabled ? 1.0 : 0.55;
+    }
+
+    private void MemoryEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var enabled = MemoryEnabledCheckBox.IsChecked == true;
+        UpdateMemoryCategoriesAvailability(enabled);
+
+        if (!enabled)
+        {
+            // Refleja en la interfaz lo que MemorySettings.Normalize hace en los datos: apagar el
+            // interruptor general apaga las categorías. Si la vista siguiera enseñándolas marcadas,
+            // volver a activar la memoria parecería restaurar permisos que ya no existen.
+            _isApplyingPreferences = true;
+            MemoryPreferencesCheckBox.IsChecked = false;
+            MemoryConversationCheckBox.IsChecked = false;
+            MemoryHabitsCheckBox.IsChecked = false;
+            _isApplyingPreferences = false;
+        }
+
+        MemoryEnabledChanged?.Invoke(enabled);
+    }
+
+    private void MemoryCategoryCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not CheckBox { Tag: string tag } box)
+        {
+            return;
+        }
+
+        if (Enum.TryParse<MemoryCategory>(tag, out var category))
+        {
+            MemoryCategoryChanged?.Invoke(category, box.IsChecked == true);
+        }
+    }
+
+    private void MemoryRetentionBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        if (!int.TryParse(MemoryRetentionBox.Text?.Trim(), out var days))
+        {
+            // Un valor ilegible no puede aceptarse en silencio: la retención es el límite de cuánto
+            // se conserva, y dejar el cuadro con texto inválido haría creer que se guardó.
+            SetMemoryStatus(
+                $"La retención debe ser un número de días entre {MemorySettings.MinimumRetentionDays} " +
+                $"y {MemorySettings.MaximumRetentionDays}.");
+            return;
+        }
+
+        var clamped = Math.Clamp(days, MemorySettings.MinimumRetentionDays, MemorySettings.MaximumRetentionDays);
+        MemoryRetentionBox.Text = clamped.ToString();
+
+        SetMemoryStatus(clamped != days
+            ? $"La retención se ajustó a {clamped} días, el límite permitido."
+            : null);
+
+        MemoryRetentionChanged?.Invoke(clamped);
+    }
+
+    private void MemoryExclusionsBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        MemoryExclusionsChanged?.Invoke(SplitListLines(MemoryExclusionsBox.Text));
+    }
+
+    private void MemoryShowButton_Click(object sender, RoutedEventArgs e) =>
+        MemoryShowRequested?.Invoke(this, EventArgs.Empty);
+
+    private void MemoryForgetAllButton_Click(object sender, RoutedEventArgs e) =>
+        MemoryForgetAllRequested?.Invoke(this, EventArgs.Empty);
+
+    public void SetMemoryStatus(string? message)
+    {
+        MemoryStatusText.Text = message ?? string.Empty;
+        MemoryStatusText.Visibility = string.IsNullOrWhiteSpace(message)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    // ---------- Diseño D13 (Fase 5 — Project Companion) ----------
+
+    /// <summary>
+    /// Diseño D13 — el proyecto dejó de manejarse solo desde la paleta de comandos. Autorizar y
+    /// revocar están aquí, uno al lado del otro, junto a hasta dónde puede llegar Kohana.
+    /// </summary>
+    public void ApplyWorkspaceSettings(WorkspaceSettings? workspace)
+    {
+        var settings = workspace ?? new WorkspaceSettings();
+        var authorized = settings.HasAuthorizedFolder;
+
+        WorkspacePathText.Text = authorized
+            ? $"Carpeta autorizada: {settings.AuthorizedPath}"
+            : "No hay ninguna carpeta autorizada.";
+
+        WorkspaceRevokeButton.IsEnabled = authorized;
+
+        // El nivel solo tiene sentido si hay algo a lo que aplicarlo.
+        WorkspaceAutonomyPanel.IsEnabled = authorized;
+        WorkspaceAutonomyPanel.Opacity = authorized ? 1.0 : 0.55;
+
+        var wasApplying = _isApplyingPreferences;
+        _isApplyingPreferences = true;
+        WorkspaceLevelVerRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Ver;
+        WorkspaceLevelGuiarRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Guiar;
+        WorkspaceLevelProponerRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.Proponer;
+        WorkspaceLevelEjecutarRadioButton.IsChecked = settings.AutonomyLevel == AutonomyLevel.EjecutarUnPaso;
+        WorkspaceLevelColaborarRadioButton.IsChecked =
+            settings.AutonomyLevel == AutonomyLevel.ColaborarConConfirmaciones;
+        _isApplyingPreferences = wasApplying;
+    }
+
+    private void WorkspaceLevelRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not RadioButton { Tag: string tag })
+        {
+            return;
+        }
+
+        // Solo se emiten niveles que la política ofrece. La interfaz no puede conceder lo que el
+        // modelo de confianza no permite todavía.
+        if (Enum.TryParse<AutonomyLevel>(tag, out var level) &&
+            WorkspaceAutonomyPolicy.IsAvailable(level))
+        {
+            WorkspaceAutonomyLevelChanged?.Invoke(level);
+        }
+    }
+
+    // ---------- Diseño D16: permisos por capacidad ----------
+
+    private readonly System.Collections.ObjectModel.ObservableCollection<PermissionRow> _permissionRows = [];
+
+    /// <summary>
+    /// Diseño D16 — una fila por capacidad, cada una con su propio nivel. Se listan todas aunque
+    /// alguna esté bloqueada: una capacidad que no aparece es una capacidad cuyo permiso nadie sabe
+    /// que existe.
+    /// </summary>
+    public void ApplyPermissionSettings(PermissionSettings? permissions)
+    {
+        var settings = permissions ?? new PermissionSettings();
+        settings.Normalize();
+
+        _permissionRows.Clear();
+        PermissionsItemsControl.ItemsSource = _permissionRows;
+        PermissionExclusionsBox.Text = string.Join(
+            Environment.NewLine, PermissionExclusionParser.Format(settings));
+
+        foreach (var capability in Enum.GetValues<KohanaCapability>())
+        {
+            var permission = settings.For(capability);
+            var excluded = permission.ExcludedApps.Count;
+
+            _permissionRows.Add(new PermissionRow(
+                capability,
+                CapabilityTitle(capability),
+                excluded == 0
+                    ? CapabilityText.Describe(capability)
+                    : $"{CapabilityText.Describe(capability)} · {excluded} exclusiones",
+                permission.Level,
+                OnPermissionRowChanged));
+        }
+    }
+
+    // Diseño D18: hasta dónde puede llegar Computer Use, con su propio nivel.
+    public event Action<AutonomyLevel>? ComputerUseAutonomyLevelChanged;
+
+    public void ApplyComputerUseAutonomyLevel(AutonomyLevel level)
+    {
+        var wasApplying = _isApplyingPreferences;
+        _isApplyingPreferences = true;
+
+        ComputerUseVerRadioButton.IsChecked = level == AutonomyLevel.Ver;
+        ComputerUseGuiarRadioButton.IsChecked = level == AutonomyLevel.Guiar;
+        ComputerUseProponerRadioButton.IsChecked = level == AutonomyLevel.Proponer;
+        ComputerUseEjecutarRadioButton.IsChecked = level == AutonomyLevel.EjecutarUnPaso;
+
+        _isApplyingPreferences = wasApplying;
+    }
+
+    private void ComputerUseLevelRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences || sender is not RadioButton { Tag: string tag })
+        {
+            return;
+        }
+
+        // Solo se emiten niveles que la política de Computer Use ofrece: la interfaz no puede
+        // conceder lo que el modelo de confianza no permite todavía.
+        if (Enum.TryParse<AutonomyLevel>(tag, out var level) &&
+            Nexo.Core.ComputerUse.ComputerUseAutonomyPolicy.IsAvailable(level))
+        {
+            ComputerUseAutonomyLevelChanged?.Invoke(level);
+        }
+    }
+
+    private void OnPermissionRowChanged(KohanaCapability capability, PermissionLevel level)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        CapabilityPermissionChanged?.Invoke(capability, level);
+    }
+
+    // ---------- Diseño D23 (Fase 8 — Skills Platform) ----------
+
+    private readonly System.Collections.ObjectModel.ObservableCollection<SkillPackRow> _skillPackRows = [];
+
+    /// <summary>
+    /// Diseño D23 — los seis packs con su estado. Cada fila dice qué le falta al pack **antes** de
+    /// activarlo: enterarse después de que necesitaba un permiso que no diste es enterarse tarde.
+    /// </summary>
+    public void ApplySkillPacks(SkillPackId? activePack, ShellPreferences preferences)
+    {
+        _skillPackRows.Clear();
+        SkillPackItemsControl.ItemsSource = _skillPackRows;
+
+        foreach (var pack in SkillPackCatalog.All)
+        {
+            var isActive = activePack == pack.Id;
+            var missing = pack.Requirements.Count(requirement => !requirement.IsSatisfied(preferences));
+
+            _skillPackRows.Add(new SkillPackRow(
+                pack.Id,
+                pack.Name,
+                pack.Purpose,
+                StateLine: isActive
+                    ? "Activo ahora mismo."
+                    : missing == 0
+                        ? "Listo para activar."
+                        : missing == 1
+                            ? "Le falta 1 permiso que solo puedes dar tú."
+                            : $"Le faltan {missing} permisos que solo puedes dar tú.",
+                ButtonText: isActive ? "Desactivar" : "Activar"));
+        }
+    }
+
+    private void SkillPackButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: SkillPackId id })
+        {
+            return;
+        }
+
+        var row = _skillPackRows.FirstOrDefault(entry => entry.Id == id);
+        if (row?.ButtonText == "Desactivar")
+        {
+            SkillPackDeactivationRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        SkillPackActivationRequested?.Invoke(id);
+    }
+
+    private sealed record SkillPackRow(
+        SkillPackId Id,
+        string Name,
+        string Purpose,
+        string StateLine,
+        string ButtonText);
+
+    private void PermissionExclusionsBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var lines = SplitListLines(PermissionExclusionsBox.Text);
+        var ignored = PermissionExclusionParser.Parse(lines).IgnoredLines;
+
+        // Una exclusión que la persona cree puesta y no lo está es una protección que no existe, así
+        // que las líneas ignoradas se dicen en voz alta.
+        SetPermissionsStatus(ignored switch
+        {
+            0 => "Exclusiones guardadas.",
+            1 => "Se ignoró 1 línea porque no tiene el formato capacidad: aplicación.",
+            _ => $"Se ignoraron {ignored} líneas porque no tienen el formato capacidad: aplicación."
+        });
+
+        PermissionExclusionsChanged?.Invoke(lines);
+    }
+
+    public void SetPermissionsStatus(string? message)
+    {
+        PermissionsStatusText.Text = message ?? string.Empty;
+        PermissionsStatusText.Visibility = string.IsNullOrWhiteSpace(message)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    private static string CapabilityTitle(KohanaCapability capability) => capability switch
+    {
+        KohanaCapability.Lens => "Ver la pantalla (Lens)",
+        KohanaCapability.Flow => "Dictado global (Flow)",
+        KohanaCapability.Memoria => "Memoria personal",
+        KohanaCapability.Proyecto => "Proyecto autorizado",
+        KohanaCapability.Optimizacion => "Optimizar el equipo",
+        KohanaCapability.ComputerUse => "Actuar sobre el equipo",
+        _ => capability.ToString()
+    };
+
+    private sealed class PermissionRow(
+        KohanaCapability capability,
+        string title,
+        string detail,
+        PermissionLevel level,
+        Action<KohanaCapability, PermissionLevel> onChanged)
+    {
+        private PermissionLevel _level = level;
+
+        public string Title { get; } = title;
+
+        public string Detail { get; } = detail;
+
+        public IReadOnlyList<PermissionLevel> Levels { get; } = Enum.GetValues<PermissionLevel>();
+
+        public PermissionLevel Level
+        {
+            get => _level;
+            set
+            {
+                if (_level == value)
+                {
+                    return;
+                }
+
+                _level = value;
+                onChanged(capability, value);
+            }
+        }
+    }
+
+    private void WorkspaceAuthorizeButton_Click(object sender, RoutedEventArgs e) =>
+        WorkspaceAuthorizeRequested?.Invoke(this, EventArgs.Empty);
+
+    private void WorkspaceRevokeButton_Click(object sender, RoutedEventArgs e) =>
+        WorkspaceRevokeRequested?.Invoke(this, EventArgs.Empty);
 }

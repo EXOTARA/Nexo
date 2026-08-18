@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Nexo.App.Ambient;
 using Nexo.Core.Ambient;
@@ -86,10 +88,18 @@ public partial class SakuraPillWindow : Window
         _canDismiss = state.CanDismiss;
 
         StatusTextBlock.Text = state.StatusText;
+        var hadText = ShortTextBlock.Text.Length;
         ShortTextBlock.Text = state.ShortText ?? string.Empty;
-        ShortTextBlock.Visibility = string.IsNullOrEmpty(state.ShortText)
+        ShortTextScroller.Visibility = string.IsNullOrEmpty(state.ShortText)
             ? Visibility.Collapsed
             : Visibility.Visible;
+
+        // Diseño D7 — mientras la respuesta se escribe, seguir el final del texto: si no, el
+        // usuario se queda mirando el principio mientras lo nuevo aparece fuera de la vista.
+        if (state.Status == AmbientRequestStatus.Streaming && ShortTextBlock.Text.Length > hadText)
+        {
+            ShortTextScroller.ScrollToEnd();
+        }
 
         ErrorTextBlock.Text = state.ErrorMessage ?? string.Empty;
         ErrorTextBlock.Visibility = string.IsNullOrEmpty(state.ErrorMessage)
@@ -143,7 +153,29 @@ public partial class SakuraPillWindow : Window
         {
             PositionWindow();
             Show();
+            PlayAppearAnimation();
         }
+    }
+
+    /// <summary>
+    /// Diseño D7 — aparición suave. Deliberadamente corta (160 ms) y solo al mostrarse por primera
+    /// vez: una animación en cada refresco parpadearía sin parar mientras la respuesta se escribe.
+    /// </summary>
+    private void PlayAppearAnimation()
+    {
+        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var duration = TimeSpan.FromMilliseconds(160);
+
+        PillBorder.BeginAnimation(OpacityProperty, null);
+        PillTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+
+        PillBorder.Opacity = 0;
+        PillTranslate.Y = -10;
+
+        PillBorder.BeginAnimation(
+            OpacityProperty, new DoubleAnimation(1, duration) { EasingFunction = easing });
+        PillTranslate.BeginAnimation(
+            TranslateTransform.YProperty, new DoubleAnimation(0, duration) { EasingFunction = easing });
     }
 
     private void ApplyQuickActions(IReadOnlyList<Core.Ambient.AmbientQuickAction> actions)
