@@ -23,7 +23,7 @@ public sealed class ShellPreferences
     /// número suelto repetido en el último rung y en una veintena de pruebas, y un número repetido es
     /// un número que se olvida de actualizar en algún sitio.
     /// </summary>
-    public const int CurrentSchemaVersion = 22;
+    public const int CurrentSchemaVersion = 25;
 
     public int SchemaVersion { get; set; }
     public SidebarPosition Position { get; set; } = SidebarPosition.Right;
@@ -34,15 +34,45 @@ public sealed class ShellPreferences
 
     public string AccentColor { get; set; } = "#E98AAF";
 
+    /// <summary>
+    /// De dónde sale el acento. <see cref="AccentColor"/> se conserva siempre aparte, así que
+    /// volver a "elegido a mano" devuelve el color tal como estaba.
+    /// </summary>
+    public AccentSource AccentSource { get; set; }
+
     public bool AnimationsEnabled { get; set; } = true;
 
     public bool SideRailExpanded { get; set; }
 
-    public bool ShowAudioModule { get; set; } = true;
+    /// <summary>
+    /// Diseño D52 — qué módulos ocupan sitio fijo en el rail.
+    ///
+    /// Salvo Sistema, todos llegan apagados. No es que se hayan quitado: cada uno sigue teniendo su
+    /// comando «Ir a…» en la paleta, y esta casilla los devuelve al rail cuando alguien los use lo
+    /// bastante como para quererlos a un clic. Lo que se retira es su derecho a ocupar espacio
+    /// permanente antes de haberlo demostrado.
+    /// </summary>
+    public bool ShowHomeModule { get; set; }
 
-    public bool ShowCaptureModule { get; set; } = true;
+    public bool ShowTasksModule { get; set; }
+
+    public bool ShowFocusModule { get; set; }
+
+    public bool ShowRoutinesModule { get; set; }
+
+    public bool ShowAudioModule { get; set; }
+
+    public bool ShowCaptureModule { get; set; }
 
     public bool ShowSystemModule { get; set; } = true;
+
+    /// <summary>
+    /// Diseño D27 — llevar el ratón al borde donde está acoplada Kohana la hace aparecer.
+    /// Llega activado porque una función que hay que descubrir en Ajustes para saber que existe no
+    /// la usa nadie; y se puede apagar aquí mismo porque un borde de pantalla también es donde vive
+    /// la barra de desplazamiento de todas las demás ventanas.
+    /// </summary>
+    public bool EdgeRevealEnabled { get; set; } = true;
 
     public bool PeekEnabled { get; set; } = true;
 
@@ -315,6 +345,52 @@ public sealed class ShellPreferences
             // Diseño D18 — un archivo anterior no trae este campo, y sin escalón se quedaría en 0,
             // que no es ningún nivel válido. Se pone en "Proponer", que es proponer sin ejecutar.
             ComputerUseAutonomyLevel = AutonomyLevel.Proponer;
+            SchemaVersion = 22;
+        }
+
+        if (SchemaVersion < 23)
+        {
+            // Diseño D25 — "Ollama" se parte en dos: el motor que Kohana administra
+            // (AiProviderKind.KohanaLocal, puerto 11435) y el que la persona instaló por su cuenta
+            // (AiProviderKind.Ollama, puerto 11434). Quien ya apuntaba al administrado se mueve al
+            // proveedor nuevo; si no, se queda donde estaba. Esta migración sí conserva una elección
+            // previa en vez de reimponer un valor por omisión: no concede nada que no estuviera ya
+            // concedido, solo le pone el nombre correcto a lo que la persona ya eligió.
+            if (AiProvider == AiProviderKind.Ollama &&
+                OllamaRuntimeEndpoints.IsManagedBaseUrl(AiBaseUrl))
+            {
+                AiProvider = AiProviderKind.KohanaLocal;
+            }
+
+            SchemaVersion = 23;
+        }
+
+        if (SchemaVersion < 24)
+        {
+            // Diseño D27 — la revelación por borde llega activada también al actualizar. A
+            // diferencia de la memoria (v19) o los permisos (v21), aquí no se está concediendo
+            // ningún acceso: es una forma más de abrir una ventana que ya se podía abrir con Alt+A.
+            EdgeRevealEnabled = true;
+            SchemaVersion = 24;
+        }
+
+        if (SchemaVersion < 25)
+        {
+            // Diseño D52 — el rail se reduce a Chat, Sistema y Personalizar también al actualizar.
+            //
+            // Esta migración SÍ reimpone valores por omisión sobre una elección previa, y hay que
+            // decirlo: quien tuviera Audio o Captura visibles se los va a encontrar fuera del rail.
+            // Se hace igualmente porque el cambio es el reparto de la pantalla, no un permiso —
+            // nada deja de estar disponible, todo sigue en la paleta y vuelve con una casilla— y
+            // porque dejar el rail viejo en los equipos ya instalados significaría que la
+            // reorganización solo la vería quien instalara de cero.
+            ShowHomeModule = false;
+            ShowTasksModule = false;
+            ShowFocusModule = false;
+            ShowRoutinesModule = false;
+            ShowAudioModule = false;
+            ShowCaptureModule = false;
+            ShowSystemModule = true;
             SchemaVersion = CurrentSchemaVersion;
         }
 
@@ -375,14 +451,23 @@ public sealed class ShellPreferences
             AiBaseUrl = aiDefaults.BaseUrl;
         }
 
+        // El motor administrado solo existe en un sitio, y Kohana es quien lo pone ahí. Dejar que
+        // la dirección se desvíe es exactamente el fallo que costó una tarde: el modelo descargado
+        // en 11435 y la aplicación preguntando en 11434. Aquí no hay nada que respetar del archivo.
+        if (AiProviderDefaults.IsManagedByKohana(AiProvider))
+        {
+            AiBaseUrl = OllamaRuntimeEndpoints.ManagedBaseUrl;
+        }
+
         AiModel = (AiModel ?? string.Empty).Trim();
-        if (AiProvider == AiProviderKind.OpenAI && string.IsNullOrWhiteSpace(AiModel))
+        if (string.IsNullOrWhiteSpace(AiModel) &&
+            !string.IsNullOrWhiteSpace(aiDefaults.DefaultModel))
         {
             AiModel = aiDefaults.DefaultModel;
         }
 
         AiApiKeyEnvironmentVariable = (AiApiKeyEnvironmentVariable ?? string.Empty).Trim();
-        if (AiProvider == AiProviderKind.OpenAI &&
+        if (aiDefaults.RequiresApiKey &&
             string.IsNullOrWhiteSpace(AiApiKeyEnvironmentVariable))
         {
             AiApiKeyEnvironmentVariable = aiDefaults.ApiKeyEnvironmentVariable;
@@ -418,6 +503,7 @@ public sealed class ShellPreferences
         Width = defaults.Width;
         Opacity = defaults.Opacity;
         AccentColor = defaults.AccentColor;
+        AccentSource = defaults.AccentSource;
         AnimationsEnabled = defaults.AnimationsEnabled;
         SideRailExpanded = defaults.SideRailExpanded;
 

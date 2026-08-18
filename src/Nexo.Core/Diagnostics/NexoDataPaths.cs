@@ -181,6 +181,12 @@ public static class NexoDataPaths
     public static string Routines => Path.Combine(RootDirectory, "routines.json");
     public static string AmbientRequests => Path.Combine(RootDirectory, "ambient-requests.json");
     public static string Memory => Path.Combine(RootDirectory, "memory.dat");
+
+    /// <summary>
+    /// Claves de API de los proveedores de nube, cifradas con DPAPI. Archivo aparte de
+    /// <see cref="Settings"/> a propósito: los ajustes acaban en capturas de pantalla y diagnósticos.
+    /// </summary>
+    public static string AiCredentials => Path.Combine(RootDirectory, "ai-credentials.dat");
     public static string OptimizationSnapshot =>
         Path.Combine(RootDirectory, "optimization-snapshot.json");
 
