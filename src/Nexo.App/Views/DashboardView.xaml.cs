@@ -293,12 +293,12 @@ public partial class DashboardView : UserControl
     }
 
     /// <summary>
-    /// Diseño D53 — el resumen del día, que antes vivía en Inicio.
+    /// Diseño D61 — el resumen diario ya no se dibuja en el Panel.
     ///
-    /// Los tres valores llegan ya formateados desde el resumen del día, así que aquí no se
-    /// reinterpretan: lo único que se decide es cuándo un dato no merece enseñarse. La insignia de
-    /// pendientes sigue la misma regla que en Inicio —sin nada pendiente, no hay insignia— y los
-    /// otros dos ocultan su valor cuando no hay nada que contar, en vez de enseñar un guion.
+    /// D53 lo puso ahí como tres fichas. Adler pidió después que el Panel quede exactamente como
+    /// el de su Caelestia, y ese no tiene esa fila. Se conserva el método vacío porque quien lo
+    /// llama sigue calculando el resumen para Inicio y para el shell: quitar también la llamada
+    /// esparciría el cambio de una pestaña por media aplicación.
     /// </summary>
     public void UpdateDailySummary(
         string? taskValue,
@@ -308,38 +308,13 @@ public partial class DashboardView : UserControl
         string? routineValue,
         string? routineDetail)
     {
-        var tasks = taskValue?.Trim() ?? string.Empty;
-        var nothingPending = tasks.Length == 0 || (int.TryParse(tasks, out var count) && count == 0);
-
-        SummaryTasksCount.Text = tasks;
-        SummaryTasksBadge.Visibility = nothingPending ? Visibility.Collapsed : Visibility.Visible;
-        SummaryTasksDetail.Text = Fallback(taskDetail, "Nada urgente por ahora");
-
-        SummaryFocusValue.Text = Meaningful(focusValue) ? focusValue!.Trim() : string.Empty;
-        SummaryFocusDetail.Text = Fallback(focusDetail, "Sin sesión activa");
-
-        SummaryRoutinesValue.Text = Meaningful(routineValue) ? routineValue!.Trim() : string.Empty;
-        SummaryRoutinesDetail.Text = Fallback(routineDetail, "Ninguna preparada");
-
-        // Un guion es lo que se enseña cuando no se sabe; aquí sí se sabe, y lo que se sabe es que
-        // no hay nada. Eso se dice con palabras.
-        static bool Meaningful(string? value) =>
-            value is not null &&
-            value.Trim().Length > 0 &&
-            value.Trim() is not ("—" or "-" or "0");
-
-        static string Fallback(string? value, string whenEmpty) =>
-            string.IsNullOrWhiteSpace(value) ? whenEmpty : value.Trim();
+        _ = taskValue;
+        _ = taskDetail;
+        _ = focusValue;
+        _ = focusDetail;
+        _ = routineValue;
+        _ = routineDetail;
     }
-
-    private void SummaryTasksButton_Click(object sender, RoutedEventArgs e) =>
-        ModuleRequested?.Invoke(this, "Tasks");
-
-    private void SummaryFocusButton_Click(object sender, RoutedEventArgs e) =>
-        ModuleRequested?.Invoke(this, "Focus");
-
-    private void SummaryRoutinesButton_Click(object sender, RoutedEventArgs e) =>
-        ModuleRequested?.Invoke(this, "Routines");
 
     // ---------- Calendario ----------
 
@@ -542,6 +517,8 @@ public partial class DashboardView : UserControl
         ApplyCoverSpin(playing && _media.IsPlaying);
 
         PanelMediaPlayButton.IsEnabled = playing && _media.CanPlayPause;
+        PanelMediaPreviousButton.IsEnabled = playing && _media.CanGoPrevious;
+        PanelMediaNextButton.IsEnabled = playing && _media.CanGoNext;
         MediaPlayPauseButton.IsEnabled = _media.CanPlayPause;
         MediaNextButton.IsEnabled = _media.CanGoNext;
         MediaPreviousButton.IsEnabled = _media.CanGoPrevious;
