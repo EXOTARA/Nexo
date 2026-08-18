@@ -23,7 +23,7 @@ public sealed class ShellPreferences
     /// número suelto repetido en el último rung y en una veintena de pruebas, y un número repetido es
     /// un número que se olvida de actualizar en algún sitio.
     /// </summary>
-    public const int CurrentSchemaVersion = 25;
+    public const int CurrentSchemaVersion = 26;
 
     public int SchemaVersion { get; set; }
     public SidebarPosition Position { get; set; } = SidebarPosition.Right;
@@ -107,6 +107,20 @@ public sealed class ShellPreferences
     public string AiBaseUrl { get; set; } = string.Empty;
 
     public string AiModel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Diseño D58 — el modelo elegido para cada proveedor, no uno solo para todos.
+    ///
+    /// Es la misma razón por la que las claves se guardan por proveedor: cambiar de Groq a Gemini y
+    /// volver no debería obligar a reelegir. Antes, cambiar de proveedor pisaba
+    /// <see cref="AiModel"/> con el del preset, así que la vuelta no devolvía tu elección sino la
+    /// de fábrica — y el que la tenía afinada lo notaba cada vez.
+    ///
+    /// La clave es el nombre del proveedor y no su número: los números de un enum se reordenan al
+    /// añadir uno en medio, y eso convertiría el modelo de Groq en el de otro sin que nadie tocara
+    /// nada.
+    /// </summary>
+    public Dictionary<string, string> AiModelsByProvider { get; set; } = [];
 
     public string AiApiKeyEnvironmentVariable { get; set; } = "OPENAI_API_KEY";
 
@@ -372,6 +386,21 @@ public sealed class ShellPreferences
             // ningún acceso: es una forma más de abrir una ventana que ya se podía abrir con Alt+A.
             EdgeRevealEnabled = true;
             SchemaVersion = 24;
+        }
+
+        if (SchemaVersion < 26)
+        {
+            // Diseño D58 — el modelo que ya estuviera elegido se apunta como el de su proveedor, en
+            // vez de empezar la memoria vacía. Quien tenía un modelo afinado lo conserva al primer
+            // cambio de proveedor y vuelta, que es justo cuando se notaría la pérdida.
+            AiModelsByProvider ??= [];
+
+            if (AiProvider != AiProviderKind.Disabled && !string.IsNullOrWhiteSpace(AiModel))
+            {
+                AiModelsByProvider[AiProvider.ToString()] = AiModel.Trim();
+            }
+
+            SchemaVersion = 26;
         }
 
         if (SchemaVersion < 25)

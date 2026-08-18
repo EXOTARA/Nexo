@@ -546,6 +546,7 @@ public partial class MainWindow : Window
         _assistantView.VoiceInputStopped += AssistantView_VoiceInputStopped;
         _assistantView.VisionCaptureRequested += AssistantView_VisionCaptureRequested;
         _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
+        _assistantView.ImagePasted += AssistantView_ImagePasted;
         _tasksView.TasksChanged += TasksView_TasksChanged;
         _tasksView.FocusRequested += TasksView_FocusRequested;
         _focusView.FocusChanged += FocusView_FocusChanged;
@@ -1123,10 +1124,15 @@ public partial class MainWindow : Window
 
         _settingsView.AiProviderChanged += provider =>
         {
+            // Diseño D58 — antes de irse, se apunta el modelo que estaba en uso para el proveedor
+            // que se abandona; al llegar, se recupera el suyo. Sin esto, cambiar de proveedor y
+            // volver devolvía el modelo de fábrica en vez del que la persona había elegido.
+            RememberModelForCurrentProvider();
+
             var preset = AiProviderDefaults.Get(provider);
             _preferences.AiProvider = provider;
             _preferences.AiBaseUrl = preset.BaseUrl;
-            _preferences.AiModel = preset.DefaultModel;
+            _preferences.AiModel = RecallModelFor(provider, preset.DefaultModel);
             _preferences.AiApiKeyEnvironmentVariable = preset.ApiKeyEnvironmentVariable;
             UpdateAiProviderStatus();
             SavePreferences();
@@ -1170,6 +1176,7 @@ public partial class MainWindow : Window
         _settingsView.AiModelChanged += model =>
         {
             _preferences.AiModel = model.Trim();
+            RememberModelForCurrentProvider();
             UpdateAiProviderStatus();
             SavePreferences();
         };
@@ -4860,6 +4867,75 @@ public partial class MainWindow : Window
         {
             RefreshHomeView();
         }
+    }
+
+    /// <summary>
+    /// Diseño D58 — una imagen pegada entra por la misma puerta que una captura.
+    ///
+    /// No se inventa un segundo camino para adjuntar imágenes: es el mismo adjunto pendiente, la
+    /// misma vista previa y el mismo envío. Lo único distinto es de dónde vino, y eso solo cambia
+    /// el nombre que se enseña.
+    /// </summary>
+    private void AssistantView_ImagePasted(object? sender, PastedImageEventArgs e)
+    {
+        // Un proveedor que no ve imágenes se lo dice ahora, no después de escribir la pregunta.
+        // Aceptar el adjunto en silencio y descartarlo al enviar es la peor de las dos.
+        if (_preferences.AiProvider == AiProviderKind.Disabled)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Information,
+                "La IA está desactivada",
+                "Actívala en Personalizar para poder mandarle imágenes.",
+                _preferences.Position);
+            return;
+        }
+
+        _visualContextPersistent = false;
+        _silentVisualContext = false;
+        _visualContextMetadata = null;
+        _pendingVisionAttachment = AiImageAttachment.FromBytes(
+            e.PngBytes,
+            "image/png",
+            e.Title);
+
+        _assistantView.SetVisionAttachment(e.Title, e.PngBytes);
+    }
+
+    /// <summary>
+    /// Apunta el modelo en uso bajo el proveedor actual. Un modelo en blanco se borra en vez de
+    /// guardarse: recordar «nada» impediría que el preset volviera a proponer su valor de fábrica.
+    /// </summary>
+    private void RememberModelForCurrentProvider()
+    {
+        if (_preferences.AiProvider == AiProviderKind.Disabled)
+        {
+            return;
+        }
+
+        _preferences.AiModelsByProvider ??= [];
+        var key = _preferences.AiProvider.ToString();
+        var model = (_preferences.AiModel ?? string.Empty).Trim();
+
+        if (model.Length == 0)
+        {
+            _preferences.AiModelsByProvider.Remove(key);
+        }
+        else
+        {
+            _preferences.AiModelsByProvider[key] = model;
+        }
+    }
+
+    private string RecallModelFor(AiProviderKind provider, string presetDefault)
+    {
+        if (_preferences.AiModelsByProvider is { } remembered &&
+            remembered.TryGetValue(provider.ToString(), out var model) &&
+            !string.IsNullOrWhiteSpace(model))
+        {
+            return model.Trim();
+        }
+
+        return presetDefault;
     }
 
     private void HideShellButton_Click(object sender, RoutedEventArgs e) => HideAnimated();
