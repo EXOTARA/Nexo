@@ -36,7 +36,7 @@ public static class AiProviderDefaults
                 "Kohana descarga e inicia el motor por ti. Nada sale de este equipo, pero pide un equipo con holgura."),
 
             AiProviderKind.Ollama => new AiProviderPreset(
-                "Ollama que ya tengo instalado",
+                "Ollama",
                 OllamaRuntimeEndpoints.ExternalBaseUrl,
                 string.Empty,
                 string.Empty,

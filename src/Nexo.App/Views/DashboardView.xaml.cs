@@ -122,15 +122,35 @@ public partial class DashboardView : UserControl
         RefreshClock();
     }
 
+    /// <summary>
+    /// Diseño D58 — cuánto se desplaza la pestaña que entra.
+    ///
+    /// Más que el desplazamiento vertical anterior (12) porque ahora el recorrido tiene que leerse
+    /// como una dirección y no solo como un empujón: con doce píxeles en horizontal no se distingue
+    /// venir de la derecha de venir de la izquierda.
+    /// </summary>
+    private const double TabEnterOffset = 32;
+
     private void ShowTab(DashboardTab tab, bool animate)
     {
+        // La dirección se calcula antes de mover _activeTab, que es de dónde venimos.
+        var direction = DashboardTabPolicy.EnterDirection(_activeTab, tab);
         _activeTab = tab;
 
-        Show(PanelPane, PanelPaneTranslate, tab == DashboardTab.Panel, animate);
-        Show(MediaPane, MediaPaneTranslate, tab == DashboardTab.Media, animate);
-        Show(PerformancePane, PerformancePaneTranslate, tab == DashboardTab.Performance, animate);
+        // Se entra desde el lado contrario al que se va: al avanzar a la derecha, la página nueva
+        // llega desde la derecha, igual que la hoja de un libro.
+        var offset = direction * TabEnterOffset;
 
-        static void Show(UIElement pane, TranslateTransform transform, bool visible, bool animate)
+        Show(PanelPane, PanelPaneTranslate, tab == DashboardTab.Panel, animate, offset);
+        Show(MediaPane, MediaPaneTranslate, tab == DashboardTab.Media, animate, offset);
+        Show(PerformancePane, PerformancePaneTranslate, tab == DashboardTab.Performance, animate, offset);
+
+        static void Show(
+            UIElement pane,
+            TranslateTransform transform,
+            bool visible,
+            bool animate,
+            double offset)
         {
             if (!visible)
             {
@@ -140,13 +160,20 @@ public partial class DashboardView : UserControl
 
             pane.Visibility = Visibility.Visible;
 
-            if (animate)
+            // Sin dirección —volver a pulsar la pestaña activa, o abrir el cajón de cero— no hay
+            // hacia dónde ir, así que se conserva el gesto vertical de antes.
+            if (animate && offset != 0)
+            {
+                pane.EnterFrom(transform, fromOffset: offset);
+            }
+            else if (animate)
             {
                 pane.EnterFrom(transform, fromOffset: 12, vertical: true);
             }
             else
             {
                 pane.Opacity = 1;
+                transform.X = 0;
                 transform.Y = 0;
             }
         }

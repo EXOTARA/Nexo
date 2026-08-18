@@ -278,11 +278,17 @@ public partial class DashboardWindow : Window
 
         // Al recogerse no hay rebote: sube y se va. Un rebote a la salida retiene en pantalla algo
         // que la persona acaba de decidir quitar de en medio.
+        // Diseño D58 — se recoge entero hacia el techo, no un tercio.
+        //
+        // Con un tercio del recorrido y una salida corta, lo que se veía no era el cajón
+        // subiendo sino el cajón esfumándose: el desvanecido terminaba mucho antes de que el
+        // desplazamiento contara nada. Si se va por arriba, tiene que irse por arriba del todo,
+        // que es la única forma de que el gesto explique dónde ha quedado y por dónde vuelve.
         var travel = PanelBorder.ActualHeight > 0 ? PanelBorder.ActualHeight : Height;
 
         PanelTranslate.AnimateTransform(
             TranslateTransform.YProperty,
-            -travel * 0.35,
+            -travel,
             KohanaMotion.Exit,
             KohanaMotion.AccelerateCurve);
 

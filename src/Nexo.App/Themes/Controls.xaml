@@ -130,7 +130,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusLarge}">
+                            CornerRadius="{DynamicResource RadiusFull}">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="Center" />
                     </Border>
@@ -310,7 +310,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusLarge}">
+                            CornerRadius="{DynamicResource RadiusFull}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center" />
                     </Border>

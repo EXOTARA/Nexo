@@ -407,10 +407,19 @@ public partial class QuickControlsWindow : Window
         // el cierre se leyera como «desapareció» en vez de como que se fue. Un desvanecido corto y
         // sin movimiento sobre un panel pequeño casi no se ve; el mismo desvanecido acompañado del
         // gesto de retirada, sí.
+        // Diseño D58 — vuelve a meterse en su pared, no se aparta veintiocho píxeles.
+        //
+        // La entrada llega desde el borde con un gesto corto, y para salir se usaba ese mismo
+        // desplazamiento de vuelta. Veintiocho píxeles no se leen como «se ha escondido»: lo que
+        // se veía era el panel apagándose en el sitio. La salida recorre ahora su propio ancho,
+        // así que desaparece por donde vino.
+        var retreat = PanelBorder.ActualWidth > 0 ? PanelBorder.ActualWidth : 260;
+        var away = _edgeOffset < 0 ? -retreat : retreat;
+
         PanelTranslate.BeginAnimation(TranslateTransform.XProperty, null);
         PanelTranslate.AnimateTransform(
             TranslateTransform.XProperty,
-            _edgeOffset,
+            away,
             KohanaMotion.Exit,
             KohanaMotion.AccelerateCurve);
 

@@ -32,4 +32,18 @@ public static class DashboardTabPolicy
             ? DashboardTab.Panel
             : lastUsed;
     }
+
+    /// <summary>
+    /// Diseño D58 — hacia dónde entra la pestaña nueva, como se pasa la hoja de un libro.
+    ///
+    /// Devuelve <c>+1</c> cuando se avanza —la página nueva llega desde la derecha—, <c>-1</c>
+    /// cuando se retrocede, y <c>0</c> cuando no hay movimiento que contar.
+    ///
+    /// La dirección importa porque es la única señal de dónde estás. Las tres pestañas se parecen
+    /// entre sí y todas entraban igual, de abajo arriba: el movimiento decía «ha cambiado algo»
+    /// pero no «te has movido a la derecha», así que no ayudaba a orientarse. Con la dirección, la
+    /// tira de arriba y el contenido cuentan lo mismo.
+    /// </summary>
+    public static int EnterDirection(DashboardTab from, DashboardTab to) =>
+        Math.Sign((int)to - (int)from);
 }

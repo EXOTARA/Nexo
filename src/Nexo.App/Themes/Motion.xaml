@@ -24,7 +24,14 @@
     <Duration x:Key="MotionBase">0:0:0.2</Duration>
     <Duration x:Key="MotionSlow">0:0:0.35</Duration>
     <Duration x:Key="MotionEmphasizedDuration">0:0:0.45</Duration>
-    <Duration x:Key="MotionExitDuration">0:0:0.16</Duration>
+    <!--
+        Diseño D58 — 0,16 s no daba para leer una salida como movimiento.
+
+        A esa duración un panel que además recorría poca distancia se percibía como «desapareció» y
+        no como «se fue», que es justo lo que se quería evitar. Sigue siendo más corta que la
+        entrada —irse tiene que costar menos que llegar— pero ahora se ve el gesto.
+    -->
+    <Duration x:Key="MotionExitDuration">0:0:0.22</Duration>
     <Duration x:Key="MotionRevealDuration">0:0:0.3</Duration>
 
     <!--

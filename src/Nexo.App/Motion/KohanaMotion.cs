@@ -83,6 +83,37 @@ public static class KohanaMotion
         };
 
     /// <summary>
+    /// Diseño D58 — arranca desde donde la cosa ESTÁ, no desde donde estaba antes de moverse.
+    ///
+    /// Quitar una animación con <c>BeginAnimation(prop, null)</c> no congela el valor que se ve: lo
+    /// devuelve al valor base, el último que se escribió a mano. Mientras una animación corre, ese
+    /// valor base sigue siendo el de antes de empezar. Como resultado, reemplazar una animación a
+    /// medio camino hacía que la propiedad diera un salto atrás y la nueva animación saliera desde
+    /// ahí.
+    ///
+    /// Se veía clarísimo en el subrayado de las pestañas: de Panel a Media iba bien, pero de Media a
+    /// Rendimiento **volvía de golpe a Panel y desde ahí se deslizaba hasta Rendimiento**, cruzando
+    /// toda la tira. No era el subrayado: era esto, y le pasaba a cualquier animación interrumpida
+    /// de la aplicación.
+    ///
+    /// Por eso el valor en curso se lee antes de quitarla y se vuelve a escribir como valor base.
+    /// </summary>
+    private static void HoldCurrentValue(UIElement element, DependencyProperty property)
+    {
+        var current = element.GetValue(property);
+        element.BeginAnimation(property, null);
+        element.SetValue(property, current);
+    }
+
+    /// <inheritdoc cref="HoldCurrentValue(UIElement, DependencyProperty)"/>
+    private static void HoldCurrentValue(Transform transform, DependencyProperty property)
+    {
+        var current = transform.GetValue(property);
+        transform.BeginAnimation(property, null);
+        transform.SetValue(property, current);
+    }
+
+    /// <summary>
     /// Anima una propiedad de tipo <see cref="double"/>. Con las animaciones apagadas, fija el
     /// valor final y ejecuta <paramref name="completed"/> igual: quien encadene trabajo detrás no
     /// debe quedarse esperando una animación que nunca ocurrió.
@@ -99,7 +130,7 @@ public static class KohanaMotion
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(property);
 
-        element.BeginAnimation(property, null);
+        HoldCurrentValue(element, property);
 
         if (!AnimationsEnabled)
         {
@@ -131,7 +162,7 @@ public static class KohanaMotion
         ArgumentNullException.ThrowIfNull(transform);
         ArgumentNullException.ThrowIfNull(property);
 
-        transform.BeginAnimation(property, null);
+        HoldCurrentValue(transform, property);
 
         if (!AnimationsEnabled)
         {
