@@ -91,12 +91,29 @@ public partial class MainWindow : Window
     /// <summary>Diseño D6.3 (Fase 3 — Kohana Flow) — atajo global de dictado.</summary>
     private const int FlowHotkeyId = 0x4E5C;
 
+    /// <summary>
+    /// Diseño D58 — Escape cierra el shell aunque el teclado esté en otra aplicación.
+    ///
+    /// Hacía falta clicar Kohana antes de poder cerrarla con Escape, y el motivo no era el atajo
+    /// sino Windows: el bloqueo de primer plano se niega a dar el foco a una ventana que nadie ha
+    /// clicado, así que <c>Activate()</c> no basta y las teclas se quedaban en la aplicación de
+    /// antes. Como el manejador de Escape cuelga de la ventana, nunca se enteraba.
+    ///
+    /// **Se registra solo mientras el shell está en pantalla y se suelta al ocultarse.** Un Escape
+    /// global permanente se lo quitaría a todo el sistema, que es justo lo que no se hizo con
+    /// Ctrl+K por la misma razón. Mientras Kohana está delante, Escape es suyo; en cuanto se va,
+    /// vuelve a quien lo tuviera.
+    /// </summary>
+    private const int EscapeHotkeyId = 0x4E5D;
+
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
     private const uint VirtualKeyA = 0x41;
     private const uint VirtualKeySpace = 0x20;
     private const uint VirtualKeyD = 0x44;
+    private const uint VirtualKeyEscape = 0x1B;
+    private const uint ModNone = 0x0000;
     private const int WmHotkey = 0x0312;
     private const int WmPowerBroadcast = 0x0218;
     private const int PbtApmResumeSuspend = 0x0007;
@@ -373,6 +390,7 @@ public partial class MainWindow : Window
     };
 
     private bool _openedByHover;
+    private bool _escapeHotkeyHeld;
     private bool _touchedSinceReveal;
     private DateTimeOffset? _pointerOutsideSince;
 
@@ -1432,6 +1450,44 @@ public partial class MainWindow : Window
     /// en el cajón: la ventana está llena de controles hijos y salir de uno para entrar en otro
     /// genera un MouseLeave por el camino, así que el evento miente.
     /// </summary>
+    /// <summary>
+    /// Toma Escape mientras el shell está delante. Si el registro falla —otra aplicación lo tiene—
+    /// no se avisa de nada: Escape desde dentro sigue funcionando y el botón de cerrar también, así
+    /// que no hay nada roto que contar.
+    /// </summary>
+    private void AcquireEscapeHotkey()
+    {
+        if (_escapeHotkeyHeld || _isClosed)
+        {
+            return;
+        }
+
+        var windowHandle = new WindowInteropHelper(this).Handle;
+        if (windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        _escapeHotkeyHeld = RegisterHotKey(
+            windowHandle, EscapeHotkeyId, ModNone, VirtualKeyEscape);
+    }
+
+    private void ReleaseEscapeHotkey()
+    {
+        if (!_escapeHotkeyHeld)
+        {
+            return;
+        }
+
+        _escapeHotkeyHeld = false;
+
+        var windowHandle = new WindowInteropHelper(this).Handle;
+        if (windowHandle != IntPtr.Zero)
+        {
+            UnregisterHotKey(windowHandle, EscapeHotkeyId);
+        }
+    }
+
     private void CheckUnattendedReveal()
     {
         if (!_openedByHover || _isHiding || _isClosed || !IsVisible)
@@ -4305,6 +4361,7 @@ public partial class MainWindow : Window
             UnregisterHotKey(windowHandle, CommandPaletteHotkeyId);
             UnregisterHotKey(windowHandle, LookHotkeyId);
             UnregisterHotKey(windowHandle, FlowHotkeyId);
+            UnregisterHotKey(windowHandle, EscapeHotkeyId);
         }
 
         _windowSource?.RemoveHook(WindowMessageHook);
@@ -4352,6 +4409,21 @@ public partial class MainWindow : Window
         {
             RememberForegroundWindow();
             _ = LookAtForegroundWindowAsync();
+            handled = true;
+        }
+        else if (wParam.ToInt32() == EscapeHotkeyId)
+        {
+            // El rail desplegado se recoge primero, igual que con Escape desde dentro: son dos
+            // niveles y saltarse uno cierra más de lo que la persona pidió.
+            if (_sideRailExpanded)
+            {
+                SetSideRailExpanded(expanded: false, animate: true);
+            }
+            else
+            {
+                HideAnimated();
+            }
+
             handled = true;
         }
         else if (wParam.ToInt32() == FlowHotkeyId)
@@ -4547,6 +4619,7 @@ public partial class MainWindow : Window
 
         Activate();
         Topmost = true;
+        AcquireEscapeHotkey();
 
         ShellBorder.BeginAnimation(OpacityProperty, null);
         ShellTranslate.BeginAnimation(TranslateTransform.XProperty, null);
@@ -4619,6 +4692,7 @@ public partial class MainWindow : Window
         _unattendedWatch.Stop();
         _openedByHover = false;
         _pointerOutsideSince = null;
+        ReleaseEscapeHotkey();
 
         if (!ShellAnimationsAllowed)
         {
@@ -4787,6 +4861,8 @@ public partial class MainWindow : Window
             RefreshHomeView();
         }
     }
+
+    private void HideShellButton_Click(object sender, RoutedEventArgs e) => HideAnimated();
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {

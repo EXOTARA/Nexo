@@ -515,6 +515,36 @@
                                           StrokeLineJoin="Round" />
                                 </Grid>
                             </Button>
+
+                            <!--
+                                Diseño D58 — una forma visible de recoger Kohana.
+
+                                Escape ya la cierra, y ahora también desde fuera, pero un atajo no se
+                                ve: quien no lo sepa no tiene ninguna señal de cómo quitarla de en
+                                medio. El trazo es más fino que el de los otros dos y va en color
+                                secundario a propósito —cerrar no es una acción que haya que invitar
+                                a hacer, solo tiene que estar cuando se busca.
+                            -->
+                            <Button x:Name="HideShellButton"
+                                    Width="42"
+                                    Height="42"
+                                    Margin="4,0,0,0"
+                                    Padding="0"
+                                    Style="{StaticResource HeaderCommandButtonStyle}"
+                                    Click="HideShellButton_Click"
+                                    ToolTip="Recoger Kohana · Esc"
+                                    AutomationProperties.Name="Recoger Kohana"
+                                    AutomationProperties.HelpText="Oculta el shell sin cerrar Kohana. Atajo: Esc.">
+                                <Grid Width="17" Height="17">
+                                    <Path Data="{StaticResource IconKohanaClose}"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource BrushTextSecondary}"
+                                          StrokeThickness="1.6"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round" />
+                                </Grid>
+                            </Button>
                         </StackPanel>
                     </Grid>
 

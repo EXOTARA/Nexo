@@ -78,6 +78,12 @@
     <Geometry x:Key="IconKohanaPlus">M12,5.4 L12,18.6 M5.4,12 L18.6,12</Geometry>
 
     <!--
+        Diseño D58 — cerrar el shell. Es la misma aspa girada que el más de al lado, con el mismo
+        recorrido, para que los dos botones de la cabecera pesen igual: uno abre, otro recoge.
+    -->
+    <Geometry x:Key="IconKohanaClose">M6.7,6.7 L17.3,17.3 M17.3,6.7 L6.7,17.3</Geometry>
+
+    <!--
         Diseño D42 — iconos de las cápsulas de rendimiento. Mismo lenguaje que los de navegación:
         geometrías de línea, sin relleno, pensadas para dibujarse con trazo. Cada uno es la silueta
         que cualquiera reconocería de la pieza, no una abstracción: el procesador es un chip con
