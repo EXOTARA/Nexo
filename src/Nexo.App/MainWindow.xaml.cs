@@ -4594,9 +4594,12 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Si el shell está de verdad a la vista, no solo mostrado con opacidad cero.</summary>
+    private bool IsShellOnScreen => IsVisible && Opacity > 0.1 && !_isHiding;
+
     private void ToggleWindow()
     {
-        if (IsVisible && Opacity > 0.1 && !_isHiding)
+        if (IsShellOnScreen)
         {
             HideAnimated();
             return;
@@ -5114,7 +5117,16 @@ public partial class MainWindow : Window
     /// </summary>
     private async Task SendPromptToAiAsync(string prompt, bool fromVoice)
     {
-        _answerInPill = _promptFromCommandPalette;
+        // Diseño D58 — una pregunta hablada con el shell escondido también merece la píldora.
+        //
+        // Antes solo la usaba la paleta, así que preguntar por voz no abría nada: la respuesta se
+        // escribía en un chat que no estaba a la vista y lo único que se veía era un aviso diciendo
+        // que había respuesta. Es decir, la parte de «preguntar sin manos» funcionaba y la de
+        // «recibir sin manos» no: había que ir a buscarla.
+        //
+        // Con el shell delante no se usa. La respuesta ya se está escribiendo en el chat que la
+        // persona tiene abierto, y una píldora encima sería la misma respuesta dos veces.
+        _answerInPill = _promptFromCommandPalette || (fromVoice && !IsShellOnScreen);
         if (!_answerInPill)
         {
             await SendPromptToAiCoreAsync(prompt, fromVoice);
@@ -5337,11 +5349,16 @@ public partial class MainWindow : Window
                     "El proveedor terminó la respuesta sin enviar texto utilizable.");
             }
 
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Success,
-                "Respuesta lista",
-                SummarizeForCapsule(finalText),
-                _preferences.Position);
+            // El aviso solo cuando la respuesta no se esté enseñando ya. Con la píldora abierta,
+            // anunciar que hay respuesta al lado de la respuesta sobra.
+            if (!_answerInPill)
+            {
+                _capsuleWindow.ShowMessage(
+                    CapsuleKind.Success,
+                    "Respuesta lista",
+                    SummarizeForCapsule(finalText),
+                    _preferences.Position);
+            }
 
             if (_visualContextPersistent)
             {
