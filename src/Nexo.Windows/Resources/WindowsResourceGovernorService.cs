@@ -10,6 +10,10 @@ public sealed class WindowsResourceGovernorService
 {
     private const uint MonitorDefaultToNearest = 2;
 
+    // Diseño D58 — el estado vive aquí, no en la política: la política sigue siendo una función
+    // pura de una foto, y este servicio es quien ve la sucesión de fotos.
+    private readonly ResourceModeStabilizer _stabilizer = new();
+
     public ResourceGovernorDecision Evaluate(
         SystemSnapshot snapshot,
         long preferredExternalWindowHandle = 0,
@@ -22,12 +26,14 @@ public sealed class WindowsResourceGovernorService
             new IntPtr(excludedWindowHandle));
         var power = ReadPowerState();
 
-        return ResourceGovernorPolicy.Evaluate(new ResourceGovernorInput(
+        var candidate = ResourceGovernorPolicy.Evaluate(new ResourceGovernorInput(
             snapshot,
             foreground.IsFullScreen,
             foreground.ProcessName,
             foreground.WindowTitle,
             power.IsOnBattery));
+
+        return _stabilizer.Stabilize(candidate);
     }
 
     private static ForegroundState ReadForegroundState(

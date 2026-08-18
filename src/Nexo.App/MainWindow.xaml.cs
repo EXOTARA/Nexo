@@ -365,6 +365,17 @@ public partial class MainWindow : Window
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
     private ResourceGovernorDecision _resourceDecision = ResourceGovernorDecision.Normal;
     private bool _isHiding;
+
+    // Diseño D58 — lo que se abre por roce tiene que saber retirarse solo.
+    private readonly DispatcherTimer _unattendedWatch = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(250)
+    };
+
+    private bool _openedByHover;
+    private bool _touchedSinceReveal;
+    private DateTimeOffset? _pointerOutsideSince;
+
     private bool _isClosed;
     private bool _allowExit;
     private bool _exitRequested;
@@ -648,6 +659,15 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromSeconds(1)
         };
         _focusTickTimer.Tick += (_, _) => CheckFocusTimer();
+
+        _unattendedWatch.Tick += (_, _) => CheckUnattendedReveal();
+
+        // Cualquier señal de que hay alguien delante cancela la retirada. Se escuchan en modo
+        // Preview porque los controles hijos se quedan con los eventos normales: un clic dentro del
+        // chat nunca llegaría a la ventana.
+        PreviewMouseDown += (_, _) => _touchedSinceReveal = true;
+        PreviewKeyDown += (_, _) => _touchedSinceReveal = true;
+        PreviewTextInput += (_, _) => _touchedSinceReveal = true;
 
         _visualContextExpiryTimer.Interval = TimeSpan.FromMinutes(2);
         _visualContextExpiryTimer.Tick += (_, _) =>
@@ -1397,8 +1417,82 @@ public partial class MainWindow : Window
             }
 
             RememberForegroundWindow();
+
+            // Diseño D58 — esta apertura no la pidió nadie: basta con rozar el borde. Se marca como
+            // tal para que sepa retirarse si resulta que fue un accidente.
+            _openedByHover = true;
             ShowAnimated();
         });
+    }
+
+    /// <summary>
+    /// Diseño D58 — retira el shell si se abrió por roce y nadie ha aparecido.
+    ///
+    /// Se sondea la posición del cursor en vez de escuchar <c>MouseLeave</c> por la misma razón que
+    /// en el cajón: la ventana está llena de controles hijos y salir de uno para entrar en otro
+    /// genera un MouseLeave por el camino, así que el evento miente.
+    /// </summary>
+    private void CheckUnattendedReveal()
+    {
+        if (!_openedByHover || _isHiding || _isClosed || !IsVisible)
+        {
+            _unattendedWatch.Stop();
+            return;
+        }
+
+        _pointerOutsideSince = IsPointerOverShell()
+            ? null
+            : _pointerOutsideSince ?? DateTimeOffset.UtcNow;
+
+        if (UnattendedRevealPolicy.ShouldRetract(
+                _openedByHover,
+                _pointerOutsideSince,
+                DateTimeOffset.UtcNow,
+                hasUserAttention: _touchedSinceReveal))
+        {
+            HideAnimated();
+        }
+    }
+
+    private bool IsPointerOverShell()
+    {
+        if (!GetCursorPos(out var cursor) || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            // Sin saber dónde está el puntero se prefiere dejarlo abierto: retirar algo por si acaso
+            // hace desaparecer lo que alguien puede estar mirando.
+            return true;
+        }
+
+        try
+        {
+            var topLeft = PointToScreen(new Point(0, 0));
+            var bottomRight = PointToScreen(new Point(ActualWidth, ActualHeight));
+
+            // Un margen de holgura para que el propio borde sensible cuente como «dentro»: si no, el
+            // píxel entre la franja y la ventana empezaría la cuenta atrás con el ratón pegado a ella.
+            const double slack = 12;
+
+            return cursor.X >= topLeft.X - slack &&
+                   cursor.X <= bottomRight.X + slack &&
+                   cursor.Y >= topLeft.Y - slack &&
+                   cursor.Y <= bottomRight.Y + slack;
+        }
+        catch (InvalidOperationException)
+        {
+            // La ventana puede perder su origen entre medias; se trata como «no sabemos».
+            return true;
+        }
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out ShellCursorPoint point);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ShellCursorPoint
+    {
+        public int X;
+        public int Y;
     }
 
     /// <summary>
@@ -4430,12 +4524,18 @@ public partial class MainWindow : Window
         }
 
         RememberForegroundWindow();
+
+        // Pedido a propósito —atajo o bandeja—, así que se queda hasta que se cierre a propósito.
+        _openedByHover = false;
         ShowAnimated();
     }
 
     private void ShowAnimated()
     {
         _isHiding = false;
+        _touchedSinceReveal = false;
+        _pointerOutsideSince = null;
+        _unattendedWatch.IsEnabled = _openedByHover;
         PositionWindow();
         SetMetricsCadence(isShellVisible: true);
         _ = RefreshMetricsAsync();
@@ -4515,6 +4615,10 @@ public partial class MainWindow : Window
         {
             return;
         }
+
+        _unattendedWatch.Stop();
+        _openedByHover = false;
+        _pointerOutsideSince = null;
 
         if (!ShellAnimationsAllowed)
         {
