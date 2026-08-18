@@ -72,6 +72,23 @@ public sealed class ShellPreferences
     /// </summary>
     public string PanelImagePath { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Diseño D64 — cuándo se miró por última vez si había versión nueva.
+    ///
+    /// Se guarda para no consultar la red en cada arranque. En un programa que arranca con Windows,
+    /// «comprobar al abrir» es comprobar cada vez que se enciende el equipo.
+    /// </summary>
+    public DateTimeOffset? LastUpdateCheckAt { get; set; }
+
+    /// <summary>
+    /// Diseño D64 — la versión que se ofreció y se rechazó.
+    ///
+    /// Se guarda el número y no un «no molestar»: decir «ahora no» a una versión no es decirlo a
+    /// todas las futuras, y una casilla de «no avisarme» acaba silenciando también la actualización
+    /// que sí hacía falta.
+    /// </summary>
+    public string SkippedUpdateVersion { get; set; } = string.Empty;
+
     public double Opacity { get; set; } = 0.96;
 
     public string AccentColor { get; set; } = "#E98AAF";
