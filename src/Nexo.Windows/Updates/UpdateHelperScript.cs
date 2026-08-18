@@ -1,0 +1,141 @@
+using System.Text;
+using Nexo.Core.Updates;
+
+namespace Nexo.Windows.Updates;
+
+/// <summary>
+/// Diseño D63 — el ayudante que hace el intercambio, escrito como un guion de PowerShell.
+///
+/// Kohana no puede sustituirse a sí misma: Windows no deja mover la carpeta donde vive el
+/// ejecutable que se está ejecutando. Así que alguien tiene que hacerlo **desde fuera**, cuando
+/// Kohana ya no está.
+///
+/// Es un guion y no un segundo programa por tres razones, en orden de peso:
+///
+/// **Se puede leer.** Queda en disco, en texto, y cualquiera —incluido quien no programa— puede
+/// abrirlo y ver exactamente qué carpetas toca. Un actualizador es la pieza con más poder de toda
+/// la aplicación; que sea inspeccionable no es un detalle.
+///
+/// **No hay que actualizarlo.** Un segundo ejecutable tendría su propia versión y su propio
+/// problema de cómo actualizarlo, que es la mordedura de la serpiente en su propia cola.
+///
+/// **Ya está en el equipo.** PowerShell viene con Windows; no hay nada que instalar ni firmar.
+///
+/// El guion se escribe **fuera de la carpeta de instalación** a propósito: si viviera dentro, se
+/// estaría moviendo a sí mismo a mitad de trabajo.
+/// </summary>
+public static class UpdateHelperScript
+{
+    /// <summary>
+    /// Cuánto espera a que Kohana termine antes de rendirse, en segundos.
+    ///
+    /// Se rinde en vez de forzar el cierre: matar el proceso podría interrumpir a Kohana mientras
+    /// guarda ajustes o una conversación, y perder eso por instalar una versión nueva es un mal
+    /// negocio. Si no se cierra, la actualización se queda para la próxima.
+    /// </summary>
+    private const int WaitForExitSeconds = 30;
+
+    /// <summary>
+    /// Genera el guion. Todo lo que decide qué carpetas se tocan viene ya resuelto y comprobado por
+    /// <see cref="UpdateSwapPathPolicy"/>: aquí no se decide nada, solo se ejecuta.
+    /// </summary>
+    public static string Build(UpdateSwapPaths paths, int kohanaProcessId, string executableToLaunch)
+    {
+        if (!paths.IsSafe)
+        {
+            throw new ArgumentException(
+                "No se genera el ayudante para unas rutas que la política rechazó.", nameof(paths));
+        }
+
+        var script = new StringBuilder();
+
+        script.AppendLine("# Ayudante de actualización de Kohana.");
+        script.AppendLine("# Lo genera Kohana y se borra solo al terminar. Puedes leerlo entero:");
+        script.AppendLine("# espera a que Kohana se cierre, aparta la carpeta actual, pone la nueva");
+        script.AppendLine("# en su sitio y vuelve a abrir. Si algo falla, devuelve la anterior.");
+        script.AppendLine("$ErrorActionPreference = 'Stop'");
+        script.AppendLine();
+
+        script.AppendLine($"$install = {Quote(paths.Install)}");
+        script.AppendLine($"$staged = {Quote(paths.Staged)}");
+        script.AppendLine($"$previous = {Quote(paths.Previous)}");
+        script.AppendLine($"$exe = {Quote(executableToLaunch)}");
+        script.AppendLine($"$pid_ = {kohanaProcessId}");
+        script.AppendLine();
+
+        // Esperar por identificador y no por nombre: otra instancia de Kohana abierta a la vez no
+        // tiene por qué bloquear esta, y matar «todo lo que se llame Kohana» es de las cosas que
+        // parecen razonables hasta que cierran algo que no era.
+        script.AppendLine("try {");
+        script.AppendLine("    $proc = Get-Process -Id $pid_ -ErrorAction SilentlyContinue");
+        script.AppendLine("    if ($proc) { $proc.WaitForExit(" + WaitForExitSeconds * 1000 + ") | Out-Null }");
+        script.AppendLine("} catch { }");
+        script.AppendLine();
+
+        script.AppendLine("if (Get-Process -Id $pid_ -ErrorAction SilentlyContinue) {");
+        script.AppendLine("    # Sigue abierta. Se deja todo como estaba y la actualización espera.");
+        script.AppendLine("    exit 2");
+        script.AppendLine("}");
+        script.AppendLine();
+
+        script.AppendLine("if (-not (Test-Path -LiteralPath $staged)) { exit 3 }");
+        script.AppendLine();
+
+        // Un intento anterior pudo dejar una carpeta apartada. Se quita antes de empezar, porque si
+        // no el movimiento falla y el ayudante se cree a mitad de un trabajo que no ha empezado.
+        script.AppendLine("if (Test-Path -LiteralPath $previous) {");
+        script.AppendLine("    Remove-Item -LiteralPath $previous -Recurse -Force -ErrorAction SilentlyContinue");
+        script.AppendLine("}");
+        script.AppendLine();
+
+        script.AppendLine("$moved = $false");
+        script.AppendLine("try {");
+        script.AppendLine("    Move-Item -LiteralPath $install -Destination $previous");
+        script.AppendLine("    $moved = $true");
+        script.AppendLine("    Move-Item -LiteralPath $staged -Destination $install");
+        script.AppendLine("}");
+        // La vuelta atrás tiene que limpiar antes de devolver, y esto lo encontró una prueba
+        // ejecutando el intercambio de verdad: al fallar la promoción, Windows deja una carpeta
+        // **a medias** en el sitio de la instalación. La versión anterior de este guión solo
+        // devolvía la apartada «si el sitio estaba libre», y el sitio no lo estaba: se quedaba la
+        // carpeta incompleta puesta y la buena apartada en .old. Es exactamente el estado que todo
+        // este diseño existe para evitar, y la guarda pensada para no pisar nada era justo lo que
+        // lo causaba.
+        script.AppendLine("catch {");
+        script.AppendLine("    if ($moved) {");
+        script.AppendLine("        # Lo que haya en el sitio ahora es la promoción a medias, no la");
+        script.AppendLine("        # instalación: la buena está apartada. Se quita para hacerle hueco.");
+        script.AppendLine("        if (Test-Path -LiteralPath $install) {");
+        script.AppendLine("            Remove-Item -LiteralPath $install -Recurse -Force -ErrorAction SilentlyContinue");
+        script.AppendLine("        }");
+        script.AppendLine("        if (-not (Test-Path -LiteralPath $install)) {");
+        script.AppendLine("            Move-Item -LiteralPath $previous -Destination $install -ErrorAction SilentlyContinue");
+        script.AppendLine("        }");
+        script.AppendLine("    }");
+        script.AppendLine("    exit 1");
+        script.AppendLine("}");
+        script.AppendLine();
+
+        // Lo viejo se borra solo cuando lo nuevo está en su sitio. Que no se pueda borrar es un
+        // estorbo en disco, no una avería: no se deshace nada por eso.
+        script.AppendLine("Remove-Item -LiteralPath $previous -Recurse -Force -ErrorAction SilentlyContinue");
+        script.AppendLine();
+
+        script.AppendLine("if (Test-Path -LiteralPath $exe) { Start-Process -FilePath $exe }");
+        script.AppendLine("exit 0");
+
+        return script.ToString();
+    }
+
+    /// <summary>
+    /// Mete una ruta en el guion sin que pueda dejar de ser una ruta.
+    ///
+    /// Se usan comillas simples de PowerShell, que no interpretan nada dentro —ni <c>$</c> ni
+    /// comillas invertidas—, y se duplica la comilla simple, que es como se escapa en PowerShell.
+    /// Sin esto, una carpeta con un apóstrofo en el nombre partiría el guion por la mitad; y aunque
+    /// las rutas vengan ya validadas, un guion que se rompe según cómo te llames es el tipo de
+    /// fallo que solo le pasa a una persona y nadie sabe reproducir.
+    /// </summary>
+    private static string Quote(string value) =>
+        "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
+}
