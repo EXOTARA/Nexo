@@ -1007,6 +1007,78 @@
                     </WrapPanel>
                 </StackPanel>
             </controls:SettingsSection>
+
+            <!-- ═══════════════════ Actualizaciones ══════════════════ -->
+            <controls:SettingsSection Header="Actualizaciones"
+                                      Description="Qué versión tienes y si hay una más nueva">
+                <StackPanel>
+                    <TextBlock x:Name="UpdateCurrentVersionText"
+                               Text="Versión instalada: —"
+                               FontWeight="SemiBold" />
+
+                    <TextBlock x:Name="UpdateStatusText"
+                               Margin="0,4,0,0"
+                               Text="No se ha comprobado todavía."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <!--
+                        Diseño D65 — la tarjeta de la versión encontrada solo aparece cuando hay algo
+                        que ofrecer. Un recuadro vacío con «ninguna actualización» ocupa el mismo sitio
+                        que uno con contenido y enseña a ignorar la zona.
+                    -->
+                    <Border x:Name="UpdateOfferPanel"
+                            Margin="0,14,0,0"
+                            Padding="16"
+                            Visibility="Collapsed"
+                            Background="{DynamicResource BrushSurface}"
+                            BorderBrush="{DynamicResource BrushAccentBorder}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource RadiusMedium}">
+                        <StackPanel>
+                            <TextBlock x:Name="UpdateOfferTitleText"
+                                       Text="Hay una versión nueva"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushAccent}" />
+
+                            <TextBlock x:Name="UpdateOfferNotesText"
+                                       Margin="0,7,0,0"
+                                       MaxHeight="120"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+
+                            <ProgressBar x:Name="UpdateProgressBar"
+                                         Height="4"
+                                         Margin="0,14,0,0"
+                                         Minimum="0"
+                                         Maximum="1"
+                                         Visibility="Collapsed"
+                                         Background="{DynamicResource BrushSurfaceHover}"
+                                         Foreground="{DynamicResource BrushAccent}"
+                                         BorderThickness="0" />
+
+                            <WrapPanel Margin="0,16,0,0">
+                                <Button x:Name="UpdateInstallButton"
+                                        Content="Instalar y reiniciar Kohana"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Click="UpdateInstallButton_Click" />
+                                <Button x:Name="UpdateSkipButton"
+                                        Margin="9,0,0,0"
+                                        Content="Ahora no"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Click="UpdateSkipButton_Click" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <WrapPanel Margin="0,16,0,0">
+                        <Button x:Name="UpdateCheckButton"
+                                Content="Buscar actualizaciones"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="UpdateCheckButton_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </controls:SettingsSection>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

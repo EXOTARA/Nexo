@@ -17,6 +17,15 @@ public partial class SettingsView : UserControl
 {
     private bool _isApplyingPreferences;
 
+    /// <summary>Se pidió mirar si hay una versión nueva.</summary>
+    public event Action? UpdateCheckRequested;
+
+    /// <summary>Se aceptó instalar la versión encontrada.</summary>
+    public event Action? UpdateInstallRequested;
+
+    /// <summary>Se dejó pasar la versión encontrada.</summary>
+    public event Action? UpdateSkipRequested;
+
     public event Action<SidebarPosition>? PositionChanged;
     public event Action<double>? WidthChanged;
     public event Action<double>? OpacityChanged;
@@ -1453,4 +1462,67 @@ public partial class SettingsView : UserControl
 
     private void WorkspaceRevokeButton_Click(object sender, RoutedEventArgs e) =>
         WorkspaceRevokeRequested?.Invoke(this, EventArgs.Empty);
+
+    // ---------- Actualizaciones (Diseño D65) ----------
+
+    /// <summary>La versión que está corriendo ahora, para que se vea sin buscarla.</summary>
+    public void SetCurrentVersion(string version) =>
+        UpdateCurrentVersionText.Text = $"Versión instalada: {version}";
+
+    /// <summary>
+    /// Enseña en qué punto va la comprobación. El botón se desactiva mientras trabaja: pulsarlo dos
+    /// veces lanzaría dos consultas y dos descargas de cien megas.
+    /// </summary>
+    public void SetUpdateStatus(string status, bool busy)
+    {
+        UpdateStatusText.Text = status;
+        UpdateCheckButton.IsEnabled = !busy;
+    }
+
+    /// <summary>
+    /// Enseña la versión encontrada, o esconde la tarjeta si no hay ninguna.
+    ///
+    /// Las notas de la publicación se enseñan tal cual las escribió quien publicó: son la única
+    /// respuesta a «qué cambia si instalo esto», y resumirlas por mi cuenta sería inventar.
+    /// </summary>
+    public void ShowUpdateOffer(string? version, string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            UpdateOfferPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        UpdateOfferTitleText.Text = $"Hay una versión nueva: {version}";
+        UpdateOfferNotesText.Text = string.IsNullOrWhiteSpace(notes)
+            ? "Sin notas de la publicación."
+            : notes.Trim();
+
+        UpdateOfferNotesText.Visibility = Visibility.Visible;
+        UpdateProgressBar.Visibility = Visibility.Collapsed;
+        UpdateInstallButton.IsEnabled = true;
+        UpdateSkipButton.IsEnabled = true;
+        UpdateOfferPanel.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// Avance de la descarga. Los dos botones se apagan: una vez que empieza a bajar, «ahora no» ya
+    /// no describe nada que pueda pasar, y un botón que no cumple es peor que ninguno.
+    /// </summary>
+    public void SetUpdateProgress(double fraction)
+    {
+        UpdateProgressBar.Visibility = Visibility.Visible;
+        UpdateProgressBar.Value = Math.Clamp(fraction, 0, 1);
+        UpdateInstallButton.IsEnabled = false;
+        UpdateSkipButton.IsEnabled = false;
+    }
+
+    private void UpdateCheckButton_Click(object sender, RoutedEventArgs e) =>
+        UpdateCheckRequested?.Invoke();
+
+    private void UpdateInstallButton_Click(object sender, RoutedEventArgs e) =>
+        UpdateInstallRequested?.Invoke();
+
+    private void UpdateSkipButton_Click(object sender, RoutedEventArgs e) =>
+        UpdateSkipRequested?.Invoke();
 }

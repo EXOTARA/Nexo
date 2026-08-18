@@ -15,12 +15,14 @@ using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Nexo.App.Ambient;
 using Nexo.Core.Documents;
+using Nexo.Core.Updates;
 using Nexo.App.Automation;
 using Nexo.App.DailyFlow;
 using Nexo.App.Motion;
 using Nexo.App.Optimization;
 using Nexo.Windows.Display;
 using Nexo.Windows.Documents;
+using Nexo.Windows.Updates;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Shell;
 using Nexo.App.WindowsIntegration;
@@ -345,6 +347,8 @@ public partial class MainWindow : Window
     /// </summary>
     private readonly IAiApiKeyStore _apiKeyStore = new DpapiAiApiKeyStore();
     private readonly WindowsDocumentDropService _documentDropService = new();
+    private readonly WindowsUpdateService _updateService = new();
+    private UpdateManifest? _offeredUpdate;
 
     /// <summary>Diseño D27 — el borde de la pantalla como forma de llamar a Kohana.</summary>
     private readonly WindowsEdgeRevealWatcher _edgeRevealWatcher = new();
@@ -1179,6 +1183,11 @@ public partial class MainWindow : Window
                 !string.IsNullOrWhiteSpace(_apiKeyStore.Read(provider)));
 
         _settingsView.ApiKeyPageRequested += OpenExternalPage;
+
+        _settingsView.UpdateCheckRequested += () => _ = CheckForUpdateAsync();
+        _settingsView.UpdateInstallRequested += () => _ = InstallOfferedUpdateAsync();
+        _settingsView.UpdateSkipRequested += SkipOfferedUpdate;
+        _settingsView.SetCurrentVersion(CurrentVersionText);
 
         _settingsView.AiModelChanged += model =>
         {
@@ -5046,6 +5055,122 @@ public partial class MainWindow : Window
 
         _homeView.AddRecentAction(
             "Documento guardado", Path.GetFileName(result.FullPath));
+    }
+
+    // ---------- Actualizaciones (Diseño D65) ----------
+
+    /// <summary>
+    /// La versión que está corriendo, tal cual la grabó la compilación.
+    ///
+    /// Se lee del ensamblado y no de una constante escrita a mano: una constante se olvida de
+    /// actualizar exactamente en la versión en la que importa, y entonces Kohana se cree otra.
+    /// </summary>
+    private static string CurrentVersionText =>
+        System.Reflection.CustomAttributeExtensions
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(
+                System.Reflection.Assembly.GetExecutingAssembly())?
+            .InformationalVersion ?? "desconocida";
+
+    private static KohanaVersion CurrentVersion =>
+        KohanaVersion.TryParse(CurrentVersionText, out var version)
+            ? version
+            : new KohanaVersion(0, 0, 0, string.Empty);
+
+    private string UpdateWorkFolder =>
+        Path.Combine(NexoDataPaths.RootDirectory, "actualizaciones");
+
+    private async Task CheckForUpdateAsync()
+    {
+        _settingsView.SetUpdateStatus("Comprobando…", busy: true);
+        _settingsView.ShowUpdateOffer(null, null);
+        _offeredUpdate = null;
+
+        KohanaVersion? skipped =
+            KohanaVersion.TryParse(_preferences.SkippedUpdateVersion, out var parsed)
+                ? parsed
+                : null;
+
+        var lookup = await _updateService.LookForUpdateAsync(
+            CurrentVersion, skipped, _lifetimeCancellation.Token);
+
+        _preferences.LastUpdateCheckAt = DateTimeOffset.UtcNow;
+        SavePreferences();
+
+        if (!lookup.Found)
+        {
+            _settingsView.SetUpdateStatus(lookup.Message, busy: false);
+            return;
+        }
+
+        _offeredUpdate = lookup.Manifest;
+        _settingsView.SetUpdateStatus(
+            "Hay una versión más nueva disponible.", busy: false);
+        _settingsView.ShowUpdateOffer(
+            lookup.Manifest!.Version.ToString(), lookup.Manifest.Notes);
+    }
+
+    /// <summary>
+    /// Descarga, prepara y entrega el relevo al ayudante.
+    ///
+    /// Kohana se cierra **después** de lanzarlo, no antes: el guión espera a que este proceso
+    /// termine, así que si se cerrara primero no habría nadie para lanzarlo.
+    /// </summary>
+    private async Task InstallOfferedUpdateAsync()
+    {
+        if (_offeredUpdate is not { } manifest)
+        {
+            return;
+        }
+
+        var install = AppContext.BaseDirectory;
+
+        _settingsView.SetUpdateStatus("Descargando…", busy: true);
+
+        var progress = new Progress<double>(_settingsView.SetUpdateProgress);
+        var prepared = await _updateService.PrepareAsync(
+            manifest, install, UpdateWorkFolder, progress, _lifetimeCancellation.Token);
+
+        if (!prepared.Ready)
+        {
+            _settingsView.SetUpdateStatus(prepared.Problem, busy: false);
+            _settingsView.ShowUpdateOffer(
+                manifest.Version.ToString(), manifest.Notes);
+            return;
+        }
+
+        if (!WindowsUpdateService.LaunchHelper(prepared.HelperPath))
+        {
+            _settingsView.SetUpdateStatus(
+                "No se pudo iniciar el instalador de la actualización.", busy: false);
+            return;
+        }
+
+        _settingsView.SetUpdateStatus(
+            "Kohana se va a cerrar para terminar de instalarse…", busy: true);
+
+        // Se sale de verdad, no se esconde en la bandeja: el ayudante espera a que este proceso
+        // muera para poder mover la carpeta, y una Kohana escondida sigue teniendo sus archivos
+        // abiertos.
+        _allowExit = true;
+        _exitRequested = true;
+        Application.Current.Shutdown();
+    }
+
+    private void SkipOfferedUpdate()
+    {
+        if (_offeredUpdate is not { } manifest)
+        {
+            return;
+        }
+
+        // Se guarda la versión concreta, no un «no molestar»: la siguiente sí se ofrece.
+        _preferences.SkippedUpdateVersion = manifest.Version.ToString();
+        SavePreferences();
+
+        _offeredUpdate = null;
+        _settingsView.ShowUpdateOffer(null, null);
+        _settingsView.SetUpdateStatus(
+            $"Se dejó pasar la {manifest.Version}. Se avisará cuando salga otra.", busy: false);
     }
 
     private void HideShellButton_Click(object sender, RoutedEventArgs e) => HideAnimated();
