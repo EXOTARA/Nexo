@@ -146,8 +146,35 @@ public sealed class GitHubReleaseReaderTests
         Assert.Empty(GitHubReleaseReader.ReadChecksum(content));
 
     [Fact]
-    public void TheApiAddressPointsAtTheLatestRelease() =>
-        Assert.Equal(
-            "https://api.github.com/repos/EXOTARA/Nexo/releases/latest",
-            GitHubReleaseReader.LatestReleaseUrl("EXOTARA", "Nexo").ToString());
+    public void TheApiAddressAsksForTheListNotForLatest()
+    {
+        // «latest» en GitHub significa la última que NO es preliminar, y Kohana publica todas sus
+        // versiones como preliminares: ese camino devolvía 404. Lo encontró la primera consulta de
+        // verdad, no estas pruebas — ninguna podía, porque todas traen su JSON escrito a mano.
+        var url = GitHubReleaseReader.ReleasesUrl("EXOTARA", "Nexo").ToString();
+
+        Assert.StartsWith("https://api.github.com/repos/EXOTARA/Nexo/releases", url, StringComparison.Ordinal);
+        Assert.DoesNotContain("/releases/latest", url, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FromAListTheHighestVersionWins()
+    {
+        // Se compara por número y no por orden de llegada: una corrección publicada hoy sobre una
+        // rama vieja es más reciente en el tiempo y más antigua en número.
+        var json = "[" +
+            Complete.Replace("v0.9.6-beta", "v0.9.4-beta", StringComparison.Ordinal) + "," +
+            Complete + "," +
+            Complete.Replace("v0.9.6-beta", "v0.9.5-beta", StringComparison.Ordinal) + "]";
+
+        Assert.Equal("v0.9.6-beta", GitHubReleaseReader.Read(json).Version);
+    }
+
+    [Fact]
+    public void AListWhereNothingIsUsableIsRefused()
+    {
+        var json = """[{ "tag_name": "v1.0.0", "assets": [] }]""";
+
+        Assert.False(GitHubReleaseReader.Read(json).IsUsable);
+    }
 }

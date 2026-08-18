@@ -36,10 +36,26 @@ public readonly record struct ReleaseAssets(
 /// </summary>
 public static class GitHubReleaseReader
 {
-    /// <summary>La publicación más reciente del repositorio, sin contar borradores.</summary>
-    public static Uri LatestReleaseUrl(string owner, string repository) =>
-        new($"https://api.github.com/repos/{owner}/{repository}/releases/latest");
+    /// <summary>
+    /// Las publicaciones del repositorio, de la más reciente hacia atrás.
+    ///
+    /// **No se usa <c>/releases/latest</c>**, y esto lo descubrió la primera consulta de verdad:
+    /// para GitHub, «latest» significa la última que **no** es preliminar. Kohana publica todas sus
+    /// versiones como preliminares, así que ese camino devuelve 404 — no «no hay nada nuevo», sino
+    /// un error que se lee como que no hay conexión.
+    ///
+    /// Pedir la lista y elegir por número es además más correcto: cuál es la más nueva lo decide
+    /// <see cref="KohanaVersion"/>, que es de quien depende esa respuesta, y no el orden en que
+    /// GitHub tenga a bien devolverlas.
+    /// </summary>
+    public static Uri ReleasesUrl(string owner, string repository) =>
+        new($"https://api.github.com/repos/{owner}/{repository}/releases?per_page=20");
 
+    /// <summary>
+    /// Lee una respuesta de GitHub: una lista de publicaciones o una sola. De una lista se queda con
+    /// la de número más alto que se pueda usar; que merezca ofrecerse lo decide después
+    /// <see cref="UpdateCheckPolicy"/>.
+    /// </summary>
     public static ReleaseAssets Read(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -52,81 +68,17 @@ public static class GitHubReleaseReader
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
 
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                return ReadBest(root);
+            }
+
             if (root.ValueKind != JsonValueKind.Object)
             {
                 return ReleaseAssets.Rejected("La respuesta de versiones no tiene la forma esperada.");
             }
 
-            // Un borrador no está publicado: ofrecerlo sería instalar algo que ni siquiera se ha
-            // terminado de subir.
-            if (root.TryGetProperty("draft", out var draft) &&
-                draft.ValueKind == JsonValueKind.True)
-            {
-                return ReleaseAssets.Rejected("La última publicación es un borrador.");
-            }
-
-            var version = ReadString(root, "tag_name");
-            if (version.Length == 0)
-            {
-                return ReleaseAssets.Rejected("La publicación no dice qué versión es.");
-            }
-
-            if (!root.TryGetProperty("assets", out var assets) ||
-                assets.ValueKind != JsonValueKind.Array)
-            {
-                return ReleaseAssets.Rejected("La publicación no trae ningún archivo.");
-            }
-
-            var packageUrl = string.Empty;
-            var checksumUrl = string.Empty;
-            long packageSize = 0;
-
-            foreach (var asset in assets.EnumerateArray())
-            {
-                var name = ReadString(asset, "name");
-                var url = ReadString(asset, "browser_download_url");
-
-                if (name.Length == 0 || url.Length == 0)
-                {
-                    continue;
-                }
-
-                // El orden importa: «.zip.sha256» también termina en «.sha256», así que se mira
-                // primero la huella. Al revés, la huella se tomaría por el paquete.
-                if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
-                {
-                    checksumUrl = url;
-                }
-                else if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    packageUrl = url;
-                    packageSize = asset.TryGetProperty("size", out var size) &&
-                                  size.TryGetInt64(out var bytes)
-                        ? bytes
-                        : 0;
-                }
-            }
-
-            if (packageUrl.Length == 0)
-            {
-                return ReleaseAssets.Rejected("La publicación no trae el paquete de Kohana.");
-            }
-
-            if (checksumUrl.Length == 0)
-            {
-                // Sin huella no se instala. Una publicación a la que se le olvidó subir el .sha256
-                // no es una publicación de la que fiarse.
-                return ReleaseAssets.Rejected("La publicación no trae la huella para comprobarla.");
-            }
-
-            return new ReleaseAssets(
-                IsUsable: true,
-                Version: version,
-                PackageUrl: packageUrl,
-                PackageSize: packageSize,
-                ChecksumUrl: checksumUrl,
-                Notes: ReadString(root, "body"),
-                Problem: string.Empty);
+            return ReadOne(root);
         }
         catch (JsonException)
         {
@@ -134,6 +86,115 @@ public static class GitHubReleaseReader
             // no es JSON. Es un martes normal, no una excepción que deba subir.
             return ReleaseAssets.Rejected("La respuesta de versiones no se pudo entender.");
         }
+    }
+
+    /// <summary>Lee una sola publicación. Devuelve rechazo si le falta algo imprescindible.</summary>
+    private static ReleaseAssets ReadOne(JsonElement root)
+    {
+        // Un borrador no está publicado: ofrecerlo sería instalar algo que ni siquiera se ha
+        // terminado de subir.
+        if (root.TryGetProperty("draft", out var draft) &&
+            draft.ValueKind == JsonValueKind.True)
+        {
+            return ReleaseAssets.Rejected("La última publicación es un borrador.");
+        }
+
+        var version = ReadString(root, "tag_name");
+        if (version.Length == 0)
+        {
+            return ReleaseAssets.Rejected("La publicación no dice qué versión es.");
+        }
+
+        if (!root.TryGetProperty("assets", out var assets) ||
+            assets.ValueKind != JsonValueKind.Array)
+        {
+            return ReleaseAssets.Rejected("La publicación no trae ningún archivo.");
+        }
+
+        var packageUrl = string.Empty;
+        var checksumUrl = string.Empty;
+        long packageSize = 0;
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            var name = ReadString(asset, "name");
+            var url = ReadString(asset, "browser_download_url");
+
+            if (name.Length == 0 || url.Length == 0)
+            {
+                continue;
+            }
+
+            // El orden importa: «.zip.sha256» también termina en «.sha256», así que se mira
+            // primero la huella. Al revés, la huella se tomaría por el paquete.
+            if (name.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
+            {
+                checksumUrl = url;
+            }
+            else if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                packageUrl = url;
+                packageSize = asset.TryGetProperty("size", out var size) &&
+                              size.TryGetInt64(out var bytes)
+                    ? bytes
+                    : 0;
+            }
+        }
+
+        if (packageUrl.Length == 0)
+        {
+            return ReleaseAssets.Rejected("La publicación no trae el paquete de Kohana.");
+        }
+
+        if (checksumUrl.Length == 0)
+        {
+            // Sin huella no se instala. Una publicación a la que se le olvidó subir el .sha256
+            // no es una publicación de la que fiarse.
+            return ReleaseAssets.Rejected("La publicación no trae la huella para comprobarla.");
+        }
+
+        return new ReleaseAssets(
+            IsUsable: true,
+            Version: version,
+            PackageUrl: packageUrl,
+            PackageSize: packageSize,
+            ChecksumUrl: checksumUrl,
+            Notes: ReadString(root, "body"),
+            Problem: string.Empty);
+    }
+
+    /// <summary>
+    /// De una lista, la publicación usable con el número más alto.
+    ///
+    /// Se comparan versiones y no fechas: una corrección publicada hoy sobre una rama vieja es más
+    /// reciente en el tiempo y más antigua en número, y lo que se quiere instalar es lo segundo.
+    /// </summary>
+    private static ReleaseAssets ReadBest(JsonElement releases)
+    {
+        var best = ReleaseAssets.Rejected("No hay ninguna publicación que se pueda usar.");
+        KohanaVersion? bestVersion = null;
+
+        foreach (var release in releases.EnumerateArray())
+        {
+            if (release.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var candidate = ReadOne(release);
+            if (!candidate.IsUsable || !KohanaVersion.TryParse(candidate.Version, out var version))
+            {
+                continue;
+            }
+
+            if (bestVersion is null || version > bestVersion.Value)
+            {
+                best = candidate;
+                bestVersion = version;
+            }
+        }
+
+        return best;
     }
 
     /// <summary>

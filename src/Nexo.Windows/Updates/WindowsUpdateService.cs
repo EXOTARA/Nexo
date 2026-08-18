@@ -64,7 +64,7 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
         try
         {
             var json = await _client.GetStringAsync(
-                GitHubReleaseReader.LatestReleaseUrl(Owner, Repository), cancellationToken);
+                GitHubReleaseReader.ReleasesUrl(Owner, Repository), cancellationToken);
 
             var release = GitHubReleaseReader.Read(json);
             if (!release.IsUsable)
