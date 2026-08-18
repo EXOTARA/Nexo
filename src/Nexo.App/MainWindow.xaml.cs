@@ -4296,6 +4296,74 @@ public partial class MainWindow : Window
         ConfigureManagedOllamaSupervisor();
         await RefreshMetricsAsync();
         _ = InitializeVoiceFeaturesAsync();
+        _ = CheckForUpdateInBackgroundAsync();
+    }
+
+    /// <summary>
+    /// Diseño D68 — mira si hay versión nueva sin que nadie lo pida, y como mucho una vez al día.
+    ///
+    /// **Mira, pero no instala.** Descargar cien megas y sustituir la aplicación son decisiones de la
+    /// persona; lo único que se hace solo es enterarse, que no cuesta nada y evita que haya que
+    /// acordarse de comprobar.
+    ///
+    /// Se espera un poco antes de empezar. Al arrancar, Kohana está levantando la voz, las métricas
+    /// y el runtime de IA; meter ahí una petición de red solo hace el arranque más lento a cambio de
+    /// una respuesta que no corre ninguna prisa.
+    /// </summary>
+    private async Task CheckForUpdateInBackgroundAsync()
+    {
+        if (!UpdateCheckPolicy.ShouldCheck(_preferences.LastUpdateCheckAt, DateTimeOffset.UtcNow))
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(45), _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (_isClosed)
+        {
+            return;
+        }
+
+        KohanaVersion? skipped =
+            KohanaVersion.TryParse(_preferences.SkippedUpdateVersion, out var parsed)
+                ? parsed
+                : null;
+
+        var lookup = await _updateService.LookForUpdateAsync(
+            CurrentVersion, skipped, _lifetimeCancellation.Token);
+
+        // La fecha se apunta haya salido lo que haya salido. Si no, un equipo sin conexión
+        // reintentaría en cada arranque, que es justo lo que este límite viene a evitar.
+        _preferences.LastUpdateCheckAt = DateTimeOffset.UtcNow;
+        SavePreferences();
+
+        if (!lookup.Found || _isClosed)
+        {
+            return;
+        }
+
+        _offeredUpdate = lookup.Manifest;
+        _settingsView.SetUpdateStatus("Hay una versión más nueva disponible.", busy: false);
+        _settingsView.ShowUpdateOffer(
+            lookup.Manifest!.Version.ToString(),
+            lookup.Manifest.Notes,
+            Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory));
+
+        // El aviso no se enseña encima de un juego ni de una presentación: una versión nueva no es
+        // urgente, y la tarjeta ya queda esperando en Personalizar de todas formas. La cápsula lo
+        // respeta sola, pero decirlo aquí evita que mañana alguien la haga «forzada» sin pensar.
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Information,
+            $"Kohana {lookup.Manifest.Version} disponible",
+            "Puedes instalarla desde Personalizar › Actualizaciones.",
+            _preferences.Position);
     }
 
     private void OnSystemUserPreferenceChanged(
