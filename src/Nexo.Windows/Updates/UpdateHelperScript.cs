@@ -67,6 +67,16 @@ public static class UpdateHelperScript
         script.AppendLine("$ErrorActionPreference = 'Stop'");
         script.AppendLine();
 
+        // Diseño D67 — deja rastro. Los dos fallos en vivo hubo que deducirlos del estado de las
+        // carpetas, porque el ayudante no decía nada: ni qué paso alcanzó, ni con qué error salió.
+        // Un registro de cuatro líneas convierte media hora de deducción en una lectura.
+        script.AppendLine("$registro = Join-Path $PSScriptRoot 'ultima-actualizacion.log'");
+        script.AppendLine("function Apunta($t) {");
+        script.AppendLine("    \"$(Get-Date -Format o)  $t\" | Add-Content -LiteralPath $registro -Encoding UTF8");
+        script.AppendLine("}");
+        script.AppendLine("Set-Content -LiteralPath $registro -Value '' -Encoding UTF8");
+        script.AppendLine();
+
         script.AppendLine($"$install = {Quote(paths.Install)}");
         script.AppendLine($"$staged = {Quote(paths.Staged)}");
         script.AppendLine($"$previous = {Quote(paths.Previous)}");
@@ -85,12 +95,16 @@ public static class UpdateHelperScript
         script.AppendLine();
 
         script.AppendLine("if (Get-Process -Id $pid_ -ErrorAction SilentlyContinue) {");
-        script.AppendLine("    # Sigue abierta. Se deja todo como estaba y la actualización espera.");
+        script.AppendLine("    Apunta 'Kohana sigue abierta tras la espera. No se toca nada.'");
         script.AppendLine("    exit 2");
         script.AppendLine("}");
+        script.AppendLine("Apunta 'Kohana cerrada. Empieza el intercambio.'");
         script.AppendLine();
 
-        script.AppendLine("if (-not (Test-Path -LiteralPath $staged)) { exit 3 }");
+        script.AppendLine("if (-not (Test-Path -LiteralPath $staged)) {");
+        script.AppendLine("    Apunta 'No hay carpeta preparada que instalar.'");
+        script.AppendLine("    exit 3");
+        script.AppendLine("}");
         script.AppendLine();
 
         // Un intento anterior pudo dejar una carpeta apartada. Se quita antes de empezar, porque si
@@ -124,8 +138,11 @@ public static class UpdateHelperScript
         script.AppendLine("            Move-Item -LiteralPath $previous -Destination $install -ErrorAction SilentlyContinue");
         script.AppendLine("        }");
         script.AppendLine("    }");
+        script.AppendLine("    Apunta (\"FALLO: \" + $_.Exception.Message)");
+        script.AppendLine("    Apunta (\"se habia apartado la actual: \" + $moved)");
         script.AppendLine("    exit 1");
         script.AppendLine("}");
+        script.AppendLine("Apunta 'Intercambio hecho.'");
         script.AppendLine();
 
         // Lo viejo se borra solo cuando lo nuevo está en su sitio. Que no se pueda borrar es un
@@ -144,7 +161,14 @@ public static class UpdateHelperScript
         // que espere y lo borre— añaden una pieza frágil a la parte que menos puede permitirse una.
         // Ocupa dos kilobytes, se sobrescribe en la siguiente actualización, y dejarlo tiene una
         // ventaja: si algo sale mal, queda ahí para poder leerlo.
-        script.AppendLine("Remove-Item -LiteralPath $paquete -Force -ErrorAction SilentlyContinue");
+        // Se comprueba que hay ruta antes de borrar: Remove-Item con una cadena vacía es un error
+        // de enlace de parámetros, que **no** lo silencia -ErrorAction, y el guión terminaba con
+        // código de fallo después de haber hecho el intercambio bien. Un paso de limpieza no puede
+        // convertir un éxito en un fallo aparente — es exactamente lo que despista al diagnosticar.
+        script.AppendLine("if ($paquete -and (Test-Path -LiteralPath $paquete)) {");
+        script.AppendLine("    Remove-Item -LiteralPath $paquete -Force -ErrorAction SilentlyContinue");
+        script.AppendLine("}");
+        script.AppendLine("Apunta 'Terminado.'");
         script.AppendLine("exit 0");
 
         return script.ToString();

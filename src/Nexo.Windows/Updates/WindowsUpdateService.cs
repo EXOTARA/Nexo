@@ -201,7 +201,20 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
             {
                 FileName = "powershell.exe",
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+
+                // Diseño D67 — el ayudante NO puede trabajar desde la carpeta que va a mover.
+                //
+                // Sin esto hereda el directorio de trabajo de Kohana, que es su propia carpeta de
+                // instalación. En Windows, un proceso cuyo directorio actual está dentro de una
+                // carpeta **impide moverla**: el ayudante retenía justo lo que venía a mover, el
+                // primer movimiento fallaba, la recuperación dejaba todo como estaba y Kohana no
+                // volvía a abrirse. Dos intentos en vivo con el mismo síntoma y dos causas
+                // distintas; esta es la segunda.
+                //
+                // Se usa el directorio del propio guión, que vive en los datos de Kohana y nunca es
+                // la instalación.
+                WorkingDirectory = Path.GetDirectoryName(helperPath) ?? Path.GetTempPath()
             };
 
             // Los argumentos van de uno en uno para que una ruta con espacios no se parta en dos.
