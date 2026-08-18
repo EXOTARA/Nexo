@@ -604,7 +604,7 @@ public partial class AssistantView : UserControl
         return image;
     }
 
-    private static Border CreateMessageBubble(
+    private Border CreateMessageBubble(
         string text,
         HorizontalAlignment alignment,
         Brush background,
@@ -656,7 +656,7 @@ public partial class AssistantView : UserControl
 
         // Se lee del TextBlock y no del texto de creación: una respuesta que llega a trozos sigue
         // creciendo, y copiar lo que había al construirla daría media frase.
-        AttachCopyMenu(bubble, () => textBlock.Text);
+        AttachCopyMenu(bubble, () => textBlock.Text, isUser);
         return bubble;
     }
 
@@ -666,7 +666,7 @@ public partial class AssistantView : UserControl
     /// La entradilla —lo que va antes del primer título— se deja suelta, sin caja: es una frase de
     /// presentación y meterla en un recuadro con borde la hace parecer un apartado más.
     /// </summary>
-    private static Border CreateSectionedBubble(
+    private Border CreateSectionedBubble(
         string fullText,
         IReadOnlyList<AnswerSection> sections,
         Brush background)
@@ -745,7 +745,7 @@ public partial class AssistantView : UserControl
 
         // Se copia el texto original, no lo que se ve: quien copia una receta quiere la receta,
         // no la reconstrucción de las cajas por las que se ha repartido.
-        AttachCopyMenu(bubble, () => fullText);
+        AttachCopyMenu(bubble, () => fullText, isUser: false);
         return bubble;
     }
 
@@ -761,13 +761,35 @@ public partial class AssistantView : UserControl
     /// respuesta que llega a trozos sigue creciendo después de construida, y copiar lo que había
     /// al principio daría media frase.
     /// </summary>
-    private static void AttachCopyMenu(Border bubble, Func<string?> content)
+    private void AttachCopyMenu(Border bubble, Func<string?> content, bool isUser)
     {
         var copy = new MenuItem { Header = "Copiar" };
         copy.Click += (_, _) => CopyToClipboard(content());
 
-        bubble.ContextMenu = new ContextMenu { Items = { copy } };
+        var menu = new ContextMenu { Items = { copy } };
+
+        // Diseño D59 — solo del lado de Kohana: guardar como documento lo que uno mismo acaba de
+        // escribir no es una necesidad, y el menú se lee mejor con una opción que con dos.
+        if (!isUser)
+        {
+            var save = new MenuItem { Header = "Guardar en el escritorio como Word" };
+            save.Click += (_, _) =>
+            {
+                var text = content();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    DocumentSaveRequested?.Invoke(this, new DocumentSaveEventArgs(text));
+                }
+            };
+
+            menu.Items.Add(save);
+        }
+
+        bubble.ContextMenu = menu;
     }
+
+    /// <summary>Se pidió dejar una respuesta como documento.</summary>
+    public event EventHandler<DocumentSaveEventArgs>? DocumentSaveRequested;
 
     private static void CopyToClipboard(string? text)
     {
@@ -844,4 +866,10 @@ public sealed class PastedImageEventArgs(string title, byte[] pngBytes) : EventA
     public string Title { get; } = title;
 
     public byte[] PngBytes { get; } = pngBytes;
+}
+
+/// <summary>Una respuesta que alguien quiere conservar como documento.</summary>
+public sealed class DocumentSaveEventArgs(string answer) : EventArgs
+{
+    public string Answer { get; } = answer;
 }

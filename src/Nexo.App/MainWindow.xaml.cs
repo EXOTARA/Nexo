@@ -14,11 +14,13 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Nexo.App.Ambient;
+using Nexo.Core.Documents;
 using Nexo.App.Automation;
 using Nexo.App.DailyFlow;
 using Nexo.App.Motion;
 using Nexo.App.Optimization;
 using Nexo.Windows.Display;
+using Nexo.Windows.Documents;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Shell;
 using Nexo.App.WindowsIntegration;
@@ -342,6 +344,7 @@ public partial class MainWindow : Window
     /// una clave copiada a una variable vive lo que viva el objeto, y esto vive lo que dura la app.
     /// </summary>
     private readonly IAiApiKeyStore _apiKeyStore = new DpapiAiApiKeyStore();
+    private readonly WindowsDocumentDropService _documentDropService = new();
 
     /// <summary>Diseño D27 — el borde de la pantalla como forma de llamar a Kohana.</summary>
     private readonly WindowsEdgeRevealWatcher _edgeRevealWatcher = new();
@@ -547,6 +550,7 @@ public partial class MainWindow : Window
         _assistantView.VisionCaptureRequested += AssistantView_VisionCaptureRequested;
         _assistantView.VisionAttachmentCleared += AssistantView_VisionAttachmentCleared;
         _assistantView.ImagePasted += AssistantView_ImagePasted;
+        _assistantView.DocumentSaveRequested += AssistantView_DocumentSaveRequested;
         _tasksView.TasksChanged += TasksView_TasksChanged;
         _tasksView.FocusRequested += TasksView_FocusRequested;
         _focusView.FocusChanged += FocusView_FocusChanged;
@@ -4992,6 +4996,56 @@ public partial class MainWindow : Window
         _preferences.PanelImagePath = dialog.FileName;
         _dashboardWindow.View.SetPanelImage(dialog.FileName);
         SavePreferences();
+    }
+
+    /// <summary>
+    /// Diseño D59 — deja una respuesta en el escritorio como documento de Word.
+    ///
+    /// El título sale del primer apartado y no se pregunta. Un cuadro pidiendo nombre convierte
+    /// «guárdame esto» en un formulario, y el nombre correcto casi siempre está ya escrito en la
+    /// propia respuesta; si no acierta, cambiarlo es renombrar un archivo que ya está delante.
+    ///
+    /// Los apartados son los mismos con los que se dibuja la respuesta en el chat. Una respuesta sin
+    /// estructura se guarda como un único bloque en vez de rechazarse: que no tenga apartados no la
+    /// hace menos digna de conservarse.
+    /// </summary>
+    private void AssistantView_DocumentSaveRequested(object? sender, DocumentSaveEventArgs e)
+    {
+        var sections = AnswerSections.Parse(e.Answer);
+        if (sections.Count == 0)
+        {
+            sections = [new AnswerSection(string.Empty, e.Answer.Trim())];
+        }
+
+        var title = sections.FirstOrDefault(section => section.Title.Length > 0)?.Title;
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = "Respuesta de Kohana";
+        }
+
+        var target = DocumentDestination.Resolve(DocumentFolder.Desktop, title, ".docx");
+        var result = _documentDropService.Save(target, WordDocumentBuilder.Build(title, sections));
+
+        if (!result.Saved)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "No pude guardar el documento",
+                result.Message,
+                _preferences.Position);
+            return;
+        }
+
+        // Se enseña el nombre del archivo y el sitio en palabras, no la ruta: quien lo pidió dijo
+        // «el escritorio» y ahí es donde tiene que ir a mirar.
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Success,
+            "Documento guardado",
+            $"{Path.GetFileName(result.FullPath)} está en el escritorio.",
+            _preferences.Position);
+
+        _homeView.AddRecentAction(
+            "Documento guardado", Path.GetFileName(result.FullPath));
     }
 
     private void HideShellButton_Click(object sender, RoutedEventArgs e) => HideAnimated();
