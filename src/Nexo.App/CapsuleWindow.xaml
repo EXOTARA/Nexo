@@ -72,14 +72,14 @@
                         VerticalAlignment="Center">
                 <TextBlock x:Name="TitleText"
                            Text="Kohana"
-                           FontSize="14"
+                           FontSize="{DynamicResource FontSizeBody}"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource BrushTextPrimary}"
                            TextTrimming="CharacterEllipsis" />
                 <TextBlock x:Name="DetailText"
                            Margin="0,3,0,0"
                            Text="Listo"
-                           FontSize="12"
+                           FontSize="{DynamicResource FontSizeFootnote}"
                            Foreground="{DynamicResource BrushTextSecondary}"
                            TextTrimming="CharacterEllipsis"
                            MaxWidth="285" />

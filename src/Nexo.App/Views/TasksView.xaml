@@ -32,19 +32,19 @@
             <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
                 <StackPanel>
                     <TextBlock Text="HOY" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="TodayCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                    <TextBlock x:Name="TodayCountText" Text="0" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
                 <StackPanel>
                     <TextBlock Text="PENDIENTES" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="PendingCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                    <TextBlock x:Name="PendingCountText" Text="0" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
                 <StackPanel>
                     <TextBlock Text="VENCIDAS" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="OverdueCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                    <TextBlock x:Name="OverdueCountText" Text="0" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
         </UniformGrid>
@@ -58,7 +58,7 @@
                 <TextBlock x:Name="EditorTitleText"
                            Text="Nueva tarea"
                            FontWeight="SemiBold"
-                           FontSize="15" />
+                           FontSize="{DynamicResource FontSizeBody}" />
                 <TextBox x:Name="TitleTextBox"
                          Margin="0,9,0,0"
                          Style="{StaticResource CompactTextBoxStyle}"
@@ -145,7 +145,7 @@
                 <ItemsControl x:Name="TasksItemsControl">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,8" Padding="11">
+                            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,8" Padding="14">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -162,14 +162,14 @@
                                                     Background="{DynamicResource BrushAccentSoft}"
                                                     CornerRadius="7">
                                                 <TextBlock Text="{Binding PriorityLabel}"
-                                                           FontSize="10.5"
+                                                           FontSize="{DynamicResource FontSizeCaption}"
                                                            Foreground="{DynamicResource BrushTextSecondary}" />
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Margin="0,4,0,0"
                                                    Text="{Binding ScheduleText}"
                                                    Foreground="{Binding ScheduleBrush}"
-                                                   FontSize="12" />
+                                                   FontSize="{DynamicResource FontSizeFootnote}" />
                                         <TextBlock Margin="0,4,0,0"
                                                    Text="{Binding Notes}"
                                                    TextWrapping="Wrap"

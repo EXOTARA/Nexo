@@ -12,6 +12,15 @@ using Nexo.Core.Resources;
 
 namespace Nexo.App.Views;
 
+/// <summary>
+/// Diseño D44 — Sistema se queda con el diagnóstico: capacidad del equipo, plan adaptativo,
+/// optimización, registro de lo que Kohana ha hecho y estado del runtime.
+///
+/// Las medidas en vivo —procesador, gráfica, disco, red, memoria— se fueron al cajón del borde de
+/// arriba (<see cref="Nexo.App.DashboardWindow"/>). No es un reparto arbitrario: esto de aquí se lee
+/// sentado y de vez en cuando; aquello se mira de reojo mientras haces otra cosa, y para eso no
+/// puede exigir abrir la aplicación y navegar hasta una pestaña.
+/// </summary>
 public partial class SystemView : UserControl
 {
     private readonly ObservableCollection<AdaptiveEnginePlanRow> _adaptiveEnginePlanRows = [];
@@ -130,14 +139,6 @@ public partial class SystemView : UserControl
 
     public void UpdateSnapshot(SystemSnapshot snapshot)
     {
-        CpuValueText.Text = FormatPercentage(snapshot.CpuUsagePercent);
-        MemoryValueText.Text = FormatPercentage(snapshot.MemoryUsagePercent);
-        GpuValueText.Text = FormatPercentage(snapshot.GpuUsagePercent);
-        GpuMemoryText.Text = snapshot.DedicatedGpuMemoryBytes.HasValue
-            ? $"VRAM usada: {FormatBytes(snapshot.DedicatedGpuMemoryBytes.Value)}"
-            : "VRAM no disponible";
-        DiskValueText.Text = FormatPercentage(snapshot.SystemDriveUsagePercent);
-
         TopProcessNameText.Text = string.IsNullOrWhiteSpace(snapshot.TopProcessName)
             ? "No disponible"
             : snapshot.TopProcessName;

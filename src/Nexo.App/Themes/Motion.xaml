@@ -1,18 +1,69 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:motion="clr-namespace:Nexo.App.Motion">
     <!--
-        Kohana Design System — Motion (Fundación 0.1).
+        Kohana Design System — Motion 1.0.
 
-        Duraciones y curvas de aceleración para animaciones sutiles (Sakura: orgánico y
-        calmado). Se definen como tokens reutilizables; las animaciones existentes se pueden
-        migrar a ellos de forma incremental sin cambiar su sensación cuando el valor coincida.
+        Fundación 0.1 dejaba cuatro duraciones y tres curvas genéricas de WPF. Esta versión define
+        un vocabulario completo: cada movimiento de la aplicación elige una duración con nombre y
+        una curva con nombre, y ninguna vista vuelve a inventar milisegundos sueltos.
+
+        Regla de reparto de las curvas:
+          · Algo ENTRA o crece      → Decelerate o Spring (llega y se asienta).
+          · Algo SALE o se encoge   → Accelerate (se va rápido; nadie mira lo que se va).
+          · Algo se MUEVE de A a B  → Emphasized (cubre el camino pronto y se asienta despacio).
+          · Un estado menor (hover) → Standard, corto y sin carácter.
+    -->
+
+    <!--
+        Duraciones. Escalan con el tamaño del cambio, no con su importancia: mover un panel entero
+        necesita más tiempo que teñir un botón, o el ojo pierde el hilo de qué se convirtió en qué.
     -->
     <Duration x:Key="MotionInstant">0:0:0</Duration>
     <Duration x:Key="MotionFast">0:0:0.12</Duration>
     <Duration x:Key="MotionBase">0:0:0.2</Duration>
     <Duration x:Key="MotionSlow">0:0:0.35</Duration>
+    <Duration x:Key="MotionEmphasizedDuration">0:0:0.45</Duration>
+    <Duration x:Key="MotionExitDuration">0:0:0.16</Duration>
+    <Duration x:Key="MotionRevealDuration">0:0:0.3</Duration>
 
-    <CubicEase x:Key="MotionEaseOut" EasingMode="EaseOut" />
-    <CubicEase x:Key="MotionEaseInOut" EasingMode="EaseInOut" />
-    <QuadraticEase x:Key="MotionEaseOutSoft" EasingMode="EaseOut" />
+    <!--
+        Curvas. Los puntos de control son los que dan carácter; los nombres genéricos de WPF
+        (CubicEase, QuadraticEase) no llegan a ninguna de estas formas.
+    -->
+
+    <!--
+        La curva de transición del sistema: recorre la mayor parte del camino pronto y dedica el
+        resto del tiempo a asentarse, sin rebote. Es lo que hace que un panel se pueda leer mientras
+        todavía se está moviendo en vez de aparecer ya quieto.
+    -->
+    <motion:CubicBezierEase x:Key="MotionEmphasized" X1="0.2" Y1="0" X2="0" Y2="1" />
+
+    <!-- Entradas: llega con velocidad y frena largo. Lo que aparece se lee mientras se asienta. -->
+    <motion:CubicBezierEase x:Key="MotionDecelerate" X1="0.05" Y1="0.7" X2="0.1" Y2="1" />
+
+    <!-- Salidas: se va acelerando y ya no vuelve. Corta, porque nadie mira lo que se retira. -->
+    <motion:CubicBezierEase x:Key="MotionAccelerate" X1="0.3" Y1="0" X2="0.8" Y2="0.15" />
+
+    <!--
+        Resorte: se pasa del destino y vuelve. Y1 por encima de 1 es el rebote, y es deliberado.
+        Reservado a lo que aparece por voluntad de la persona —un panel que abre, una píldora— para
+        que el rebote se lea como respuesta, no como que algo tembló.
+    -->
+    <motion:CubicBezierEase x:Key="MotionSpring" X1="0.34" Y1="1.56" X2="0.64" Y2="1" />
+
+    <!-- Resorte contenido, para elementos pequeños donde el rebote grande resultaría cómico. -->
+    <motion:CubicBezierEase x:Key="MotionSpringSubtle" X1="0.34" Y1="1.24" X2="0.64" Y2="1" />
+
+    <!-- Estados menores: hover, foco, color. Sin carácter, a propósito. -->
+    <motion:CubicBezierEase x:Key="MotionStandard" X1="0.2" Y1="0" X2="0" Y2="1" />
+
+    <!--
+        Se conservan los nombres de la fundación 0.1 para no romper las vistas que ya los usan.
+        Ahora apuntan a las curvas nuevas, así que migrar una vista es borrar una referencia vieja,
+        no reescribir su animación.
+    -->
+    <motion:CubicBezierEase x:Key="MotionEaseOut" X1="0.2" Y1="0" X2="0" Y2="1" />
+    <motion:CubicBezierEase x:Key="MotionEaseInOut" X1="0.4" Y1="0" X2="0.2" Y2="1" />
+    <motion:CubicBezierEase x:Key="MotionEaseOutSoft" X1="0.05" Y1="0.7" X2="0.1" Y2="1" />
 </ResourceDictionary>

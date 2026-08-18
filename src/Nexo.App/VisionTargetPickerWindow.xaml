@@ -20,7 +20,7 @@
 
         <StackPanel>
             <TextBlock Text="¿Qué quieres mostrarle a Kohana?"
-                       FontSize="20"
+                       FontSize="{DynamicResource FontSizeTitle2}"
                        FontWeight="SemiBold" />
             <TextBlock Margin="0,6,0,14"
                        Text="La captura se muestra antes de enviarse y no se guarda en el historial."
@@ -54,7 +54,7 @@
                                 <TextBlock HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
                                            Text="◫"
-                                           FontSize="14" />
+                                           FontSize="{DynamicResource FontSizeBody}" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                 <TextBlock Text="{Binding Title}"
@@ -64,7 +64,7 @@
                                            Text="{Binding Subtitle}"
                                            TextTrimming="CharacterEllipsis"
                                            Foreground="{StaticResource BrushTextSecondary}"
-                                           FontSize="12" />
+                                           FontSize="{DynamicResource FontSizeFootnote}" />
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
@@ -82,7 +82,7 @@
                        Text="No se muestran gestores de contraseñas ni ventanas de seguridad."
                        TextWrapping="Wrap"
                        Foreground="{StaticResource BrushTextSecondary}"
-                       FontSize="12" />
+                       FontSize="{DynamicResource FontSizeFootnote}" />
             <Button Grid.Column="1"
                     Margin="12,0,0,0"
                     Padding="14,8"

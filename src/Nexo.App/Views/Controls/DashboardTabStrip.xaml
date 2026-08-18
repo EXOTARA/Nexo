@@ -1,0 +1,78 @@
+<UserControl x:Class="Nexo.App.Views.Controls.DashboardTabStrip"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Focusable="False">
+    <UserControl.Resources>
+        <!--
+            Diseño D43 — la pestaña es icono encima y texto debajo, como en la referencia, y no
+            icono y texto en línea. Apilarlos es lo que deja la tira alta y aireada en vez de
+            parecer una barra de menús.
+        -->
+        <Style x:Key="DashboardTabButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="6,9,6,10" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="16"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background"
+                                        Value="{DynamicResource BrushSurfaceHover}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Surface" Property="Background"
+                                        Value="{DynamicResource BrushSurfaceHover}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.75" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <UniformGrid x:Name="TabsPanel" Rows="1" />
+
+        <!--
+            La línea de debajo y el subrayado comparten fila y no se apilan: si el subrayado
+            estuviera encima de la línea, al deslizarse taparía un píxel de separador y dejaría un
+            escalón visible a su paso.
+        -->
+        <Grid Grid.Row="1" Height="3" Margin="0,2,0,0">
+            <Border Height="1"
+                    VerticalAlignment="Bottom"
+                    Background="{DynamicResource BrushBorder}" />
+            <Border x:Name="Indicator"
+                    Width="40"
+                    Height="3"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    CornerRadius="2"
+                    Background="{DynamicResource BrushAccent}"
+                    Opacity="0"
+                    SnapsToDevicePixels="True">
+                <Border.RenderTransform>
+                    <TranslateTransform x:Name="IndicatorTranslate" X="0" />
+                </Border.RenderTransform>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -25,7 +25,7 @@
                     VerticalAlignment="Top">
                 <TextBlock x:Name="TimerStateText"
                            Text="LISTO"
-                           FontSize="10.5"
+                           FontSize="{DynamicResource FontSizeCaption}"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource BrushTextSecondary}" />
             </Border>
@@ -46,19 +46,19 @@
                         Visibility="Collapsed">
                     <TextBlock x:Name="AssociatedTaskText"
                                Text=""
-                               FontSize="11.5"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                Foreground="{DynamicResource BrushTextSecondary}" />
                 </Border>
                 <TextBlock x:Name="TimerLabelText"
                            Text="Sin sesión activa"
                            HorizontalAlignment="Center"
-                           FontSize="13"
+                           FontSize="{DynamicResource FontSizeCallout}"
                            Foreground="{DynamicResource BrushTextSecondary}" />
                 <TextBlock x:Name="RemainingTimeText"
                            Text="00:00"
                            Margin="0,5,0,7"
                            HorizontalAlignment="Center"
-                           FontSize="48"
+                           FontSize="{DynamicResource FontSizeDisplay}"
                            FontWeight="SemiBold" />
                 <ProgressBar x:Name="TimerProgressBar"
                              Height="7"
@@ -109,7 +109,7 @@
                 -->
                 <Border x:Name="SessionCompletionNoticeBorder"
                         Margin="0,12,0,0"
-                        Padding="11"
+                        Padding="14"
                         Background="{DynamicResource BrushSurfaceRaised}"
                         BorderBrush="{DynamicResource BrushBorder}"
                         BorderThickness="1"
@@ -119,7 +119,7 @@
                         <TextBlock x:Name="SessionCompletionTitleText"
                                    Text=""
                                    FontWeight="SemiBold"
-                                   FontSize="13" />
+                                   FontSize="{DynamicResource FontSizeCallout}" />
                         <TextBlock x:Name="SessionCompletionDetailText"
                                    Margin="0,4,0,0"
                                    Text=""
@@ -164,7 +164,7 @@
                     <TextBlock x:Name="TodaySessionsText"
                                Text="0 sesiones"
                                Margin="0,4,0,0"
-                               FontSize="18"
+                               FontSize="{DynamicResource FontSizeTitle2}"
                                FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
@@ -174,7 +174,7 @@
                     <TextBlock x:Name="TodayMinutesText"
                                Text="0 min"
                                Margin="0,4,0,0"
-                               FontSize="18"
+                               FontSize="{DynamicResource FontSizeTitle2}"
                                FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
@@ -207,7 +207,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="{Binding TitleText}"
-                                                   FontSize="12.5"
+                                                   FontSize="{DynamicResource FontSizeFootnote}"
                                                    FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding SubtitleText}"
@@ -218,7 +218,7 @@
                                                Text="{Binding DurationText}"
                                                Margin="10,0,0,0"
                                                VerticalAlignment="Center"
-                                               FontSize="12.5"
+                                               FontSize="{DynamicResource FontSizeFootnote}"
                                                FontWeight="SemiBold" />
                                 </Grid>
                             </Border>

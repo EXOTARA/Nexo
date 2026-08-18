@@ -1,0 +1,976 @@
+<UserControl x:Class="Nexo.App.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Nexo.App.Views.Controls">
+    <UserControl.Resources>
+        <!--
+            Diseño D44 — la cápsula estrecha: título arriba, medidor y detalle debajo.
+
+            En la referencia las cinco cápsulas son horizontales, pero a tres columnas el texto y el
+            anillo se disputan el mismo sitio y gana el anillo: los títulos salían como «Discc» y
+            «Mem». Apilando, el título recupera el ancho entero de la tarjeta.
+        -->
+        <Style x:Key="NarrowMetricCapsuleStyle" TargetType="{x:Type controls:MetricCapsule}">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Margin" Value="6" />
+            <Setter Property="GaugeSize" Value="50" />
+            <Setter Property="GaugeThickness" Value="5" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type controls:MetricCapsule}">
+                        <Border Background="{DynamicResource BrushSurface}"
+                                BorderBrush="{DynamicResource BrushBorder}"
+                                BorderThickness="1"
+                                CornerRadius="20"
+                                Padding="16,15">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="16"
+                                          Height="16"
+                                          Stretch="Uniform"
+                                          VerticalAlignment="Center"
+                                          Stroke="{DynamicResource BrushAccent}"
+                                          StrokeThickness="1.7"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Data="{TemplateBinding IconData}" />
+                                    <TextBlock Margin="9,0,0,0"
+                                               VerticalAlignment="Center"
+                                               FontSize="{DynamicResource FontSizeBody}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushTextPrimary}"
+                                               Text="{TemplateBinding Title}" />
+                                </StackPanel>
+
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Grid Width="{TemplateBinding GaugeSize}"
+                                          Height="{TemplateBinding GaugeSize}"
+                                          VerticalAlignment="Top">
+                                        <Ellipse Stroke="{DynamicResource BrushSurfaceHover}"
+                                                 StrokeThickness="{TemplateBinding GaugeThickness}" />
+                                        <Path x:Name="PART_Arc"
+                                              Stroke="{DynamicResource BrushAccent}"
+                                              StrokeThickness="{TemplateBinding GaugeThickness}"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round" />
+                                        <TextBlock x:Name="PART_Readout"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="{DynamicResource FontSizeFootnote}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   Text="—" />
+                                    </Grid>
+
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock FontSize="{DynamicResource FontSizeFootnote}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                                   Text="{TemplateBinding Subtitle}" />
+                                        <TextBlock Margin="0,4,0,0"
+                                                   FontSize="{DynamicResource FontSizeFootnote}"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource BrushTextTertiary}"
+                                                   Text="{TemplateBinding Detail}" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            Diseño D44 — la cápsula ancha de la fila de arriba: procesador y gráfica, que llevan el
+            nombre del componente y por eso tienen más sitio.
+        -->
+        <Style x:Key="WideMetricCapsuleStyle" TargetType="{x:Type controls:MetricCapsule}">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Margin" Value="6" />
+            <Setter Property="GaugeSize" Value="60" />
+            <Setter Property="GaugeThickness" Value="6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type controls:MetricCapsule}">
+                        <Border Background="{DynamicResource BrushSurface}"
+                                BorderBrush="{DynamicResource BrushBorder}"
+                                BorderThickness="1"
+                                CornerRadius="20"
+                                Padding="18,16">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Width="16"
+                                              Height="16"
+                                              Stretch="Uniform"
+                                              VerticalAlignment="Center"
+                                              Stroke="{DynamicResource BrushAccent}"
+                                              StrokeThickness="1.7"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              Data="{TemplateBinding IconData}" />
+                                        <TextBlock Margin="9,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="{DynamicResource FontSizeBody}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   Text="{TemplateBinding Title}" />
+                                    </StackPanel>
+
+                                    <TextBlock Margin="0,8,0,0"
+                                               FontSize="{DynamicResource FontSizeFootnote}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource BrushTextSecondary}"
+                                               Text="{TemplateBinding Subtitle}" />
+
+                                    <TextBlock Margin="0,6,0,0"
+                                               FontSize="{DynamicResource FontSizeFootnote}"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource BrushTextTertiary}"
+                                               Text="{TemplateBinding Detail}" />
+                                </StackPanel>
+
+                                <Grid Grid.Column="1"
+                                      Width="{TemplateBinding GaugeSize}"
+                                      Height="{TemplateBinding GaugeSize}"
+                                      Margin="16,0,0,0"
+                                      VerticalAlignment="Center">
+                                    <Ellipse Stroke="{DynamicResource BrushSurfaceHover}"
+                                             StrokeThickness="{TemplateBinding GaugeThickness}" />
+                                    <Path x:Name="PART_Arc"
+                                          Stroke="{DynamicResource BrushAccent}"
+                                          StrokeThickness="{TemplateBinding GaugeThickness}"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round" />
+                                    <TextBlock x:Name="PART_Readout"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               FontSize="{DynamicResource FontSizeBody}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushTextPrimary}"
+                                               Text="—" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="MediaControlButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="46" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="6,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface"
+                                Background="{DynamicResource BrushSurfaceRaised}"
+                                CornerRadius="23"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background"
+                                        Value="{DynamicResource BrushSurfaceHover}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="MediaPlayButtonStyle" TargetType="Button" BasedOn="{StaticResource MediaControlButtonStyle}">
+            <Setter Property="Width" Value="74" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface"
+                                Background="{DynamicResource BrushAccent}"
+                                CornerRadius="18"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.88" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CalendarArrowButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface" Background="Transparent" CornerRadius="15">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background"
+                                        Value="{DynamicResource BrushSurfaceHover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            Diseno D53 - el chip de resumen del dia: icono, etiqueta y el dato en una linea.
+
+            Es un boton y no una tarjeta con texto porque un resumen que no se puede accionar deja
+            a medias: ver "3 pendientes" y tener que ir a buscar donde estan es peor que no verlo.
+            Pulsar abre Kohana en ese modulo y recoge el cajon.
+        -->
+        <Style x:Key="DashboardChipStyle" TargetType="Button">
+            <Setter Property="Margin" Value="6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface"
+                                Padding="16,14"
+                                Background="{DynamicResource BrushSurface}"
+                                BorderBrush="{DynamicResource BrushBorder}"
+                                BorderThickness="1"
+                                CornerRadius="20">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Surface" Property="Background"
+                                        Value="{DynamicResource BrushSurfaceHover}" />
+                                <Setter TargetName="Surface" Property="BorderBrush"
+                                        Value="{DynamicResource BrushAccentBorder}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Surface" Property="BorderBrush"
+                                        Value="{DynamicResource BrushFocusRing}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Surface" Property="Opacity" Value="0.72" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DashboardCardStyle" TargetType="Border">
+            <Setter Property="Margin" Value="6" />
+            <Setter Property="Padding" Value="18,16" />
+            <Setter Property="Background" Value="{DynamicResource BrushSurface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="20" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="20,16,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <controls:DashboardTabStrip x:Name="DashboardTabs" Grid.Row="0" />
+
+        <Grid Grid.Row="1" Margin="0,18,0,0">
+
+            <!-- ============================ PANEL ============================ -->
+            <Grid x:Name="PanelPane">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="PanelPaneTranslate" />
+                </Grid.RenderTransform>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="-6,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource DashboardCardStyle}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="46"
+                                    Height="46"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource BrushAccentSoft}"
+                                    BorderBrush="{DynamicResource BrushAccentBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="16">
+                                <Path Width="20"
+                                      Height="20"
+                                      Stretch="Uniform"
+                                      Stroke="{DynamicResource BrushAccent}"
+                                      StrokeThickness="1.7"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Data="{StaticResource IconKohanaHome}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                <TextBlock x:Name="PanelSessionTitleText"
+                                           Text="Kohana"
+                                           FontSize="{DynamicResource FontSizeBody}"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="PanelUptimeText"
+                                           Margin="0,4,0,0"
+                                           Text="—"
+                                           FontSize="{DynamicResource FontSizeFootnote}"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource BrushTextSecondary}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource DashboardCardStyle}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!--
+                                El resumen usa el mismo círculo que la pestaña Media, por la misma
+                                razón: aquí también ClipToBounds dejaba la carátula cuadrada
+                                asomando por las esquinas del cuadrado redondeado.
+                            -->
+                            <Grid Width="46" Height="46" VerticalAlignment="Center">
+                                <Path x:Name="PanelMediaBackdrop" Fill="{DynamicResource BrushSurfaceRaised}" />
+                                <Path x:Name="PanelMediaPlaceholderIcon"
+                                      Width="20"
+                                      Height="20"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Stretch="Uniform"
+                                      Stroke="{DynamicResource BrushTextTertiary}"
+                                      StrokeThickness="1.6"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Data="{StaticResource IconMediaNote}" />
+                                <Path x:Name="PanelMediaCoverShape" Visibility="Collapsed">
+                                    <Path.Fill>
+                                        <ImageBrush x:Name="PanelMediaCoverBrush" Stretch="UniformToFill" />
+                                    </Path.Fill>
+                                </Path>
+                            </Grid>
+
+                            <StackPanel Grid.Column="1" Margin="14,0,10,0" VerticalAlignment="Center">
+                                <TextBlock x:Name="PanelMediaTitleText"
+                                           Text="Nada sonando"
+                                           FontSize="{DynamicResource FontSizeBody}"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="PanelMediaArtistText"
+                                           Margin="0,4,0,0"
+                                           Text="Sin reproducción"
+                                           FontSize="{DynamicResource FontSizeFootnote}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource BrushTextSecondary}" />
+                            </StackPanel>
+
+                            <Button x:Name="PanelMediaPlayButton"
+                                    Grid.Column="2"
+                                    Width="38"
+                                    Height="38"
+                                    Margin="0"
+                                    IsEnabled="False"
+                                    Style="{StaticResource MediaControlButtonStyle}"
+                                    Click="MediaPlayPauseButton_Click"
+                                    ToolTip="Reproducir o pausar"
+                                    AutomationProperties.Name="Reproducir o pausar">
+                                <Path x:Name="PanelMediaPlayIcon"
+                                      Width="15"
+                                      Height="15"
+                                      Stretch="Uniform"
+                                      Fill="{DynamicResource BrushTextPrimary}"
+                                      Data="{StaticResource IconMediaPlay}" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!--
+                    Diseno D53 - lo que se veia en Inicio antes de que Inicio saliera del rail:
+                    cuantos pendientes hay, si hay enfoque en marcha y cuantas rutinas estan
+                    disponibles. Aqui ocupan una linea en vez de media pantalla, que era la nota del
+                    PDF sobre que Kohana debe encogerse.
+                -->
+                <Grid Grid.Row="1" Margin="-6,6,-6,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0"
+                            x:Name="SummaryTasksButton"
+                            Style="{StaticResource DashboardChipStyle}"
+                            Click="SummaryTasksButton_Click"
+                            AutomationProperties.Name="Pendientes. Abrir Hoy">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Path Width="16"
+                                      Height="16"
+                                      VerticalAlignment="Center"
+                                      Stretch="Uniform"
+                                      Stroke="{DynamicResource BrushAccent}"
+                                      StrokeThickness="1.7"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Data="{StaticResource IconKohanaTasks}" />
+                                <TextBlock Grid.Column="1"
+                                           Margin="9,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Text="Pendientes"
+                                           FontSize="{DynamicResource FontSizeCallout}"
+                                           FontWeight="SemiBold" />
+                                <Border x:Name="SummaryTasksBadge"
+                                        Grid.Column="2"
+                                        MinWidth="22"
+                                        Padding="7,2"
+                                        VerticalAlignment="Center"
+                                        Background="{DynamicResource BrushAccent}"
+                                        CornerRadius="{DynamicResource RadiusFull}"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="SummaryTasksCount"
+                                               Text="0"
+                                               HorizontalAlignment="Center"
+                                               Foreground="White"
+                                               FontSize="{DynamicResource FontSizeCaption}"
+                                               FontWeight="SemiBold" />
+                                </Border>
+                            </Grid>
+                            <TextBlock x:Name="SummaryTasksDetail"
+                                       Margin="0,8,0,0"
+                                       Text="--"
+                                       FontSize="{DynamicResource FontSizeFootnote}"
+                                       Foreground="{DynamicResource BrushTextSecondary}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="1"
+                            x:Name="SummaryFocusButton"
+                            Style="{StaticResource DashboardChipStyle}"
+                            Click="SummaryFocusButton_Click"
+                            AutomationProperties.Name="Enfoque. Abrir Enfoque">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="16"
+                                      Height="16"
+                                      VerticalAlignment="Center"
+                                      Stretch="Uniform"
+                                      Stroke="{DynamicResource BrushAccent}"
+                                      StrokeThickness="1.7"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Data="{StaticResource IconKohanaFocus}" />
+                                <TextBlock Margin="9,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Text="Enfoque"
+                                           FontSize="{DynamicResource FontSizeCallout}"
+                                           FontWeight="SemiBold" />
+                                <TextBlock x:Name="SummaryFocusValue"
+                                           Margin="9,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Text=""
+                                           FontSize="{DynamicResource FontSizeCallout}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushAccent}" />
+                            </StackPanel>
+                            <TextBlock x:Name="SummaryFocusDetail"
+                                       Margin="0,8,0,0"
+                                       Text="--"
+                                       FontSize="{DynamicResource FontSizeFootnote}"
+                                       Foreground="{DynamicResource BrushTextSecondary}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="2"
+                            x:Name="SummaryRoutinesButton"
+                            Style="{StaticResource DashboardChipStyle}"
+                            Click="SummaryRoutinesButton_Click"
+                            AutomationProperties.Name="Rutinas. Abrir Rutinas">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="16"
+                                      Height="16"
+                                      VerticalAlignment="Center"
+                                      Stretch="Uniform"
+                                      Stroke="{DynamicResource BrushAccent}"
+                                      StrokeThickness="1.7"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Data="{StaticResource IconKohanaRoutines}" />
+                                <TextBlock Margin="9,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Text="Rutinas"
+                                           FontSize="{DynamicResource FontSizeCallout}"
+                                           FontWeight="SemiBold" />
+                                <TextBlock x:Name="SummaryRoutinesValue"
+                                           Margin="9,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Text=""
+                                           FontSize="{DynamicResource FontSizeCallout}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushAccent}" />
+                            </StackPanel>
+                            <TextBlock x:Name="SummaryRoutinesDetail"
+                                       Margin="0,8,0,0"
+                                       Text="--"
+                                       FontSize="{DynamicResource FontSizeFootnote}"
+                                       Foreground="{DynamicResource BrushTextSecondary}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <Grid Grid.Row="2" Margin="-6,6,-6,0" VerticalAlignment="Top">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" MinWidth="116" Style="{StaticResource DashboardCardStyle}" Padding="20,18">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock x:Name="PanelClockHourText"
+                                       Text="--"
+                                       FontSize="{DynamicResource FontSizeDisplay}"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextPrimary}" />
+                            <TextBlock Text="•••"
+                                       Margin="0,2"
+                                       HorizontalAlignment="Center"
+                                       FontSize="{DynamicResource FontSizeFootnote}"
+                                       Foreground="{DynamicResource BrushAccent}" />
+                            <TextBlock x:Name="PanelClockMinuteText"
+                                       Text="--"
+                                       FontSize="{DynamicResource FontSizeDisplay}"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextPrimary}" />
+                            <TextBlock x:Name="PanelClockMeridiemText"
+                                       Text=""
+                                       Margin="0,6,0,0"
+                                       HorizontalAlignment="Center"
+                                       FontSize="{DynamicResource FontSizeFootnote}"
+                                       Foreground="{DynamicResource BrushTextSecondary}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource DashboardCardStyle}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0"
+                                        Style="{StaticResource CalendarArrowButtonStyle}"
+                                        Click="CalendarPreviousButton_Click"
+                                        ToolTip="Mes anterior"
+                                        AutomationProperties.Name="Mes anterior">
+                                    <Path Width="7"
+                                          Height="11"
+                                          Data="M6,0 L0,5 L6,10"
+                                          Stretch="Fill"
+                                          Stroke="{DynamicResource BrushTextSecondary}"
+                                          StrokeThickness="1.7"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round" />
+                                </Button>
+                                <TextBlock x:Name="CalendarMonthText"
+                                           Grid.Column="1"
+                                           Text="—"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="{DynamicResource FontSizeBody}"
+                                           FontWeight="SemiBold" />
+                                <Button Grid.Column="2"
+                                        Style="{StaticResource CalendarArrowButtonStyle}"
+                                        Click="CalendarNextButton_Click"
+                                        ToolTip="Mes siguiente"
+                                        AutomationProperties.Name="Mes siguiente">
+                                    <Path Width="7"
+                                          Height="11"
+                                          Data="M0,0 L6,5 L0,10"
+                                          Stretch="Fill"
+                                          Stroke="{DynamicResource BrushTextSecondary}"
+                                          StrokeThickness="1.7"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round" />
+                                </Button>
+                            </Grid>
+
+                            <ItemsControl x:Name="CalendarWeekdayItems" Margin="0,12,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Rows="1" Columns="7" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}"
+                                                   HorizontalAlignment="Center"
+                                                   FontSize="{DynamicResource FontSizeFootnote}"
+                                                   Foreground="{DynamicResource BrushTextTertiary}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <ItemsControl x:Name="CalendarDayItems" Margin="0,7,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Rows="6" Columns="7" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="2"
+                                                Height="30"
+                                                CornerRadius="11"
+                                                Background="{Binding Background}">
+                                            <TextBlock Text="{Binding Day}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="{DynamicResource FontSizeFootnote}"
+                                                       FontWeight="{Binding Weight}"
+                                                       Foreground="{Binding Foreground}" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource DashboardCardStyle}" Padding="14,16">
+                        <StackPanel VerticalAlignment="Center">
+                            <controls:IconRing x:Name="PanelCpuRing"
+                                               IconData="{StaticResource IconMetricCpu}"
+                                               ToolTip="Uso del procesador"
+                                               AutomationProperties.Name="Uso del procesador" />
+                            <controls:IconRing x:Name="PanelMemoryRing"
+                                               Margin="0,14,0,0"
+                                               IconData="{StaticResource IconMetricMemory}"
+                                               ToolTip="Uso de la memoria"
+                                               AutomationProperties.Name="Uso de la memoria" />
+                            <controls:IconRing x:Name="PanelDiskRing"
+                                               Margin="0,14,0,0"
+                                               IconData="{StaticResource IconMetricDisk}"
+                                               ToolTip="Uso del disco del sistema"
+                                               AutomationProperties.Name="Uso del disco del sistema" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ============================ MEDIA ============================ -->
+            <Grid x:Name="MediaPane" Visibility="Collapsed" MinHeight="248">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="MediaPaneTranslate" />
+                </Grid.RenderTransform>
+
+                <StackPanel x:Name="MediaEmptyPanel" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Border Width="86"
+                            Height="86"
+                            HorizontalAlignment="Center"
+                            Background="{DynamicResource BrushAccentSoft}"
+                            BorderBrush="{DynamicResource BrushAccentBorder}"
+                            BorderThickness="1"
+                            CornerRadius="30">
+                        <Path Width="38"
+                              Height="38"
+                              Stretch="Uniform"
+                              Stroke="{DynamicResource BrushAccent}"
+                              StrokeThickness="1.5"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Data="{StaticResource IconMediaNote}" />
+                    </Border>
+                    <TextBlock Text="No hay nada sonando"
+                               Margin="0,20,0,0"
+                               HorizontalAlignment="Center"
+                               FontSize="{DynamicResource FontSizeTitle2}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="Pon música o un vídeo y aparecerá aquí."
+                               Margin="0,8,0,0"
+                               HorizontalAlignment="Center"
+                               FontSize="{DynamicResource FontSizeCallout}"
+                               Foreground="{DynamicResource BrushTextSecondary}" />
+                </StackPanel>
+
+                <Grid x:Name="MediaNowPlayingPanel" Visibility="Collapsed" VerticalAlignment="Center" Margin="6,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--
+                        Diseño D46 — la carátula es redonda y el anillo de rayos la rodea, como en
+                        la referencia. El anillo va DETRÁS en el orden del Grid para que los rayos
+                        que arrancan bajo el borde de la carátula queden tapados por ella: así los
+                        rayos parecen salir de debajo del disco y no apoyarse encima.
+                    -->
+                    <Grid Grid.Column="0" Width="264" Height="264" VerticalAlignment="Center">
+                        <!--
+                            Diseño D46 — los rayos arrancan DENTRO del disco (radio 90 contra los 94
+                            de la portada) para que salgan de debajo de ella y no apoyados en su
+                            borde. El anillo va antes en el Grid, así que la portada lo tapa en esos
+                            cuatro píxeles y el arranque de cada rayo no se ve.
+                        -->
+                        <controls:CoverVisualizer x:Name="CoverRing"
+                                                  InnerRadius="92"
+                                                  MaximumBarLength="34"
+                                                  BarThickness="4.5"
+                                                  BarBrush="{DynamicResource BrushAccent}" />
+
+                        <!--
+                            La portada es una elipse con la imagen como relleno, y no un Border
+                            redondeado con la imagen dentro.
+
+                            Un Border con CornerRadius y ClipToBounds NO recorta en redondo:
+                            ClipToBounds recorta al rectángulo de la caja y el radio se lo pierde.
+                            La imagen salía cuadrada y sus esquinas tapaban el anillo entero menos
+                            arriba y abajo, que era justo lo que se veía. Es el mismo defecto que ya
+                            apareció en el mando de volumen (D39); allí se resolvió con una
+                            geometría de recorte, y aquí, siendo un círculo, sale más limpio
+                            pintando la imagen como relleno de la propia elipse.
+                        -->
+                        <Path x:Name="MediaCoverBackdrop"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Fill="{DynamicResource BrushSurfaceRaised}">
+                            <Path.Effect>
+                                <DropShadowEffect BlurRadius="30" ShadowDepth="8" Opacity="0.4" Color="Black" />
+                            </Path.Effect>
+                        </Path>
+
+                        <Path Width="56"
+                              Height="56"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Stretch="Uniform"
+                              Stroke="{DynamicResource BrushTextTertiary}"
+                              StrokeThickness="1.4"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Data="{StaticResource IconMediaNote}" />
+
+                        <!--
+                            Diseño D55 — la imagen va derecha y lo que gira es el recorte.
+
+                            Antes era un Path relleno con la carátula, y girar el Path giraba la foto
+                            con él: el disco entero daba vueltas, cuando lo que tiene que girar es la
+                            silueta de pétalos. Ahora la imagen es un rectángulo quieto y la flor es
+                            su máscara; la máscara gira, la foto no.
+                        -->
+                        <Rectangle x:Name="MediaCoverShape"
+                                   Width="188"
+                                   Height="188"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Visibility="Collapsed">
+                            <Rectangle.Fill>
+                                <ImageBrush x:Name="MediaCoverBrush" Stretch="UniformToFill" />
+                            </Rectangle.Fill>
+                        </Rectangle>
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" Margin="28,0,4,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="MediaTitleText"
+                                   Text="—"
+                                   FontSize="{DynamicResource FontSizeTitle1}"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="MediaArtistText"
+                                   Margin="0,8,0,0"
+                                   Text="—"
+                                   FontSize="{DynamicResource FontSizeBody}"
+                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="MediaAlbumText"
+                                   Margin="0,5,0,0"
+                                   Text=""
+                                   FontSize="{DynamicResource FontSizeCallout}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource BrushTextTertiary}" />
+
+                        <Grid Margin="0,20,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock x:Name="MediaPositionText"
+                                       Text="0:00"
+                                       VerticalAlignment="Center"
+                                       FontSize="{DynamicResource FontSizeFootnote}"
+                                       Foreground="{DynamicResource BrushTextSecondary}" />
+
+                            <controls:WobblyProgressBar x:Name="MediaProgressBar"
+                                                        Grid.Column="1"
+                                                        Margin="16,0"
+                                                        Height="18"
+                                                        PlayedBrush="{DynamicResource BrushAccent}"
+                                                        RemainingBrush="{DynamicResource BrushSurfaceHover}" />
+
+                            <TextBlock x:Name="MediaDurationText"
+                                       Grid.Column="2"
+                                       Text="0:00"
+                                       VerticalAlignment="Center"
+                                       FontSize="{DynamicResource FontSizeFootnote}"
+                                       Foreground="{DynamicResource BrushTextSecondary}" />
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Margin="-6,20,0,0">
+                            <Button x:Name="MediaPreviousButton"
+                                    Style="{StaticResource MediaControlButtonStyle}"
+                                    Click="MediaPreviousButton_Click"
+                                    ToolTip="Anterior"
+                                    AutomationProperties.Name="Pista anterior">
+                                <Path Width="16"
+                                      Height="16"
+                                      Stretch="Uniform"
+                                      Fill="{DynamicResource BrushTextPrimary}"
+                                      Data="{StaticResource IconMediaPrevious}" />
+                            </Button>
+                            <Button x:Name="MediaPlayPauseButton"
+                                    Style="{StaticResource MediaPlayButtonStyle}"
+                                    Click="MediaPlayPauseButton_Click"
+                                    ToolTip="Reproducir o pausar"
+                                    AutomationProperties.Name="Reproducir o pausar">
+                                <Path x:Name="MediaPlayPauseIcon"
+                                      Width="18"
+                                      Height="18"
+                                      Stretch="Uniform"
+                                      Fill="White"
+                                      Data="{StaticResource IconMediaPlay}" />
+                            </Button>
+                            <Button x:Name="MediaNextButton"
+                                    Style="{StaticResource MediaControlButtonStyle}"
+                                    Click="MediaNextButton_Click"
+                                    ToolTip="Siguiente"
+                                    AutomationProperties.Name="Pista siguiente">
+                                <Path Width="16"
+                                      Height="16"
+                                      Stretch="Uniform"
+                                      Fill="{DynamicResource BrushTextPrimary}"
+                                      Data="{StaticResource IconMediaNext}" />
+                            </Button>
+
+                            <Border x:Name="MediaSourceChip"
+                                    Margin="18,0,0,0"
+                                    Padding="15,9"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource BrushSurfaceRaised}"
+                                    CornerRadius="16">
+                                <TextBlock x:Name="MediaSourceText"
+                                           Text="—"
+                                           FontSize="{DynamicResource FontSizeFootnote}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushTextSecondary}" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- ========================= RENDIMIENTO ========================= -->
+            <Grid x:Name="PerformancePane" Visibility="Collapsed">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="PerformancePaneTranslate" />
+                </Grid.RenderTransform>
+                <StackPanel Margin="-6,0">
+                    <UniformGrid Columns="2">
+                        <controls:MetricCapsule x:Name="CpuCapsule" Title="CPU"
+                                                Style="{StaticResource WideMetricCapsuleStyle}"
+                                                IconData="{StaticResource IconMetricCpu}" />
+                        <controls:MetricCapsule x:Name="GpuCapsule" Title="GPU"
+                                                Style="{StaticResource WideMetricCapsuleStyle}"
+                                                IconData="{StaticResource IconMetricGpu}" />
+                    </UniformGrid>
+
+                    <UniformGrid Columns="3">
+                        <controls:MetricCapsule x:Name="DiskCapsule" Title="Disco"
+                                                Style="{StaticResource NarrowMetricCapsuleStyle}"
+                                                IconData="{StaticResource IconMetricDisk}" />
+                        <controls:MetricCapsule x:Name="NetworkCapsule" Title="Red"
+                                                Style="{StaticResource NarrowMetricCapsuleStyle}"
+                                                IconData="{StaticResource IconMetricNetwork}" />
+                        <controls:MetricCapsule x:Name="MemoryCapsule" Title="Memoria"
+                                                Style="{StaticResource NarrowMetricCapsuleStyle}"
+                                                IconData="{StaticResource IconMetricMemory}" />
+                    </UniformGrid>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

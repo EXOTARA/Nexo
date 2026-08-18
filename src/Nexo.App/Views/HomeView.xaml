@@ -71,13 +71,13 @@
                 <StackPanel>
                     <TextBlock x:Name="GreetingText"
                                Text="Hola"
-                               FontSize="25"
+                               FontSize="{DynamicResource FontSizeTitle1}"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="GreetingDetailText"
                                Margin="0,5,0,0"
                                Text="Tu espacio está listo."
                                Foreground="{DynamicResource BrushTextSecondary}"
-                               FontSize="13.5" />
+                               FontSize="{DynamicResource FontSizeCallout}" />
                 </StackPanel>
 
                 <Button Grid.Column="1"
@@ -117,6 +117,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Border Style="{StaticResource BentoIconSurfaceStyle}">
                                 <Path Width="19"
@@ -132,22 +133,51 @@
                                        Margin="11,0,0,0"
                                        VerticalAlignment="Center"
                                        Text="Pendientes"
-                                       FontSize="14"
+                                       FontSize="{DynamicResource FontSizeBody}"
                                        FontWeight="SemiBold" />
+
+                            <!--
+                                Diseño D51 — la cuenta es una insignia junto al nombre, no una cifra
+                                enorme en el centro de la tarjeta.
+
+                                Es la nota del PDF: «Pendientes más discreto, al estilo de la
+                                notificación de Discord». Y la parte que hace que funcione no es el
+                                tamaño, es que **cuando no hay nada la insignia no existe**. Un «0»
+                                gigante ocupaba un cuarto de la pantalla de Inicio para decir que no
+                                pasa nada; una insignia ausente dice lo mismo sin pedir nada a
+                                cambio.
+                            -->
+                            <Border x:Name="TaskCountBadge"
+                                    Grid.Column="2"
+                                    MinWidth="24"
+                                    Padding="8,3"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource BrushAccent}"
+                                    CornerRadius="{DynamicResource RadiusFull}"
+                                    Visibility="Collapsed">
+                                <TextBlock x:Name="TaskCountText"
+                                           Text="0"
+                                           HorizontalAlignment="Center"
+                                           Foreground="White"
+                                           FontSize="{DynamicResource FontSizeCaption}"
+                                           FontWeight="SemiBold" />
+                            </Border>
                         </Grid>
+
+                        <!--
+                            Lo que ocupa el sitio que dejó la cifra es la tarea siguiente, en tamaño
+                            de lectura. Es el dato por el que uno mira esta tarjeta; el número solo
+                            decía cuántas hay.
+                        -->
                         <TextBlock Grid.Row="1"
-                                   x:Name="TaskCountText"
-                                   Margin="0,18,0,0"
-                                   Text="0"
-                                   FontSize="31"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Grid.Row="2"
                                    x:Name="TaskDetailText"
-                                   Margin="0,8,0,0"
+                                   Margin="0,16,0,0"
+                                   VerticalAlignment="Top"
                                    Text="Nada urgente por ahora"
-                                   Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="12.5"
-                                   TextWrapping="Wrap" />
+                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                   FontSize="{DynamicResource FontSizeCallout}"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="CharacterEllipsis" />
                     </Grid>
                 </Button>
 
@@ -187,21 +217,21 @@
                                            Margin="11,0,0,0"
                                            VerticalAlignment="Center"
                                            Text="Enfoque"
-                                           FontSize="14"
+                                           FontSize="{DynamicResource FontSizeBody}"
                                            FontWeight="SemiBold" />
                             </Grid>
                             <TextBlock Grid.Row="1"
                                        x:Name="FocusValueText"
                                        Margin="0,18,0,0"
                                        Text="25 min"
-                                       FontSize="28"
+                                       FontSize="{DynamicResource FontSizeTitle1}"
                                        FontWeight="SemiBold" />
                             <TextBlock Grid.Row="2"
                                        x:Name="FocusDetailText"
                                        Margin="0,8,0,0"
                                        Text="Listo para empezar"
                                        Foreground="{DynamicResource BrushTextSecondary}"
-                                       FontSize="12.5"
+                                       FontSize="{DynamicResource FontSizeFootnote}"
                                        TextWrapping="Wrap" />
                         </Grid>
                     </Button>
@@ -259,21 +289,21 @@
                                        Margin="11,0,0,0"
                                        VerticalAlignment="Center"
                                        Text="Rutinas"
-                                       FontSize="14"
+                                       FontSize="{DynamicResource FontSizeBody}"
                                        FontWeight="SemiBold" />
                         </Grid>
                         <TextBlock Grid.Row="1"
                                    x:Name="RoutineCountText"
                                    Margin="0,14,0,0"
                                    Text="0"
-                                   FontSize="26"
+                                   FontSize="{DynamicResource FontSizeTitle1}"
                                    FontWeight="SemiBold" />
                         <TextBlock Grid.Row="2"
                                    x:Name="RoutineDetailText"
                                    Margin="0,6,0,0"
                                    Text="No hay rutinas configuradas"
                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="12"
+                                   FontSize="{DynamicResource FontSizeFootnote}"
                                    TextWrapping="Wrap" />
                     </Grid>
                 </Button>
@@ -307,14 +337,14 @@
                                        Margin="11,0,0,0"
                                        VerticalAlignment="Center"
                                        Text="Mirar ahora"
-                                       FontSize="14"
+                                       FontSize="{DynamicResource FontSizeBody}"
                                        FontWeight="SemiBold" />
                         </Grid>
                         <TextBlock Grid.Row="1"
                                    x:Name="ContextTitleText"
                                    Margin="0,14,0,0"
                                    Text="Ctrl + Shift + Espacio"
-                                   FontSize="15"
+                                   FontSize="{DynamicResource FontSizeBody}"
                                    FontWeight="SemiBold"
                                    TextWrapping="Wrap" />
                         <TextBlock Grid.Row="2"
@@ -322,7 +352,7 @@
                                    Margin="0,6,0,0"
                                    Text="Se procesa en memoria y se elimina automáticamente."
                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="12"
+                                   FontSize="{DynamicResource FontSizeFootnote}"
                                    TextWrapping="Wrap" />
                     </Grid>
                 </Button>
@@ -363,18 +393,18 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Actividad reciente"
-                                   FontSize="15"
+                                   FontSize="{DynamicResource FontSizeBody}"
                                    FontWeight="SemiBold" />
                         <TextBlock Grid.Column="1"
                                    Text="Solo esta sesión"
                                    Foreground="{DynamicResource BrushTextTertiary}"
-                                   FontSize="11.5" />
+                                   FontSize="{DynamicResource FontSizeCaption}" />
                     </Grid>
                     <Grid Grid.Row="1" Margin="0,13,0,0">
                         <TextBlock x:Name="EmptyActivityText"
                                    Text="Las acciones que ejecutes aparecerán aquí."
                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                   FontSize="12.5" />
+                                   FontSize="{DynamicResource FontSizeFootnote}" />
                         <ItemsControl x:Name="RecentItems">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -392,19 +422,19 @@
                                                 CornerRadius="4" />
                                         <StackPanel Grid.Column="1">
                                             <TextBlock Text="{Binding Title}"
-                                                       FontSize="12.5"
+                                                       FontSize="{DynamicResource FontSizeFootnote}"
                                                        FontWeight="SemiBold" />
                                             <TextBlock Text="{Binding Detail}"
                                                        Margin="0,2,0,0"
                                                        Foreground="{DynamicResource BrushTextSecondary}"
-                                                       FontSize="11.5"
+                                                       FontSize="{DynamicResource FontSizeCaption}"
                                                        TextWrapping="Wrap" />
                                         </StackPanel>
                                         <TextBlock Grid.Column="2"
                                                    Margin="12,0,0,0"
                                                    Text="{Binding Time}"
                                                    Foreground="{DynamicResource BrushTextTertiary}"
-                                                   FontSize="11" />
+                                                   FontSize="{DynamicResource FontSizeCaption}" />
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

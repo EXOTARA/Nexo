@@ -11,11 +11,16 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Nexo.App.Ambient;
 using Nexo.App.Automation;
 using Nexo.App.DailyFlow;
+using Nexo.App.Motion;
 using Nexo.App.Optimization;
+using Nexo.Windows.Display;
+using Nexo.Windows.Metrics;
+using Nexo.Windows.Shell;
 using Nexo.App.WindowsIntegration;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
@@ -29,9 +34,11 @@ using Nexo.Core.Commands;
 using Nexo.Core.Commands.CommandCenter;
 using Nexo.Core.ComputerUse;
 using Nexo.Core.Diagnostics;
+using Nexo.Core.Display;
 using Nexo.Core.Flow;
 using Nexo.Core.Focus;
 using Nexo.Core.Hardware;
+using Nexo.Core.Media;
 using Nexo.Core.Memory;
 using Nexo.Core.Metrics;
 using Nexo.Core.Optimization;
@@ -57,8 +64,8 @@ using Nexo.Windows.Assistant;
 using Nexo.Windows.Audio;
 using Nexo.Windows.Flow;
 using Nexo.Windows.Focus;
+using Nexo.Windows.Media;
 using Nexo.Windows.Memory;
-using Nexo.Windows.Metrics;
 using Nexo.Windows.Optimization;
 using Nexo.Windows.Productization;
 using Nexo.Windows.SelfCheck;
@@ -270,6 +277,7 @@ public partial class MainWindow : Window
     private readonly SettingsView _settingsView = new();
     private readonly PeekWindow _peekWindow = new();
     private readonly CapsuleWindow _capsuleWindow = new();
+    private readonly AnswerPillWindow _answerPillWindow = new();
     private readonly CommandPaletteWindow _commandPaletteWindow;
 
     /// <summary>
@@ -311,6 +319,48 @@ public partial class MainWindow : Window
     private readonly bool _startHidden;
     private readonly ManagedOllamaSupervisor? _managedOllamaSupervisor;
 
+    /// <summary>
+    /// Diseño D25 — claves de los proveedores de nube, cifradas con DPAPI y fuera de
+    /// <c>settings.json</c>. Se lee al construir cada petición, no se guarda en un campo suelto:
+    /// una clave copiada a una variable vive lo que viva el objeto, y esto vive lo que dura la app.
+    /// </summary>
+    private readonly IAiApiKeyStore _apiKeyStore = new DpapiAiApiKeyStore();
+
+    /// <summary>Diseño D27 — el borde de la pantalla como forma de llamar a Kohana.</summary>
+    private readonly WindowsEdgeRevealWatcher _edgeRevealWatcher = new();
+
+    /// <summary>
+    /// Diseño D35 — el mismo vigilante, configurado en el borde contrario. Se reutiliza tal cual en
+    /// vez de escribir otro: la política de franja estrecha, esquinas excluidas y permanencia mínima
+    /// es la que hace que un borde no estorbe, y vale igual para los mandos que para Kohana.
+    /// </summary>
+    private readonly WindowsEdgeRevealWatcher _quickControlsWatcher = new();
+
+    /// <summary>
+    /// Diseño D42 — velocidad de red y espacio de disco para las cápsulas de rendimiento. Guarda la
+    /// lectura anterior para poder calcular una velocidad, así que tiene que ser el mismo objeto
+    /// entre refrescos.
+    /// </summary>
+    private readonly WindowsThroughputSource _throughputSource = new();
+
+    /// <summary>
+    /// Diseño D43 — la sesión de medios de Windows para la pestaña Media. Se guarda entre refrescos
+    /// porque cachea la portada de la pista actual y el gestor de WinRT, que cuesta pedir.
+    /// </summary>
+    private readonly IMediaSessionReader _mediaSessionReader = new WindowsMediaSessionReader();
+
+    /// <summary>
+    /// Diseño D44 — el cajón del panel y el vigilante del borde de arriba que lo baja. Se crean con
+    /// la ventana y no al primer uso: la primera apertura tiene que caer ya medida, y construir la
+    /// vista entera en ese instante metería un tirón justo en la animación que la presenta.
+    /// </summary>
+    private readonly DashboardWindow _dashboardWindow = new();
+
+    private readonly WindowsTopRevealWatcher _topRevealWatcher = new();
+
+    private readonly QuickControlsWindow _quickControlsWindow = new();
+    private readonly DdcDisplayBrightnessService _brightnessService = new();
+
     private HwndSource? _windowSource;
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
     private ResourceGovernorDecision _resourceDecision = ResourceGovernorDecision.Normal;
@@ -325,6 +375,12 @@ public partial class MainWindow : Window
     private bool _voicePromptActive;
     private bool _managedAiRuntimeFailureNotified;
     private bool _promptFromCommandPalette;
+
+    /// <summary>Si la respuesta en curso va a la píldora de esquina en vez de a la ventana.</summary>
+    private bool _answerInPill;
+
+    /// <summary>Motivo por el que la respuesta en curso no llegó, para enseñarlo en la píldora.</summary>
+    private string? _pillFailure;
     private bool _sideRailExpanded;
     private bool _visualContextPersistent;
     private bool _silentVisualContext;
@@ -475,6 +531,15 @@ public partial class MainWindow : Window
         _captureView.CaptureRequested += CaptureView_CaptureRequested;
         _commandPaletteWindow.PromptSubmitted += CommandPaletteWindow_PromptSubmitted;
         _commandPaletteWindow.WorkspaceRequested += CommandPaletteWindow_WorkspaceRequested;
+
+        // La píldora contesta de reojo; si la respuesta merece leerse entera, esto es la puerta a
+        // Kohana. Es una puerta y no un salto automático: abrirla sola volvería a arrastrar a la
+        // persona fuera de donde estaba, que es justo lo que la píldora vino a evitar.
+        _answerPillWindow.OpenInKohanaRequested += (_, _) =>
+        {
+            ShowAnimated();
+            NavigateTo("Assistant", animate: true);
+        };
         _homeView.CommandRequested += HomeView_CommandRequested;
         _homeView.TasksRequested += HomeView_TasksRequested;
         _homeView.FocusRequested += HomeView_FocusRequested;
@@ -497,6 +562,32 @@ public partial class MainWindow : Window
         _systemView.OptimizationAuditRequested += (_, _) => ShowOptimizationAudit();
         _systemView.AuditRefreshRequested += (_, _) => RefreshAuditPanel();
         _systemView.AuditRevertRequested += RevertAuditEntry;
+
+        // Diseño D43 — los tres controles del reproductor. Tras dar la orden se vuelve a leer sin
+        // esperar al siguiente refresco: entre pulsar pausa y que el icono cambie hay medio segundo
+        // largo, y en ese hueco parece que el botón no hizo nada.
+        _dashboardWindow.View.MediaPlayPauseRequested += async (_, _) =>
+            await RunMediaCommandAsync(_mediaSessionReader.TogglePlayPauseAsync);
+        _dashboardWindow.View.MediaNextRequested += async (_, _) =>
+            await RunMediaCommandAsync(_mediaSessionReader.SkipNextAsync);
+        _dashboardWindow.View.MediaPreviousRequested += async (_, _) =>
+            await RunMediaCommandAsync(_mediaSessionReader.SkipPreviousAsync);
+
+        // Diseño D44 — el centro del borde de arriba baja el cajón. El aviso llega desde un hilo de
+        // fondo, así que hay que volver al de la interfaz antes de tocar la ventana.
+        _topRevealWatcher.RevealRequested += HandleTopRevealRequested;
+        _dashboardWindow.Dismissed += (_, _) => _topRevealWatcher.SuppressBriefly();
+
+        // Diseño D53 — pulsar un resumen del cajón trae la ventana principal al módulo que sea. El
+        // cajón se recoge primero: dejarlo colgando sobre la vista que acaba de abrir taparía justo
+        // lo que se ha pedido ver.
+        _dashboardWindow.View.ModuleRequested += (_, module) =>
+        {
+            _dashboardWindow.Dismiss();
+            ShowAnimated();
+            NavigateTo(module, animate: true);
+        };
+        _topRevealWatcher.Configure(_preferences.EdgeRevealEnabled);
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
             _preferences.RecentConversationMessageLimit);
@@ -521,6 +612,15 @@ public partial class MainWindow : Window
         ConfigureVoiceInputDevices();
         NavigateTo(ShellNavigationPolicy.DefaultDestination, animate: false);
         SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
+        _edgeRevealWatcher.RevealRequested += HandleEdgeRevealRequested;
+        _quickControlsWatcher.RevealRequested += HandleQuickControlsRequested;
+        _quickControlsWindow.ControlChanged += QuickControlsWindow_ControlChanged;
+
+        // Diseño D28 — con el acento siguiendo a Windows, cambiar de fondo de escritorio (con
+        // "Color de acento automático" activo) debe verse en Kohana sin reabrirla. UserPreferenceChanged
+        // es el evento que ya usa el propio Windows para avisar de esto — nadie más lo dispara.
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemUserPreferenceChanged;
+
         UpdateResourceModeIndicator(ResourceGovernorDecision.Normal);
         RefreshRuntimeDashboard();
         _ = RefreshHardwareCapabilityAsync();
@@ -562,6 +662,11 @@ public partial class MainWindow : Window
         _settingsView.PositionChanged += position =>
         {
             _preferences.Position = position;
+            ApplyShellSide();
+            _edgeRevealWatcher.Configure(_preferences.EdgeRevealEnabled, position);
+            _quickControlsWatcher.Configure(
+                _preferences.EdgeRevealEnabled,
+                QuickControlsPolicy.ControlsEdgeFor(position));
             PositionWindow();
             _peekWindow.HideImmediately();
             SavePreferences();
@@ -590,9 +695,29 @@ public partial class MainWindow : Window
             SavePreferences();
         };
 
+        _settingsView.AccentSourceChanged += source =>
+        {
+            _preferences.AccentSource = source;
+            ApplyEffectiveAccent();
+            UpdateNavigationState(_currentDestination);
+            SavePreferences();
+        };
+
         _settingsView.AnimationsChanged += enabled =>
         {
             _preferences.AnimationsEnabled = enabled;
+            KohanaMotion.AnimationsEnabled = ShellAnimationsAllowed;
+            SavePreferences();
+        };
+
+        _settingsView.EdgeRevealChanged += enabled =>
+        {
+            _preferences.EdgeRevealEnabled = enabled;
+            _edgeRevealWatcher.Configure(enabled, _preferences.Position);
+            _topRevealWatcher.Configure(enabled);
+            _quickControlsWatcher.Configure(
+                enabled,
+                QuickControlsPolicy.ControlsEdgeFor(_preferences.Position));
             SavePreferences();
         };
 
@@ -978,6 +1103,32 @@ public partial class MainWindow : Window
             ConfigureManagedOllamaSupervisor();
         };
 
+        // Diseño D25 — la clave nunca pasa por ShellPreferences ni por settings.json: va derecha al
+        // almacén cifrado y se lee otra vez solo al construir cada petición.
+        _settingsView.ApiKeyChanged += (provider, apiKey) =>
+        {
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                _apiKeyStore.Remove(provider);
+            }
+            else
+            {
+                _apiKeyStore.Write(provider, apiKey);
+            }
+
+            // No SetStoredApiKeyPresence aquí: esa versión vacía la caja, y esto se dispara en
+            // cada pulsación mientras la persona sigue escribiendo o acaba de pegar. Solo se
+            // refresca el texto de ayuda; la caja se limpia únicamente al cambiar de proveedor.
+            _settingsView.UpdateApiKeyStatusText(
+                !string.IsNullOrWhiteSpace(_apiKeyStore.Read(provider)));
+        };
+
+        _settingsView.ApiKeyRequested += provider =>
+            _settingsView.SetStoredApiKeyPresence(
+                !string.IsNullOrWhiteSpace(_apiKeyStore.Read(provider)));
+
+        _settingsView.ApiKeyPageRequested += OpenExternalPage;
+
         _settingsView.AiModelChanged += model =>
         {
             _preferences.AiModel = model.Trim();
@@ -1098,7 +1249,7 @@ public partial class MainWindow : Window
             PositionWindow();
             _peekWindow.HideImmediately();
             ApplyShellOpacity();
-            ApplyAccent(_preferences.AccentColor);
+            ApplyEffectiveAccent();
             SetSideRailExpanded(_preferences.SideRailExpanded, animate: false, persist: false);
             UpdateNavigationState(_currentDestination);
 
@@ -1111,11 +1262,48 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// Abre en el navegador la página donde se consigue la clave del proveedor. La dirección viene
+    /// siempre de <see cref="AiProviderDefaults"/> —una constante del programa—, nunca de algo que
+    /// alguien haya escrito o que haya llegado en una respuesta: <c>UseShellExecute</c> con una
+    /// cadena arbitraria lanzaría cualquier cosa que Windows sepa abrir, no solo páginas.
+    /// </summary>
+    private void OpenExternalPage(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception exception) when (
+            exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            _capsuleWindow.ShowMessage(
+                CapsuleKind.Warning,
+                "No pude abrir el navegador",
+                uri.AbsoluteUri,
+                _preferences.Position);
+        }
+    }
+
     private void ShowModelManager()
     {
-        var baseUrl = _preferences.AiProvider == AiProviderKind.Ollama
+        // El administrador de modelos habla con el motor que esté configurado ahora. Si el proveedor
+        // activo no es de los que usan Ollama, se cae al administrado por Kohana —el que la propia
+        // aplicación puede instalar—, no al externo, que puede no existir en este equipo.
+        var isOllamaProvider = AiProviderDefaults.UsesOllamaProtocol(_preferences.AiProvider);
+        var providerKind = isOllamaProvider
+            ? _preferences.AiProvider
+            : AiProviderKind.KohanaLocal;
+        var baseUrl = isOllamaProvider
             ? _preferences.AiBaseUrl
-            : AiProviderDefaults.Get(AiProviderKind.Ollama).BaseUrl;
+            : AiProviderDefaults.Get(AiProviderKind.KohanaLocal).BaseUrl;
+
         var window = new ModelManagerWindow(baseUrl, _preferences.AiModel)
         {
             Owner = this
@@ -1127,8 +1315,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        _preferences.AiProvider = AiProviderKind.Ollama;
-        _preferences.AiBaseUrl = AiProviderDefaults.Get(AiProviderKind.Ollama).BaseUrl;
+        _preferences.AiProvider = providerKind;
+        _preferences.AiBaseUrl = baseUrl;
         _preferences.AiModel = window.SelectedModel;
         _preferences.AiApiKeyEnvironmentVariable = string.Empty;
         _settingsView.ApplyPreferences(_preferences);
@@ -1186,6 +1374,83 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Diseño D27 — el vigilante avisa desde un hilo de fondo, así que hay que volver al hilo de la
+    /// interfaz antes de tocar la ventana. Las condiciones se comprueban aquí y no en el vigilante
+    /// porque son estado del shell, no geometría del ratón: el vigilante sabe dónde está el cursor
+    /// y nada más.
+    /// </summary>
+    private void HandleEdgeRevealRequested()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (IsVisible || _isHiding || !_preferences.EdgeRevealEnabled)
+            {
+                return;
+            }
+
+            // Con algo a pantalla completa —un juego, un vídeo, una presentación— el shell no se
+            // asoma solo. Es la misma condición que ya silencia el resto de avisos pasajeros, y
+            // aparecer encima de una partida por rozar el borde sería el peor momento posible.
+            if (_resourceDecision.SuppressTransientOverlays)
+            {
+                return;
+            }
+
+            RememberForegroundWindow();
+            ShowAnimated();
+        });
+    }
+
+    /// <summary>
+    /// Diseño D35 — el borde contrario a Kohana enseña volumen y brillo. Se lee el estado real justo
+    /// antes de abrir y no se cachea: el volumen lo cambia cualquier cosa —la rueda del teclado, otro
+    /// programa, el propio Windows— y un panel que apareciera con el valor de hace un rato mostraría
+    /// una barra que no coincide con lo que se oye.
+    /// </summary>
+    private void HandleQuickControlsRequested()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_quickControlsWindow.IsVisible || !_preferences.EdgeRevealEnabled)
+            {
+                return;
+            }
+
+            // Misma condición que para el shell: con algo a pantalla completa, nada se asoma solo.
+            if (_resourceDecision.SuppressTransientOverlays)
+            {
+                return;
+            }
+
+            var audio = _audioMixerService.ReadSnapshot();
+            var brightness = _brightnessService.ReadSnapshot();
+
+            _quickControlsWindow.ShowControls(
+                _preferences.Position,
+                audio.MasterVolumePercent,
+                audio.IsAvailable,
+                brightness.Percent,
+                brightness.IsAvailable);
+        });
+    }
+
+    private void QuickControlsWindow_ControlChanged(
+        object? sender,
+        QuickControlChangedEventArgs e)
+    {
+        switch (e.Kind)
+        {
+            case QuickControlKind.Volume:
+                _audioMixerService.SetMasterVolume(e.Percent);
+                break;
+
+            case QuickControlKind.Brightness:
+                _brightnessService.TrySetBrightness(e.Percent);
+                break;
+        }
+    }
+
+    /// <summary>
     /// Diseño D1 (Sakura Shell): las animaciones del shell respetan tanto la preferencia propia
     /// de Kohana como la preferencia de Windows (Configuración de accesibilidad → Efectos
     /// visuales). Si cualquiera de las dos está desactivada, los cambios de estado se aplican
@@ -1214,19 +1479,27 @@ public partial class MainWindow : Window
         {
             SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
             SideRailBorder.Width = targetWidth;
+            ResetNavigationLabelEntrance();
+            UpdateNavigationState(_currentDestination);
             return;
         }
 
         var currentWidth = SideRailBorder.ActualWidth > 0
             ? SideRailBorder.ActualWidth
             : SideRailBorder.Width;
-        var easing = (CubicEase)FindResource("MotionEaseOut");
+
+        // Diseño D36 — la curva de resorte y no la de siempre: al abrir, el rail pasa un punto de
+        // su ancho final y vuelve, que es lo que da la sensación de burbuja del boceto en vez de la
+        // de un panel que se estira. Al cerrar se usa la curva que acelera, porque lo que se retira
+        // no pide atención y rebotar al plegarse se lee como un error.
         var animation = new DoubleAnimation(
             currentWidth,
             targetWidth,
-            (Duration)FindResource("MotionBase"))
+            expanded ? KohanaMotion.Emphasized : KohanaMotion.Exit)
         {
-            EasingFunction = easing
+            EasingFunction = expanded
+                ? KohanaMotion.SubtleSpringCurve
+                : KohanaMotion.AccelerateCurve
         };
         animation.Completed += (_, _) =>
         {
@@ -1234,7 +1507,60 @@ public partial class MainWindow : Window
             SideRailBorder.Width = targetWidth;
         };
         SideRailBorder.BeginAnimation(FrameworkElement.WidthProperty, animation);
+
+        AnimateNavigationLabels(expanded);
+        UpdateNavigationState(_currentDestination);
     }
+
+    /// <summary>
+    /// Los nombres entran escalonados detrás del ancho, uno tras otro de arriba abajo. Que aparezcan
+    /// todos a la vez en el instante en que hay sitio delata que solo se estaba cambiando un número;
+    /// escalonados, el rail parece llenarse. Al plegar no hay escalonado: los nombres ya no caben y
+    /// esperarlos solo retrasaría el gesto.
+    /// </summary>
+    private void AnimateNavigationLabels(bool expanded)
+    {
+        var labels = NavigationLabels();
+
+        if (!expanded)
+        {
+            foreach (var label in labels)
+            {
+                label.BeginAnimation(OpacityProperty, null);
+                label.Opacity = 1;
+            }
+
+            return;
+        }
+
+        for (var index = 0; index < labels.Count; index++)
+        {
+            var label = labels[index];
+            label.BeginAnimation(OpacityProperty, null);
+            label.Opacity = 0;
+            label.Animate(
+                OpacityProperty,
+                1,
+                KohanaMotion.Reveal,
+                KohanaMotion.DecelerateCurve,
+                KohanaMotion.StaggerAt(index));
+        }
+    }
+
+    private void ResetNavigationLabelEntrance()
+    {
+        foreach (var label in NavigationLabels())
+        {
+            label.BeginAnimation(OpacityProperty, null);
+            label.Opacity = 1;
+        }
+    }
+
+    private IReadOnlyList<TextBlock> NavigationLabels() =>
+    [
+        HomeNavLabel, AssistantNavLabel, TasksNavLabel, FocusNavLabel, RoutinesNavLabel,
+        AudioNavLabel, CaptureNavLabel, SystemNavLabel, SettingsNavLabel
+    ];
 
     private void ApplySideRailButtonLayout(bool expanded)
     {
@@ -1245,7 +1571,12 @@ public partial class MainWindow : Window
         SideRailToggleButton.Width = buttonWidth;
         SettingsNavButton.Width = buttonWidth;
         SideRailBrandText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        SideRailChevronRotate.Angle = expanded ? 180 : 0;
+
+        // El chevrón apunta hacia donde el rail va a crecer, y eso depende del lado en que esté.
+        // La flecha dibujada mira a la derecha, así que 0° sirve para "abrirá hacia la derecha".
+        SideRailChevronRotate.Angle = RailIsOnLeft
+            ? (expanded ? 180 : 0)
+            : (expanded ? 0 : 180);
 
         foreach (var label in new[]
                  {
@@ -2228,6 +2559,22 @@ public partial class MainWindow : Window
         }
 
         var chosen = dialog.FolderName;
+
+        // Diseño D41 — hay carpetas que no se autorizan: la raíz de una unidad, el perfil entero,
+        // las del sistema. Se comprueba ANTES de la confirmación, porque preguntar «¿lo autorizo?»
+        // para algo que no se va a conceder es hacer perder el tiempo a quien contesta.
+        var rootVerdict = WorkspaceRootPolicy.CanAuthorize(chosen);
+        if (!rootVerdict.IsAllowed)
+        {
+            MessageBox.Show(
+                this,
+                rootVerdict.Message,
+                "Esa carpeta no se puede autorizar",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            _assistantView.AddKohanaMessage(rootVerdict.Message);
+            return;
+        }
 
         // La confirmación dice qué se concede Y qué no. Un permiso que solo enumera lo que gana
         // quien lo pide no deja decidir a quien lo da.
@@ -3374,33 +3721,50 @@ public partial class MainWindow : Window
         return CommandExecutionResult.Success(result.Detail);
     }
 
-    private void ShowWorkspaceStatus()
+    /// <summary>
+    /// Diseño D41 — el recuento de archivos se hace fuera del hilo de interfaz.
+    ///
+    /// Antes se listaba aquí mismo, y recorrer una carpeta grande deja la ventana congelada hasta
+    /// que termina: Windows llega a ofrecer cerrar el programa. Pasó de verdad. El recorrido ya está
+    /// acotado en el lector, pero incluso acotado es trabajo de disco, y el disco no tiene por qué
+    /// responder rápido.
+    /// </summary>
+    private async void ShowWorkspaceStatus()
     {
         var workspace = _preferences.Workspace;
 
-        var message = new StringBuilder();
         if (!workspace.HasAuthorizedFolder)
         {
-            message.Append(
+            _assistantView.AddKohanaMessage(
                 "No tengo ninguna carpeta de proyecto autorizada. Puedes autorizar una desde la " +
                 "paleta de comandos, y quitármela igual de rápido.");
-        }
-        else
-        {
-            message.AppendLine($"Carpeta autorizada: {workspace.AuthorizedPath}");
-            message.AppendLine(
-                $"Autorizada el {workspace.AuthorizedAt?.ToString("dd/MM/yyyy HH:mm") ?? "—"}.");
-            message.AppendLine(WorkspaceAutonomyPolicy.Describe(workspace.AutonomyLevel));
-            message.AppendLine(
-                "Solo lectura. No leo .env, claves privadas ni carpetas de dependencias, y oculto " +
-                "los valores que parecen secretos antes de enviar nada.");
-
-            var files = _workspaceReader.ListFiles(workspace.AuthorizedPath, maximumFiles: 500);
-            message.Append($"Archivos legibles ahora mismo: {files.Count}.");
+            NavigateTo("Assistant", animate: true);
+            return;
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        var message = new StringBuilder();
+        message.AppendLine($"Carpeta autorizada: {workspace.AuthorizedPath}");
+        message.AppendLine(
+            $"Autorizada el {workspace.AuthorizedAt?.ToString("dd/MM/yyyy HH:mm") ?? "—"}.");
+        message.AppendLine(WorkspaceAutonomyPolicy.Describe(workspace.AutonomyLevel));
+        message.AppendLine(
+            "Solo lectura. No leo .env, claves privadas ni carpetas de dependencias, y oculto " +
+            "los valores que parecen secretos antes de enviar nada.");
+        message.Append("Contando archivos legibles…");
+
+        _assistantView.AddKohanaMessage(message.ToString());
         NavigateTo("Assistant", animate: true);
+
+        var authorizedPath = workspace.AuthorizedPath;
+        var count = await Task.Run(
+            () => _workspaceReader.ListFiles(authorizedPath, maximumFiles: 500).Count);
+
+        if (_isClosed)
+        {
+            return;
+        }
+
+        _assistantView.AddKohanaMessage($"Archivos legibles ahora mismo: {count}.");
     }
 
     private CommandExecutionResult RevokeWorkspace()
@@ -3761,9 +4125,32 @@ public partial class MainWindow : Window
         _ = InitializeVoiceFeaturesAsync();
     }
 
+    private void OnSystemUserPreferenceChanged(
+        object sender,
+        Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (_isClosed || _preferences.AccentSource == AccentSource.Manual)
+        {
+            return;
+        }
+
+        // Desktop es la categoría con la que Windows avisa de un cambio de fondo de escritorio;
+        // Color, la del acento del sistema. General llega con cambios de tema completos, que
+        // pueden mover cualquiera de los dos.
+        var relevant = e.Category is Microsoft.Win32.UserPreferenceCategory.Color
+            or Microsoft.Win32.UserPreferenceCategory.Desktop
+            or Microsoft.Win32.UserPreferenceCategory.General;
+
+        if (relevant)
+        {
+            Dispatcher.BeginInvoke(ApplyEffectiveAccent);
+        }
+    }
+
     private void Window_Closed(object? sender, EventArgs e)
     {
         _isClosed = true;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnSystemUserPreferenceChanged;
         _clockTimer.Stop();
         _metricsTimer.Stop();
         _taskReminderTimer.Stop();
@@ -3771,6 +4158,10 @@ public partial class MainWindow : Window
         _visualContextExpiryTimer.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
+        _answerPillWindow.HideImmediately();
+        _quickControlsWindow.HideImmediately();
+        _dashboardWindow.PrepareForShutdown();
+        _dashboardWindow.HideImmediately();
         _sakuraPillWindow.Hide();
 
         if (_preferences.SaveConversationHistory)
@@ -3788,6 +4179,14 @@ public partial class MainWindow : Window
         _ambientHistoryWindow?.Close();
         _lensHighlightOverlay.Close();
         _ambientForegroundTracker.Dispose();
+        _edgeRevealWatcher.RevealRequested -= HandleEdgeRevealRequested;
+        _edgeRevealWatcher.Dispose();
+        _topRevealWatcher.RevealRequested -= HandleTopRevealRequested;
+        _topRevealWatcher.Dispose();
+        _dashboardWindow.Close();
+        _quickControlsWatcher.RevealRequested -= HandleQuickControlsRequested;
+        _quickControlsWatcher.Dispose();
+        _brightnessService.Dispose();
         _commandPaletteWindow.Close();
         // MainWindow desuscribe los eventos de wake word (a través del coordinador) y cancela
         // el token de vida, pero NO libera los tres motores de voz: su propiedad y Dispose
@@ -4051,31 +4450,63 @@ public partial class MainWindow : Window
 
         ShellBorder.BeginAnimation(OpacityProperty, null);
         ShellTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+        ShellScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        ShellScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
 
-        if (!_preferences.AnimationsEnabled)
+        if (!ShellAnimationsAllowed)
         {
             ShellTranslate.X = 0;
+            ShellScale.ScaleX = 1;
+            ShellScale.ScaleY = 1;
             ShellBorder.Opacity = 1;
             FocusCurrentView();
             return;
         }
 
-        var offset = _preferences.Position == SidebarPosition.Right ? 34 : -34;
+        // El shell entra desde el borde de la pantalla al que está acoplado y crece un punto al
+        // llegar. El desplazamiento es más largo que antes (48 en vez de 34) porque ahora lo empuja
+        // una curva que cubre casi todo el recorrido pronto: con el desplazamiento corto el gesto
+        // se perdía antes de poder leerse.
+        var offset = _preferences.Position == SidebarPosition.Right ? 48d : -48d;
         ShellTranslate.X = offset;
+        ShellScale.ScaleX = 0.985;
+        ShellScale.ScaleY = 0.985;
         ShellBorder.Opacity = 0;
 
-        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var duration = TimeSpan.FromMilliseconds(170);
+        ShellBorder.Animate(OpacityProperty, 1, KohanaMotion.Reveal, KohanaMotion.DecelerateCurve);
+        ShellTranslate.AnimateTransform(
+            TranslateTransform.XProperty, 0, KohanaMotion.Emphasized, KohanaMotion.EmphasizedCurve);
+        ShellScale.AnimateTransform(
+            ScaleTransform.ScaleXProperty, 1, KohanaMotion.Emphasized, KohanaMotion.SubtleSpringCurve);
+        ShellScale.AnimateTransform(
+            ScaleTransform.ScaleYProperty, 1, KohanaMotion.Emphasized, KohanaMotion.SubtleSpringCurve);
 
-        ShellTranslate.BeginAnimation(
-            TranslateTransform.XProperty,
-            new DoubleAnimation(0, duration) { EasingFunction = easing });
-
-        ShellBorder.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation(1, duration) { EasingFunction = easing });
-
+        StaggerNavigationEntrance();
         FocusCurrentView();
+    }
+
+    /// <summary>
+    /// Diseño D26 — los elementos del rail entran uno detrás de otro en vez de todos a la vez.
+    /// El retardo es corto y tiene tope (ver <see cref="KohanaMotion.MaximumStagger"/>): lo que se
+    /// busca es que el ojo recorra la lista, no que el último botón se haga esperar.
+    /// </summary>
+    private void StaggerNavigationEntrance()
+    {
+        if (!ShellAnimationsAllowed)
+        {
+            return;
+        }
+
+        var fromOffset = RailIsOnLeft ? -14d : 14d;
+        var index = 0;
+
+        foreach (var button in NavigationGrid.Children.OfType<Button>())
+        {
+            var transform = new TranslateTransform();
+            button.RenderTransform = transform;
+            button.EnterFrom(transform, fromOffset, beginTime: KohanaMotion.StaggerAt(index));
+            index++;
+        }
     }
 
     private void HideAnimated()
@@ -4085,17 +4516,25 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!_preferences.AnimationsEnabled)
+        if (!ShellAnimationsAllowed)
         {
+            _edgeRevealWatcher.SuppressBriefly();
             Hide();
             SetMetricsCadence(isShellVisible: false);
             return;
         }
 
         _isHiding = true;
-        var offset = _preferences.Position == SidebarPosition.Right ? 34 : -34;
-        var easing = new CubicEase { EasingMode = EasingMode.EaseIn };
-        var duration = TimeSpan.FromMilliseconds(140);
+
+        // Al ocultarse, el ratón suele seguir justo donde estaba. Sin esta pausa, cerrar Kohana con
+        // el cursor cerca del borde la volvería a abrir de inmediato.
+        _edgeRevealWatcher.SuppressBriefly();
+
+        // La salida es más corta que la entrada y usa la curva que acelera: lo que se retira no
+        // pide atención, y hacerlo esperar solo retrasa lo que la persona quería hacer a continuación.
+        var offset = _preferences.Position == SidebarPosition.Right ? 48d : -48d;
+        var duration = KohanaMotion.Exit;
+        var easing = KohanaMotion.AccelerateCurve;
 
         var slideAnimation = new DoubleAnimation(offset, duration)
         {
@@ -4126,6 +4565,111 @@ public partial class MainWindow : Window
         Left = _preferences.Position == SidebarPosition.Right
             ? workArea.Right - Width - 12
             : workArea.Left + 12;
+    }
+
+    /// <summary>
+    /// Diseño D26 — el rail de navegación vive siempre en el lado interior del shell, el que mira
+    /// al centro de la pantalla. Con Kohana acoplada a la derecha eso es el lado izquierdo, que es
+    /// como ha estado siempre; acoplada a la izquierda, el rail pasa a la derecha.
+    ///
+    /// Antes el rail estaba clavado en la columna 0 pasara lo que pasara, así que al mover Kohana
+    /// al borde izquierdo el menú se quedaba donde estaba: pegado al borde de la pantalla, con el
+    /// contenido empujado hacia dentro y el gesto de "abrir el menú" apuntando al lado equivocado.
+    /// </summary>
+    private bool RailIsOnLeft => _preferences.Position == SidebarPosition.Right;
+
+    private void ApplyShellSide()
+    {
+        var railOnLeft = RailIsOnLeft;
+        var flexible = new GridLength(1, GridUnitType.Star);
+
+        Grid.SetColumn(SideRailBorder, railOnLeft ? 0 : 1);
+        Grid.SetColumn(ShellContentGrid, railOnLeft ? 1 : 0);
+
+        ShellFirstColumn.Width = railOnLeft ? GridLength.Auto : flexible;
+        ShellSecondColumn.Width = railOnLeft ? flexible : GridLength.Auto;
+
+        // El rail se ancla al borde por el que crece. Sin esto, al expandirse aparecería el ancho
+        // nuevo por el lado contrario y los iconos darían un salto lateral en mitad de la animación.
+        var railEdge = railOnLeft ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        SideRailBorder.HorizontalAlignment = railEdge;
+        SideRailContentGrid.HorizontalAlignment = railEdge;
+
+        ShellContentGrid.Margin = railOnLeft
+            ? new Thickness(13, 2, 2, 2)
+            : new Thickness(2, 2, 13, 2);
+
+        ApplyToggleButtonSide(railOnLeft);
+        ApplyNavigationItemsSide(railOnLeft);
+        ApplySideRailButtonLayout(_sideRailExpanded);
+    }
+
+    private void ApplyToggleButtonSide(bool railOnLeft)
+    {
+        SideRailToggleIconColumn.Width = railOnLeft ? new GridLength(46) : new GridLength(1, GridUnitType.Star);
+        SideRailToggleTextColumn.Width = railOnLeft ? new GridLength(1, GridUnitType.Star) : new GridLength(46);
+
+        Grid.SetColumn(SideRailToggleIcon, railOnLeft ? 0 : 1);
+        SideRailToggleIcon.HorizontalAlignment = railOnLeft
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Right;
+
+        Grid.SetColumn(SideRailBrandText, railOnLeft ? 1 : 0);
+        SideRailBrandText.Margin = railOnLeft
+            ? new Thickness(10, 0, 0, 0)
+            : new Thickness(0, 0, 10, 0);
+        SideRailBrandText.HorizontalAlignment = railOnLeft
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Right;
+
+        foreach (var child in SideRailBrandText.Children.OfType<TextBlock>())
+        {
+            child.TextAlignment = railOnLeft ? TextAlignment.Left : TextAlignment.Right;
+        }
+    }
+
+    /// <summary>
+    /// Cada botón de navegación es una rejilla de tres columnas: [indicador 4][icono 42][etiqueta *].
+    /// Espejarla mueve el indicador y la etiqueta a los extremos contrarios y deja el icono en su
+    /// sitio, que es la columna del medio. Se fijan valores absolutos en vez de alternarlos, para
+    /// que llamar a esto dos veces seguidas no deshaga el resultado.
+    /// </summary>
+    private void ApplyNavigationItemsSide(bool railOnLeft)
+    {
+        var indicatorWidth = new GridLength(4);
+        var flexible = new GridLength(1, GridUnitType.Star);
+
+        foreach (var (indicator, label) in NavigationRowParts())
+        {
+            if (indicator.Parent is not Grid row || row.ColumnDefinitions.Count != 3)
+            {
+                continue;
+            }
+
+            row.ColumnDefinitions[0].Width = railOnLeft ? indicatorWidth : flexible;
+            row.ColumnDefinitions[2].Width = railOnLeft ? flexible : indicatorWidth;
+
+            Grid.SetColumn(indicator, railOnLeft ? 0 : 2);
+            Grid.SetColumn(label, railOnLeft ? 2 : 0);
+
+            label.Margin = railOnLeft
+                ? new Thickness(10, 0, 0, 0)
+                : new Thickness(0, 0, 10, 0);
+            label.TextAlignment = railOnLeft ? TextAlignment.Left : TextAlignment.Right;
+        }
+    }
+
+    private IEnumerable<(Border Indicator, TextBlock Label)> NavigationRowParts()
+    {
+        yield return (HomeNavIndicator, HomeNavLabel);
+        yield return (AssistantNavIndicator, AssistantNavLabel);
+        yield return (TasksNavIndicator, TasksNavLabel);
+        yield return (FocusNavIndicator, FocusNavLabel);
+        yield return (RoutinesNavIndicator, RoutinesNavLabel);
+        yield return (AudioNavIndicator, AudioNavLabel);
+        yield return (CaptureNavIndicator, CaptureNavLabel);
+        yield return (SystemNavIndicator, SystemNavLabel);
+        yield return (SettingsNavIndicator, SettingsNavLabel);
     }
 
     private void UpdateClock()
@@ -4298,14 +4842,50 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Diseño D34 — quien pulsó Ctrl+Espacio no quiso abrir Kohana: estaba en otra aplicación y
+    /// preguntó desde ahí. Antes esto traía la ventana entera encima y dejaba la respuesta en la
+    /// pestaña de chat, obligando a volver a donde se estaba. Ahora la respuesta va a una píldora de
+    /// esquina y la ventana se queda como estaba. La conversación se guarda igual, así que sigue
+    /// estando en el chat para quien la busque después.
+    ///
+    /// La píldora se abre y se cierra <b>aquí</b>, envolviendo al método que hace el trabajo, y no
+    /// dentro de él. La primera versión la cerraba en el <c>finally</c> interno y se quedó colgada
+    /// en «Pensando…» la primera vez que se probó: hay cuatro salidas anticipadas antes de ese
+    /// bloque —IA desactivada, Modo Juego, IA local que no arranca, cancelación— y la que saltó fue
+    /// el Modo Juego. Añadir la llamada en cada una habría durado hasta la quinta; envolviendo, no
+    /// hay salida que pueda dejarla abierta, ni siquiera una que se añada más adelante.
+    /// </summary>
     private async Task SendPromptToAiAsync(string prompt, bool fromVoice)
     {
-        if (_promptFromCommandPalette)
+        _answerInPill = _promptFromCommandPalette;
+        if (!_answerInPill)
         {
-            ShowAnimated();
-            NavigateTo("Assistant", animate: true);
+            await SendPromptToAiCoreAsync(prompt, fromVoice);
+            return;
         }
 
+        _pillFailure = null;
+        _answerPillWindow.BeginAnswer(prompt, _preferences.Position);
+
+        try
+        {
+            await SendPromptToAiCoreAsync(prompt, fromVoice);
+        }
+        finally
+        {
+            _answerInPill = false;
+
+            // Si el camino bueno ya la cerró, esto no hace nada. Si no, se cierra con el motivo —o
+            // sin él, pero cerrada— en vez de quedarse pensando encima de lo que se estuviera
+            // haciendo.
+            _answerPillWindow.CompleteAnswer(
+                _pillFailure ?? "No llegó ninguna respuesta.");
+        }
+    }
+
+    private async Task SendPromptToAiCoreAsync(string prompt, bool fromVoice)
+    {
         var configuration = BuildAiConfiguration();
         if (!configuration.IsEnabled)
         {
@@ -4318,6 +4898,7 @@ public partial class MainWindow : Window
                 "Elige un proveedor desde Personalización.",
                 _preferences.Position);
             SpeakVoiceResult("La inteligencia artificial está desactivada.");
+            _pillFailure = "La IA está desactivada. Elígela en Personalización.";
             return;
         }
 
@@ -4329,12 +4910,11 @@ public partial class MainWindow : Window
 
         if (!aiAllowed)
         {
-            PresentResourceRestriction(
-                resourceDecision,
-                usesLocalRuntime
-                    ? "La IA local está pausada para proteger el rendimiento."
-                    : "Las consultas de IA están pausadas durante el Modo Juego.",
-                fromVoice);
+            var restriction = usesLocalRuntime
+                ? "La IA local está pausada para proteger el rendimiento."
+                : "Las consultas de IA están pausadas durante el Modo Juego.";
+            PresentResourceRestriction(resourceDecision, restriction, fromVoice);
+            _pillFailure = restriction;
             return;
         }
 
@@ -4368,6 +4948,7 @@ public partial class MainWindow : Window
             {
                 _assistantView.SetAiActivity(null);
                 SpeakVoiceResult("La inteligencia artificial local no está disponible.");
+                _pillFailure = "La IA local no está disponible.";
                 return;
             }
         }
@@ -4479,10 +5060,20 @@ public partial class MainWindow : Window
                 }
 
                 _assistantView.AppendKohanaStreamingText(chunk);
+
+                if (_answerInPill)
+                {
+                    _answerPillWindow.AppendAnswer(chunk);
+                }
             }
 
             var finalText = _assistantView.CompleteKohanaStreamingMessage();
             streamingStarted = false;
+
+            if (_answerInPill)
+            {
+                _answerPillWindow.CompleteAnswer();
+            }
 
             if (string.IsNullOrWhiteSpace(finalText))
             {
@@ -4527,6 +5118,7 @@ public partial class MainWindow : Window
 
             _assistantView.AddKohanaMessage(
                 $"No pude obtener una respuesta: {exception.Message}");
+            _pillFailure = exception.Message;
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "La IA no respondió",
@@ -4557,6 +5149,7 @@ public partial class MainWindow : Window
             const string detail =
                 "La conexión se interrumpió mientras Kohana recibía la respuesta.";
             _assistantView.AddKohanaMessage($"No pude obtener una respuesta: {detail}");
+            _pillFailure = detail;
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "Respuesta interrumpida",
@@ -4569,6 +5162,7 @@ public partial class MainWindow : Window
             // cambio propuesto a partir de media respuesta no es un cambio, es un riesgo.
             _pendingWorkspaceEditRequested = false;
             _assistantView.SetAiActivity(null);
+
             _aiGate.Release();
         }
 
@@ -4930,9 +5524,7 @@ public partial class MainWindow : Window
         var model = string.IsNullOrWhiteSpace(_preferences.AiModel)
             ? "sin modelo seleccionado"
             : _preferences.AiModel;
-        _runtimeAiStatus = _preferences.AiProvider == AiProviderKind.Ollama
-            ? "Ollama configurado"
-            : $"{providerName} configurado";
+        _runtimeAiStatus = $"{providerName} configurado";
         _runtimeAiHealthy = true;
         _assistantView.SetAiProviderStatus($"{providerName} · {model}");
         RefreshRuntimeDashboard();
@@ -4944,7 +5536,10 @@ public partial class MainWindow : Window
             _preferences.AiProvider,
             _preferences.AiBaseUrl,
             _preferences.AiModel,
-            _preferences.AiApiKeyEnvironmentVariable);
+            _preferences.AiApiKeyEnvironmentVariable)
+        {
+            StoredApiKey = _apiKeyStore.Read(_preferences.AiProvider)
+        };
     }
 
     private static string BuildAiSystemContext(SystemSnapshot snapshot)
@@ -6998,20 +7593,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        ModuleHost.Opacity = 0;
-        var transform = new TranslateTransform(14, 0);
+        // El módulo entra desde el lado por el que está el rail, así que el contenido parece salir
+        // de la navegación que se acaba de pulsar. Con el shell acoplado a la izquierda el rail está
+        // a la derecha, y entonces el sentido se invierte: entrar siempre desde el mismo lado
+        // rompería esa relación de causa y efecto.
+        var transform = new TranslateTransform();
         ModuleHost.RenderTransform = transform;
-
-        var easing = (CubicEase)FindResource("MotionEaseOut");
-        var duration = (Duration)FindResource("MotionFast");
-
-        transform.BeginAnimation(
-            TranslateTransform.XProperty,
-            new DoubleAnimation(0, duration) { EasingFunction = easing });
-
-        ModuleHost.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation(1, duration) { EasingFunction = easing });
+        ModuleHost.RenderTransformOrigin = new Point(0.5, 0.5);
+        ModuleHost.EnterFrom(transform, RailIsOnLeft ? 18 : -18);
 
         FocusCurrentView();
     }
@@ -7068,18 +7657,61 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Diseño D36 — el elemento activo se señala distinto según el rail esté plegado o desplegado, y
+    /// la regla está en <see cref="NavigationSelection"/> y no aquí: el rail se pliega desde varios
+    /// sitios —el botón, restaurar apariencia, el arranque— y cada uno tendría que acordarse.
+    /// </summary>
     private void ApplyNavigationItemState(Button button, Border indicator, System.Windows.Shapes.Path icon, TextBlock label, bool selected)
     {
-        button.Background = selected
+        var style = NavigationSelection.For(selected, _sideRailExpanded);
+
+        button.Background = style == NavigationSelectionStyle.Pill
             ? (Brush)FindResource("BrushAccentSoft")
             : Brushes.Transparent;
         button.Foreground = selected
             ? (Brush)FindResource("BrushAccent")
             : (Brush)FindResource("BrushTextSecondary");
 
-        indicator.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+        // Plegado, la barrita sobra: el brillo ya dice cuál es el activo, y las dos señales juntas
+        // en una franja tan estrecha se estorban.
+        indicator.Visibility = style == NavigationSelectionStyle.Pill
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
         icon.Style = (Style)FindResource(selected ? "SakuraNavigationIconSelectedStyle" : "SakuraNavigationIconStyle");
         label.FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal;
+
+        ApplyNavigationGlow(icon, style == NavigationSelectionStyle.Glow);
+    }
+
+    /// <summary>
+    /// El brillo es una sombra proyectada sin desplazamiento y del color del acento, que es como se
+    /// consigue un halo en WPF. Se aplica al icono y no al botón porque lo que tiene que brillar es
+    /// el símbolo: puesto en el botón, el halo dibuja el rectángulo del botón y vuelve a ser una
+    /// caja, justo lo que el boceto evita al plegar.
+    /// </summary>
+    private void ApplyNavigationGlow(System.Windows.Shapes.Path icon, bool glowing)
+    {
+        if (!glowing)
+        {
+            icon.Effect = null;
+            return;
+        }
+
+        var accent = ((SolidColorBrush)FindResource("BrushAccent")).Color;
+
+        // El halo se ensancha por encima del ancho del trazo del icono. Con dieciséis se quedaba
+        // pegado a la línea y se leía como un icono de otro color, no como uno encendido; a
+        // veintidós el resplandor se separa lo suficiente para verse como luz alrededor del
+        // símbolo, que es lo que pide el boceto, sin llegar a pintar la caja del botón.
+        icon.Effect = new DropShadowEffect
+        {
+            Color = accent,
+            ShadowDepth = 0,
+            BlurRadius = 22,
+            Opacity = 0.95
+        };
     }
 
     private void UpdateWorkspaceHeader(string destination)
@@ -7114,17 +7746,76 @@ public partial class MainWindow : Window
             DateTimeOffset.Now);
 
         _homeView.Refresh(model);
+
+        // El mismo resumen alimenta el cajón. Sale del mismo cálculo y no de otro propio: dos
+        // cuentas separadas acabarían discrepando, y ver «3 pendientes» arriba y «2» abajo hace
+        // dudar de las dos.
+        _dashboardWindow.UpdateDailySummary(
+            model.TaskValue,
+            model.TaskDetail,
+            model.FocusValue,
+            model.FocusDetail,
+            model.RoutineValue,
+            model.RoutineDetail);
     }
 
     private void ApplyPreferences()
     {
         _preferences.Normalize();
         Width = _preferences.Width;
-        ApplyShellOpacity();
-        ApplyAccent(_preferences.AccentColor);
+
+        // Un único punto donde el vocabulario de movimiento aprende si puede animar. Respeta tanto
+        // la preferencia de Kohana como la de Windows (Accesibilidad → Efectos visuales): quien
+        // apagó las animaciones del sistema no debería tener que apagarlas otra vez aquí.
+        KohanaMotion.AnimationsEnabled = ShellAnimationsAllowed;
+
+        _edgeRevealWatcher.Configure(_preferences.EdgeRevealEnabled, _preferences.Position);
+        _quickControlsWatcher.Configure(
+            _preferences.EdgeRevealEnabled,
+            QuickControlsPolicy.ControlsEdgeFor(_preferences.Position));
+
+        ApplyShellSide();
+
+        // Aplica el tema y, dentro, refresca la opacidad del shell con el fondo ya teñido.
+        ApplyEffectiveAccent();
+
         _voiceCoordinator.WakeWordSensitivity = _preferences.WakeWordSensitivity;
         ApplyModuleVisibility();
         _assistantView.SetVisionAvailability(_preferences.VisionEnabled);
+    }
+
+    /// <summary>
+    /// Diseño D31 — punto único para decidir qué acento se ve. Cada origen puede fallar por motivos
+    /// legítimos —Windows sin la clave en el registro, un fondo en blanco y negro del que no hay
+    /// color que sacar— y en todos ellos se cae al color manual, que siempre existe. Eso es lo que
+    /// permite prometer que activar cualquiera de las dos opciones nunca deja la aplicación peor de
+    /// como estaba.
+    /// </summary>
+    private void ApplyEffectiveAccent()
+    {
+        var accent = _preferences.AccentSource switch
+        {
+            AccentSource.Windows => WindowsAccentColorReader.TryRead() ?? _preferences.AccentColor,
+            AccentSource.Wallpaper => TryReadWallpaperAccent() ?? _preferences.AccentColor,
+            _ => _preferences.AccentColor
+        };
+
+        ApplyAccent(accent);
+    }
+
+    private static string? TryReadWallpaperAccent()
+    {
+        if (WindowsWallpaperReader.TryReadPixels() is not { } pixels)
+        {
+            return null;
+        }
+
+        // El acento se elige contra el fondo neutro de partida y no contra el que hay pintado
+        // ahora: si se midiera contra el actual, el tema ya teñido movería el listón y el resultado
+        // dependería de qué tema estaba puesto antes.
+        return AccentPicker
+            .Pick(WallpaperPalette.Quantize(pixels), KohanaThemeBuilder.AccentReferenceSurface)
+            ?.ToHex();
     }
 
     private void ApplyShellOpacity()
@@ -7141,45 +7832,92 @@ public partial class MainWindow : Window
             baseColor.B));
     }
 
-    private static void ApplyAccent(string accentHex)
+    /// <summary>
+    /// Diseño D31 — todo el cálculo del tema vive en <see cref="KohanaThemeBuilder"/>, en Nexo.Core.
+    /// Aquí solo queda convertir a brochas de WPF y publicarlas. La razón de moverlo es que el
+    /// acento ya no siempre lo elegimos nosotros: cuando sale del fondo de escritorio, lo pone una
+    /// foto que nadie revisó, y la garantía de que el texto se siga leyendo encima tiene que poder
+    /// comprobarse con una prueba y no mirando la pantalla con cada fondo posible.
+    /// </summary>
+    private void ApplyAccent(string accentHex)
     {
+        RgbColor accent;
         try
         {
-            var accent = (Color)ColorConverter.ConvertFromString(accentHex);
-            var soft = Color.FromArgb(
-                255,
-                (byte)(accent.R * 0.24),
-                (byte)(accent.G * 0.22),
-                (byte)(accent.B * 0.34));
-
-            Application.Current.Resources["BrushAccent"] = new SolidColorBrush(accent);
-            Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush(soft);
-            Application.Current.Resources["BrushAccentBorder"] = new SolidColorBrush(
-                Color.FromArgb(112, accent.R, accent.G, accent.B));
+            accent = RgbColor.FromHex(accentHex);
         }
-        catch (Exception exception) when (exception is FormatException or NotSupportedException)
+        catch (Exception exception) when (exception is FormatException or ArgumentException)
         {
-            Application.Current.Resources["BrushAccent"] = new SolidColorBrush(
-                (Color)ColorConverter.ConvertFromString("#8B6CFF"));
-            Application.Current.Resources["BrushAccentSoft"] = new SolidColorBrush(
-                (Color)ColorConverter.ConvertFromString("#2D2748"));
-            Application.Current.Resources["BrushAccentBorder"] = new SolidColorBrush(
-                (Color)ColorConverter.ConvertFromString("#668B6CFF"));
+            accent = RgbColor.FromHex("#8B6CFF");
         }
+
+        var theme = KohanaThemeBuilder.FromAccent(accent);
+        var resources = Application.Current.Resources;
+
+        resources["BrushAccent"] = ToBrush(theme.Accent);
+        resources["BrushAccentSoft"] = ToBrush(theme.AccentSoft);
+        resources["BrushAccentBorder"] = new SolidColorBrush(
+            Color.FromArgb(112, theme.Accent.R, theme.Accent.G, theme.Accent.B));
+        resources["BrushBackground"] = ToBrush(theme.Background);
+        resources["BrushSurface"] = ToBrush(theme.Surface);
+        resources["BrushSurfaceRaised"] = ToBrush(theme.SurfaceRaised);
+        resources["BrushSurfaceHover"] = ToBrush(theme.SurfaceHover);
+        resources["BrushSidebarSurface"] = ToBrush(theme.SidebarSurface);
+        resources["BrushInput"] = ToBrush(theme.Input);
+        resources["BrushBorder"] = ToBrush(theme.Border);
+        resources["BrushFocusRing"] = new SolidColorBrush(
+            Color.FromArgb(112, theme.Accent.R, theme.Accent.G, theme.Accent.B));
+
+        // Rastro del tema original: era un rosa fijo, y con cualquier otro tema aparecía como una
+        // mancha de un color que no pertenecía a nada.
+        resources["BrushSakuraGlow"] = ToBrush(theme.AccentSoft);
+
+        // Imprescindible que sea DESPUÉS de publicar BrushBackground, y no antes: ApplyShellOpacity
+        // no usa la brocha del recurso sino que copia su color en una nueva con la opacidad
+        // aplicada. Esa copia se queda como estaba a menos que se rehaga aquí — era la causa de que
+        // el fondo del shell siguiera morado oscuro mientras el interior sí cambiaba de tema.
+        ApplyShellOpacity();
     }
 
+    private static SolidColorBrush ToBrush(RgbColor color) =>
+        new(Color.FromRgb(color.R, color.G, color.B));
+
+    /// <summary>
+    /// Diseño D52 — el rail solo enseña lo que se ha pedido tener a un clic.
+    ///
+    /// Chat y Personalizar no aparecen aquí porque no se pueden quitar: el primero es la
+    /// aplicación y el segundo es desde donde se devuelven los demás.
+    /// </summary>
     private void ApplyModuleVisibility()
     {
-        AudioNavButton.Visibility = _preferences.ShowAudioModule ? Visibility.Visible : Visibility.Collapsed;
-        CaptureNavButton.Visibility = _preferences.ShowCaptureModule ? Visibility.Visible : Visibility.Collapsed;
-        SystemNavButton.Visibility = _preferences.ShowSystemModule ? Visibility.Visible : Visibility.Collapsed;
+        HomeNavButton.Visibility = Show(_preferences.ShowHomeModule);
+        TasksNavButton.Visibility = Show(_preferences.ShowTasksModule);
+        FocusNavButton.Visibility = Show(_preferences.ShowFocusModule);
+        RoutinesNavButton.Visibility = Show(_preferences.ShowRoutinesModule);
+        AudioNavButton.Visibility = Show(_preferences.ShowAudioModule);
+        CaptureNavButton.Visibility = Show(_preferences.ShowCaptureModule);
+        SystemNavButton.Visibility = Show(_preferences.ShowSystemModule);
         UpdateNavigationColumns();
+
+        static Visibility Show(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void SetModuleVisibility(string module, bool visible)
     {
         switch (module)
         {
+            case "Home":
+                _preferences.ShowHomeModule = visible;
+                break;
+            case "Tasks":
+                _preferences.ShowTasksModule = visible;
+                break;
+            case "Focus":
+                _preferences.ShowFocusModule = visible;
+                break;
+            case "Routines":
+                _preferences.ShowRoutinesModule = visible;
+                break;
             case "Audio":
                 _preferences.ShowAudioModule = visible;
                 break;
@@ -7271,6 +8009,7 @@ public partial class MainWindow : Window
 
             _latestSnapshot = snapshot;
             UpdateMetricControls(snapshot);
+            await RefreshMediaAsync();
             await ApplyResourceGovernorDecisionAsync(decision);
         }
         catch (Exception)
@@ -7295,6 +8034,9 @@ public partial class MainWindow : Window
             }
 
             _systemView.UpdateHardwareCapability(profile);
+            _dashboardWindow.UpdateHardwareNames(
+                profile.Snapshot.Processor.Name,
+                profile.Snapshot.PreferredGraphicsAdapter.Name);
             RefreshAdaptiveEnginePlan();
         }
         catch (OperationCanceledException)
@@ -7361,6 +8103,10 @@ public partial class MainWindow : Window
         if (decision.SuppressTransientOverlays)
         {
             _capsuleWindow.HideImmediately();
+
+            // Diseño D56 — y el cajón, si estaba abierto cuando la pantalla completa empezó. No
+            // basta con no abrirlo: se puede estar mirando el panel y lanzar el juego desde ahí.
+            _dashboardWindow.HideImmediately();
         }
 
         UpdateResourceModeIndicator(decision);
@@ -7489,12 +8235,102 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Diseño D44 — el cajón baja en el monitor donde está el ratón. El área viaja con el aviso
+    /// porque con dos pantallas «arriba y en medio» no es el mismo sitio en cada una, y para cuando
+    /// el hilo de la interfaz atienda el aviso el cursor puede haberse movido ya.
+    /// </summary>
+    private void HandleTopRevealRequested(TopRevealArea area)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_isClosed || !_preferences.EdgeRevealEnabled)
+            {
+                return;
+            }
+
+            // Diseño D56 — con algo a pantalla completa el cajón tampoco se asoma. Es la misma
+            // condición que ya silenciaba el shell y el mando de volumen, y a este se me olvidó
+            // ponérsela.
+            //
+            // El efecto era peor que el de los otros dos, y por eso pasó desapercibido: un juego a
+            // pantalla completa queda por encima, así que el cajón bajaba **sin verse** y aun así
+            // se quedaba con los clics de la zona. Desde el juego eso se siente como que el ratón
+            // deja de responder en una franja de la pantalla, sin nada que explique por qué.
+            if (_resourceDecision.SuppressTransientOverlays)
+            {
+                return;
+            }
+
+            _dashboardWindow.Reveal(area);
+        }));
+    }
+
     private void UpdateMetricControls(SystemSnapshot snapshot)
     {
         HeaderCpuText.Text = FormatPercentage(snapshot.CpuUsagePercent);
         HeaderMemoryText.Text = FormatPercentage(snapshot.MemoryUsagePercent);
         HeaderGpuText.Text = FormatPercentage(snapshot.GpuUsagePercent);
         _systemView.UpdateSnapshot(snapshot);
+        _dashboardWindow.UpdateSnapshot(snapshot);
+
+        var network = _throughputSource.ReadNetwork();
+        var drive = _throughputSource.ReadSystemDrive();
+        _dashboardWindow.UpdateThroughput(
+            network.DownloadBytesPerSecond,
+            network.UploadBytesPerSecond,
+            drive?.UsedBytes,
+            drive?.TotalBytes,
+            drive?.Name);
+
+        // Diseño D44 — el reloj y el tiempo encendido del cajón viajan con las métricas en vez de
+        // llevar temporizador propio: son dos textos que cambian como mucho una vez por minuto.
+        _dashboardWindow.RefreshClock();
+        _dashboardWindow.UpdateSession(
+            Environment.UserName,
+            TimeSpan.FromMilliseconds(Environment.TickCount64));
+    }
+
+    /// <summary>
+    /// Diseño D43 — la lectura de lo que suena. Va aparte de las métricas porque cruza a WinRT y
+    /// puede tardar más que ellas; un fallo aquí no puede dejar sin actualizar el resto del panel.
+    /// </summary>
+    private async Task RefreshMediaAsync()
+    {
+        try
+        {
+            // Con tope de tiempo. Un reproductor que deja de responder no devuelve nunca sus
+            // propiedades, y sin este corte esa espera se quedaría dentro del ciclo de métricas:
+            // el semáforo de refresco no se soltaría y Kohana dejaría de leer el equipo entero por
+            // culpa de una canción.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            var media = await _mediaSessionReader.ReadAsync(timeout.Token);
+            if (!_isClosed)
+            {
+                _dashboardWindow.UpdateMedia(media);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // La lectura tardó demasiado. Se reintenta en el siguiente refresco.
+        }
+        catch (Exception)
+        {
+            // Lo que suena es informativo, igual que las métricas: nunca puede cerrar Kohana.
+        }
+    }
+
+    private async Task RunMediaCommandAsync(Func<Task<bool>> command)
+    {
+        try
+        {
+            await command();
+            await RefreshMediaAsync();
+        }
+        catch (Exception)
+        {
+            // El reproductor puede haberse cerrado justo al pulsar. La siguiente lectura lo dirá.
+        }
     }
 
     private async Task ShowPeekAsync()

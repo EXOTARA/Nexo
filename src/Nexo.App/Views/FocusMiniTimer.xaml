@@ -44,13 +44,13 @@
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
                                Text="Enfoque"
-                               FontSize="12"
+                               FontSize="{DynamicResource FontSizeFootnote}"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="ClockText"
                                Margin="8,0,0,0"
                                VerticalAlignment="Center"
                                Text="00:00"
-                               FontSize="12"
+                               FontSize="{DynamicResource FontSizeFootnote}"
                                Foreground="{DynamicResource BrushTextSecondary}" />
                     <Border x:Name="PausedBadge"
                             Margin="7,0,0,0"
@@ -75,7 +75,7 @@
                     Click="PauseResumeButton_Click">
                 <TextBlock x:Name="PauseResumeGlyph"
                            Text="&#10074;&#10074;"
-                           FontSize="10"
+                           FontSize="{DynamicResource FontSizeCaption}"
                            HorizontalAlignment="Center" />
             </Button>
 
@@ -88,7 +88,7 @@
                     ToolTip="Finalizar sesión de enfoque"
                     AutomationProperties.Name="Finalizar sesión de enfoque desde el mini temporizador"
                     Click="FinishButton_Click">
-                <TextBlock Text="&#10003;" FontSize="12" HorizontalAlignment="Center" />
+                <TextBlock Text="&#10003;" FontSize="{DynamicResource FontSizeFootnote}" HorizontalAlignment="Center" />
             </Button>
         </StackPanel>
     </Border>

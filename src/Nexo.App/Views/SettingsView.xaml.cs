@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Nexo.Core.Ai;
 using Nexo.Core.AdaptiveEngine;
 using Nexo.Core.Flow;
@@ -20,7 +21,9 @@ public partial class SettingsView : UserControl
     public event Action<double>? WidthChanged;
     public event Action<double>? OpacityChanged;
     public event Action<string>? AccentChanged;
+    public event Action<AccentSource>? AccentSourceChanged;
     public event Action<bool>? AnimationsChanged;
+    public event Action<bool>? EdgeRevealChanged;
     public event Action<string, bool>? ModuleVisibilityChanged;
     public event Action<string, bool>? PeekOptionChanged;
     public event Action<bool>? ConversationHistoryChanged;
@@ -63,6 +66,11 @@ public partial class SettingsView : UserControl
     public event Action<AutonomyLevel>? WorkspaceAutonomyLevelChanged;
 
     public event Action<AiProviderKind>? AiProviderChanged;
+
+    // Diseño D25 — la clave viaja al almacén cifrado, nunca a ShellPreferences.
+    public event Action<AiProviderKind, string>? ApiKeyChanged;
+    public event Action<AiProviderKind>? ApiKeyRequested;
+    public event Action<string>? ApiKeyPageRequested;
     public event Action<string>? AiBaseUrlChanged;
     public event Action<string>? AiModelChanged;
     public event Action<string>? AiApiKeyEnvironmentVariableChanged;
@@ -102,6 +110,13 @@ public partial class SettingsView : UserControl
         WidthValueText.Text = $"{preferences.Width:0} px";
         OpacityValueText.Text = $"{preferences.Opacity:P0}";
         AnimationsCheckBox.IsChecked = preferences.AnimationsEnabled;
+        EdgeRevealCheckBox.IsChecked = preferences.EdgeRevealEnabled;
+        ApplyAccentSourceToControls(preferences.AccentSource);
+        HighlightSelectedTheme(preferences.AccentColor);
+        HomeModuleCheckBox.IsChecked = preferences.ShowHomeModule;
+        TasksModuleCheckBox.IsChecked = preferences.ShowTasksModule;
+        FocusModuleCheckBox.IsChecked = preferences.ShowFocusModule;
+        RoutinesModuleCheckBox.IsChecked = preferences.ShowRoutinesModule;
         AudioModuleCheckBox.IsChecked = preferences.ShowAudioModule;
         CaptureModuleCheckBox.IsChecked = preferences.ShowCaptureModule;
         SystemModuleCheckBox.IsChecked = preferences.ShowSystemModule;
@@ -157,6 +172,12 @@ public partial class SettingsView : UserControl
         UpdateAiOptionsAvailability();
 
         _isApplyingPreferences = false;
+
+        // Después de bajar la bandera, no antes: quien atiende este evento vuelve a llamar a
+        // SetStoredApiKeyPresence, que la maneja por su cuenta, y anidarlas la dejaría en falso a
+        // mitad de esta rutina — el resto de asignaciones empezarían a disparar eventos de cambio
+        // como si la persona los hubiera tocado.
+        ApiKeyRequested?.Invoke(preferences.AiProvider);
     }
 
     private void LeftButton_Click(object sender, RoutedEventArgs e)
@@ -203,7 +224,87 @@ public partial class SettingsView : UserControl
     {
         if (sender is Button { Tag: string accent })
         {
+            // AccentChanged primero: su manejador en MainWindow aplica el acento nuevo al recurso
+            // BrushAccent de forma síncrona, y el resaltado de abajo lee ese mismo recurso —si se
+            // invirtiera el orden, la tarjeta se resaltaría con el color de acento saliente.
             AccentChanged?.Invoke(accent);
+            HighlightSelectedTheme(accent);
+        }
+    }
+
+    /// <summary>
+    /// Resalta la tarjeta cuyo acento coincide con el guardado, y solo esa: BorderBrush y
+    /// BorderThickness se fijan directamente en cada botón, ganándole al valor por defecto del
+    /// estilo. Ningún color a mano fuera de la galería coincide con ninguna tarjeta, así que las
+    /// cuatro se quedan sin resaltar —eso es correcto, no un caso sin cubrir.
+    /// </summary>
+    private void HighlightSelectedTheme(string accentHex)
+    {
+        var cards = new (Button Button, string AccentHex)[]
+        {
+            (ThemeSakuraButton, "#8B6CFF"),
+            (ThemeOceanoButton, "#4D8DFF"),
+            (ThemeBosqueButton, "#35C58A"),
+            (ThemeCerezoButton, "#F06CA8")
+        };
+
+        foreach (var (button, cardAccentHex) in cards)
+        {
+            var isSelected = string.Equals(cardAccentHex, accentHex, StringComparison.OrdinalIgnoreCase);
+            button.BorderThickness = new Thickness(isSelected ? 2 : 1);
+            button.BorderBrush = isSelected
+                ? (Brush)FindResource("BrushAccent")
+                : (Brush)FindResource("BrushBorder");
+        }
+    }
+
+    /// <summary>
+    /// Las dos casillas describen un solo ajuste con tres estados, así que se excluyen entre sí:
+    /// marcar una desmarca la otra. Con dos banderas independientes existiría el estado "las dos
+    /// activas", que no significa nada y habría que resolver a la fuerza en algún sitio.
+    /// </summary>
+    private void AccentSourceCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        var source = sender switch
+        {
+            var s when ReferenceEquals(s, AccentFromWallpaperCheckBox) &&
+                       AccentFromWallpaperCheckBox.IsChecked == true => AccentSource.Wallpaper,
+            var s when ReferenceEquals(s, AccentFollowsWindowsCheckBox) &&
+                       AccentFollowsWindowsCheckBox.IsChecked == true => AccentSource.Windows,
+            _ => AccentSource.Manual
+        };
+
+        ApplyAccentSourceToControls(source);
+        AccentSourceChanged?.Invoke(source);
+    }
+
+    private void ApplyAccentSourceToControls(AccentSource source)
+    {
+        // Se guarda y se restaura en vez de bajar la bandera al final: esto se llama también desde
+        // dentro de ApplyPreferences, que ya la tiene levantada, y dejarla en falso a media rutina
+        // haría que el resto de asignaciones dispararan eventos de cambio como si alguien las
+        // hubiera tocado a mano.
+        var wasApplying = _isApplyingPreferences;
+        _isApplyingPreferences = true;
+        AccentFromWallpaperCheckBox.IsChecked = source == AccentSource.Wallpaper;
+        AccentFollowsWindowsCheckBox.IsChecked = source == AccentSource.Windows;
+        _isApplyingPreferences = wasApplying;
+
+        // La galería solo tiene sentido cuando el color lo elige la persona: con el acento atado al
+        // fondo o a Windows, pulsar una tarjeta no haría nada visible y se leería como un fallo.
+        ThemeGalleryPanel.IsEnabled = source == AccentSource.Manual;
+    }
+
+    private void EdgeRevealCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_isApplyingPreferences)
+        {
+            EdgeRevealChanged?.Invoke(EdgeRevealCheckBox.IsChecked == true);
         }
     }
 
@@ -419,6 +520,7 @@ public partial class SettingsView : UserControl
         AiModelTextBox.Text = preset.DefaultModel;
         AiApiKeyVariableTextBox.Text = preset.ApiKeyEnvironmentVariable;
         _isApplyingPreferences = false;
+        DescribeAiProvider(provider);
         UpdateAiOptionsAvailability();
         SetAiConnectionStatus(
             provider == AiProviderKind.Disabled
@@ -463,24 +565,90 @@ public partial class SettingsView : UserControl
         }
 
         AiTestConnectionButton.IsEnabled = !inProgress &&
-            AiDisabledRadioButton.IsChecked != true;
+            SelectedAiProvider != AiProviderKind.Disabled;
         AiTestConnectionButton.Content = inProgress
             ? "Probando…"
             : "Probar conexión";
         ManageModelsButton.IsEnabled = !inProgress &&
-            AiOllamaRadioButton.IsChecked == true;
+            AiProviderDefaults.UsesOllamaProtocol(SelectedAiProvider);
     }
 
-    private void AiProviderRadioButton_Checked(object sender, RoutedEventArgs e)
+    private void AiProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isApplyingPreferences || sender is not RadioButton { Tag: string providerTag })
+        if (_isApplyingPreferences ||
+            AiProviderComboBox.SelectedItem is not AiProviderChoice choice)
         {
             return;
         }
 
-        var provider = ParseAiProvider(providerTag);
-        AiProviderChanged?.Invoke(provider);
-        ApplyAiProviderDefaults(provider);
+        AiProviderChanged?.Invoke(choice.Kind);
+        ApplyAiProviderDefaults(choice.Kind);
+        ApiKeyRequested?.Invoke(choice.Kind);
+    }
+
+    private void AiApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (_isApplyingPreferences)
+        {
+            return;
+        }
+
+        ApiKeyChanged?.Invoke(SelectedAiProvider, AiApiKeyPasswordBox.Password);
+    }
+
+    private void AiGetApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        var url = AiProviderDefaults.Get(SelectedAiProvider).ApiKeyUrl;
+        if (!string.IsNullOrWhiteSpace(url))
+        {
+            ApiKeyPageRequested?.Invoke(url);
+        }
+    }
+
+    private void AiForgetApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        AiApiKeyPasswordBox.Clear();
+        ApiKeyChanged?.Invoke(SelectedAiProvider, string.Empty);
+    }
+
+    /// <summary>
+    /// Muestra si hay clave guardada sin mostrar la clave. El cuadro de contraseña se deja vacío a
+    /// propósito incluso cuando hay una guardada: rellenarlo con la clave real la pondría en pantalla
+    /// —y en cualquier captura— cada vez que alguien abre Ajustes.
+    /// </summary>
+    /// <summary>
+    /// Se usa al cambiar de proveedor o al abrir el apartado: la caja pasa a referirse a la clave
+    /// de otro proveedor, así que se vacía a propósito —nunca se vuelve a mostrar una clave ya
+    /// guardada, ni siquiera la suya propia— y el texto de ayuda dice si ya hay algo guardado.
+    /// </summary>
+    public void SetStoredApiKeyPresence(bool hasKey)
+    {
+        if (AiApiKeyStatusText is null)
+        {
+            return;
+        }
+
+        _isApplyingPreferences = true;
+        AiApiKeyPasswordBox.Clear();
+        _isApplyingPreferences = false;
+
+        UpdateApiKeyStatusText(hasKey);
+    }
+
+    /// <summary>
+    /// Diseño D26 — igual que <see cref="SetStoredApiKeyPresence"/> pero sin vaciar la caja. Antes,
+    /// PasswordChanged llamaba a SetStoredApiKeyPresence nada más guardar cada pulsación, y esa
+    /// llamada limpiaba la caja de inmediato: pegar la clave se veía como si no hiciera nada, y
+    /// escribir algo después —pensando que había fallado— sobrescribía la clave buena con una a
+    /// medias. Mientras la persona está escribiendo, solo se refleja si ya quedó algo guardado; la
+    /// caja se vacía únicamente cuando cambia de proveedor, en SetStoredApiKeyPresence.
+    /// </summary>
+    public void UpdateApiKeyStatusText(bool hasKey)
+    {
+        AiApiKeyStatusText.Text = hasKey
+            ? "Hay una clave guardada en este equipo, cifrada con tu cuenta de Windows. Escribe una nueva solo si quieres reemplazarla."
+            : "Pega aquí tu clave. Se guarda cifrada en este equipo y nunca se escribe en el archivo de ajustes.";
+        AiForgetApiKeyButton.IsEnabled = hasKey;
     }
 
     private void AiTextBox_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
@@ -538,20 +706,99 @@ public partial class SettingsView : UserControl
     private void ResetAppearanceButton_Click(object sender, RoutedEventArgs e) =>
         ResetAppearanceRequested?.Invoke(this, EventArgs.Empty);
 
-    private static AiProviderKind ParseAiProvider(string providerTag)
+    /// <summary>
+    /// Diseño D25 — el selector de proveedor se construye desde
+    /// <see cref="AiProviderDefaults.SelectableOrder"/> en vez de una lista escrita a mano en el
+    /// XAML. Eran cinco botones de radio; ahora hay diez proveedores y la mitad son de nube, así
+    /// que duplicar la lista en la interfaz garantizaba que un día se quedara corta.
+    /// </summary>
+    private sealed record AiProviderChoice(AiProviderKind Kind, string DisplayName);
+
+    private void PopulateAiProviders()
     {
-        return Enum.TryParse<AiProviderKind>(providerTag, ignoreCase: true, out var provider)
-            ? provider
-            : AiProviderKind.Disabled;
+        AiProviderComboBox.ItemsSource = AiProviderDefaults.SelectableOrder
+            .Select(kind => new AiProviderChoice(kind, AiProviderDefaults.Get(kind).DisplayName))
+            .ToArray();
     }
 
     private void ApplyAiProviderSelection(AiProviderKind provider)
     {
-        AiDisabledRadioButton.IsChecked = provider == AiProviderKind.Disabled;
-        AiOpenAiRadioButton.IsChecked = provider == AiProviderKind.OpenAI;
-        AiOllamaRadioButton.IsChecked = provider == AiProviderKind.Ollama;
-        AiLmStudioRadioButton.IsChecked = provider == AiProviderKind.LMStudio;
-        AiCompatibleRadioButton.IsChecked = provider == AiProviderKind.OpenAICompatible;
+        if (AiProviderComboBox.ItemsSource is null)
+        {
+            PopulateAiProviders();
+        }
+
+        AiProviderComboBox.SelectedItem = AiProviderComboBox.Items
+            .OfType<AiProviderChoice>()
+            .FirstOrDefault(choice => choice.Kind == provider);
+
+        DescribeAiProvider(provider);
+    }
+
+    private AiProviderKind SelectedAiProvider =>
+        AiProviderComboBox?.SelectedItem is AiProviderChoice choice
+            ? choice.Kind
+            : AiProviderKind.Disabled;
+
+    /// <summary>
+    /// Explica el proveedor antes de que alguien lo elija: dónde corre y qué cuesta. Son las dos
+    /// preguntas que decidían si el equipo de una persona iba a arrastrarse, y hasta ahora la
+    /// interfaz no contestaba ninguna de las dos — solo mostraba el nombre.
+    /// </summary>
+    private void DescribeAiProvider(AiProviderKind provider)
+    {
+        if (AiProviderSummaryText is null)
+        {
+            return;
+        }
+
+        var preset = AiProviderDefaults.Get(provider);
+
+        var location = preset.Location switch
+        {
+            AiProviderLocation.Local => "En tu equipo",
+            AiProviderLocation.Cloud => "En la nube",
+            _ => string.Empty
+        };
+
+        var cost = preset.Cost switch
+        {
+            AiProviderCost.FreeOnDevice => "gratis, sin cuenta",
+            AiProviderCost.FreeTier => "tiene capa gratuita",
+            AiProviderCost.Paid => "de pago por uso",
+            _ => string.Empty
+        };
+
+        var badge = (location, cost) switch
+        {
+            ("", "") => string.Empty,
+            (_, "") => location,
+            ("", _) => cost,
+            _ => $"{location} · {cost}"
+        };
+
+        AiProviderBadgeText.Text = badge;
+
+        // "Sin inteligencia artificial" no corre en ningún sitio ni cuesta nada, así que no tiene
+        // etiqueta. Un TextBlock vacío sigue ocupando el alto de una línea, y ese hueco en blanco
+        // sobre el texto se lee como un fallo de maquetación.
+        AiProviderBadgeText.Visibility = string.IsNullOrEmpty(badge)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        AiProviderSummaryText.Text = preset.Summary;
+
+        AiApiKeyPanel.Visibility = preset.RequiresApiKey
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        AiGetApiKeyButton.IsEnabled = !string.IsNullOrWhiteSpace(preset.ApiKeyUrl);
+
+        AiBaseUrlHintText.Text = AiProviderDefaults.IsManagedByKohana(provider)
+            ? "La IA local de Kohana siempre vive en esta dirección y la administra la propia aplicación; cambiarla aquí no tiene efecto."
+            : $"Dirección por omisión de {preset.DisplayName}: {preset.BaseUrl}";
+
+        AiBaseUrlTextBox.IsEnabled = provider != AiProviderKind.Disabled &&
+            !AiProviderDefaults.IsManagedByKohana(provider);
     }
 
     private void HardwarePerformanceModeRadioButton_Checked(object sender, RoutedEventArgs e)
@@ -586,13 +833,17 @@ public partial class SettingsView : UserControl
             return;
         }
 
-        var enabled = AiDisabledRadioButton.IsChecked != true;
-        AiBaseUrlTextBox.IsEnabled = enabled;
+        var provider = SelectedAiProvider;
+        var enabled = provider != AiProviderKind.Disabled;
+
+        // La dirección la fija DescribeAiProvider: con la IA local de Kohana no se puede escribir,
+        // porque el motor solo existe donde la propia aplicación lo pone.
         AiModelTextBox.IsEnabled = enabled;
         AiApiKeyVariableTextBox.IsEnabled = enabled;
         ShareSystemMetricsWithAiCheckBox.IsEnabled = enabled;
         AiTestConnectionButton.IsEnabled = enabled;
-        ManageModelsButton.IsEnabled = enabled && AiOllamaRadioButton.IsChecked == true;
+        ManageModelsButton.IsEnabled = enabled &&
+            AiProviderDefaults.UsesOllamaProtocol(provider);
     }
 
     private void WakeWordEnabledCheckBox_Changed(object sender, RoutedEventArgs e)

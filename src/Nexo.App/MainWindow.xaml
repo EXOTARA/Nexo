@@ -77,15 +77,26 @@
                               Opacity="0.4"
                               Color="Black" />
         </Border.Effect>
+        <Border.RenderTransformOrigin>0.5,0.5</Border.RenderTransformOrigin>
         <Border.RenderTransform>
-            <TranslateTransform x:Name="ShellTranslate" X="24" />
+            <TransformGroup>
+                <ScaleTransform x:Name="ShellScale" ScaleX="1" ScaleY="1" />
+                <TranslateTransform x:Name="ShellTranslate" X="24" />
+            </TransformGroup>
         </Border.RenderTransform>
 
         <Grid ClipToBounds="True">
-            <Grid Margin="13">
+            <Grid x:Name="ShellLayoutGrid" Margin="13">
+                <!--
+                    Las dos columnas son intercambiables: cuando Kohana se acopla al borde izquierdo
+                    de la pantalla, el rail de navegación pasa a la columna 1 y el contenido a la 0.
+                    Antes el rail estaba clavado en la columna 0 y quedaba en el lado interior,
+                    lejos del borde por el que la ventana aparece — el menú se quedaba donde no
+                    estaba Kohana. Los anchos también se intercambian; por eso ninguno es fijo aquí.
+                -->
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition x:Name="ShellFirstColumn" Width="Auto" />
+                    <ColumnDefinition x:Name="ShellSecondColumn" Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <Border x:Name="SideRailBorder"
@@ -107,7 +118,7 @@
                                           Color="Black" />
                     </Border.Effect>
 
-                    <Grid x:Name="SideRailContentGrid" Width="52" HorizontalAlignment="Left">
+                    <Grid x:Name="SideRailContentGrid" Width="52" HorizontalAlignment="Left" ClipToBounds="True">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -119,12 +130,13 @@
                                 ToolTip="Expandir o contraer navegación"
                                 AutomationProperties.Name="Expandir o contraer navegación"
                                 Click="SideRailToggleButton_Click">
-                            <Grid>
+                            <Grid x:Name="SideRailToggleGrid">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="46" />
-                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition x:Name="SideRailToggleIconColumn" Width="46" />
+                                    <ColumnDefinition x:Name="SideRailToggleTextColumn" Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Border Width="42"
+                                <Border x:Name="SideRailToggleIcon"
+                                        Width="42"
                                         Height="42"
                                         HorizontalAlignment="Left"
                                         Background="{DynamicResource BrushAccentSoft}"
@@ -161,7 +173,7 @@
                                             VerticalAlignment="Center"
                                             Visibility="Collapsed">
                                     <TextBlock Text="Kohana"
-                                               FontSize="15"
+                                               FontSize="{DynamicResource FontSizeBody}"
                                                FontWeight="SemiBold" />
                                     <TextBlock Text="Tu Windows, en flor"
                                                Margin="0,2,0,0"
@@ -188,7 +200,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="HomeNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                     <Path Grid.Column="1" x:Name="HomeNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaHome}" />
-                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="HomeNavLabel" Text="Inicio" FontSize="14" Visibility="Collapsed" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="HomeNavLabel" Text="Inicio" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
@@ -206,7 +218,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="AssistantNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                     <Path Grid.Column="1" x:Name="AssistantNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaAssistant}" />
-                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AssistantNavLabel" Text="Chat" FontSize="14" Visibility="Collapsed" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AssistantNavLabel" Text="Chat" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
@@ -224,7 +236,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="TasksNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                     <Path Grid.Column="1" x:Name="TasksNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaTasks}" />
-                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="TasksNavLabel" Text="Hoy" FontSize="14" Visibility="Collapsed" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="TasksNavLabel" Text="Hoy" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
@@ -242,7 +254,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="FocusNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                     <Path Grid.Column="1" x:Name="FocusNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaFocus}" />
-                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="FocusNavLabel" Text="Enfoque" FontSize="14" Visibility="Collapsed" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="FocusNavLabel" Text="Enfoque" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
@@ -260,7 +272,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="RoutinesNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                     <Path Grid.Column="1" x:Name="RoutinesNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaRoutines}" />
-                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="RoutinesNavLabel" Text="Rutinas" FontSize="14" Visibility="Collapsed" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="RoutinesNavLabel" Text="Rutinas" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
@@ -278,7 +290,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="AudioNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                     <Path Grid.Column="1" x:Name="AudioNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaAudio}" />
-                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AudioNavLabel" Text="Audio" FontSize="14" Visibility="Collapsed" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AudioNavLabel" Text="Audio" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
@@ -296,7 +308,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="CaptureNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                     <Path Grid.Column="1" x:Name="CaptureNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaCapture}" />
-                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="CaptureNavLabel" Text="Captura" FontSize="14" Visibility="Collapsed" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="CaptureNavLabel" Text="Captura" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
 
@@ -314,7 +326,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="SystemNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                     <Path Grid.Column="1" x:Name="SystemNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaSystem}" />
-                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SystemNavLabel" Text="Sistema" FontSize="14" Visibility="Collapsed" />
+                                    <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SystemNavLabel" Text="Sistema" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
                         </StackPanel>
@@ -334,13 +346,13 @@
                                 </Grid.ColumnDefinitions>
                                 <Border x:Name="SettingsNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
                                 <Path Grid.Column="1" x:Name="SettingsNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaSettings}" />
-                                <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SettingsNavLabel" Text="Personalizar" FontSize="14" Visibility="Collapsed" />
+                                <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SettingsNavLabel" Text="Personalizar" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                             </Grid>
                         </Button>
                     </Grid>
                 </Border>
 
-                <Grid Grid.Column="1" Margin="13,2,2,2">
+                <Grid x:Name="ShellContentGrid" Grid.Column="1" Margin="13,2,2,2">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -377,7 +389,7 @@
                                         <TextBlock x:Name="WakeWordIndicatorText"
                                                    Text="Kohana atenta"
                                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                                   FontSize="10.5"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
                                                    FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>
@@ -400,7 +412,7 @@
                                         <TextBlock x:Name="ResourceModeText"
                                                    Text="Equipo ocupado"
                                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                                   FontSize="10.5"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
                                                    FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>
@@ -421,7 +433,7 @@
                                                  Fill="{DynamicResource BrushAccent}" />
                                         <TextBlock Text="Dictando"
                                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                                   FontSize="10.5"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
                                                    FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>
@@ -442,7 +454,7 @@
                                                  Fill="{DynamicResource BrushAccent}" />
                                         <TextBlock Text="Mirando"
                                                    Foreground="{DynamicResource BrushTextSecondary}"
-                                                   FontSize="10.5"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
                                                    FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Border>

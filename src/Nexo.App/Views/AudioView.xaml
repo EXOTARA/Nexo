@@ -99,7 +99,7 @@
                     <TextBlock x:Name="EmptyStateTitle"
                                Text="SIN SESIONES ACTIVAS"
                                Foreground="{DynamicResource BrushTextSecondary}"
-                               FontSize="11.5"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                FontWeight="SemiBold" />
                 </Border>
                 <TextBlock x:Name="EmptyStateDetail"

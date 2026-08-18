@@ -2,23 +2,70 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <!--
-        Kohana Design System — Tipografía (Fundación 0.1).
+        Kohana Design System — Tipografía (Fundación 0.2, Diseño D45).
 
-        Escala de tamaños que refleja EXACTAMENTE los literales de FontSize ya usados en las
-        vistas actuales, para que migrar a estos tokens no cambie la apariencia. La familia
-        primaria es la nativa de Windows (Segoe UI), el default efectivo del shell hoy.
+        Nueve niveles, con nombres que dicen para qué sirve cada uno y no cómo de grande es. Es la
+        parte que se toma de cómo organiza Apple: en su escala no eliges «14», eliges «cuerpo», y
+        por eso dos pantallas distintas de la misma aplicación se parecen sin que nadie lo vigile.
+
+        La escala anterior tenía once tamaños entre 10.5 y 22, con saltos de medio punto: 11, 11.5,
+        12, 12.5, 13, 13.5... Medio punto no se ve, así que no creaba jerarquía — solo daba
+        libertad para inventar un tamaño nuevo cada vez. Esta tiene menos niveles y más distancia
+        entre ellos, que es lo que hace que un título parezca un título.
+
+        El suelo sube a 11.5: por debajo de eso, en una pantalla normal a distancia de escritorio,
+        el texto deja de leerse y pasa a adivinarse. Los 10.5 de antes se usaban en quince sitios.
     -->
     <FontFamily x:Key="FontFamilyPrimary">Segoe UI Variable Text, Segoe UI</FontFamily>
 
-    <sys:Double x:Key="FontSizeMicro">10.5</sys:Double>
+    <!-- La cifra grande de un reloj o de un medidor. -->
+    <sys:Double x:Key="FontSizeDisplay">40</sys:Double>
+
+    <!-- El nombre de la pantalla. -->
+    <sys:Double x:Key="FontSizeTitle1">24</sys:Double>
+
+    <!-- Cabecera de una sección o el título de algo que suena. -->
+    <sys:Double x:Key="FontSizeTitle2">19</sys:Double>
+
+    <!-- Título de tarjeta. -->
+    <sys:Double x:Key="FontSizeTitle3">16</sys:Double>
+
+    <!-- Cuerpo. El tamaño por omisión de todo lo que se lee de verdad. -->
+    <sys:Double x:Key="FontSizeBody">14</sys:Double>
+
+    <!-- Cuerpo secundario: apoya al de arriba sin competir. -->
+    <sys:Double x:Key="FontSizeCallout">13</sys:Double>
+
+    <!-- Detalle dentro de una tarjeta. -->
+    <sys:Double x:Key="FontSizeFootnote">12</sys:Double>
+
+    <!-- Etiqueta corta, chip, unidad. -->
+    <sys:Double x:Key="FontSizeCaption">11.5</sys:Double>
+
+    <!-- Encabezado de columna en mayúsculas, donde el espaciado hace el trabajo. -->
+    <sys:Double x:Key="FontSizeOverline">11.5</sys:Double>
+
+    <!--
+        Interlineado. WPF no lo deriva del tamaño, así que sin esto cada bloque de texto usa el
+        alto natural de la fuente y dos párrafos de distinto tamaño quedan con distinto ritmo. La
+        proporción baja al crecer el tamaño: un título necesita menos aire relativo que un párrafo.
+    -->
+    <sys:Double x:Key="LineHeightDisplay">38</sys:Double>
+    <sys:Double x:Key="LineHeightTitle">26</sys:Double>
+    <sys:Double x:Key="LineHeightBody">20</sys:Double>
+    <sys:Double x:Key="LineHeightCompact">17</sys:Double>
+
+    <!--
+        Alias de la escala anterior. Se conservan porque las vistas los usan en decenas de sitios y
+        migrarlos todos de golpe sería un cambio a ciegas; apuntan al nivel nuevo que les
+        corresponde, así que adoptar la escala nueva no exige tocarlos primero.
+    -->
+    <sys:Double x:Key="FontSizeMicro">11.5</sys:Double>
     <sys:Double x:Key="FontSizeXSmall">11.5</sys:Double>
     <sys:Double x:Key="FontSizeSmall">12</sys:Double>
-    <sys:Double x:Key="FontSizeCaption">12.5</sys:Double>
     <sys:Double x:Key="FontSizeBase">13</sys:Double>
-    <sys:Double x:Key="FontSizeBody">14</sys:Double>
-    <sys:Double x:Key="FontSizeBodyLarge">15</sys:Double>
+    <sys:Double x:Key="FontSizeBodyLarge">16</sys:Double>
     <sys:Double x:Key="FontSizeSubtitle">16</sys:Double>
-    <sys:Double x:Key="FontSizeTitle">18</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">19</sys:Double>
     <sys:Double x:Key="FontSizeTitleLarge">19</sys:Double>
-    <sys:Double x:Key="FontSizeDisplay">22</sys:Double>
 </ResourceDictionary>

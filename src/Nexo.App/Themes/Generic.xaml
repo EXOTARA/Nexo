@@ -1,0 +1,261 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Nexo.App.Views.Controls">
+    <!--
+        Plantillas por omisión de los controles propios de Kohana. WPF busca este archivo por
+        convención (Themes/Generic.xaml) cuando un control declara su propio estilo con
+        DefaultStyleKey, así que el nombre y la ubicación no son negociables.
+
+        Los colores se toman con DynamicResource del tema de la aplicación: este archivo no define
+        paleta propia, solo forma y comportamiento.
+    -->
+
+    <Style TargetType="{x:Type controls:SettingsSection}">
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:SettingsSection}">
+                    <Border x:Name="Card"
+                            Background="{DynamicResource BrushSurface}"
+                            BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="1"
+                            CornerRadius="16"
+                            SnapsToDevicePixels="True">
+                        <StackPanel>
+                            <!--
+                                La cabecera entera es el objetivo pulsable, no solo el chevrón: un
+                                blanco de 14 píxeles obliga a apuntar, y apuntar es justo lo que
+                                sobra cuando hay quince apartados que revisar.
+
+                                El contenido de la cabecera se declara aquí y no dentro de la
+                                plantilla del ToggleButton, porque lo de dentro de esa plantilla
+                                vive en otro ámbito de nombres y el código no podría encontrar
+                                PART_ChevronRotation para animarlo.
+                            -->
+                            <ToggleButton x:Name="HeaderToggle"
+                                          Cursor="Hand"
+                                          HorizontalContentAlignment="Stretch"
+                                          IsChecked="{Binding IsOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                          AutomationProperties.Name="{TemplateBinding Header}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="HeaderSurface"
+                                                Padding="15,13"
+                                                Background="Transparent"
+                                                CornerRadius="15">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="HeaderSurface" Property="Background"
+                                                        Value="{DynamicResource BrushSurfaceHover}" />
+                                            </Trigger>
+                                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                                <Setter TargetName="HeaderSurface" Property="Background"
+                                                        Value="{DynamicResource BrushSurfaceHover}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Path Grid.Column="0"
+                                          Width="7"
+                                          Height="11"
+                                          Margin="2,0,13,0"
+                                          VerticalAlignment="Center"
+                                          Data="M0,0 L6,5.5 L0,11"
+                                          Stretch="Fill"
+                                          Stroke="{DynamicResource BrushAccent}"
+                                          StrokeThickness="1.9"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          RenderTransformOrigin="0.5,0.5">
+                                        <Path.RenderTransform>
+                                            <RotateTransform x:Name="PART_ChevronRotation" Angle="0" />
+                                        </Path.RenderTransform>
+                                    </Path>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{TemplateBinding Header}"
+                                                   FontSize="{DynamicResource FontSizeBody}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource BrushTextPrimary}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock x:Name="HeaderDescription"
+                                                   Margin="0,3,0,0"
+                                                   Text="{TemplateBinding Description}"
+                                                   FontSize="{DynamicResource FontSizeFootnote}"
+                                                   Foreground="{DynamicResource BrushTextSecondary}"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </ToggleButton>
+
+                            <!--
+                                ClipToBounds no es decorativo: durante la animación de altura el
+                                contenido mide más que su contenedor, y sin recorte se desbordaría
+                                sobre la sección de abajo.
+                            -->
+                            <Border x:Name="PART_ContentHost"
+                                    Padding="15,2,15,16"
+                                    ClipToBounds="True"
+                                    Opacity="0"
+                                    Visibility="Collapsed">
+                                <ContentPresenter />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsOpen" Value="True">
+                            <Setter TargetName="Card" Property="Background"
+                                    Value="{DynamicResource BrushSurfaceRaised}" />
+                            <Setter TargetName="Card" Property="BorderBrush"
+                                    Value="{DynamicResource BrushAccentBorder}" />
+                        </Trigger>
+                        <!--
+                            Sin descripción no se deja el hueco vacío: una línea en blanco bajo el
+                            título desalinea toda la lista de secciones.
+                        -->
+                        <Trigger Property="Description" Value="">
+                            <Setter TargetName="HeaderDescription" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Diseño D42 — la cápsula de una métrica de rendimiento.
+
+        El medidor son dos arcos superpuestos: uno completo y apagado que marca el recorrido, y
+        encima el que mide. Sin el de debajo, un 5% se ve como una marca suelta flotando y no se
+        entiende respecto a qué es poco.
+    -->
+    <Style TargetType="{x:Type controls:MetricCapsule}">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Margin" Value="4" />
+        <Setter Property="GaugeSize" Value="52" />
+        <Setter Property="GaugeThickness" Value="5" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:MetricCapsule}">
+                    <Border Background="{DynamicResource BrushSurface}"
+                            BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource RadiusLarge}"
+                            Padding="14,13">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Width="15"
+                                          Height="15"
+                                          Stretch="Uniform"
+                                          VerticalAlignment="Center"
+                                          Stroke="{DynamicResource BrushAccent}"
+                                          StrokeThickness="1.7"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Data="{TemplateBinding IconData}" />
+                                    <TextBlock Margin="8,0,0,0"
+                                               VerticalAlignment="Center"
+                                               FontSize="{DynamicResource FontSizeCallout}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource BrushTextPrimary}"
+                                               Text="{TemplateBinding Title}" />
+                                </StackPanel>
+
+                                <TextBlock Margin="0,5,0,0"
+                                           FontSize="{DynamicResource FontSizeCaption}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource BrushTextSecondary}"
+                                           Text="{TemplateBinding Subtitle}" />
+
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="{DynamicResource FontSizeCaption}"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource BrushTextTertiary}"
+                                           Text="{TemplateBinding Detail}" />
+                            </StackPanel>
+
+                            <Grid Grid.Column="1"
+                                  Width="{TemplateBinding GaugeSize}"
+                                  Height="{TemplateBinding GaugeSize}"
+                                  Margin="12,0,0,0"
+                                  VerticalAlignment="Center">
+                                <Ellipse Stroke="{DynamicResource BrushSurfaceHover}"
+                                         StrokeThickness="{TemplateBinding GaugeThickness}"
+                                         Margin="0" />
+                                <Path x:Name="PART_Arc"
+                                      Stroke="{DynamicResource BrushAccent}"
+                                      StrokeThickness="{TemplateBinding GaugeThickness}"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round" />
+                                <TextBlock x:Name="PART_Readout"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="{DynamicResource FontSizeFootnote}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource BrushTextPrimary}"
+                                           Text="—" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Diseño D43 — el anillo pequeño del panel. Mismo lenguaje que la cápsula grande —dos arcos,
+        el apagado marcando el recorrido— pero con el icono en el centro en vez de la cifra.
+    -->
+    <Style TargetType="{x:Type controls:IconRing}">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Width" Value="52" />
+        <Setter Property="Height" Value="52" />
+        <Setter Property="GaugeSize" Value="46" />
+        <Setter Property="GaugeThickness" Value="4" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:IconRing}">
+                    <Grid Width="{TemplateBinding GaugeSize}" Height="{TemplateBinding GaugeSize}">
+                        <Ellipse Stroke="{DynamicResource BrushSurfaceHover}"
+                                 StrokeThickness="{TemplateBinding GaugeThickness}" />
+                        <Path x:Name="PART_Arc"
+                              Stroke="{DynamicResource BrushAccent}"
+                              StrokeThickness="{TemplateBinding GaugeThickness}"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round" />
+                        <Path Width="17"
+                              Height="17"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Stretch="Uniform"
+                              Stroke="{DynamicResource BrushTextSecondary}"
+                              StrokeThickness="1.6"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Data="{TemplateBinding IconData}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

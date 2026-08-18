@@ -66,32 +66,32 @@
                     <TextBlock Text="▣"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               FontSize="17" />
+                               FontSize="{DynamicResource FontSizeTitle3}" />
                 </Border>
 
                 <StackPanel Grid.Column="1"
                             Margin="13,0,12,0"
                             VerticalAlignment="Center">
                     <TextBlock Text="Analizar una ventana"
-                               FontSize="15"
+                               FontSize="{DynamicResource FontSizeBody}"
                                FontWeight="SemiBold" />
                     <TextBlock Margin="0,3,0,0"
                                Text="Elige una ventana o monitor y confirma antes de compartir."
                                Foreground="#D8FFFFFF"
-                               FontSize="12"
+                               FontSize="{DynamicResource FontSizeFootnote}"
                                TextWrapping="Wrap" />
                 </StackPanel>
 
                 <TextBlock Grid.Column="2"
                            Text="→"
                            VerticalAlignment="Center"
-                           FontSize="18" />
+                           FontSize="{DynamicResource FontSizeTitle2}" />
             </Grid>
         </Button>
 
         <StackPanel Grid.Row="2" Margin="0,20,0,0">
             <TextBlock Text="Más formas de capturar"
-                       FontSize="12"
+                       FontSize="{DynamicResource FontSizeFootnote}"
                        FontWeight="SemiBold" />
 
             <Grid Margin="0,10,0,0">
@@ -114,7 +114,7 @@
                         <TextBlock Margin="0,9,0,0"
                                    Text="PRÓXIMAMENTE"
                                    Foreground="{DynamicResource BrushAccent}"
-                                   FontSize="10.5"
+                                   FontSize="{DynamicResource FontSizeCaption}"
                                    FontWeight="SemiBold" />
                     </StackPanel>
                 </Border>
@@ -135,7 +135,7 @@
                         <TextBlock Margin="0,9,0,0"
                                    Text="PRÓXIMAMENTE"
                                    Foreground="{DynamicResource BrushAccent}"
-                                   FontSize="10.5"
+                                   FontSize="{DynamicResource FontSizeCaption}"
                                    FontWeight="SemiBold" />
                     </StackPanel>
                 </Border>
@@ -146,7 +146,7 @@
                 Margin="0,18,0,0"
                 Padding="12,10"
                 Background="#381A1D26"
-                CornerRadius="12">
+                CornerRadius="{DynamicResource RadiusMedium}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -158,7 +158,7 @@
                 <TextBlock Grid.Column="1"
                            Text="Kohana no captura nada hasta que confirmas la selección."
                            Foreground="{DynamicResource BrushTextSecondary}"
-                           FontSize="12"
+                           FontSize="{DynamicResource FontSizeFootnote}"
                            TextWrapping="Wrap" />
             </Grid>
         </Border>
