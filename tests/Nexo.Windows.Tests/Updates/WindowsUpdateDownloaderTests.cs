@@ -124,6 +124,41 @@ public sealed class WindowsUpdateDownloaderTests : IDisposable
     }
 
     [Fact]
+    public async Task PackagesFromFailedAttemptsAreCleanedUp()
+    {
+        // El guión borra el suyo al terminar bien, pero un intento que no llega al final no borra
+        // nada — y cada uno pesa cien megas. Tras las dos primeras pruebas en vivo quedaron ciento
+        // noventa megas en el disco sin que nadie los reclamara.
+        Directory.CreateDirectory(_folder);
+        var stale = Path.Combine(_folder, "Kohana-0.0.1-beta.zip");
+        var halfDone = Path.Combine(_folder, "kohana-update-abc123.part");
+        await File.WriteAllTextAsync(stale, "intento anterior");
+        await File.WriteAllTextAsync(halfDone, "a medias");
+
+        var content = Encoding.UTF8.GetBytes("la versión nueva");
+        var result = await DownloaderFor(content).DownloadAsync(ManifestFor(content), _folder);
+
+        Assert.True(result.Ok, result.Problem);
+        Assert.False(File.Exists(stale));
+        Assert.False(File.Exists(halfDone));
+    }
+
+    [Fact]
+    public async Task SomethingElseInTheFolderIsLeftAlone()
+    {
+        // La carpeta es de Kohana, pero borrar por comodín lo que haya dentro es cómo se acaba
+        // llevándose algo que no era tuyo. El registro del ayudante vive ahí mismo.
+        Directory.CreateDirectory(_folder);
+        var log = Path.Combine(_folder, "ultima-actualizacion.log");
+        await File.WriteAllTextAsync(log, "lo que pasó la última vez");
+
+        var content = Encoding.UTF8.GetBytes("la versión nueva");
+        await DownloaderFor(content).DownloadAsync(ManifestFor(content), _folder);
+
+        Assert.True(File.Exists(log));
+    }
+
+    [Fact]
     public async Task ProgressIsReported()
     {
         var content = new byte[128 * 1024];
