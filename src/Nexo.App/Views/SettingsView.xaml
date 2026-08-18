@@ -1047,6 +1047,21 @@
                                        TextWrapping="Wrap"
                                        Style="{StaticResource MutedTextStyle}" />
 
+                            <!--
+                                Diseño D66 — se dice qué carpeta se va a sustituir.
+
+                                Kohana se actualiza donde esté corriendo, que no siempre es donde uno
+                                cree: en la primera prueba real se actualizó una copia suelta y no la
+                                instalación, y desde la pantalla no había forma de saberlo. Es la
+                                acción más destructiva que hace la aplicación; decir en voz alta sobre
+                                qué la hace cuesta una línea.
+                            -->
+                            <TextBlock x:Name="UpdateTargetText"
+                                       Margin="0,10,0,0"
+                                       TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource BrushTextTertiary}" />
+
                             <ProgressBar x:Name="UpdateProgressBar"
                                          Height="4"
                                          Margin="0,14,0,0"

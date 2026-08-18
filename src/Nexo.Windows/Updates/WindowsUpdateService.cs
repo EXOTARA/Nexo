@@ -176,7 +176,8 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
                 UpdateHelperScript.Build(
                     paths,
                     Environment.ProcessId,
-                    Path.Combine(paths.Install, "Kohana.exe")),
+                    Path.Combine(paths.Install, "Kohana.exe"),
+                    download.PackagePath),
                 cancellationToken);
 
             return (true, helperPath, string.Empty);

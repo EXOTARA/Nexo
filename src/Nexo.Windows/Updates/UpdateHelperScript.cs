@@ -32,14 +32,26 @@ public static class UpdateHelperScript
     /// Se rinde en vez de forzar el cierre: matar el proceso podría interrumpir a Kohana mientras
     /// guarda ajustes o una conversación, y perder eso por instalar una versión nueva es un mal
     /// negocio. Si no se cierra, la actualización se queda para la próxima.
+    ///
+    /// **Eran treinta segundos y no bastaban.** Kohana no se cierra de golpe: antes para el runtime
+    /// de IA que administra, que es un proceso aparte y se toma su tiempo. En la primera prueba
+    /// real el ayudante llegó al final de la espera con Kohana aún viva, se retiró sin tocar nada
+    /// —que es lo correcto— y el resultado visible fue que Kohana se cerró y no volvió.
+    ///
+    /// Tres minutos cubren un apagado lento sin dejar el ayudante colgado si algo se atasca de
+    /// verdad. Esperar de más no cuesta nada: nadie está mirando, porque Kohana ya se cerró.
     /// </summary>
-    private const int WaitForExitSeconds = 30;
+    private const int WaitForExitSeconds = 180;
 
     /// <summary>
     /// Genera el guion. Todo lo que decide qué carpetas se tocan viene ya resuelto y comprobado por
     /// <see cref="UpdateSwapPathPolicy"/>: aquí no se decide nada, solo se ejecuta.
     /// </summary>
-    public static string Build(UpdateSwapPaths paths, int kohanaProcessId, string executableToLaunch)
+    public static string Build(
+        UpdateSwapPaths paths,
+        int kohanaProcessId,
+        string executableToLaunch,
+        string packagePath = "")
     {
         if (!paths.IsSafe)
         {
@@ -49,10 +61,9 @@ public static class UpdateHelperScript
 
         var script = new StringBuilder();
 
-        script.AppendLine("# Ayudante de actualización de Kohana.");
-        script.AppendLine("# Lo genera Kohana y se borra solo al terminar. Puedes leerlo entero:");
-        script.AppendLine("# espera a que Kohana se cierre, aparta la carpeta actual, pone la nueva");
-        script.AppendLine("# en su sitio y vuelve a abrir. Si algo falla, devuelve la anterior.");
+        script.AppendLine("# Ayudante de actualización de Kohana. Lo genera Kohana y puedes leerlo entero:");
+        script.AppendLine("# espera a que Kohana se cierre, aparta la carpeta actual, pone la nueva en su");
+        script.AppendLine("# sitio y vuelve a abrir. Si algo falla, devuelve la anterior a donde estaba.");
         script.AppendLine("$ErrorActionPreference = 'Stop'");
         script.AppendLine();
 
@@ -60,6 +71,7 @@ public static class UpdateHelperScript
         script.AppendLine($"$staged = {Quote(paths.Staged)}");
         script.AppendLine($"$previous = {Quote(paths.Previous)}");
         script.AppendLine($"$exe = {Quote(executableToLaunch)}");
+        script.AppendLine($"$paquete = {Quote(packagePath)}");
         script.AppendLine($"$pid_ = {kohanaProcessId}");
         script.AppendLine();
 
@@ -122,6 +134,17 @@ public static class UpdateHelperScript
         script.AppendLine();
 
         script.AppendLine("if (Test-Path -LiteralPath $exe) { Start-Process -FilePath $exe }");
+        script.AppendLine();
+
+        // El paquete descargado se borra al terminar. Son cien megas por actualización, y tras la
+        // primera prueba real se quedaron en disco porque nadie los limpiaba.
+        //
+        // El guión **no** se borra a sí mismo, aunque la cabecera lo llegara a prometer: un guión no
+        // puede borrarse mientras se ejecuta, y las maniobras para conseguirlo —lanzar otro proceso
+        // que espere y lo borre— añaden una pieza frágil a la parte que menos puede permitirse una.
+        // Ocupa dos kilobytes, se sobrescribe en la siguiente actualización, y dejarlo tiene una
+        // ventaja: si algo sale mal, queda ahí para poder leerlo.
+        script.AppendLine("Remove-Item -LiteralPath $paquete -Force -ErrorAction SilentlyContinue");
         script.AppendLine("exit 0");
 
         return script.ToString();

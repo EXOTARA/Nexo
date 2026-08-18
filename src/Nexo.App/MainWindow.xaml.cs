@@ -5148,12 +5148,11 @@ public partial class MainWindow : Window
         _settingsView.SetUpdateStatus(
             "Kohana se va a cerrar para terminar de instalarse…", busy: true);
 
-        // Se sale de verdad, no se esconde en la bandeja: el ayudante espera a que este proceso
-        // muera para poder mover la carpeta, y una Kohana escondida sigue teniendo sus archivos
-        // abiertos.
-        _allowExit = true;
-        _exitRequested = true;
-        Application.Current.Shutdown();
+        // Se sale por la puerta de siempre y no llamando a Shutdown a pelo, y esto lo enseñó la
+        // primera prueba real: RequestExit para antes el runtime de IA administrado, y saltarse ese
+        // paso deja un proceso hijo vivo y a Kohana sin morir del todo. El ayudante esperaba, no la
+        // veía morir, y se retiraba sin tocar nada — desde fuera, Kohana se cerraba y no volvía.
+        RequestExit();
     }
 
     private void SkipOfferedUpdate()

@@ -1485,7 +1485,10 @@ public partial class SettingsView : UserControl
     /// Las notas de la publicación se enseñan tal cual las escribió quien publicó: son la única
     /// respuesta a «qué cambia si instalo esto», y resumirlas por mi cuenta sería inventar.
     /// </summary>
-    public void ShowUpdateOffer(string? version, string? notes)
+    public void ShowUpdateOffer(string? version, string? notes) =>
+        ShowUpdateOffer(version, notes, targetFolder: null);
+
+    public void ShowUpdateOffer(string? version, string? notes, string? targetFolder)
     {
         if (string.IsNullOrWhiteSpace(version))
         {
@@ -1497,6 +1500,10 @@ public partial class SettingsView : UserControl
         UpdateOfferNotesText.Text = string.IsNullOrWhiteSpace(notes)
             ? "Sin notas de la publicación."
             : notes.Trim();
+
+        UpdateTargetText.Text = string.IsNullOrWhiteSpace(targetFolder)
+            ? string.Empty
+            : $"Se reemplazará la carpeta: {targetFolder}";
 
         UpdateOfferNotesText.Visibility = Visibility.Visible;
         UpdateProgressBar.Visibility = Visibility.Collapsed;
