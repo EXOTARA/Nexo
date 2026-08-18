@@ -323,7 +323,6 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0" Margin="-6,0">
@@ -419,173 +418,66 @@
                                            Foreground="{DynamicResource BrushTextSecondary}" />
                             </StackPanel>
 
-                            <Button x:Name="PanelMediaPlayButton"
-                                    Grid.Column="2"
-                                    Width="38"
-                                    Height="38"
-                                    Margin="0"
-                                    IsEnabled="False"
-                                    Style="{StaticResource MediaControlButtonStyle}"
-                                    Click="MediaPlayPauseButton_Click"
-                                    ToolTip="Reproducir o pausar"
-                                    AutomationProperties.Name="Reproducir o pausar">
-                                <Path x:Name="PanelMediaPlayIcon"
-                                      Width="15"
-                                      Height="15"
-                                      Stretch="Uniform"
-                                      Fill="{DynamicResource BrushTextPrimary}"
-                                      Data="{StaticResource IconMediaPlay}" />
-                            </Button>
+<!--
+                                Diseño D61 — los tres controles, como en la referencia. Con solo
+                                reproducir/pausar había que abrir la pestaña Media para cambiar de
+                                canción, que es el gesto más frecuente de los tres.
+                            -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="PanelMediaPreviousButton"
+                                        Width="30"
+                                        Height="30"
+                                        Margin="0,0,6,0"
+                                        IsEnabled="False"
+                                        Style="{StaticResource MediaControlButtonStyle}"
+                                        Click="MediaPreviousButton_Click"
+                                        ToolTip="Anterior"
+                                        AutomationProperties.Name="Pista anterior">
+                                    <Path Width="12"
+                                          Height="12"
+                                          Stretch="Uniform"
+                                          Fill="{DynamicResource BrushTextPrimary}"
+                                          Data="{StaticResource IconMediaPrevious}" />
+                                </Button>
+
+                                <Button x:Name="PanelMediaPlayButton"
+                                        Width="38"
+                                        Height="38"
+                                        Margin="0"
+                                        IsEnabled="False"
+                                        Style="{StaticResource MediaControlButtonStyle}"
+                                        Click="MediaPlayPauseButton_Click"
+                                        ToolTip="Reproducir o pausar"
+                                        AutomationProperties.Name="Reproducir o pausar">
+                                    <Path x:Name="PanelMediaPlayIcon"
+                                          Width="15"
+                                          Height="15"
+                                          Stretch="Uniform"
+                                          Fill="{DynamicResource BrushTextPrimary}"
+                                          Data="{StaticResource IconMediaPlay}" />
+                                </Button>
+
+                                <Button x:Name="PanelMediaNextButton"
+                                        Width="30"
+                                        Height="30"
+                                        Margin="6,0,0,0"
+                                        IsEnabled="False"
+                                        Style="{StaticResource MediaControlButtonStyle}"
+                                        Click="MediaNextButton_Click"
+                                        ToolTip="Siguiente"
+                                        AutomationProperties.Name="Pista siguiente">
+                                    <Path Width="12"
+                                          Height="12"
+                                          Stretch="Uniform"
+                                          Fill="{DynamicResource BrushTextPrimary}"
+                                          Data="{StaticResource IconMediaNext}" />
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>
 
-                <!--
-                    Diseno D53 - lo que se veia en Inicio antes de que Inicio saliera del rail:
-                    cuantos pendientes hay, si hay enfoque en marcha y cuantas rutinas estan
-                    disponibles. Aqui ocupan una linea en vez de media pantalla, que era la nota del
-                    PDF sobre que Kohana debe encogerse.
-                -->
-                <Grid Grid.Row="1" Margin="-6,6,-6,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Button Grid.Column="0"
-                            x:Name="SummaryTasksButton"
-                            Style="{StaticResource DashboardChipStyle}"
-                            Click="SummaryTasksButton_Click"
-                            AutomationProperties.Name="Pendientes. Abrir Hoy">
-                        <StackPanel>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <Path Width="16"
-                                      Height="16"
-                                      VerticalAlignment="Center"
-                                      Stretch="Uniform"
-                                      Stroke="{DynamicResource BrushAccent}"
-                                      StrokeThickness="1.7"
-                                      StrokeStartLineCap="Round"
-                                      StrokeEndLineCap="Round"
-                                      StrokeLineJoin="Round"
-                                      Data="{StaticResource IconKohanaTasks}" />
-                                <TextBlock Grid.Column="1"
-                                           Margin="9,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Text="Pendientes"
-                                           FontSize="{DynamicResource FontSizeCallout}"
-                                           FontWeight="SemiBold" />
-                                <Border x:Name="SummaryTasksBadge"
-                                        Grid.Column="2"
-                                        MinWidth="22"
-                                        Padding="7,2"
-                                        VerticalAlignment="Center"
-                                        Background="{DynamicResource BrushAccent}"
-                                        CornerRadius="{DynamicResource RadiusFull}"
-                                        Visibility="Collapsed">
-                                    <TextBlock x:Name="SummaryTasksCount"
-                                               Text="0"
-                                               HorizontalAlignment="Center"
-                                               Foreground="White"
-                                               FontSize="{DynamicResource FontSizeCaption}"
-                                               FontWeight="SemiBold" />
-                                </Border>
-                            </Grid>
-                            <TextBlock x:Name="SummaryTasksDetail"
-                                       Margin="0,8,0,0"
-                                       Text="--"
-                                       FontSize="{DynamicResource FontSizeFootnote}"
-                                       Foreground="{DynamicResource BrushTextSecondary}"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Grid.Column="1"
-                            x:Name="SummaryFocusButton"
-                            Style="{StaticResource DashboardChipStyle}"
-                            Click="SummaryFocusButton_Click"
-                            AutomationProperties.Name="Enfoque. Abrir Enfoque">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <Path Width="16"
-                                      Height="16"
-                                      VerticalAlignment="Center"
-                                      Stretch="Uniform"
-                                      Stroke="{DynamicResource BrushAccent}"
-                                      StrokeThickness="1.7"
-                                      StrokeStartLineCap="Round"
-                                      StrokeEndLineCap="Round"
-                                      StrokeLineJoin="Round"
-                                      Data="{StaticResource IconKohanaFocus}" />
-                                <TextBlock Margin="9,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Text="Enfoque"
-                                           FontSize="{DynamicResource FontSizeCallout}"
-                                           FontWeight="SemiBold" />
-                                <TextBlock x:Name="SummaryFocusValue"
-                                           Margin="9,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Text=""
-                                           FontSize="{DynamicResource FontSizeCallout}"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource BrushAccent}" />
-                            </StackPanel>
-                            <TextBlock x:Name="SummaryFocusDetail"
-                                       Margin="0,8,0,0"
-                                       Text="--"
-                                       FontSize="{DynamicResource FontSizeFootnote}"
-                                       Foreground="{DynamicResource BrushTextSecondary}"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Grid.Column="2"
-                            x:Name="SummaryRoutinesButton"
-                            Style="{StaticResource DashboardChipStyle}"
-                            Click="SummaryRoutinesButton_Click"
-                            AutomationProperties.Name="Rutinas. Abrir Rutinas">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <Path Width="16"
-                                      Height="16"
-                                      VerticalAlignment="Center"
-                                      Stretch="Uniform"
-                                      Stroke="{DynamicResource BrushAccent}"
-                                      StrokeThickness="1.7"
-                                      StrokeStartLineCap="Round"
-                                      StrokeEndLineCap="Round"
-                                      StrokeLineJoin="Round"
-                                      Data="{StaticResource IconKohanaRoutines}" />
-                                <TextBlock Margin="9,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Text="Rutinas"
-                                           FontSize="{DynamicResource FontSizeCallout}"
-                                           FontWeight="SemiBold" />
-                                <TextBlock x:Name="SummaryRoutinesValue"
-                                           Margin="9,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Text=""
-                                           FontSize="{DynamicResource FontSizeCallout}"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource BrushAccent}" />
-                            </StackPanel>
-                            <TextBlock x:Name="SummaryRoutinesDetail"
-                                       Margin="0,8,0,0"
-                                       Text="--"
-                                       FontSize="{DynamicResource FontSizeFootnote}"
-                                       Foreground="{DynamicResource BrushTextSecondary}"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </Button>
-                </Grid>
-
-                <Grid Grid.Row="2" Margin="-6,6,-6,0" VerticalAlignment="Top">
+                <Grid Grid.Row="1" Margin="-6,6,-6,0" VerticalAlignment="Top">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
