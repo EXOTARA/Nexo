@@ -53,7 +53,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
             if (!response.IsSuccessStatusCode)
             {
                 return AiConnectionResult.Failed(
-                    BuildHttpError(response.StatusCode, body));
+                    BuildHttpError(response.StatusCode, body, includedImages: false));
             }
 
             var models = ParseModels(body);
@@ -136,7 +136,8 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
 
             if (!response.IsSuccessStatusCode)
             {
-                return AiChatResult.Failed(BuildHttpError(response.StatusCode, body));
+                return AiChatResult.Failed(BuildHttpError(
+                    response.StatusCode, body, includedImages: request.Images is { Count: > 0 }));
             }
 
             var text = ParseAssistantText(body);
@@ -203,6 +204,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
         using var response = await SendStreamingRequestAsync(
             httpRequest,
             configuration,
+            includedImages: request.Images is { Count: > 0 },
             cancellationToken,
             timeout.Token);
 
@@ -272,6 +274,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
     private async Task<HttpResponseMessage> SendStreamingRequestAsync(
         HttpRequestMessage request,
         AiProviderConfiguration configuration,
+        bool includedImages,
         CancellationToken originalCancellationToken,
         CancellationToken timeoutToken)
     {
@@ -288,7 +291,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
             }
 
             var body = await response.Content.ReadAsStringAsync(timeoutToken);
-            var detail = BuildHttpError(response.StatusCode, body);
+            var detail = BuildHttpError(response.StatusCode, body, includedImages);
             response.Dispose();
             throw new AiChatStreamException(detail);
         }
@@ -581,13 +584,30 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
         return string.Join(Environment.NewLine, parts).Trim();
     }
 
-    private static string BuildHttpError(HttpStatusCode statusCode, string body)
+    /// <summary>
+    /// Diseño D30 — encontrado con una captura real adjunta a Groq: el modelo de texto la rechazó
+    /// con «messages[5].content must be a string», un mensaje que no dice nada sobre imágenes.
+    /// Adivinar de la redacción del error que la causa fue una imagen es fràgil —cada proveedor
+    /// redacta distinto y el texto cambiaría sin avisar—, así que la pista no es el mensaje: es la
+    /// combinación de "se mandó una imagen" y "400 Bad Request", lo bastante fuerte como para
+    /// ofrecer la explicación más probable sin fingir certeza absoluta.
+    /// </summary>
+    private static string BuildHttpError(HttpStatusCode statusCode, string body, bool includedImages)
     {
         var providerMessage = TryReadErrorMessage(body);
         var status = $"{(int)statusCode} {statusCode}";
-        return string.IsNullOrWhiteSpace(providerMessage)
+        var baseError = string.IsNullOrWhiteSpace(providerMessage)
             ? $"El proveedor rechazó la solicitud ({status})."
             : $"El proveedor rechazó la solicitud ({status}): {providerMessage}";
+
+        if (includedImages && statusCode == HttpStatusCode.BadRequest)
+        {
+            return baseError +
+                " Es probable que el modelo elegido no admita imágenes — repite la pregunta sin " +
+                "la captura, o cambia a un modelo que sí las admita.";
+        }
+
+        return baseError;
     }
 
     private static string? TryReadErrorMessage(string body)
@@ -600,34 +620,94 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
         try
         {
             using var document = JsonDocument.Parse(body);
-            if (document.RootElement.TryGetProperty("error", out var error))
-            {
-                if (error.ValueKind == JsonValueKind.String)
-                {
-                    return error.GetString();
-                }
-
-                if (error.ValueKind == JsonValueKind.Object &&
-                    error.TryGetProperty("message", out var message) &&
-                    message.ValueKind == JsonValueKind.String)
-                {
-                    return message.GetString();
-                }
-            }
-
-            if (document.RootElement.TryGetProperty("detail", out var detail) &&
-                detail.ValueKind == JsonValueKind.String)
-            {
-                return detail.GetString();
-            }
+            return ReadErrorFrom(document.RootElement);
         }
-        catch (JsonException)
+        catch (Exception exception) when (
+            exception is JsonException or InvalidOperationException)
         {
             // El cuerpo se resumirá como texto plano.
         }
 
         var compact = body.Replace('\r', ' ').Replace('\n', ' ').Trim();
         return compact.Length <= 240 ? compact : compact[..240] + "…";
+    }
+
+    /// <summary>
+    /// Diseño D37 — saca el mensaje de error mire como mire el proveedor.
+    ///
+    /// Corrección de una caída real y reproducible: con Gemini, Kohana se cerraba entera al primer
+    /// error. Gemini envuelve sus errores en un array —<c>[{"error":{"message":"..."}}]</c>— y
+    /// <see cref="JsonElement.TryGetProperty(string, out JsonElement)"/> sobre un array no devuelve
+    /// falso: <b>lanza</b> <see cref="InvalidOperationException"/>. Se llamaba sobre la raíz sin
+    /// mirar de qué tipo era, y esa excepción no estaba entre las capturadas, así que subía hasta
+    /// arriba y se llevaba el proceso por delante. Lo peor del caso es que ocurría justo en el
+    /// código que existe para explicar un error: fallar ahí convierte «el proveedor rechazó la
+    /// petición» en «la aplicación se cerró».
+    ///
+    /// Ahora se comprueba el tipo antes de preguntar por cualquier propiedad, y se entra en los
+    /// arrays en vez de rendirse, que es lo que además saca el mensaje bueno de Gemini en lugar de
+    /// volcar el JSON crudo.
+    /// </summary>
+    private static string? ReadErrorFrom(JsonElement element, int depth = 0)
+    {
+        // Un tope de profundidad: el cuerpo lo escribe el proveedor, y recorrer sin límite algo que
+        // no controlamos es una invitación a quedarse dando vueltas.
+        if (depth > 4)
+        {
+            return null;
+        }
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                if (ReadErrorFrom(item, depth + 1) is { } fromArray)
+                {
+                    return fromArray;
+                }
+            }
+
+            return null;
+        }
+
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (element.TryGetProperty("error", out var error))
+        {
+            if (error.ValueKind == JsonValueKind.String)
+            {
+                return error.GetString();
+            }
+
+            if (error.ValueKind == JsonValueKind.Object &&
+                error.TryGetProperty("message", out var message) &&
+                message.ValueKind == JsonValueKind.String)
+            {
+                return message.GetString();
+            }
+
+            if (ReadErrorFrom(error, depth + 1) is { } nested)
+            {
+                return nested;
+            }
+        }
+
+        if (element.TryGetProperty("detail", out var detail) &&
+            detail.ValueKind == JsonValueKind.String)
+        {
+            return detail.GetString();
+        }
+
+        if (element.TryGetProperty("message", out var direct) &&
+            direct.ValueKind == JsonValueKind.String)
+        {
+            return direct.GetString();
+        }
+
+        return null;
     }
 
     private sealed record ChatCompletionRequest(

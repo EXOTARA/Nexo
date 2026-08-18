@@ -181,10 +181,46 @@ public sealed class SakuraShellStructureTests
         // Color (Background/Foreground) es una de varias señales, nunca la única: el indicador,
         // el grosor de trazo del ícono (D2.0; antes era relleno) y el peso de la etiqueta
         // también cambian con la selección.
-        Assert.Contains("button.Background = selected", body, StringComparison.Ordinal);
-        Assert.Contains("indicator.Visibility = selected", body, StringComparison.Ordinal);
-        Assert.Contains("icon.Style = ", body, StringComparison.Ordinal);
+        Assert.Contains("button.Background =", body, StringComparison.Ordinal);
+        Assert.Contains("indicator.Visibility =", body, StringComparison.Ordinal);
         Assert.Contains("label.FontWeight = selected", body, StringComparison.Ordinal);
+
+        // El grosor del trazo es la señal que aguanta el caso difícil. Al plegar el rail (D36) el
+        // elemento activo pasa a señalarse con un brillo, y tanto el brillo como el color de acento
+        // son señales cromáticas: la barra indicadora y el peso de la etiqueta no ayudan ahí,
+        // porque el indicador se oculta y la etiqueta no se ve. Lo que queda —y por eso se exige
+        // explícitamente— es que el ícono del activo siga dibujándose con un trazo más grueso.
+        Assert.Contains("icon.Style = ", body, StringComparison.Ordinal);
+        Assert.Contains("SakuraNavigationIconSelectedStyle", body, StringComparison.Ordinal);
+    }
+
+    // ---------- 9b. El estado plegado conserva una señal no cromática ----------
+
+    [Fact]
+    public void CollapsedActiveState_KeepsANonColourSignal()
+    {
+        var spacing = File.ReadAllText(
+            Path.Combine(RepositoryRoot, "src", "Nexo.App", "Themes", "Spacing.xaml"));
+
+        var normal = ReadDouble(spacing, "NavigationIconStrokeThickness");
+        var selected = ReadDouble(spacing, "NavigationIconStrokeThicknessSelected");
+
+        // Si alguien igualara estos dos valores, con el rail plegado el elemento activo quedaría
+        // distinguible solo por color —acento y brillo— y eso incumple WCAG 1.4.1. La diferencia
+        // tiene que ser lo bastante grande para verse, no simbólica.
+        Assert.True(
+            selected >= normal * 1.25,
+            $"El trazo del ícono activo ({selected}) apenas se distingue del normal ({normal}).");
+    }
+
+    private static double ReadDouble(string xaml, string key)
+    {
+        var match = Regex.Match(
+            xaml,
+            $"<sys:Double x:Key=\"{Regex.Escape(key)}\">([0-9.]+)</sys:Double>");
+
+        Assert.True(match.Success, $"No encontré {key} en Spacing.xaml.");
+        return double.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     // ---------- 10. Tooltips presentes en modo contraído ----------
@@ -379,8 +415,15 @@ public sealed class SakuraShellStructureTests
             ReadMainWindowSource(), "private void ApplySideRailButtonLayout(", "private void CommandPaletteButton_Click(");
 
         Assert.Contains("SideRailBrandText.Visibility = expanded", body, StringComparison.Ordinal);
-        Assert.Contains("SideRailChevronRotate.Angle = expanded", body, StringComparison.Ordinal);
         Assert.Contains("SettingsNavLabel", body, StringComparison.Ordinal);
+
+        // El chevrón sigue reflejando si el rail está expandido, pero desde el diseño D26 también
+        // depende del lado: apunta hacia donde el rail va a crecer, y con Kohana acoplada a la
+        // izquierda el rail crece hacia el otro lado. Un ángulo que solo mirara `expanded` señalaría
+        // en dirección contraria en la mitad de los casos.
+        Assert.Contains("SideRailChevronRotate.Angle = RailIsOnLeft", body, StringComparison.Ordinal);
+        Assert.Contains("expanded ? 180 : 0", body, StringComparison.Ordinal);
+        Assert.Contains("expanded ? 0 : 180", body, StringComparison.Ordinal);
     }
 
     [Fact]

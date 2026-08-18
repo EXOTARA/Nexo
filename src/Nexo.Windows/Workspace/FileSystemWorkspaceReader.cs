@@ -21,6 +21,19 @@ public sealed class FileSystemWorkspaceReader : IWorkspaceReader
         AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.System | FileAttributes.Hidden
     };
 
+    /// <summary>
+    /// Diseño D41 — tope de entradas EXAMINADAS, no solo de devueltas.
+    ///
+    /// El tope de archivos que ya había limitaba el resultado, no el trabajo: si el filtro rechaza
+    /// todo lo que encuentra, el recorrido nunca llega al tope y sigue caminando. Con una carpeta
+    /// enorme eso significa recorrerla entera. Se vio con una carpeta que devolvió cero archivos
+    /// legibles después de mirar cientos de miles, y dejó la aplicación sin responder.
+    ///
+    /// Cincuenta mil entradas es mucho más de lo que tiene cualquier proyecto real y se recorre en
+    /// un instante; lo que corta es el caso patológico, no el uso normal.
+    /// </summary>
+    private const int MaximumEntriesExamined = 50_000;
+
     public IReadOnlyList<WorkspaceFile> ListFiles(string authorizedRoot, int maximumFiles)
     {
         if (!Directory.Exists(authorizedRoot) || maximumFiles <= 0)
@@ -29,9 +42,15 @@ public sealed class FileSystemWorkspaceReader : IWorkspaceReader
         }
 
         var files = new List<WorkspaceFile>();
+        var examined = 0;
 
         foreach (var path in EnumerateSafely(authorizedRoot))
         {
+            if (++examined > MaximumEntriesExamined)
+            {
+                break;
+            }
+
             if (!WorkspacePathPolicy.CanRead(path, authorizedRoot).IsAllowed)
             {
                 continue;
