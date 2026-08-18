@@ -29,9 +29,15 @@ public sealed class WorkspaceRootPolicyTests
         // actual de esa unidad, y Path.GetFullPath lo resuelve así. Se documenta para que nadie
         // «arregle» la política tratándolo como raíz — el selector de carpetas devuelve siempre
         // «C:\», y forzar lo contrario rechazaría la carpeta de trabajo de quien lo escriba a mano.
-        var resolved = Path.GetFullPath("C:");
+        //
+        // La letra se toma del directorio actual y no se escribe «C:» a pelo. Windows guarda un
+        // directorio actual **por unidad**, así que «C:» solo equivale al directorio actual cuando
+        // el proceso ya está en C:. Con la C fija, esta prueba pasaba en el equipo de desarrollo y
+        // fallaba en integración, que trabaja en D: — y allí «C:» devuelve «C:\».
+        var current = Path.GetFullPath(Directory.GetCurrentDirectory());
+        var bareDrive = Path.GetPathRoot(current)!.TrimEnd(Path.DirectorySeparatorChar);
 
-        Assert.Equal(Path.GetFullPath(Directory.GetCurrentDirectory()), resolved);
+        Assert.Equal(current, Path.GetFullPath(bareDrive));
     }
 
     [Fact]
