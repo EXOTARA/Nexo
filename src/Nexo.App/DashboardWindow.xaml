@@ -27,25 +27,50 @@
         borde de la ventana y queda un canto gris recto — el mismo defecto que ya se corrigió en el
         mando de volumen (D40).
     -->
-    <Border x:Name="PanelBorder"
-            Margin="34,0,34,34"
-            Background="{DynamicResource BrushSidebarSurface}"
-            BorderBrush="{DynamicResource BrushBorder}"
-            BorderThickness="1,0,1,1"
-            CornerRadius="0,0,34,34"
-            Opacity="0"
-            SnapsToDevicePixels="True">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="32" ShadowDepth="10" Opacity="0.45" Color="Black" />
-        </Border.Effect>
-        <Border.RenderTransformOrigin>0.5,0</Border.RenderTransformOrigin>
-        <Border.RenderTransform>
+    <!--
+        Diseño D58 — la sombra se dibuja aparte del contenido, y esa es toda la diferencia.
+
+        Un Effect no cuesta por sí mismo: cuesta cada vez que hay que volver a calcularlo. Y WPF
+        tiene que recalcularlo **cuando cambia cualquier cosa dentro del elemento que lo lleva**,
+        porque el desenfoque se aplica al resultado de pintar todo el subárbol. Con la sombra puesta
+        en el borde que contiene la vista, cada fotograma del anillo del espectro —sesenta por
+        segundo mientras suena música— obligaba a volver a desenfocar un panel del ancho entero del
+        monitor. Y todo esto por software, porque una ventana con AllowsTransparency no la acelera
+        la tarjeta.
+
+        Ahora la sombra la proyecta un borde vacío del mismo tamaño que va detrás. No tiene hijos,
+        así que nada de lo que pase dentro la invalida, y con BitmapCache el desenfoque se calcula
+        una vez y se reutiliza. El contenido va en un borde hermano, idéntico y sin efecto.
+
+        En pantalla no cambia nada: el borde de delante es opaco y tapa exactamente la parte de la
+        sombra que antes quedaba debajo.
+    -->
+    <Grid x:Name="PanelBorder"
+          Margin="34,0,34,34"
+          Opacity="0"
+          RenderTransformOrigin="0.5,0">
+        <Grid.RenderTransform>
             <TransformGroup>
                 <ScaleTransform x:Name="PanelScale" ScaleX="1" ScaleY="1" />
                 <TranslateTransform x:Name="PanelTranslate" Y="0" />
             </TransformGroup>
-        </Border.RenderTransform>
+        </Grid.RenderTransform>
 
-        <views:DashboardView x:Name="Dashboard" />
-    </Border>
+        <Border Background="{DynamicResource BrushSidebarSurface}"
+                CornerRadius="0,0,34,34"
+                CacheMode="BitmapCache"
+                SnapsToDevicePixels="True">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="32" ShadowDepth="10" Opacity="0.45" Color="Black" />
+            </Border.Effect>
+        </Border>
+
+        <Border Background="{DynamicResource BrushSidebarSurface}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1,0,1,1"
+                CornerRadius="0,0,34,34"
+                SnapsToDevicePixels="True">
+            <views:DashboardView x:Name="Dashboard" />
+        </Border>
+    </Grid>
 </Window>

@@ -63,28 +63,48 @@
         </Style>
     </Window.Resources>
 
-    <Border x:Name="ShellBorder"
-            Margin="16"
-            Background="{DynamicResource BrushBackground}"
-            BorderBrush="{DynamicResource BrushBorder}"
-            BorderThickness="1"
-            CornerRadius="28"
-            Opacity="0"
-            SnapsToDevicePixels="True">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="30"
-                              ShadowDepth="8"
-                              Opacity="0.4"
-                              Color="Black" />
-        </Border.Effect>
-        <Border.RenderTransformOrigin>0.5,0.5</Border.RenderTransformOrigin>
-        <Border.RenderTransform>
+    <!--
+        Diseño D58 — la sombra va en un borde propio, detrás, y no en el que lleva el contenido.
+
+        Un Effect no cuesta por existir: cuesta cada vez que hay que recalcularlo, y WPF lo
+        recalcula **cuando cambia cualquier cosa dentro del elemento que lo lleva**, porque el
+        desenfoque se aplica al resultado de pintar todo el subárbol. Con la sombra en el borde que
+        envuelve el shell entero, escribir en el chat, una respuesta llegando por trozos o el
+        cronómetro de enfoque obligaban a volver a desenfocar la ventana completa. Por software,
+        además: una ventana con AllowsTransparency no la acelera la tarjeta.
+
+        El borde de la sombra no tiene hijos, así que nada de dentro lo invalida, y con BitmapCache
+        el desenfoque se calcula una vez. El de delante es opaco y tapa la parte que sobra, así que
+        en pantalla no cambia nada.
+    -->
+    <Grid x:Name="ShellBorder"
+          Margin="16"
+          Opacity="0"
+          RenderTransformOrigin="0.5,0.5">
+        <Grid.RenderTransform>
             <TransformGroup>
                 <ScaleTransform x:Name="ShellScale" ScaleX="1" ScaleY="1" />
                 <TranslateTransform x:Name="ShellTranslate" X="24" />
             </TransformGroup>
-        </Border.RenderTransform>
+        </Grid.RenderTransform>
 
+        <Border Background="{DynamicResource BrushBackground}"
+                CornerRadius="28"
+                CacheMode="BitmapCache"
+                SnapsToDevicePixels="True">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="30"
+                                  ShadowDepth="8"
+                                  Opacity="0.4"
+                                  Color="Black" />
+            </Border.Effect>
+        </Border>
+
+        <Border Background="{DynamicResource BrushBackground}"
+                BorderBrush="{DynamicResource BrushBorder}"
+                BorderThickness="1"
+                CornerRadius="28"
+                SnapsToDevicePixels="True">
         <Grid ClipToBounds="True">
             <Grid x:Name="ShellLayoutGrid" Margin="13">
                 <!--
@@ -565,5 +585,6 @@
                 </Grid>
             </Grid>
         </Grid>
-    </Border>
+        </Border>
+    </Grid>
 </Window>

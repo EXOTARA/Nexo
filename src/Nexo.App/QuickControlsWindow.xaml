@@ -42,21 +42,25 @@
         canto recto a un lado. Eso era lo que se veía como «fondo gris» y «el lado derecho recto»;
         no era el carril ni el relleno, era la sombra cortada.
     -->
-    <Border x:Name="PanelBorder"
-            Margin="30"
-            Padding="16"
-            CornerRadius="30"
-            Background="{DynamicResource BrushSidebarSurface}"
-            BorderBrush="{DynamicResource BrushAccentBorder}"
-            BorderThickness="1"
-            Opacity="0">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="26" ShadowDepth="8" Opacity="0.4" Color="#000000" />
-        </Border.Effect>
-        <Border.RenderTransform>
+    <Grid x:Name="PanelBorder" Margin="30" Opacity="0">
+        <Grid.RenderTransform>
             <TranslateTransform x:Name="PanelTranslate" X="0" />
-        </Border.RenderTransform>
+        </Grid.RenderTransform>
 
-        <StackPanel x:Name="ControlsPanel" />
-    </Border>
+        <Border CornerRadius="30"
+                Background="{DynamicResource BrushSidebarSurface}"
+                CacheMode="BitmapCache">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="26" ShadowDepth="8" Opacity="0.4" Color="#000000" />
+            </Border.Effect>
+        </Border>
+
+        <Border Padding="16"
+                CornerRadius="30"
+                Background="{DynamicResource BrushSidebarSurface}"
+                BorderBrush="{DynamicResource BrushAccentBorder}"
+                BorderThickness="1">
+            <StackPanel x:Name="ControlsPanel" />
+        </Border>
+    </Grid>
 </Window>
