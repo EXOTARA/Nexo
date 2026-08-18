@@ -65,7 +65,7 @@
                         <TextBlock x:Name="SearchHintText"
                                    VerticalAlignment="Center"
                                    Text="Busca una acción…"
-                                   FontSize="14"
+                                   FontSize="{DynamicResource FontSizeBody}"
                                    IsHitTestVisible="False"
                                    Foreground="{DynamicResource BrushTextTertiary}" />
                         <TextBox x:Name="SearchBox"
@@ -73,7 +73,7 @@
                                  VerticalContentAlignment="Center"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 FontSize="14"
+                                 FontSize="{DynamicResource FontSizeBody}"
                                  Foreground="{DynamicResource BrushTextPrimary}"
                                  CaretBrush="{DynamicResource BrushAccent}"
                                  TextChanged="SearchBox_TextChanged"
@@ -89,7 +89,7 @@
                             CornerRadius="6"
                             Padding="7,3">
                         <TextBlock Text="Esc"
-                                   FontSize="11"
+                                   FontSize="{DynamicResource FontSizeCaption}"
                                    Foreground="{DynamicResource BrushTextTertiary}" />
                     </Border>
                 </Grid>
@@ -160,7 +160,7 @@
                             <StackPanel Grid.Column="0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{Binding Title}"
-                                               FontSize="13.5"
+                                               FontSize="{DynamicResource FontSizeCallout}"
                                                FontWeight="SemiBold"
                                                Foreground="{DynamicResource BrushTextPrimary}" />
                                     <Border Margin="9,0,0,0"
@@ -169,13 +169,13 @@
                                             CornerRadius="5"
                                             Padding="6,2">
                                         <TextBlock Text="{Binding CategoryLabel}"
-                                                   FontSize="10.5"
+                                                   FontSize="{DynamicResource FontSizeCaption}"
                                                    Foreground="{DynamicResource BrushTextTertiary}" />
                                     </Border>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Detail}"
                                            Margin="0,3,0,0"
-                                           FontSize="12"
+                                           FontSize="{DynamicResource FontSizeFootnote}"
                                            TextTrimming="CharacterEllipsis"
                                            Foreground="{DynamicResource BrushTextSecondary}" />
                             </StackPanel>
@@ -188,7 +188,7 @@
                                     Padding="7,3"
                                     Visibility="{Binding ShortcutVisibility}">
                                 <TextBlock Text="{Binding Shortcut}"
-                                           FontSize="11"
+                                           FontSize="{DynamicResource FontSizeCaption}"
                                            Foreground="{DynamicResource BrushTextSecondary}" />
                             </Border>
                         </Grid>
@@ -202,7 +202,7 @@
                        Margin="0,26,0,18"
                        HorizontalAlignment="Center"
                        Visibility="Collapsed"
-                       FontSize="13"
+                       FontSize="{DynamicResource FontSizeCallout}"
                        Foreground="{DynamicResource BrushTextSecondary}"
                        Text="No hay ninguna acción que coincida." />
 
@@ -214,26 +214,26 @@
                     BorderThickness="0,1,0,0">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="↑ ↓ elegir"
-                               FontSize="11"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                Foreground="{DynamicResource BrushTextTertiary}" />
                     <TextBlock Text="·"
                                Margin="9,0"
-                               FontSize="11"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                Foreground="{DynamicResource BrushTextTertiary}" />
                     <TextBlock Text="Enter ejecutar"
-                               FontSize="11"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                Foreground="{DynamicResource BrushTextTertiary}" />
                     <TextBlock Text="·"
                                Margin="9,0"
-                               FontSize="11"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                Foreground="{DynamicResource BrushTextTertiary}" />
                     <TextBlock Text="Esc cerrar"
-                               FontSize="11"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                Foreground="{DynamicResource BrushTextTertiary}" />
 
                     <TextBlock x:Name="StatusText"
                                Margin="16,0,0,0"
-                               FontSize="11"
+                               FontSize="{DynamicResource FontSizeCaption}"
                                TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource BrushWarning}"
                                Visibility="Collapsed" />

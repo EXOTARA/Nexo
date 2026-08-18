@@ -8,7 +8,8 @@ public static class AiExecutionLocationPolicy
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        if (configuration.Provider is AiProviderKind.Ollama or AiProviderKind.LMStudio)
+        if (AiProviderDefaults.UsesOllamaProtocol(configuration.Provider) ||
+            configuration.Provider == AiProviderKind.LMStudio)
         {
             return true;
         }

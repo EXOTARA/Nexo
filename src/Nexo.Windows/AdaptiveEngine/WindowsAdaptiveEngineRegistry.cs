@@ -7,13 +7,27 @@ namespace Nexo.Windows.AdaptiveEngine;
 
 public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
 {
-    private static readonly IReadOnlyDictionary<EngineIdentifier, AiProviderKind> AiProviderByEngineId =
-        new Dictionary<EngineIdentifier, AiProviderKind>
+    /// <summary>
+    /// Un motor puede servir a más de un proveedor: el motor de Ollama es el mismo tanto si Kohana
+    /// lo administra como si la instalación es propia, y los proveedores de nube compatibles con
+    /// OpenAI comparten un único cliente. Mapear a un solo proveedor dejaba a la mitad de las
+    /// opciones informando "no configurado" mientras estaban funcionando.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<EngineIdentifier, AiProviderKind[]> AiProvidersByEngineId =
+        new Dictionary<EngineIdentifier, AiProviderKind[]>
         {
-            [KnownEngineIds.OpenAiLanguageModel] = AiProviderKind.OpenAI,
-            [KnownEngineIds.OllamaLanguageModel] = AiProviderKind.Ollama,
-            [KnownEngineIds.LmStudioLanguageModel] = AiProviderKind.LMStudio,
-            [KnownEngineIds.OpenAiCompatibleLanguageModel] = AiProviderKind.OpenAICompatible
+            [KnownEngineIds.OpenAiLanguageModel] = [AiProviderKind.OpenAI],
+            [KnownEngineIds.OllamaLanguageModel] =
+                [AiProviderKind.Ollama, AiProviderKind.KohanaLocal],
+            [KnownEngineIds.LmStudioLanguageModel] = [AiProviderKind.LMStudio],
+            [KnownEngineIds.OpenAiCompatibleLanguageModel] =
+            [
+                AiProviderKind.OpenAICompatible,
+                AiProviderKind.Anthropic,
+                AiProviderKind.Groq,
+                AiProviderKind.Gemini,
+                AiProviderKind.OpenRouter
+            ]
         };
 
     private readonly VoiceCoordinator _voiceCoordinator;
@@ -55,16 +69,17 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
                 Detail: "SAPI no expone si está hablando en este momento.")
         };
 
-        foreach (var (engineId, providerKind) in AiProviderByEngineId)
+        foreach (var (engineId, providerKinds) in AiProvidersByEngineId)
         {
             var isConfigured = preferences.AiProvider != AiProviderKind.Disabled &&
-                preferences.AiProvider == providerKind;
+                providerKinds.Contains(preferences.AiProvider);
 
             bool? isAvailable = null;
             bool? isActive = null;
             string? detail = null;
 
-            if (providerKind == AiProviderKind.Ollama && ollamaRuntimeSnapshot is not null)
+            if (providerKinds.Any(AiProviderDefaults.UsesOllamaProtocol) &&
+                ollamaRuntimeSnapshot is not null)
             {
                 isAvailable = ollamaRuntimeSnapshot.State != OllamaRuntimeState.Unavailable;
                 isActive = isConfigured && ollamaRuntimeSnapshot.IsRunning;

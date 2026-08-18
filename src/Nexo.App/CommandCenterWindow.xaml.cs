@@ -293,6 +293,7 @@ public partial class CommandCenterWindow : Window
             KohanaCommandCategory.Audio => "Audio",
             KohanaCommandCategory.Capture => "Captura",
             KohanaCommandCategory.System => "Sistema",
+            KohanaCommandCategory.Ambient => "Ambiental",
             _ => "Shell"
         };
     }

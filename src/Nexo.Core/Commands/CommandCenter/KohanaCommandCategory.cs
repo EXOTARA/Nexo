@@ -12,5 +12,6 @@ public enum KohanaCommandCategory
     Audio,
     Capture,
     System,
-    Shell
+    Shell,
+    Ambient
 }

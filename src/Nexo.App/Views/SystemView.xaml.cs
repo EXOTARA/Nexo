@@ -4,20 +4,33 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Nexo.Core.AdaptiveEngine;
+using Nexo.Core.Audit;
 using Nexo.Core.Hardware;
 using Nexo.Core.Metrics;
+using Nexo.Core.Optimization;
 using Nexo.Core.Resources;
 
 namespace Nexo.App.Views;
 
+/// <summary>
+/// Diseño D44 — Sistema se queda con el diagnóstico: capacidad del equipo, plan adaptativo,
+/// optimización, registro de lo que Kohana ha hecho y estado del runtime.
+///
+/// Las medidas en vivo —procesador, gráfica, disco, red, memoria— se fueron al cajón del borde de
+/// arriba (<see cref="Nexo.App.DashboardWindow"/>). No es un reparto arbitrario: esto de aquí se lee
+/// sentado y de vez en cuando; aquello se mira de reojo mientras haces otra cosa, y para eso no
+/// puede exigir abrir la aplicación y navegar hasta una pestaña.
+/// </summary>
 public partial class SystemView : UserControl
 {
     private readonly ObservableCollection<AdaptiveEnginePlanRow> _adaptiveEnginePlanRows = [];
+    private readonly ObservableCollection<AuditRow> _auditRows = [];
 
     public SystemView()
     {
         InitializeComponent();
         AdaptiveEnginePlanItemsControl.ItemsSource = _adaptiveEnginePlanRows;
+        AuditItemsControl.ItemsSource = _auditRows;
     }
 
     public event EventHandler? RestartVoiceRequested;
@@ -26,16 +39,106 @@ public partial class SystemView : UserControl
 
     public event EventHandler? HardwareCapabilityRefreshRequested;
 
+    // Diseño D11 (Fase 4 — Adaptive Computer Optimization)
+    public event Action<OptimizationScenario>? OptimizationScenarioRequested;
+
+    public event EventHandler? OptimizationUndoRequested;
+
+    public event EventHandler? OptimizationAuditRequested;
+
+    private void OptimizationScenarioButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tag } && Enum.TryParse<OptimizationScenario>(tag, out var scenario))
+        {
+            OptimizationScenarioRequested?.Invoke(scenario);
+        }
+    }
+
+    private void OptimizationUndoButton_Click(object sender, RoutedEventArgs e) =>
+        OptimizationUndoRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OptimizationAuditButton_Click(object sender, RoutedEventArgs e) =>
+        OptimizationAuditRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// Diseño D11 — el botón de deshacer solo se activa cuando hay un snapshot guardado. Ofrecer
+    /// "deshacer" sin nada que deshacer haría dudar de si la optimización anterior se aplicó.
+    /// </summary>
+    public void SetOptimizationStatus(string? detail, bool canUndo)
+    {
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            OptimizationStatusText.Text = detail;
+        }
+
+        OptimizationUndoButton.IsEnabled = canUndo;
+    }
+
+    // ---------- Diseño D13: Audit Log orientado al usuario ----------
+
+    public event EventHandler? AuditRefreshRequested;
+
+    /// <summary>
+    /// Diseño D18 — deshacer DESDE el registro. La entrada ya sabía cómo revertirse desde D13 y le
+    /// faltaba el botón: un "cómo deshacerlo" que obliga a ir a buscar el comando correcto es media
+    /// promesa.
+    /// </summary>
+    public event Action<AuditEntry>? AuditRevertRequested;
+
+    private void AuditRefreshButton_Click(object sender, RoutedEventArgs e) =>
+        AuditRefreshRequested?.Invoke(this, EventArgs.Empty);
+
+    private void AuditRevertButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: AuditEntry entry })
+        {
+            AuditRevertRequested?.Invoke(entry);
+        }
+    }
+
+    /// <summary>
+    /// Diseño D13 — cada entrada muestra los cuatro datos que el modelo de confianza exige, en
+    /// campos separados. "Sin vuelta atrás" se enseña igual que una reversión disponible: callarlo
+    /// haría parecer que todo se puede deshacer.
+    /// </summary>
+    public void UpdateAudit(IReadOnlyList<AuditEntry> entries)
+    {
+        _auditRows.Clear();
+
+        foreach (var entry in (entries ?? []).Take(25))
+        {
+            _auditRows.Add(new AuditRow(
+                Entry: entry,
+                Headline: $"{entry.Capability} · {entry.Action}",
+                When: entry.At.ToString("dd/MM HH:mm"),
+                Detail: entry.Detail,
+                PermissionLine: string.IsNullOrWhiteSpace(entry.Permission)
+                    ? "Permiso: —"
+                    : $"Permiso: {entry.Permission}" +
+                      (entry.AutonomyLevel is { } level ? $" · nivel de autonomía {level}" : string.Empty),
+                ReversalLine: string.IsNullOrWhiteSpace(entry.RevertHint)
+                    ? "Sin vuelta atrás automática."
+                    : $"Cómo deshacerlo: {entry.RevertHint}",
+
+                // El botón solo aparece cuando la entrada trae con qué deshacer. Enseñarlo
+                // deshabilitado en todas las demás llenaría el registro de botones muertos.
+                RevertVisibility: entry.CanRevert ? Visibility.Visible : Visibility.Collapsed));
+        }
+
+        AuditEmptyText.Visibility = _auditRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private sealed record AuditRow(
+        AuditEntry Entry,
+        string Headline,
+        string When,
+        string Detail,
+        string PermissionLine,
+        string ReversalLine,
+        Visibility RevertVisibility);
+
     public void UpdateSnapshot(SystemSnapshot snapshot)
     {
-        CpuValueText.Text = FormatPercentage(snapshot.CpuUsagePercent);
-        MemoryValueText.Text = FormatPercentage(snapshot.MemoryUsagePercent);
-        GpuValueText.Text = FormatPercentage(snapshot.GpuUsagePercent);
-        GpuMemoryText.Text = snapshot.DedicatedGpuMemoryBytes.HasValue
-            ? $"VRAM usada: {FormatBytes(snapshot.DedicatedGpuMemoryBytes.Value)}"
-            : "VRAM no disponible";
-        DiskValueText.Text = FormatPercentage(snapshot.SystemDriveUsagePercent);
-
         TopProcessNameText.Text = string.IsNullOrWhiteSpace(snapshot.TopProcessName)
             ? "No disponible"
             : snapshot.TopProcessName;

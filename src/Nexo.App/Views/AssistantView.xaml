@@ -40,7 +40,7 @@
                                Text="IA desactivada · los comandos locales siguen disponibles"
                                TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource BrushTextSecondary}"
-                               FontSize="11.5" />
+                               FontSize="{DynamicResource FontSizeCaption}" />
                 </StackPanel>
             </StackPanel>
 
@@ -93,7 +93,7 @@
                     <TextBlock Margin="0,17,0,0"
                                Text="¿Qué hacemos hoy?"
                                HorizontalAlignment="Center"
-                               FontSize="20"
+                               FontSize="{DynamicResource FontSizeTitle2}"
                                FontWeight="SemiBold" />
                     <TextBlock Margin="0,7,0,14"
                                MaxWidth="430"
@@ -101,7 +101,7 @@
                                TextAlignment="Center"
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushTextSecondary}"
-                               FontSize="12.5"
+                               FontSize="{DynamicResource FontSizeFootnote}"
                                LineHeight="19" />
                     <WrapPanel MaxWidth="470" HorizontalAlignment="Center">
                         <Button Tag="Abre PowerShell en mi carpeta de usuario"
@@ -161,7 +161,7 @@
                             VerticalAlignment="Center">
                     <TextBlock x:Name="VisionAttachmentTitleText"
                                Text="Contexto visual listo"
-                               FontSize="13.5"
+                               FontSize="{DynamicResource FontSizeCallout}"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="VisionSourceTitleText"
                                Margin="0,3,0,0"
@@ -171,7 +171,7 @@
                                Margin="0,3,0,0"
                                Text="Se enviará solo con tu siguiente consulta."
                                Foreground="{DynamicResource BrushTextTertiary}"
-                               FontSize="11" />
+                               FontSize="{DynamicResource FontSizeCaption}" />
                 </StackPanel>
 
                 <Button Grid.Column="2"
@@ -192,7 +192,7 @@
                    Text="Preparando reconocimiento local…"
                    TextTrimming="CharacterEllipsis"
                    Foreground="{DynamicResource BrushTextSecondary}"
-                   FontSize="11.5"
+                   FontSize="{DynamicResource FontSizeCaption}"
                    Visibility="Collapsed" />
 
         <Border Grid.Row="4"
@@ -237,14 +237,14 @@
                                IsHitTestVisible="False"
                                Text="Escribe una orden o pregunta…"
                                Foreground="{DynamicResource BrushTextTertiary}"
-                               FontSize="14" />
+                               FontSize="{DynamicResource FontSizeBody}" />
                     <TextBox x:Name="PromptBox"
                              MinHeight="46"
                              MaxHeight="108"
                              Padding="10,7"
                              AcceptsReturn="True"
                              TextWrapping="Wrap"
-                             FontSize="14"
+                             FontSize="{DynamicResource FontSizeBody}"
                              Background="Transparent"
                              BorderThickness="0"
                              VerticalScrollBarVisibility="Auto"

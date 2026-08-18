@@ -16,7 +16,14 @@ public interface IVoiceInputService : IDisposable
 
     Task<VoiceStartResult> StartListeningAsync(CancellationToken cancellationToken = default);
 
-    Task<VoiceRecognitionResult> StopListeningAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Diseño D6.3 — <paramref name="transcriptionMode"/> es opcional y su valor predeterminado
+    /// conserva exactamente el comportamiento anterior a Flow, para no alterar a ningún llamador
+    /// existente.
+    /// </summary>
+    Task<VoiceRecognitionResult> StopListeningAsync(
+        VoiceTranscriptionMode transcriptionMode = VoiceTranscriptionMode.Command,
+        CancellationToken cancellationToken = default);
 
     Task<VoiceRecognitionResult> ListenForUtteranceAsync(
         TimeSpan maximumDuration,

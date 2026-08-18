@@ -5,18 +5,22 @@ using Nexo.Core.Voice;
 namespace Nexo.Core.Tests.Characterization;
 
 /// <summary>
-/// Fase 1.1 — congela las migraciones de preferencias (esquema v17) y los saneamientos que
+/// Fase 1.1 — congela las migraciones de preferencias (esquema v19) y los saneamientos que
 /// <see cref="ShellPreferences.Normalize"/> aplica en cada carga.
 ///
 /// Regla de `MIGRATION_PLAN.md`: cada incremento es aditivo, con default seguro, y **nunca**
 /// borra datos del usuario.
+///
+/// La versión esperada sube a la par que el esquema real (v17 → v18 en Diseño D6 y v18 → v19 en Diseño D9):
+/// esta prueba existe para detectar un cambio de esquema NO intencionado, no para congelar un
+/// número para siempre.
 /// </summary>
 public sealed class PreferencesMigrationCharacterizationTests
 {
-    private const int CurrentSchemaVersion = 17;
+    private static readonly int CurrentSchemaVersion = ShellPreferences.CurrentSchemaVersion;
 
     [Fact]
-    public void CurrentSchemaVersion_IsSeventeen()
+    public void CurrentSchemaVersion_IsNineteen()
     {
         var preferences = new ShellPreferences();
         preferences.Normalize();
@@ -30,13 +34,64 @@ public sealed class PreferencesMigrationCharacterizationTests
     [InlineData(8)]
     [InlineData(13)]
     [InlineData(15)]
-    public void AnyOlderSchema_MigratesForwardToSeventeen(int startingVersion)
+    [InlineData(17)]
+    [InlineData(18)]
+    public void AnyOlderSchema_MigratesForwardToTheCurrentVersion(int startingVersion)
     {
         var preferences = new ShellPreferences { SchemaVersion = startingVersion };
 
         preferences.Normalize();
 
         Assert.Equal(CurrentSchemaVersion, preferences.SchemaVersion);
+    }
+
+    [Fact]
+    public void MigratingToEighteen_NeverErasesFlowListsAlreadyPresent()
+    {
+        // Misma garantía que el escalón v16 con los aliases de palabra de activación: una
+        // actualización añade valores por omisión, nunca borra lo que el usuario ya tenía.
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 17,
+            FlowDictionary = ["cojana=Kohana"],
+            FlowSnippets = ["mi correo=adler@ejemplo.com"]
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(["cojana=Kohana"], preferences.FlowDictionary);
+        Assert.Equal(["mi correo=adler@ejemplo.com"], preferences.FlowSnippets);
+    }
+
+    [Fact]
+    public void OldFileWithoutFlowLists_GetsEmptyListsInsteadOfNull()
+    {
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 10,
+            FlowDictionary = null!,
+            FlowSnippets = null!
+        };
+
+        preferences.Normalize();
+
+        Assert.Empty(preferences.FlowDictionary);
+        Assert.Empty(preferences.FlowSnippets);
+    }
+
+    [Fact]
+    public void MigratingToNineteen_LeavesMemoryOff_BecauseAnUpdateIsNotConsent()
+    {
+        // El roadmap dice que la memoria "nunca" se activa por defecto. Actualizar Kohana no es
+        // que la persona haya dicho que sí.
+        var preferences = new ShellPreferences { SchemaVersion = 18 };
+
+        preferences.Normalize();
+
+        Assert.False(preferences.Memory.Enabled);
+        Assert.False(preferences.Memory.RememberPreferences);
+        Assert.False(preferences.Memory.RememberConversation);
+        Assert.False(preferences.Memory.RememberHabits);
     }
 
     [Fact]
@@ -140,8 +195,11 @@ public sealed class PreferencesMigrationCharacterizationTests
         Assert.Equal("#E98AAF", preferences.AccentColor);
     }
 
+    // Diseño D58 — cambiada a propósito: el suelo del rango bajó de 680 a 460 para que Kohana
+    // pueda ponerse tan estrecha como una barra lateral. El techo y la forma de recortar no se
+    // tocan, y 700 sigue pasando intacto porque sigue estando dentro del rango.
     [Theory]
-    [InlineData(100, 680)]
+    [InlineData(100, 460)]
     [InlineData(700, 700)]
     [InlineData(5000, 820)]
     public void Width_IsClampedToTheShellRange(double input, double expected)

@@ -10,6 +10,77 @@
 
 - Kohana 0.9.5-beta.
 
+### Agregado (Diseños D10, D11 y D12 — sin integrar a release)
+
+- Memoria personal que se llena desde la conversación: guarda lo que le pides recordar explícitamente y propone (nunca guarda solo) las preferencias que dices de paso.
+- Lo recordado acompaña a las consultas, así que hay continuidad real entre sesiones.
+- Panel de memoria en Personalizar: activar, tres categorías por separado, días de retención, exclusiones, ver lo guardado y olvidar todo.
+- Reversión verificada de las optimizaciones: Kohana relee el estado en vez de fiarse de que la llamada al sistema fuera aceptada.
+- Si un paso de la optimización falla, se deshacen los ya aplicados en lugar de dejar el equipo a medias.
+- Segundo ajuste reversible: Kohana baja su propio modo de rendimiento cuando el hardware lo justifica.
+- Historial de auditoría de optimizaciones, consultable desde comando y desde el nuevo panel de Sistema.
+- Panel de optimización en Sistema con los siete escenarios, deshacer e historial.
+- Carpeta de proyecto autorizada, de solo lectura, con revocación inmediata.
+- Detección de secretos en código y exclusión de archivos de credenciales antes de enviar nada a la IA.
+- Comando para que Kohana explique el proyecto autorizado usando su estructura, no su código.
+
+### Cambiado
+
+- Esquema de preferencias v19 → v20. Al actualizar, nadie hereda una carpeta de proyecto autorizada.
+- La redacción de datos sensibles reconoce ahora la forma hablada de una contraseña («mi contraseña es …»), además de la de formulario.
+
+### Agregado (Diseños D13, D14 y D15 — sin integrar a release)
+
+- Registro de actividad orientado al usuario: qué hizo Kohana, cuándo, con qué permiso y cómo deshacerlo, en un solo sitio y visible desde Sistema.
+- Quedan registradas también las decisiones de permisos: autorizar o revocar una carpeta, cambiar su nivel de autonomía y borrar la memoria.
+- Controles del proyecto en Personalizar: autorizar, revocar y elegir hasta dónde puede llegar Kohana.
+- Comando para buscar dentro del proyecto autorizado.
+- Kohana ya puede modificar un archivo del proyecto, de uno en uno y solo con tu confirmación, guardando antes una copia previa para poder deshacerlo.
+- Se niega a deshacer un cambio si editaste el archivo después, para no borrar tu trabajo.
+- Comando para deshacer el último cambio hecho en el proyecto.
+- Packs **Kohana Study** y **Kohana Dev**: dejan configuradas de una vez varias capacidades que ya existían, y se desactivan devolviendo los ajustes a como estaban.
+
+### Corregido
+
+- Activar un pack ya no podía reactivar Vision por efecto de la normalización de preferencias, que habría encendido un permiso apagado a propósito.
+
+### Agregado (Diseños D16, D17 y D18 — sin integrar a release)
+
+- Permisos por capacidad en Personalizar, con niveles Bloqueado, Preguntar y Permitido. Dar uno no da los demás.
+- Hay cosas que Kohana pregunta siempre, aunque las tengas permitidas: borrar sin recuperación, credenciales, pagos, permisos de administrador, enviar algo fuera del equipo y cambios amplios del sistema.
+- Ampliar un permiso pide una confirmación nueva; restringirlo, no.
+- Kohana puede proponer cómo hacer algo en el equipo eligiendo siempre la forma más segura disponible, y explica por qué esa y no otra.
+- Comando para ver los métodos con los que Kohana puede actuar, en orden de más a menos seguro.
+- Comandos de diagnóstico de solo lectura (red, DNS, sistema, controladores), ejecutables uno a uno con tu confirmación.
+- Kohana puede dejarte algo en el portapapeles y devolverlo a como estaba.
+- Botón de deshacer en el registro de actividad, para las acciones que se pueden revertir.
+
+### Cambiado
+
+- Esquema de preferencias v20 → v22. Al actualizar, actuar sobre el equipo llega bloqueado y el resto de permisos en «preguntar».
+
+### Agregado (Diseños D19, D20 y D21 — sin integrar a release)
+
+- Kohana puede pulsar un control concreto de otra aplicación, y se niega si hay varios con el mismo nombre o si la ventana es sensible.
+- Las aplicaciones excluidas se editan en Personalizar, con el formato `capacidad: aplicación`.
+- Comando para ver todo lo que Kohana guarda en tu equipo, qué es cada cosa y si está cifrada.
+- Copia de seguridad verificada de tus datos antes de actualizar, y comando para restaurarla.
+- Comando que enseña qué se borraría y qué se conservaría al desinstalar, antes de desinstalar nada.
+- Diagnóstico exportable para soporte, sin tus datos dentro y con una lista de lo que dejó fuera.
+- Informe de privacidad: qué se guarda, dónde, cifrado o no, y cómo borrarlo.
+
+### Corregido
+
+- La regla de «usa siempre el método más seguro disponible» comparaba métodos que no sirven para lo mismo, y desde que UI Automation está disponible impedía copiar al portapapeles. Ahora se compara solo entre métodos capaces del mismo objetivo.
+
+### Agregado (Diseños D22, D23 y D24 — sin integrar a release)
+
+- Comando «Comprobar que Kohana funciona bien»: revisa permisos, migraciones, cifrado, copias y redacción en tu equipo, sin tocar tus datos, y dice qué NO comprueba.
+- Cuatro packs nuevos: **Kohana Support**, **Kohana Creator**, **Kohana Access** y **Kohana Meeting**, con los dos anteriores hacen los seis del roadmap.
+- Panel de packs en Personalizar, con lo que le falta a cada uno antes de activarlo.
+- Nivel «Colaborar con confirmaciones» para el proyecto: Kohana encadena varios cambios y se para a preguntar en cada archivo.
+- Si un cambio de la secuencia falla, Kohana para, deja constancia del punto exacto y ofrece deshacer lo ya aplicado. Nunca reintenta sola.
+
 # Changelog
 
 Todos los cambios públicos de Kohana se documentan aquí. Las entradas anteriores a `0.9.2-beta` conservan el nombre Nexo como registro histórico.

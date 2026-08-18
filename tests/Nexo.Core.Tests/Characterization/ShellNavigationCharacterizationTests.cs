@@ -31,10 +31,18 @@ public sealed class ShellNavigationCharacterizationTests
             ShellNavigationPolicy.KnownDestinations);
     }
 
+    /// <summary>
+    /// Diseño D52 — cambiada a propósito, no arreglada.
+    ///
+    /// Esta prueba congelaba «Inicio» como destino de arranque, y cumplió su papel: al reorganizar
+    /// el shell falló y obligó a declarar el cambio en vez de dejarlo pasar. Kohana arranca ahora
+    /// en el chat, porque el chat es la aplicación y abrir en un tablero de tarjetas la presentaba
+    /// como otra cosa.
+    /// </summary>
     [Fact]
-    public void DefaultDestination_IsHome()
+    public void DefaultDestination_IsTheChat()
     {
-        Assert.Equal("Home", ShellNavigationPolicy.DefaultDestination);
+        Assert.Equal("Assistant", ShellNavigationPolicy.DefaultDestination);
     }
 
     [Theory]
@@ -94,15 +102,32 @@ public sealed class ShellNavigationCharacterizationTests
             ShellNavigationPolicy.ResolvePreviousDestination("Settings", "Tasks"));
     }
 
+    /// <summary>
+    /// Diseño D52 — cambiada a propósito, y esta es la que más importaba de las tres.
+    ///
+    /// Salir de Personalizar sin un destino anterior usable caía en «Inicio». Con el rail reducido,
+    /// Inicio ya no está en el rail: la salida habría dejado a la persona en una pantalla sin
+    /// ninguna pestaña marcada, sin forma evidente de volver. Ahora cae en el chat, que es donde
+    /// siempre hay algo que hacer y siempre está visible.
+    /// </summary>
     [Fact]
-    public void SettingsToggle_FallsBackToHomeWhenPreviousIsUnusable()
+    public void SettingsToggle_FallsBackToTheChatWhenPreviousIsUnusable()
     {
         Assert.Equal(
-            "Home",
+            "Assistant",
             ShellNavigationPolicy.ResolveSettingsToggle("Settings", "Memory"));
         Assert.Equal(
-            "Home",
+            "Assistant",
             ShellNavigationPolicy.ResolveSettingsToggle("Settings", null));
+    }
+
+    [Fact]
+    public void TheFallbackIsAlwaysAModuleThatCannotLeaveTheRail()
+    {
+        // La regla que ata las dos decisiones: a donde se cae tiene que ser algo que siempre esté
+        // visible. Si mañana alguien hace opcional el destino por omisión, esto falla y avisa.
+        Assert.False(ShellNavigationPolicy.IsOptional(ShellNavigationPolicy.DefaultDestination));
+        Assert.False(ShellNavigationPolicy.IsOptional(ShellNavigationPolicy.FallbackDestination));
     }
 
     [Fact]
@@ -142,11 +167,39 @@ public sealed class ShellNavigationCharacterizationTests
         Assert.False(redirected);
     }
 
+    /// <summary>
+    /// Diseño D52 — cambiada a propósito. Antes solo Audio, Captura y Sistema se podían quitar del
+    /// rail; ahora se puede quitar casi todo.
+    /// </summary>
     [Fact]
-    public void OptionalModules_AreAudioCaptureAndSystem()
+    public void EverythingButTheChatAndSettingsCanLeaveTheRail()
     {
-        // Home, Assistant, Tasks, Focus, Routines y Settings no se pueden ocultar.
-        Assert.Equal(["Audio", "Capture", "System"], ShellNavigationPolicy.OptionalModules);
+        Assert.Equal(
+            ["Home", "Tasks", "Focus", "Routines", "Audio", "Capture", "System"],
+            ShellNavigationPolicy.OptionalModules);
+
+        // El chat es la aplicación y Personalizar es desde donde vuelven los demás: quitar ese
+        // sería cerrar la puerta desde dentro.
+        Assert.False(ShellNavigationPolicy.IsOptional("Assistant"));
+        Assert.False(ShellNavigationPolicy.IsOptional("Settings"));
+    }
+
+    [Fact]
+    public void ANewInstallShowsOnlyTheChatSystemAndSettings()
+    {
+        Assert.Equal(
+            ["Assistant", "System", "Settings"],
+            ShellNavigationPolicy.DefaultVisibleModules);
+    }
+
+    [Fact]
+    public void WhatLeavesTheRail_IsStillAKnownDestination()
+    {
+        // Quitar del rail no es quitar de la aplicación: cada módulo conserva su comando «Ir a…»
+        // en la paleta, y eso solo funciona si sigue siendo un destino que el shell reconoce.
+        Assert.All(
+            ShellNavigationPolicy.OptionalModules,
+            module => Assert.True(ShellNavigationPolicy.IsKnownDestination(module)));
     }
 
     [Theory]

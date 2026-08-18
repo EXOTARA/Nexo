@@ -32,19 +32,19 @@
             <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
                 <StackPanel>
                     <TextBlock Text="HOY" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="TodayCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                    <TextBlock x:Name="TodayCountText" Text="0" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
                 <StackPanel>
                     <TextBlock Text="PENDIENTES" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="PendingCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                    <TextBlock x:Name="PendingCountText" Text="0" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource SubtleCardStyle}" Margin="3" Padding="10">
                 <StackPanel>
                     <TextBlock Text="VENCIDAS" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="OverdueCountText" Text="0" FontSize="19" FontWeight="SemiBold" />
+                    <TextBlock x:Name="OverdueCountText" Text="0" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
             </Border>
         </UniformGrid>
@@ -58,7 +58,7 @@
                 <TextBlock x:Name="EditorTitleText"
                            Text="Nueva tarea"
                            FontWeight="SemiBold"
-                           FontSize="15" />
+                           FontSize="{DynamicResource FontSizeBody}" />
                 <TextBox x:Name="TitleTextBox"
                          Margin="0,9,0,0"
                          Style="{StaticResource CompactTextBoxStyle}"
@@ -121,23 +121,41 @@
             </StackPanel>
         </Border>
 
-        <UniformGrid Grid.Row="3" Columns="3" Margin="0,0,0,9">
+<!--
+            Diseño D58 — los filtros se miden por su texto, no por el ancho disponible.
+
+            Estaban en un UniformGrid de tres columnas, así que cada uno ocupaba un tercio del panel
+            dijera lo que dijera: «Hoy» salía con el mismo ancho que «Pendientes» y quedaba como una
+            barra larga con tres letras en medio. Una píldora tiene que abrazar su palabra; si no,
+            deja de leerse como algo pulsable y pasa a leerse como una fila de la lista.
+        -->
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    Margin="0,0,0,9">
             <Button x:Name="TodayFilterButton"
                     Content="Hoy"
                     Tag="Today"
+                    MinWidth="0"
+                    Padding="16,8"
+                    Margin="0,0,8,0"
                     Style="{StaticResource NavButtonStyle}"
                     Click="FilterButton_Click" />
             <Button x:Name="PendingFilterButton"
                     Content="Pendientes"
                     Tag="Pending"
+                    MinWidth="0"
+                    Padding="16,8"
+                    Margin="0,0,8,0"
                     Style="{StaticResource NavButtonStyle}"
                     Click="FilterButton_Click" />
             <Button x:Name="CompletedFilterButton"
                     Content="Hechas"
                     Tag="Completed"
+                    MinWidth="0"
+                    Padding="16,8"
                     Style="{StaticResource NavButtonStyle}"
                     Click="FilterButton_Click" />
-        </UniformGrid>
+        </StackPanel>
 
         <Grid Grid.Row="4">
             <ScrollViewer VerticalScrollBarVisibility="Auto"
@@ -145,7 +163,7 @@
                 <ItemsControl x:Name="TasksItemsControl">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,8" Padding="11">
+                            <Border Style="{StaticResource SubtleCardStyle}" Margin="0,0,0,8" Padding="14">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -162,14 +180,14 @@
                                                     Background="{DynamicResource BrushAccentSoft}"
                                                     CornerRadius="7">
                                                 <TextBlock Text="{Binding PriorityLabel}"
-                                                           FontSize="10.5"
+                                                           FontSize="{DynamicResource FontSizeCaption}"
                                                            Foreground="{DynamicResource BrushTextSecondary}" />
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Margin="0,4,0,0"
                                                    Text="{Binding ScheduleText}"
                                                    Foreground="{Binding ScheduleBrush}"
-                                                   FontSize="12" />
+                                                   FontSize="{DynamicResource FontSizeFootnote}" />
                                         <TextBlock Margin="0,4,0,0"
                                                    Text="{Binding Notes}"
                                                    TextWrapping="Wrap"

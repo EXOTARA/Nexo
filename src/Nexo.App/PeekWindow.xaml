@@ -39,19 +39,19 @@
             <UniformGrid x:Name="PeekMetricsGrid" Columns="3">
                 <StackPanel x:Name="CpuMetricPanel" Margin="0,0,12,0">
                     <TextBlock Text="CPU" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="CpuValueText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CpuValueText" Text="—" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel x:Name="MemoryMetricPanel" Margin="0,0,12,0">
                     <TextBlock Text="RAM" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="MemoryValueText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock x:Name="MemoryValueText" Text="—" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel x:Name="GpuMetricPanel" Margin="0,0,12,0">
                     <TextBlock Text="GPU" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="GpuValueText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock x:Name="GpuValueText" Text="—" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
                 <StackPanel x:Name="DiskMetricPanel">
                     <TextBlock Text="DISCO" Style="{StaticResource MutedTextStyle}" />
-                    <TextBlock x:Name="DiskValueText" Text="—" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DiskValueText" Text="—" FontSize="{DynamicResource FontSizeTitle2}" FontWeight="SemiBold" />
                 </StackPanel>
             </UniformGrid>
 

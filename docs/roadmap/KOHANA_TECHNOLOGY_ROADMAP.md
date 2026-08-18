@@ -29,7 +29,9 @@
 
 ## Fase 1 — Ambient Interaction Foundation
 
-**Estado: Planeada — siguiente fase recomendada (ver Sección 14 / D4 más abajo).**
+**Estado: Implementada** (Diseño D4 — D4.1 + D4.2 + D4.4 —, validado manualmente por el usuario e
+integrado en `release/kohana-1.0-rc` — ver `docs/stable-release/IMPLEMENTATION_LOG.md`, sección
+"Diseño D4").
 
 - Objetivo: que Kohana pueda responder brevemente sin que el usuario tenga que abrir ni enfocar la
   ventana principal.
@@ -53,7 +55,10 @@
 
 ## Fase 2 — Kohana Lens
 
-**Estado: Planeada — investigación.**
+**Estado: Implementada** (Diseño D5 — D5.1-D5.7, TFM, OCR real, UI Automation, redacción de texto e
+imagen, indicador "Mirando", los tres modos —soporte/estudio/desarrollo— y resaltado visual—,
+validado manualmente por el usuario e integrado en `release/kohana-1.0-rc` — ver
+`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D5").
 
 - Objetivo: que Kohana pueda observar y explicar lo que hay en pantalla (con autorización), no
   actuar sobre ello todavía.
@@ -73,7 +78,11 @@
 
 ## Fase 3 — Kohana Flow
 
-**Estado: Planeada — investigación.**
+**Estado: Implementada** (Diseño D6 — D6.1-D6.3: atajo global `Ctrl + Shift + D`, transcripción sin
+normalizar para dictado, puntuación hablada, muletillas, diccionario, atajos, los tres modos
+—texto/correo/código— e inserción universal con guardia de foco. Validado manualmente por el usuario
+e integrado en `release/kohana-1.0-rc` — ver `docs/stable-release/IMPLEMENTATION_LOG.md`, sección
+"Diseño D6". La interfaz para editar diccionario y atajos llega en D7).
 
 - Objetivo: dictado global de alta calidad en cualquier aplicación de Windows.
 - Valor: reemplaza el cambio de ventana para escribir texto largo por voz.
@@ -89,7 +98,14 @@
 
 ## Fase 4 — Adaptive Computer Optimization
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseños D8 + D11 en `design/kohana-sprints-d7-d9`. El criterio de terminado está
+cubierto en código: los siete escenarios proponen un plan basado en el hardware real, la aplicación
+exige confirmación y snapshot previo, la reversión se **verifica releyendo** el estado, un fallo a
+mitad deshace lo ya aplicado, y todo queda en un registro de auditoría consultable. Kohana aplica
+dos objetivos reversibles con certeza —el plan de energía y su propio modo de rendimiento—; el resto
+del plan son consejos que ejecuta la persona. Sigue marcada **Parcial** por la regla de este
+documento: el código no está en `release/kohana-1.0-rc` todavía y falta la validación manual del
+usuario).
 
 - Objetivo: que el usuario pueda pedir "optimiza mi computadora para X" y Kohana proponga y aplique
   (con confirmación) cambios reversibles basados en el hardware real.
@@ -113,7 +129,18 @@
 
 ## Fase 5 — Project Companion
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseños D12 + D13 + D14 en `design/kohana-sprints-d7-d9`: carpeta de trabajo
+autorizada con contención real de rutas, exclusión de archivos de secretos y de carpetas de
+dependencias, detección de secretos en código antes de enviar nada, búsqueda dentro del proyecto, y
+los niveles 1–5 del modelo de autonomía. **D14 abre la escritura**, con checkpoint reversible por
+archivo comprobado antes de tocar nada, verificación releyendo, reversión de lo aplicado si un paso
+falla, negativa a deshacer si la persona editó el archivo después, y registro en el Audit Log.
+**D24 abre el nivel 5**: varios cambios encadenados, confirmando archivo por archivo, parada al
+primer fallo con constancia del punto exacto y reversión de lo ya aplicado en orden inverso — se
+abrió aquí y no en la Fase 7 porque aquí cada paso tiene su copia previa y la obligación de revertir
+sí se puede cumplir. El nivel 6 sigue cerrado y el nivel por omisión sigue siendo `Guiar`. Sin
+integrar a release y pendiente de validación manual, que aquí pesa más que en ningún otro sprint
+porque se escriben archivos reales).
 
 - Objetivo: que Kohana trabaje junto al usuario dentro de un proyecto de código autorizado —desde
   guiar hasta ejecutar cambios— con el nivel de autonomía que el usuario elija.
@@ -130,11 +157,25 @@
 - No objetivos: no reemplaza revisión humana de cambios significativos por defecto.
 - Criterio de terminado: los cinco modos operando con checkpoints y detección de secretos activa
   antes de cualquier acción de escritura.
-- Sprints sugeridos: "Companion: workspace y modo Guía", "Companion: modo Agente y checkpoints".
+- Sprints sugeridos: "Companion: workspace y modo Guía" (hecho en D12), "Companion: modo Agente y
+  checkpoints" (los checkpoints y el nivel 4 son D14; el modo Agente —niveles 5 y 6— sigue
+  pendiente).
+
+> **Nota de vocabulario (D12).** Este documento nombra "cinco modos" (Guía, Observador, Copiloto,
+> Colaborador, Agente) y el modelo de confianza nombra seis niveles numerados (Ver, Guiar, Proponer,
+> Ejecutar un paso, Colaborar con confirmaciones, Automatizar una secuencia). Son la misma escalera
+> con dos vocabularios. **La implementación sigue la del modelo de confianza**, que es la que fija el
+> orden de habilitación y la regla de "ninguna capacidad empieza por arriba"; ver
+> `WorkspaceAutonomyLevel`.
 
 ## Fase 6 — Context and Memory
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseños D9 + D10 en `design/kohana-sprints-d7-d9`: controles de exclusión y
+retención funcionando antes que el almacenamiento, tres categorías independientes, cifrado DPAPI en
+reposo y búsqueda literal; y ya se llena desde la conversación —solo por petición explícita, o por
+propuesta con un sí de por medio—, se usa como contexto de las consultas y se configura desde
+Personalizar. Falta llenar la categoría `Habitos`, que necesita algo que mida conducta real y no una
+frase suelta. Sin integrar a release y pendiente de validación manual).
 
 - Objetivo: que Kohana recuerde contexto relevante entre sesiones sin convertirse en vigilancia
   permanente.
@@ -152,7 +193,17 @@
 
 ## Fase 7 — Safe Computer Use
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseños D16 + D17 + D18 + D19 en `design/kohana-sprints-d7-d9`. Las dos
+condiciones que esta fase ponía para habilitarse ya existen: el **Permission Broker** (D16) y el
+**Audit Log** (D13). D17 implementa el orden estricto de métodos —nunca se baja de escalón habiendo
+uno más seguro disponible, y ratón/teclado exigen habilitarse a propósito— y los niveles 1–3. D18
+abre el **nivel 4**: una acción confirmada cada vez, verificada releyendo, reversible donde se puede
+garantizar, y siempre auditada. D19 sube **UI Automation** al conjunto ejecutable, con negativa ante
+ambigüedad, y corrige el alcance de la regla del "más seguro disponible", que ahora se aplica entre
+métodos capaces del mismo objetivo. **Tres de los ocho métodos están implementados** —UI Automation,
+una lista de comandos de solo lectura y el portapapeles—; los cuatro primeros no se declaran
+disponibles porque Kohana no sabe ejecutarlos, y ratón/teclado no está implementado en absoluto. Sin
+integrar a release y pendiente de validación manual).
 
 - Objetivo: permitir que Kohana ejecute acciones reales sobre el equipo, siempre por el camino más
   seguro disponible primero.
@@ -170,12 +221,28 @@
   paso → Colaborar con confirmaciones → Automatizar una secuencia autorizada).
 - Criterio de terminado: los seis niveles de autonomía disponibles y auditables para al menos una
   herramienta de cada categoría de la lista de preferencia.
-- Sprints sugeridos: "Computer Use: niveles Ver/Guiar/Proponer", "Computer Use: ejecución y
-  auditoría".
+- Sprints sugeridos: "Computer Use: niveles Ver/Guiar/Proponer" (hecho en D17), "Computer Use:
+  ejecución y auditoría" (hecho en D18, en el nivel 4).
+
+> **Distancia real al criterio de terminado (actualizado en D19).** El criterio pide los seis
+> niveles *"para al menos una herramienta de cada categoría de la lista de preferencia"*, y ahí es
+> donde queda lo gordo: hay herramienta para **tres** categorías de ocho (UI Automation, shell seguro
+> y portapapeles), y los niveles llegan hasta el 4 de 6. Lo que sí está terminado es la parte que
+> decide: el orden de preferencia, el broker, la auditoría y la reversión. D19 lo demostró sin
+> quererlo — añadir UI Automation no exigió tocar la política ni el coordinador; bastó con
+> declararlo disponible y la escalera lo eligió sola.
 
 ## Fase 8 — Skills Platform
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseños D15 + D23 en `design/kohana-sprints-d7-d9`: **los seis packs** que
+nombra la fase —Study, Dev, Support, Creator, Access y Meeting—, hechos exclusivamente con
+capacidades ya implementadas, con panel propio en Personalizar. Un pack solo escribe preferencias y
+**nunca concede un permiso**: lo que necesita y no puede activar por su cuenta —memoria, Vision,
+carpeta de proyecto— lo declara como requisito y dice dónde se da. Activar guarda el estado anterior
+y desactivar lo devuelve; un pack activo a la vez, y todos reversibles con prueba que lo obliga. El
+criterio de terminado de la fase —*"al menos dos packs completos usando exclusivamente capacidades
+ya implementadas"*— está cumplido con margen. Sigue **Parcial** solo por la regla de este documento:
+el código no está en `release/kohana-1.0-rc` y falta la validación manual).
 
 - Objetivo: empaquetar combinaciones de capacidades anteriores en "packs" con propósito claro.
 - Valor: un usuario no técnico puede activar "Kohana Study" sin entender qué capacidades incluye.
@@ -189,11 +256,20 @@
 - No objetivos: no es un marketplace de terceros en esta fase.
 - Criterio de terminado: al menos dos packs completos usando exclusivamente capacidades ya
   implementadas en fases anteriores.
-- Sprints sugeridos: uno por pack, empezando por "Skills: Kohana Study" y "Skills: Kohana Dev".
+- Sprints sugeridos: uno por pack, empezando por "Skills: Kohana Study" y "Skills: Kohana Dev"
+  (ambos hechos en D15, en un solo sprint por ser listas de ajustes y no lógica propia).
 
 ## Fase 9 — Productization
 
-**Estado: Planeada — investigación.**
+**Estado: Parcial** (Diseños D20 + D21 en `design/kohana-sprints-d7-d9`. `KohanaDataInventory`
+describe todo lo que Kohana guarda y de él cuelgan las tres piezas: copia **verificada** de los datos
+antes de actualizar, con vuelta atrás y con la regla de que un archivo no verificado impide declarar
+segura la actualización; plan de desinstalación que separa la app de tus datos y enseña las dos
+listas; y paquete de soporte exportable, redactado con las dos herramientas y que enumera lo que
+dejó fuera, más un informe de privacidad que dice qué se guarda, dónde, cifrado o no y cómo borrarlo.
+**Lo que falta es lo que no depende del código de la app**: instalar, actualizar y desinstalar de
+verdad siguen siendo del instalador, y el criterio de terminado pide las tres verificadas de punta a
+punta en una máquina limpia. Sin integrar a release y pendiente de validación manual).
 
 - Objetivo: llevar Kohana de "build interno validado por el usuario" a producto distribuible.
 - Valor: onboarding, actualización y soporte reales para usuarios que no son parte del desarrollo.
@@ -209,8 +285,15 @@
   apruebe.
 - Criterio de terminado: instalación, actualización y desinstalación limpias verificadas de punta a
   punta, con diagnóstico exportable para soporte.
-- Sprints sugeridos: "Productization: instalador y actualizador", "Productization: diagnóstico y
-  soporte".
+- Sprints sugeridos: "Productization: instalador y actualizador" (D20 hizo la mitad reversible: la
+  copia verificada y el plan de desinstalación; el instalador en sí sigue pendiente),
+  "Productization: diagnóstico y soporte" (hecho en D21).
+
+> **Distancia real al criterio de terminado (D21).** El diagnóstico exportable está. Lo que falta es
+> la otra mitad de la frase — *"instalación, actualización y desinstalación limpias verificadas de
+> punta a punta"* —, y no se cierra escribiendo más código de la aplicación: exige instalar,
+> actualizar y desinstalar en una máquina limpia y comprobar el resultado. Es trabajo de validación,
+> no de implementación, y conviene no confundirlo con lo segundo.
 
 ---
 
@@ -239,5 +322,9 @@ Sprint grande recomendado inmediatamente después de Diseño D3.2. Implementa la
 **Explícitamente fuera de alcance para D4:** Lens completa (Fase 2), Flow (Fase 3) y Computer Use
 (Fase 7) — D4 sienta las bases ambientales; esas tres fases se construyen encima, no dentro de D4.
 
-**No implementado todavía.** Este roadmap lo describe como plan, no como trabajo realizado en
-Diseño D3.2.
+**Estado real (actualizado tras D4.1 + D4.2 + D4.4):** Sakura Pill Host, ventanas no activables,
+ciclo de vida de solicitud, resultado corto/expandible, cancelar, deshacer (tanto en la solicitud
+visible como en el historial), primitivas de permisos, Context Snapshot, historial de solicitudes
+visible e integración inicial con el Command Center están implementados, probados, validados
+manualmente por el usuario e integrados en `release/kohana-1.0-rc` — ver
+`docs/stable-release/IMPLEMENTATION_LOG.md`, sección "Diseño D4".

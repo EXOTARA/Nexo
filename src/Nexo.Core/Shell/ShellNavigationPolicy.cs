@@ -27,8 +27,12 @@ public static class ShellNavigationPolicy
 
     /// <summary>
     /// Destino inicial del shell al arrancar.
+    ///
+    /// Diseño D52 — arranca en el chat, no en un panel de resumen. Kohana es el agente con el que
+    /// se habla; abrir en un tablero de tarjetas la presentaba como otra cosa, y obligaba a un clic
+    /// para llegar a lo que de verdad se venía a hacer.
     /// </summary>
-    public const string DefaultDestination = Home;
+    public const string DefaultDestination = Assistant;
 
     /// <summary>
     /// Destino al que cae el shell cuando el módulo activo deja de estar visible.
@@ -53,9 +57,29 @@ public static class ShellNavigationPolicy
     ];
 
     /// <summary>
-    /// Módulos que el usuario puede ocultar desde Personalización.
+    /// Módulos que el usuario puede quitar del rail desde Personalización.
+    ///
+    /// Diseño D52 — son casi todos. Los únicos que no se pueden quitar son el chat, que es la
+    /// aplicación, y Personalizar, que es desde donde se devuelven los demás: quitar ese sería
+    /// cerrar la puerta desde dentro.
     /// </summary>
-    public static IReadOnlyList<string> OptionalModules { get; } = [Audio, Capture, System];
+    public static IReadOnlyList<string> OptionalModules { get; } =
+        [Home, Tasks, Focus, Routines, Audio, Capture, System];
+
+    /// <summary>
+    /// Los que llegan visibles en una instalación nueva. El resto sigue existiendo y sigue teniendo
+    /// su comando «Ir a…» en la paleta; lo que no tiene es sitio fijo en el rail hasta que alguien
+    /// lo pida.
+    /// </summary>
+    public static IReadOnlyList<string> DefaultVisibleModules { get; } = [Assistant, System, Settings];
+
+    /// <summary>
+    /// Si un módulo puede quitarse del rail. Existe como pregunta y no como lista suelta porque la
+    /// interfaz de Personalización y la validación del propio rail tienen que responderla igual.
+    /// </summary>
+    public static bool IsOptional(string? module) =>
+        module is not null &&
+        OptionalModules.Any(candidate => candidate.Equals(module, StringComparison.OrdinalIgnoreCase));
 
     public static bool IsKnownDestination(string? destination) =>
         !string.IsNullOrWhiteSpace(destination) &&

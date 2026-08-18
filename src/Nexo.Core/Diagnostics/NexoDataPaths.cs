@@ -179,6 +179,41 @@ public static class NexoDataPaths
     public static string Tasks => Path.Combine(RootDirectory, "tasks.json");
     public static string Focus => Path.Combine(RootDirectory, "focus.json");
     public static string Routines => Path.Combine(RootDirectory, "routines.json");
+    public static string AmbientRequests => Path.Combine(RootDirectory, "ambient-requests.json");
+    public static string Memory => Path.Combine(RootDirectory, "memory.dat");
+
+    /// <summary>
+    /// Claves de API de los proveedores de nube, cifradas con DPAPI. Archivo aparte de
+    /// <see cref="Settings"/> a propósito: los ajustes acaban en capturas de pantalla y diagnósticos.
+    /// </summary>
+    public static string AiCredentials => Path.Combine(RootDirectory, "ai-credentials.dat");
+    public static string OptimizationSnapshot =>
+        Path.Combine(RootDirectory, "optimization-snapshot.json");
+
+    /// <summary>
+    /// Diseño D11 — registro propio de la optimización. Sustituido en D13 por el Audit Log único;
+    /// la ruta sobrevive solo para poder importar lo que ya estuviera escrito.
+    /// </summary>
+    public static string OptimizationAudit =>
+        Path.Combine(RootDirectory, "optimization-audit.json");
+
+    /// <summary>Diseño D13 — Audit Log orientado al usuario: qué hizo Kohana, cuándo y con qué permiso.</summary>
+    public static string Audit => Path.Combine(RootDirectory, "audit.json");
+
+    /// <summary>Diseño D12 — carpeta de trabajo autorizada y su historial de autorizaciones.</summary>
+    public static string Workspace => Path.Combine(RootDirectory, "workspace.json");
+
+    /// <summary>Diseño D14 — copias previas de los archivos que Kohana modificó, para poder deshacer.</summary>
+    public static string WorkspaceCheckpoints =>
+        Path.Combine(RootDirectory, "workspace-checkpoints.json");
+
+    /// <summary>Diseño D15 — ajustes anteriores al pack activo, para poder desactivarlo.</summary>
+    public static string SkillPackSnapshot =>
+        Path.Combine(RootDirectory, "skill-pack-snapshot.json");
+
+    /// <summary>Diseño D18 — pasos de Computer Use que Kohana puede deshacer.</summary>
+    public static string ComputerUseSnapshots =>
+        Path.Combine(RootDirectory, "computer-use-snapshots.json");
     public static string Conversation => Path.Combine(
         RootDirectory,
         "conversation-history.json");

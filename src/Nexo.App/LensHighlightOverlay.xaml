@@ -1,0 +1,20 @@
+<Window x:Class="Nexo.App.LensHighlightOverlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        Visibility="Collapsed"
+        AutomationProperties.Name="Kohana Lens — resaltado visual">
+    <!--
+        Diseño D5.7 — superposición de resaltado. A diferencia de SakuraPillWindow (interactiva),
+        esta ventana además marca WS_EX_TRANSPARENT en el code-behind: cubre el área completa de la
+        ventana observada, así que sin ese estilo bloquearía los clics dirigidos a la ventana real
+        que está debajo. Solo dibuja, nunca intercepta entrada.
+    -->
+    <Canvas x:Name="HighlightCanvas" />
+</Window>

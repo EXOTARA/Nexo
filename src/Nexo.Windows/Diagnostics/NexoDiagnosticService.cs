@@ -155,12 +155,12 @@ public sealed class NexoDiagnosticService : IDisposable
             return;
         }
 
-        if (preferences.AiProvider != AiProviderKind.Ollama)
+        if (!AiProviderDefaults.UsesOllamaProtocol(preferences.AiProvider))
         {
             items.Add(new DiagnosticItem(
                 "Inteligencia artificial",
                 DiagnosticStatus.Information,
-                $"Proveedor configurado: {preferences.AiProvider}."));
+                $"Proveedor configurado: {AiProviderDefaults.Get(preferences.AiProvider).DisplayName}."));
             return;
         }
 
