@@ -48,7 +48,14 @@ public static class AiProviderDefaults
             AiProviderKind.Groq => new AiProviderPreset(
                 "Groq",
                 "https://api.groq.com/openai/v1",
-                "llama-3.3-70b-versatile",
+                // Diseño D60 — Groq retiró llama-3.3-70b-versatile el 17 de junio de 2026 para las
+                // capas gratuita y de desarrollador, que son justo las que usa quien viene aquí por
+                // «gratis y sin tarjeta». La respuesta pasaba a ser un 404 diciendo que el modelo no
+                // existe «o no tienes acceso», que suena a problema de la clave y no a un modelo
+                // apagado. Es el segundo caso igual tras el de Gemini en D39.
+                //
+                // openai/gpt-oss-120b es el reemplazo que recomienda Groq para ese modelo.
+                "openai/gpt-oss-120b",
                 "GROQ_API_KEY",
                 RequiresApiKey: true,
                 AiProviderLocation.Cloud,

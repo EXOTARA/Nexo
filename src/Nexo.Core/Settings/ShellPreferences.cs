@@ -23,7 +23,22 @@ public sealed class ShellPreferences
     /// número suelto repetido en el último rung y en una veintena de pruebas, y un número repetido es
     /// un número que se olvida de actualizar en algún sitio.
     /// </summary>
-    public const int CurrentSchemaVersion = 27;
+    public const int CurrentSchemaVersion = 28;
+
+    /// <summary>
+    /// Modelos que un proveedor ha apagado, y por cuál se sustituyen. La clave es el identificador
+    /// muerto tal cual viaja en la petición.
+    ///
+    /// Existe porque ya ha pasado dos veces —Gemini en D39, Groq en D60— y las dos con el mismo
+    /// síntoma: la IA deja de responder y el mensaje habla de accesos, así que parece que la clave
+    /// está mal. Cambiar solo el valor por omisión no arregla a quien ya lo tenía guardado, que es
+    /// exactamente todo el que lo estaba usando.
+    /// </summary>
+    private static readonly Dictionary<string, string> RetiredModels =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["llama-3.3-70b-versatile"] = "openai/gpt-oss-120b"
+        };
 
     /// <summary>
     /// Diseño D58 — lo más estrecho que puede ponerse el shell.
@@ -459,6 +474,30 @@ public sealed class ShellPreferences
             if (Math.Abs(Width - 700) < 0.5)
             {
                 Width = 560;
+            }
+
+            SchemaVersion = 27;
+        }
+
+        if (SchemaVersion < 28)
+        {
+            // Diseño D60 — el modelo apagado se cambia por su reemplazo donde esté guardado. No es
+            // reimponer una elección sobre otra: el modelo elegido ya no existe, y dejarlo puesto
+            // solo conserva el fallo.
+            if (RetiredModels.TryGetValue(AiModel ?? string.Empty, out var replacement))
+            {
+                AiModel = replacement;
+            }
+
+            if (AiModelsByProvider is { Count: > 0 })
+            {
+                foreach (var provider in AiModelsByProvider.Keys.ToList())
+                {
+                    if (RetiredModels.TryGetValue(AiModelsByProvider[provider], out var swap))
+                    {
+                        AiModelsByProvider[provider] = swap;
+                    }
+                }
             }
 
             SchemaVersion = CurrentSchemaVersion;

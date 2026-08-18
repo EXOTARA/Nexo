@@ -18,7 +18,19 @@ namespace Nexo.App.Views.Controls;
 /// </summary>
 public sealed class CoverVisualizer : FrameworkElement
 {
-    private const int DefaultBandCount = 64;
+    /// <summary>
+    /// Diseño D60 — **bandas**, no rayos. El anillo dibuja el doble: cada banda se pinta dos veces,
+    /// una en cada mitad, para que el aro sea simétrico.
+    ///
+    /// D50 bajó «de 128 rayos a 64» y dejó este número en 64, que son 128 rayos otra vez: el
+    /// arreglo no llegó a aplicarse y el anillo siguió tan tupido como antes. En una circunferencia
+    /// de unos 580 píxeles, 128 trazos de 4,5 de grosor no dejan hueco entre vecinos y el aro deja
+    /// de leerse como rayos para leerse como un borde peludo.
+    ///
+    /// 32 bandas siguen siendo más de cuatro por octava en el rango que se representa, que es más
+    /// de lo que el ojo distingue en un anillo.
+    /// </summary>
+    private const int DefaultBandCount = 32;
 
     private double[] _levels = new double[DefaultBandCount];
     private Pen? _pen;

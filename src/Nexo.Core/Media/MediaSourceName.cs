@@ -76,8 +76,45 @@ public static class MediaSourceName
             id = id[(dot + 1)..];
         }
 
-        return id.Length == 0
+        return id.Length == 0 || IsOpaque(id)
             ? string.Empty
             : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(id.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// Diseño D60 — si lo que queda no es un nombre, no se enseña.
+    ///
+    /// Windows le inventa un identificador a las aplicaciones que no declaran el suyo, y ese
+    /// identificador es un número en hexadecimal de dieciséis dígitos. Sin esta comprobación salía
+    /// tal cual bajo la carátula: Adler vio «F0dc299d809b9700» donde debería poner de dónde sale la
+    /// música. Es justo lo que esta clase dice en su primera línea que no hay que hacer.
+    ///
+    /// Vacío es mejor que un código. La fila de la fuente simplemente no aparece, y no aparecer no
+    /// confunde a nadie; un número ahí sí, porque parece que significa algo.
+    /// </summary>
+    private static bool IsOpaque(string value)
+    {
+        // Ocho o más dígitos hexadecimales seguidos no son el nombre de ningún programa. Se pide
+        // longitud además de forma para no descartar cosas como «foobar2000», que ya viene resuelto
+        // por nombre pero podría llegar aquí en otra variante.
+        if (value.Length < 8)
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            var isHex =
+                character is >= '0' and <= '9' ||
+                character is >= 'a' and <= 'f' ||
+                character is >= 'A' and <= 'F';
+
+            if (!isHex)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
