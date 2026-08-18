@@ -164,7 +164,10 @@ public sealed class ShellPreferencesVisualResetTests
         preferences.ResetVisualPreferences();
 
         Assert.InRange(preferences.Opacity, 0.82, 1.0);
-        Assert.InRange(preferences.Width, 680, 820);
+        // Diseño D58 — el rango bajó su suelo a 460. La prueba sigue diciendo lo mismo: reiniciar
+        // lo visual no puede dejar el ancho fuera de lo que se admite.
+        Assert.InRange(
+            preferences.Width, ShellPreferences.MinimumWidth, ShellPreferences.MaximumWidth);
         Assert.False(string.IsNullOrWhiteSpace(preferences.AccentColor));
     }
 

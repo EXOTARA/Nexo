@@ -94,6 +94,64 @@ public partial class DashboardView : UserControl
         RefreshMediaUi();
     }
 
+    /// <summary>Se pidió elegir (o cambiar) la imagen del hueco libre del Panel.</summary>
+    public event EventHandler? PanelImagePickRequested;
+
+    /// <summary>
+    /// Diseño D58 — enseña la imagen de la persona, o la invitación si no hay ninguna.
+    ///
+    /// Una ruta que ya no existe se trata como «no hay imagen» y no como un error: el archivo pudo
+    /// moverse o borrarse meses después de elegirlo, y un aviso cada vez que se abre el cajón por
+    /// algo que la persona hizo a propósito en otro sitio sería un castigo, no una ayuda. Vuelve a
+    /// salir el hueco vacío, que ya dice qué hacer.
+    /// </summary>
+    public void SetPanelImage(string? path)
+    {
+        var image = TryLoadPanelImage(path);
+
+        PanelUserImage.Source = image;
+        PanelUserImage.Visibility = image is null ? Visibility.Collapsed : Visibility.Visible;
+        PanelImageEmptyHint.Visibility = image is null ? Visibility.Visible : Visibility.Collapsed;
+
+        PanelImageButton.ToolTip = image is null
+            ? "Elige una imagen para este hueco"
+            : "Cambiar la imagen · clic derecho para quitarla";
+    }
+
+    private static BitmapImage? TryLoadPanelImage(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            var image = new BitmapImage();
+            image.BeginInit();
+
+            // OnLoad para no dejar el archivo tomado: es un archivo de la persona y bloquearlo le
+            // impediría moverlo o borrarlo mientras Kohana esté abierta.
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+            image.UriSource = new Uri(path, UriKind.Absolute);
+            image.DecodePixelHeight = 264;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+        catch (Exception exception) when (
+            exception is NotSupportedException or UriFormatException or IOException or
+                UnauthorizedAccessException or ArgumentException or OutOfMemoryException)
+        {
+            // Un archivo que ya no es una imagen válida se comporta como si no estuviera.
+            return null;
+        }
+    }
+
+    private void PanelImageButton_Click(object sender, RoutedEventArgs e) =>
+        PanelImagePickRequested?.Invoke(this, EventArgs.Empty);
+
     public event EventHandler? MediaPlayPauseRequested;
 
     public event EventHandler? MediaNextRequested;

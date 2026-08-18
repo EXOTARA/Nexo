@@ -195,8 +195,11 @@ public sealed class PreferencesMigrationCharacterizationTests
         Assert.Equal("#E98AAF", preferences.AccentColor);
     }
 
+    // Diseño D58 — cambiada a propósito: el suelo del rango bajó de 680 a 460 para que Kohana
+    // pueda ponerse tan estrecha como una barra lateral. El techo y la forma de recortar no se
+    // tocan, y 700 sigue pasando intacto porque sigue estando dentro del rango.
     [Theory]
-    [InlineData(100, 680)]
+    [InlineData(100, 460)]
     [InlineData(700, 700)]
     [InlineData(5000, 820)]
     public void Width_IsClampedToTheShellRange(double input, double expected)

@@ -606,6 +606,9 @@ public partial class MainWindow : Window
         // Diseño D44 — el centro del borde de arriba baja el cajón. El aviso llega desde un hilo de
         // fondo, así que hay que volver al de la interfaz antes de tocar la ventana.
         _topRevealWatcher.RevealRequested += HandleTopRevealRequested;
+        _dashboardWindow.View.PanelImagePickRequested += (_, _) => PickPanelImage();
+        _dashboardWindow.View.SetPanelImage(_preferences.PanelImagePath);
+
         _dashboardWindow.Dismissed += (_, _) => _topRevealWatcher.SuppressBriefly();
 
         // Diseño D53 — pulsar un resumen del cajón trae la ventana principal al módulo que sea. El
@@ -4939,6 +4942,56 @@ public partial class MainWindow : Window
         }
 
         return presetDefault;
+    }
+
+    /// <summary>
+    /// Diseño D58 — elegir la imagen del hueco libre del Panel.
+    ///
+    /// Se abre en Imágenes, que es donde está lo que la gente pondría aquí, en vez de en la última
+    /// carpeta que tocara Kohana. Y si ya hay una elegida, se ofrece quitarla: sin esa salida, poner
+    /// una imagen sería una decisión sin vuelta atrás salvo editando un archivo de ajustes.
+    /// </summary>
+    private void PickPanelImage()
+    {
+        if (!string.IsNullOrWhiteSpace(_preferences.PanelImagePath))
+        {
+            var choice = MessageBox.Show(
+                this,
+                "¿Quieres quitar la imagen del panel? Elige «No» para cambiarla por otra.",
+                "Imagen del panel",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Question);
+
+            if (choice == MessageBoxResult.Cancel)
+            {
+                return;
+            }
+
+            if (choice == MessageBoxResult.Yes)
+            {
+                _preferences.PanelImagePath = string.Empty;
+                _dashboardWindow.View.SetPanelImage(null);
+                SavePreferences();
+                return;
+            }
+        }
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Elige una imagen para el panel",
+            Filter = "Imágenes|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp|Todos los archivos|*.*",
+            CheckFileExists = true,
+            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        _preferences.PanelImagePath = dialog.FileName;
+        _dashboardWindow.View.SetPanelImage(dialog.FileName);
+        SavePreferences();
     }
 
     private void HideShellButton_Click(object sender, RoutedEventArgs e) => HideAnimated();

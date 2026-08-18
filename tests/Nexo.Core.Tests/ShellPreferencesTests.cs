@@ -31,7 +31,11 @@ public sealed class ShellPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(680, preferences.Width);
+        // Diseño D58 — cambiada a propósito: el suelo bajó de 680 a 460. Lo que esta prueba
+        // protege no es el número sino que un ancho absurdo se sube hasta uno legible, y eso sigue
+        // igual; el suelo bajó porque a 680 no había forma de acercarse a una barra lateral de
+        // verdad por mucho que se arrastrara el control.
+        Assert.Equal(ShellPreferences.MinimumWidth, preferences.Width);
     }
 
     [Fact]
@@ -45,7 +49,10 @@ public sealed class ShellPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(700, preferences.Width);
+        // Diseño D58 — cambiada a propósito: quien viene de un esquema antiguo aterriza ahora en
+        // el ancho nuevo por omisión (560), no en el viejo (700). Es el mismo salto que hace la
+        // migración v27 con quien nunca tocó el control.
+        Assert.Equal(560, preferences.Width);
         Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
     }
 

@@ -23,12 +23,39 @@ public sealed class ShellPreferences
     /// número suelto repetido en el último rung y en una veintena de pruebas, y un número repetido es
     /// un número que se olvida de actualizar en algún sitio.
     /// </summary>
-    public const int CurrentSchemaVersion = 26;
+    public const int CurrentSchemaVersion = 27;
+
+    /// <summary>
+    /// Diseño D58 — lo más estrecho que puede ponerse el shell.
+    ///
+    /// Estaba en 680 y era el suelo de un panel que ocupaba media pantalla en un portátil. La
+    /// referencia de Adler —su barra de Caelestia— es bastante más estrecha que eso, y a 680 no
+    /// había forma de acercarse por mucho que se arrastrara el control.
+    ///
+    /// No baja más de 460 porque por debajo el rail desplegado (194) se come más de la mitad del
+    /// ancho y lo que queda para conversar deja de dar para una línea legible.
+    /// </summary>
+    public const double MinimumWidth = 460;
+
+    public const double MaximumWidth = 820;
 
     public int SchemaVersion { get; set; }
     public SidebarPosition Position { get; set; } = SidebarPosition.Right;
 
-    public double Width { get; set; } = 700;
+    /// <summary>
+    /// Diseño D58 — baja de 700 a 560. Kohana es una barra lateral, no una segunda ventana: a 700
+    /// tapaba demasiado de lo que se esté haciendo, que es justo lo contrario de acompañar.
+    /// </summary>
+    public double Width { get; set; } = 560;
+
+    /// <summary>
+    /// Diseño D58 — la imagen que la persona pone en el hueco libre del Panel.
+    ///
+    /// Se guarda la ruta y no una copia: el archivo es suyo, puede cambiarlo cuando quiera sin
+    /// volver a elegirlo, y quedarnos una copia dentro de Kohana significaría enseñar una versión
+    /// vieja de algo que no nos pertenece.
+    /// </summary>
+    public string PanelImagePath { get; set; } = string.Empty;
 
     public double Opacity { get; set; } = 0.96;
 
@@ -388,21 +415,6 @@ public sealed class ShellPreferences
             SchemaVersion = 24;
         }
 
-        if (SchemaVersion < 26)
-        {
-            // Diseño D58 — el modelo que ya estuviera elegido se apunta como el de su proveedor, en
-            // vez de empezar la memoria vacía. Quien tenía un modelo afinado lo conserva al primer
-            // cambio de proveedor y vuelta, que es justo cuando se notaría la pérdida.
-            AiModelsByProvider ??= [];
-
-            if (AiProvider != AiProviderKind.Disabled && !string.IsNullOrWhiteSpace(AiModel))
-            {
-                AiModelsByProvider[AiProvider.ToString()] = AiModel.Trim();
-            }
-
-            SchemaVersion = 26;
-        }
-
         if (SchemaVersion < 25)
         {
             // Diseño D52 — el rail se reduce a Chat, Sistema y Personalizar también al actualizar.
@@ -420,10 +432,40 @@ public sealed class ShellPreferences
             ShowAudioModule = false;
             ShowCaptureModule = false;
             ShowSystemModule = true;
+            SchemaVersion = 25;
+        }
+
+        if (SchemaVersion < 26)
+        {
+            // Diseño D58 — el modelo que ya estuviera elegido se apunta como el de su proveedor, en
+            // vez de empezar la memoria vacía. Quien tenía un modelo afinado lo conserva al primer
+            // cambio de proveedor y vuelta, que es justo cuando se notaría la pérdida.
+            AiModelsByProvider ??= [];
+
+            if (AiProvider != AiProviderKind.Disabled && !string.IsNullOrWhiteSpace(AiModel))
+            {
+                AiModelsByProvider[AiProvider.ToString()] = AiModel.Trim();
+            }
+
+            SchemaVersion = 26;
+        }
+
+        if (SchemaVersion < 27)
+        {
+            // Diseño D58 — el ancho nuevo llega también a quien ya tenía Kohana instalada, pero
+            // **solo si nunca lo tocó**. Quien arrastró el control hasta un ancho concreto eligió
+            // ese ancho; reimponerle el nuevo por omisión sería deshacerle una decisión, y aquí no
+            // hay ninguna razón para hacerlo — el control sigue estando donde estaba.
+            if (Math.Abs(Width - 700) < 0.5)
+            {
+                Width = 560;
+            }
+
             SchemaVersion = CurrentSchemaVersion;
         }
 
-        Width = Math.Clamp(Width, 680, 820);
+
+        Width = Math.Clamp(Width, MinimumWidth, MaximumWidth);
         Opacity = Math.Clamp(Opacity, 0.82, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
             ? Math.Clamp(RecentConversationMessageLimit, 8, 30)

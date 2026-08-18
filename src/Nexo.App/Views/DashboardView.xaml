@@ -590,6 +590,8 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <!-- Diseño D58 — el hueco de la imagen de quien usa Kohana. -->
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <Border Grid.Column="0" MinWidth="116" Style="{StaticResource DashboardCardStyle}" Padding="20,18">
@@ -726,6 +728,63 @@
                                                AutomationProperties.Name="Uso del disco del sistema" />
                         </StackPanel>
                     </Border>
+
+                    <!--
+                        Diseño D58 — un hueco que Kohana no usa para nada.
+
+                        Va debajo del control de la canción y en la esquina, que es donde la
+                        referencia pone el gato. No lleva título ni borde propio cuando hay imagen:
+                        lo que se pone aquí no es un dato del sistema y enmarcarlo como los demás lo
+                        convertiría en uno.
+
+                        Vacío se enseña como una invitación discreta y no como un error: nadie tiene
+                        por qué poner nada, y un recuadro punteado gritando «falta algo» en un panel
+                        que se abre veinte veces al día cansa el primer día.
+                    -->
+                    <Button x:Name="PanelImageButton"
+                            Grid.Column="3"
+                            Margin="12,0,0,0"
+                            Padding="0"
+                            Width="104"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="PanelImageButton_Click"
+                            ToolTip="Elige una imagen para este hueco"
+                            AutomationProperties.Name="Elegir la imagen del panel">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="Transparent">
+                                    <ContentPresenter />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Grid>
+                            <Image x:Name="PanelUserImage"
+                                   Stretch="Uniform"
+                                   MaxHeight="132"
+                                   Visibility="Collapsed"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                            <Border x:Name="PanelImageEmptyHint"
+                                    MinHeight="104"
+                                    CornerRadius="20"
+                                    Background="{DynamicResource BrushSurface}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="+"
+                                               HorizontalAlignment="Center"
+                                               FontSize="19"
+                                               Foreground="{DynamicResource BrushTextTertiary}" />
+                                    <TextBlock Text="Tu imagen"
+                                               Margin="0,3,0,0"
+                                               HorizontalAlignment="Center"
+                                               FontSize="{DynamicResource FontSizeCaption}"
+                                               Foreground="{DynamicResource BrushTextTertiary}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Button>
                 </Grid>
             </Grid>
 
