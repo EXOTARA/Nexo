@@ -4,6 +4,8 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using Nexo.Core.Commands.CommandCenter;
 
+using Nexo.App.Shell;
+
 namespace Nexo.App;
 
 /// <summary>
@@ -297,6 +299,10 @@ public partial class CommandCenterWindow : Window
             _ => "Shell"
         };
     }
+
+    /// <summary>Diseño D62 — el marco lo compone Windows. Ver <see cref="KohanaWindowChrome"/>.</summary>
+    private void Window_SourceInitialized(object? sender, EventArgs e) =>
+        KohanaWindowChrome.Apply(this, Surface);
 }
 
 public sealed class CommandCenterFailureEventArgs(

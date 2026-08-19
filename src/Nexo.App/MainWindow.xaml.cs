@@ -26,6 +26,7 @@ using Nexo.Windows.Updates;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Shell;
 using Nexo.App.WindowsIntegration;
+using Nexo.App.Shell;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
 using Nexo.Core.Ambient;
@@ -8411,55 +8412,44 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Diseño D62 — le pide a DWM el fondo, las esquinas y la sombra de la ventana, y deja de
-    /// pintar el fondo de WPF si el sistema acepta componer uno.
-    ///
-    /// Ese último paso es el que hace falta para que el acrílico se vea: mientras WPF pinte el
-    /// fondo de la ventana, aunque sea negro, tapa lo que DWM compone debajo.
+    /// Diseño D62 — le pide a DWM el fondo, las esquinas y la sombra de la ventana. El cómo está
+    /// en <see cref="KohanaWindowChrome"/>, que es el mismo camino que siguen los paneles: tener
+    /// dos copias de estos tres pasos era garantizar que una se quedara a medias.
     /// </summary>
     private void ApplySystemBackdrop(IntPtr windowHandle)
     {
-        var probe = WindowsDwmChrome.ReadProbe(_preferences.HardwarePerformanceMode);
-        var decision = WindowBackdropPolicy.Decide(probe, WindowBackdrop.Acrylic);
+        _ = windowHandle;
 
-        var applied = WindowsDwmChrome.TryApply(windowHandle, decision);
+        // Las ventanas sueltas no conocen las preferencias, así que el shell publica el modo por
+        // ellas: el modo eco tiene que valer para todas o para ninguna.
+        KohanaWindowChrome.PerformanceMode = _preferences.HardwarePerformanceMode;
 
-        // Si la llamada falló pese a que la política la creía posible, manda lo que pasó de verdad:
-        // sin fondo del sistema, el shell tiene que pintar el suyo.
-        _backdropDecision = applied
-            ? decision
-            : decision with { Backdrop = WindowBackdrop.None, PaintOwnBackground = true };
-
-        if (_windowSource?.CompositionTarget is { } target)
-        {
-            target.BackgroundColor = _backdropDecision.PaintOwnBackground
-                ? Colors.Black
-                : Colors.Transparent;
-        }
-
-        ApplyShellOpacity();
+        _backdropDecision = KohanaWindowChrome.Apply(
+            this,
+            ShellSurface,
+            "BrushBackground",
+            _preferences.Opacity);
     }
 
     private void ApplyShellOpacity()
     {
-        // Diseño D1: usa el color de fondo real del tema (BrushBackground) en vez de un
-        // literal hexadecimal casi-duplicado, para que el shell siga una única fuente de
-        // verdad de color.
-        var baseColor = ((SolidColorBrush)FindResource("BrushBackground")).Color;
-
         // Diseño D62 — la opacidad elegida solo significa algo si detrás hay un fondo del sistema
-        // que se pueda ver a través de ella. Sin acrílico ni Mica, lo único que hay detrás es el
-        // escritorio sin desenfocar y una superficie a medias se leería mal, así que se pinta
-        // opaca. Antes esto se aplicaba al Grid contenedor, que quedaba tapado por un borde opaco
-        // encima: el deslizador existía y no cambiaba nada.
-        var opaque = _backdropDecision?.PaintOwnBackground ?? true;
-        var alpha = opaque ? (byte)255 : (byte)Math.Round(_preferences.Opacity * 255);
+        // que se pueda ver a través de ella. Sin acrílico ni Mica lo único que hay detrás es el
+        // escritorio sin desenfocar, y una superficie a medias se leería peor que una sólida.
+        //
+        // Antes esto se aplicaba al Grid contenedor, que quedaba tapado por un borde opaco encima:
+        // el deslizador existía y no cambiaba nada.
+        if (_backdropDecision is not { } decision)
+        {
+            return;
+        }
 
-        ShellSurface.Background = new SolidColorBrush(Color.FromArgb(
-            alpha,
-            baseColor.R,
-            baseColor.G,
-            baseColor.B));
+        KohanaWindowChrome.PaintSurface(
+            this,
+            ShellSurface,
+            "BrushBackground",
+            _preferences.Opacity,
+            decision);
     }
 
     /// <summary>

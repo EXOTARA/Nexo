@@ -6,8 +6,8 @@
         SizeToContent="Height"
         WindowStyle="None"
         ResizeMode="NoResize"
-        AllowsTransparency="True"
         Background="Transparent"
+        SourceInitialized="Window_SourceInitialized"
         ShowInTaskbar="False"
         Topmost="True"
         WindowStartupLocation="Manual"
@@ -139,18 +139,25 @@
         </Style>
     </Window.Resources>
 
+    <!--
+        Diseño D62 — sin AllowsTransparency: el acrílico, las esquinas y la sombra los pone DWM.
+        Los veinticuatro píxeles de margen existían para que cayera la sombra pintada a mano y ya
+        no hacen falta; la sombra de DWM se dibuja fuera del rectángulo de la ventana.
+
+        El degradado se queda —es la identidad de la paleta— pero baja de opaco (#FD, #FB) a #B8,
+        que es lo que deja pasar el desenfoque de detrás. Sin esa bajada el acrílico está aplicado
+        y no se ve, que es exactamente el fallo que costó una tarde en el piloto.
+    -->
     <Border x:Name="RootBorder"
-            Margin="24"
             Padding="12"
             BorderThickness="1"
-            CornerRadius="28"
             Opacity="0"
             SnapsToDevicePixels="True">
         <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#FD111620" Offset="0" />
-                <GradientStop Color="#FB151B27" Offset="0.64" />
-                <GradientStop Color="#FD1B1826" Offset="1" />
+                <GradientStop Color="#B8111620" Offset="0" />
+                <GradientStop Color="#B8151B27" Offset="0.64" />
+                <GradientStop Color="#B81B1826" Offset="1" />
             </LinearGradientBrush>
         </Border.Background>
         <Border.BorderBrush>
@@ -160,12 +167,6 @@
                 <GradientStop Color="#4A8B6CFF" Offset="1" />
             </LinearGradientBrush>
         </Border.BorderBrush>
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="34"
-                              ShadowDepth="10"
-                              Opacity="0.46"
-                              Color="#000000" />
-        </Border.Effect>
         <Border.RenderTransform>
             <TranslateTransform x:Name="PaletteTranslate" Y="-8" />
         </Border.RenderTransform>

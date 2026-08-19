@@ -9,6 +9,8 @@ using System.Windows.Threading;
 using Nexo.Core.Commands;
 using Nexo.Core.Diagnostics;
 
+using Nexo.App.Shell;
+
 namespace Nexo.App;
 
 public sealed class CommandPalettePromptEventArgs(string prompt) : EventArgs
@@ -900,4 +902,11 @@ public partial class CommandPaletteWindow : Window
     private readonly record struct MotionSettings(
         double DurationMilliseconds,
         double Offset);
+    /// <summary>
+    /// Diseño D62 — el marco lo compone Windows. La paleta pinta su superficie con su propio
+    /// degradado, así que aquí solo se pide el fondo del sistema.
+    /// </summary>
+    private void Window_SourceInitialized(object? sender, EventArgs e) =>
+        KohanaWindowChrome.ApplyBackdropOnly(this);
+
 }
