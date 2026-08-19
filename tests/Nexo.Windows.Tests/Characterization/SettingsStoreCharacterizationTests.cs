@@ -62,7 +62,7 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
             SchemaVersion = 16,
             HasCompletedOnboarding = true,
             WakeWordEnabled = true,
-            WakeWordPhrase = WakeWordPhrase.Kohana,
+            WakeWordPhrase = WakeWordPhrase.Sakura,
             AccentColor = "#123456",
             Width = 750
         };
@@ -72,7 +72,9 @@ public sealed class SettingsStoreCharacterizationTests : IDisposable
 
         Assert.True(loaded.HasCompletedOnboarding);
         Assert.True(loaded.WakeWordEnabled);
-        Assert.Equal(WakeWordPhrase.Kohana, loaded.WakeWordPhrase);
+        // Diseño D69 — el archivo se guarda con un esquema anterior, así que al leerlo corre la
+        // migración del cambio de nombre y la elección aterriza en la frase por omisión.
+        Assert.Equal(WakeWordPhrase.OyeSakura, loaded.WakeWordPhrase);
         Assert.Equal("#123456", loaded.AccentColor);
         Assert.Equal(750, loaded.Width);
     }

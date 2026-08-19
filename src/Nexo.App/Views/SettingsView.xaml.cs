@@ -139,9 +139,15 @@ public partial class SettingsView : UserControl
         SpeakVoiceResponsesCheckBox.IsChecked = preferences.SpeakVoiceResponses;
         VoiceInputDeviceComboBox.SelectedValue = preferences.VoiceInputDeviceNumber;
         WakeWordEnabledCheckBox.IsChecked = preferences.WakeWordEnabled;
-        WakeWordKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.Kohana or WakeWordPhrase.Nexo;
-        WakeWordOyeKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeNexo;
-        WakeWordHeyKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
+        // Diseño D69 — los tres controles ofrecen Sakura, pero siguen sabiendo leer las elecciones
+        // de los dos nombres anteriores: lo que importa es la forma —corta, "oye" o "hey"—, no la
+        // marca con la que se guardó.
+        WakeWordShortRadioButton.IsChecked = preferences.WakeWordPhrase is
+            WakeWordPhrase.Sakura or WakeWordPhrase.Kohana or WakeWordPhrase.Nexo;
+        WakeWordOyeRadioButton.IsChecked = preferences.WakeWordPhrase is
+            WakeWordPhrase.OyeSakura or WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeNexo;
+        WakeWordHeyRadioButton.IsChecked = preferences.WakeWordPhrase is
+            WakeWordPhrase.HeySakura or WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
         SelectWakeWordSensitivity(preferences.WakeWordSensitivity);
         SetWakeWordAliases(preferences.WakeWordAliases);
 
@@ -872,11 +878,11 @@ public partial class SettingsView : UserControl
             return;
         }
 
-        var value = phrase.Equals("OyeKohana", StringComparison.OrdinalIgnoreCase)
-            ? WakeWordPhrase.OyeKohana
-            : phrase.Equals("HeyKohana", StringComparison.OrdinalIgnoreCase)
-                ? WakeWordPhrase.HeyKohana
-                : WakeWordPhrase.Kohana;
+        var value = phrase.Equals("OyeSakura", StringComparison.OrdinalIgnoreCase)
+            ? WakeWordPhrase.OyeSakura
+            : phrase.Equals("HeySakura", StringComparison.OrdinalIgnoreCase)
+                ? WakeWordPhrase.HeySakura
+                : WakeWordPhrase.Sakura;
         WakeWordPhraseChanged?.Invoke(value);
     }
 
@@ -961,15 +967,15 @@ public partial class SettingsView : UserControl
 
     private void UpdateWakeWordOptionsAvailability()
     {
-        if (WakeWordKohanaRadioButton is null)
+        if (WakeWordShortRadioButton is null)
         {
             return;
         }
 
         var enabled = WakeWordEnabledCheckBox.IsChecked == true;
-        WakeWordKohanaRadioButton.IsEnabled = enabled;
-        WakeWordOyeKohanaRadioButton.IsEnabled = enabled;
-        WakeWordHeyKohanaRadioButton.IsEnabled = enabled;
+        WakeWordShortRadioButton.IsEnabled = enabled;
+        WakeWordOyeRadioButton.IsEnabled = enabled;
+        WakeWordHeyRadioButton.IsEnabled = enabled;
         WakeWordSensitivityComboBox.IsEnabled = enabled;
         WakeWordTestButton.IsEnabled = enabled;
         WakeWordUseObservedAliasButton.IsEnabled = false;

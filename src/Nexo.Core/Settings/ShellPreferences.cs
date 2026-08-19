@@ -23,7 +23,7 @@ public sealed class ShellPreferences
     /// número suelto repetido en el último rung y en una veintena de pruebas, y un número repetido es
     /// un número que se olvida de actualizar en algún sitio.
     /// </summary>
-    public const int CurrentSchemaVersion = 29;
+    public const int CurrentSchemaVersion = 30;
 
     /// <summary>
     /// Modelos que un proveedor ha apagado, y por cuál se sustituyen. La clave es el identificador
@@ -155,7 +155,7 @@ public sealed class ShellPreferences
 
     public bool WakeWordEnabled { get; set; }
 
-    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.OyeKohana;
+    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.OyeSakura;
 
     public WakeSensitivity WakeWordSensitivity { get; set; } = WakeSensitivity.Balanced;
 
@@ -545,6 +545,27 @@ public sealed class ShellPreferences
                 Opacity = 0.85;
             }
 
+            SchemaVersion = 29;
+        }
+
+        if (SchemaVersion < 30)
+        {
+            // Diseño D69 — la frase de activación pasa de Kohana a Sakura junto con el nombre.
+            //
+            // Esta migración reimpone una elección previa y hay que decirlo: quien tuviera puesto
+            // "Oye Kohana" se va a encontrar "Oye Sakura". Se hace igualmente porque el nombre
+            // anterior no lo entendía el reconocedor —medido: "oye kohana" salía escrito "oye co
+            // ana"— y dejar la frase vieja sería conservar la única versión que no funciona.
+            //
+            // Se respeta la forma: quien decía la frase corta se queda con la corta, quien usaba
+            // "hey" se queda con "hey".
+            WakeWordPhrase = WakeWordPhrase switch
+            {
+                WakePhrase.Kohana or WakePhrase.Nexo => WakePhrase.Sakura,
+                WakePhrase.HeyKohana or WakePhrase.HeyNexo => WakePhrase.HeySakura,
+                _ => WakePhrase.OyeSakura
+            };
+
             SchemaVersion = CurrentSchemaVersion;
         }
 
@@ -561,7 +582,7 @@ public sealed class ShellPreferences
 
         if (!Enum.IsDefined(WakeWordPhrase))
         {
-            WakeWordPhrase = WakePhrase.OyeKohana;
+            WakeWordPhrase = WakePhrase.OyeSakura;
         }
 
         if (!Enum.IsDefined(WakeWordSensitivity))

@@ -113,6 +113,55 @@ public sealed class WakeWordRealMicrophoneTests
         }
     }
 
+    // ---------- El nombre nuevo, medido igual que el viejo ----------
+    //
+    // Diseño D69 — con la voz de Windows en español, "oye sakura" sale escrito tal cual las tres
+    // veces. Es toda la diferencia: "kohana" no está en el léxico del reconocedor y "sakura" sí, y
+    // por eso el cambio de nombre arregla lo que ninguna lista de variantes podía arreglar.
+    private static readonly string[] SakuraAsHeardBySpeechSynthesis =
+    [
+        "oye sakura",
+        "oye sakura",
+        "oye sakura"
+    ];
+
+    [Fact]
+    public void TheNewNameIsHeardAtEverySensitivity()
+    {
+        foreach (var sensitivity in new[]
+                 {
+                     WakeWordSensitivity.Strict, WakeWordSensitivity.Balanced, WakeWordSensitivity.High
+                 })
+        {
+            foreach (var heard in SakuraAsHeardBySpeechSynthesis)
+            {
+                Assert.True(
+                    WakeWordTextMatcher.IsMatch(heard, WakeWordPhrase.OyeSakura, sensitivity),
+                    $"“{heard}” no despertó a Sakura en sensibilidad {sensitivity}.");
+            }
+        }
+    }
+
+    [Fact]
+    public void TheDecoyRecordingDoesNotWakeTheNewNameEither()
+    {
+        // La grabación trampa de Adler está llena de "k": koala, Kyoto, kilovatios, Kazajistán.
+        // Ninguna de esas es "sakura", y hay que comprobarlo con el nombre nuevo igual que se
+        // comprobó con el viejo.
+        foreach (var sensitivity in new[]
+                 {
+                     WakeWordSensitivity.Strict, WakeWordSensitivity.Balanced, WakeWordSensitivity.High
+                 })
+        {
+            foreach (var line in TheDecoyRecording)
+            {
+                Assert.False(
+                    WakeWordTextMatcher.IsMatch(line, WakeWordPhrase.OyeSakura, sensitivity),
+                    $"Un despertar falso con el nombre nuevo en sensibilidad {sensitivity}: “{line}”.");
+            }
+        }
+    }
+
     [Fact]
     public void AtTheDefaultSensitivity_MostOfTheRealAttemptsWakeKohana()
     {

@@ -476,7 +476,7 @@ public partial class OnboardingWindow : Window
         }
 
         _preferences.WakeWordEnabled = WakeWordCheckBox.IsChecked == true;
-        _preferences.WakeWordPhrase = WakeWordPhrase.OyeKohana;
+        _preferences.WakeWordPhrase = WakeWordPhrase.OyeSakura;
 
         var rawModel = (AiModelComboBox.Text ?? string.Empty).Trim();
         var model = string.IsNullOrWhiteSpace(rawModel)

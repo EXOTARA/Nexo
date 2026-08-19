@@ -65,12 +65,22 @@ public sealed class VoiceRuntimeCharacterizationTests
 
         preferences.Normalize();
 
-        Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
+        // Diseño D69 — cambiada a conciencia con el cambio de nombre. La frase por omisión es
+        // ahora "Oye Sakura": "kohana" no existe en el léxico español del reconocedor y salía
+        // escrita "oye co ana", así que conservarla habría sido conservar la única que no
+        // funcionaba. La forma —corta, "oye" o "hey"— sí se respeta al migrar.
+        Assert.Equal(WakeWordPhrase.OyeSakura, preferences.WakeWordPhrase);
     }
 
     [Fact]
     public void SpokenTextIsStableForEveryPhrase()
     {
+        Assert.Equal("Oye Sakura", WakeWordPhrase.OyeSakura.ToSpokenText());
+        Assert.Equal("Sakura", WakeWordPhrase.Sakura.ToSpokenText());
+        Assert.Equal("Hey Sakura", WakeWordPhrase.HeySakura.ToSpokenText());
+
+        // Las frases del nombre anterior siguen diciendo lo suyo: hay settings.json guardados con
+        // ellas y una preferencia que no se sabe leer es una preferencia perdida.
         Assert.Equal("Oye Kohana", WakeWordPhrase.OyeKohana.ToSpokenText());
         Assert.Equal("Kohana", WakeWordPhrase.Kohana.ToSpokenText());
         Assert.Equal("Hey Kohana", WakeWordPhrase.HeyKohana.ToSpokenText());

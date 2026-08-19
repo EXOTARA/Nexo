@@ -458,22 +458,22 @@
                     <StackPanel Margin="24,10,0,0">
                         <TextBlock Margin="0,0,0,7" Text="Frase de activación" FontWeight="SemiBold" />
                         <WrapPanel>
-                            <RadioButton x:Name="WakeWordKohanaRadioButton"
+                            <RadioButton x:Name="WakeWordShortRadioButton"
                                          GroupName="WakeWordPhrase"
-                                         Content="Kohana"
-                                         Tag="Kohana"
+                                         Content="Sakura"
+                                         Tag="Sakura"
                                          Checked="WakeWordPhraseRadioButton_Checked" />
-                            <RadioButton x:Name="WakeWordOyeKohanaRadioButton"
+                            <RadioButton x:Name="WakeWordOyeRadioButton"
                                          Margin="18,0,0,0"
                                          GroupName="WakeWordPhrase"
-                                         Content="Oye Kohana · recomendado"
-                                         Tag="OyeKohana"
+                                         Content="Oye Sakura · recomendado"
+                                         Tag="OyeSakura"
                                          Checked="WakeWordPhraseRadioButton_Checked" />
-                            <RadioButton x:Name="WakeWordHeyKohanaRadioButton"
+                            <RadioButton x:Name="WakeWordHeyRadioButton"
                                          Margin="18,0,0,0"
                                          GroupName="WakeWordPhrase"
-                                         Content="Ey / Hey Kohana"
-                                         Tag="HeyKohana"
+                                         Content="Ey / Hey Sakura"
+                                         Tag="HeySakura"
                                          Checked="WakeWordPhraseRadioButton_Checked" />
                         </WrapPanel>
 

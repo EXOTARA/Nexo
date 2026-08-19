@@ -282,7 +282,11 @@ public sealed class PreferencesMigrationCharacterizationTests
 
         preferences.Normalize();
 
-        Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
+        // Diseño D69 — cambiada a conciencia con el cambio de nombre. La frase por omisión es
+        // ahora "Oye Sakura": "kohana" no existe en el léxico español del reconocedor y salía
+        // escrita "oye co ana", así que conservarla habría sido conservar la única que no
+        // funcionaba. La forma —corta, "oye" o "hey"— sí se respeta al migrar.
+        Assert.Equal(WakeWordPhrase.OyeSakura, preferences.WakeWordPhrase);
         Assert.Equal(WakeWordSensitivity.Balanced, preferences.WakeWordSensitivity);
         Assert.Equal(AiProviderKind.Disabled, preferences.AiProvider);
     }
