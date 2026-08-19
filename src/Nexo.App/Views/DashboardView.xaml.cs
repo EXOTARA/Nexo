@@ -158,13 +158,6 @@ public partial class DashboardView : UserControl
 
     public event EventHandler? MediaPreviousRequested;
 
-    /// <summary>
-    /// Diseño D53 — pulsar un resumen abre Kohana en ese módulo. El cajón no navega por su cuenta:
-    /// avisa, y quien tiene la ventana principal decide. Si el cajón supiera navegar tendría que
-    /// conocer el rail, y entonces dejaría de ser una pieza que se puede sacar y poner.
-    /// </summary>
-    public event EventHandler<string>? ModuleRequested;
-
     public DashboardTab ActiveTab => _activeTab;
 
     /// <summary>

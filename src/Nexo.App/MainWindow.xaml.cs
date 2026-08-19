@@ -633,15 +633,6 @@ public partial class MainWindow : Window
 
         _dashboardWindow.Dismissed += (_, _) => _topRevealWatcher.SuppressBriefly();
 
-        // Diseño D53 — pulsar un resumen del cajón trae la ventana principal al módulo que sea. El
-        // cajón se recoge primero: dejarlo colgando sobre la vista que acaba de abrir taparía justo
-        // lo que se ha pedido ver.
-        _dashboardWindow.View.ModuleRequested += (_, module) =>
-        {
-            _dashboardWindow.Dismiss();
-            ShowAnimated();
-            NavigateTo(module, animate: true);
-        };
         _topRevealWatcher.Configure(_preferences.EdgeRevealEnabled);
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
