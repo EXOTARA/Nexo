@@ -324,6 +324,159 @@ public sealed class AmbientRequestManagerTests
         Assert.Null(manager.GetSnapshot().ActiveRequest);
     }
 
+    [Fact]
+    public void FailIfStalled_ClosesARequestThatNeverGotAnAnswer()
+    {
+        // Diseño D63 — el fallo que Adler reportó: Lens se quedaba en "Pensando…" para siempre. El
+        // corte del cliente de IA llega como cancelación desde dentro de un iterador y se escapaba
+        // de los filtros de excepción, así que nadie cerraba la solicitud.
+        var manager = CreateManager();
+        manager.Begin("Kohana Lens — modo estudio", context: null, ReferenceNow);
+        manager.BeginThinking(ReferenceNow);
+
+        var result = manager.FailIfStalled(ReferenceNow + AmbientRequestManager.ThinkingStallLimit);
+
+        Assert.True(result.Success);
+        Assert.Equal(AmbientRequestStatus.Failed, manager.GetSnapshot().ActiveRequest?.Status);
+    }
+
+    [Fact]
+    public void FailIfStalled_LeavesASlowRequestAlone()
+    {
+        // Un modelo local sobre una gráfica modesta tarda minutos en soltar el primer fragmento, y
+        // eso es lentitud, no un cuelgue. El plazo se cumple o no se toca nada.
+        var manager = CreateManager();
+        manager.Begin("Kohana Lens — modo soporte", context: null, ReferenceNow);
+        manager.BeginThinking(ReferenceNow);
+
+        var result = manager.FailIfStalled(
+            ReferenceNow + AmbientRequestManager.ThinkingStallLimit - TimeSpan.FromSeconds(1));
+
+        Assert.False(result.Success);
+        Assert.Equal(AmbientRequestStatus.Thinking, manager.GetSnapshot().ActiveRequest?.Status);
+    }
+
+    [Fact]
+    public void FailIfStalled_KeepsWhatArrivedWhenTheStreamGoesQuiet()
+    {
+        // La regla de D7: media respuesta es más que ninguna. Si ya había texto, la solicitud se
+        // cierra COMO RESULTADO y no como fallo, con la nota de que se cortó.
+        var manager = CreateManager();
+        manager.Begin("Kohana Lens — modo desarrollo", context: null, ReferenceNow);
+        manager.BeginThinking(ReferenceNow);
+        manager.BeginStreaming(ReferenceNow);
+        manager.AppendStreamedText("La ventana muestra", ReferenceNow);
+
+        var result = manager.FailIfStalled(
+            ReferenceNow + AmbientRequestManager.StreamingSilenceLimit);
+
+        Assert.True(result.Success);
+
+        var active = manager.GetSnapshot().ActiveRequest;
+        Assert.Equal(AmbientRequestStatus.Result, active?.Status);
+        Assert.Equal("La ventana muestra", active?.Result?.ExpandedText);
+        Assert.NotNull(active?.ErrorMessage);
+    }
+
+    [Fact]
+    public void FailIfStalled_CountsSilenceFromTheLastChunkAndNotFromTheStart()
+    {
+        // Una respuesta larga puede tardar más que el plazo entero sin estar colgada: lo que se
+        // mide es el silencio, no la duración.
+        var manager = CreateManager();
+        manager.Begin("Kohana Lens — modo estudio", context: null, ReferenceNow);
+        manager.BeginThinking(ReferenceNow);
+        manager.BeginStreaming(ReferenceNow);
+
+        var late = ReferenceNow + AmbientRequestManager.StreamingSilenceLimit + TimeSpan.FromMinutes(5);
+        manager.AppendStreamedText("sigue escribiendo", late);
+
+        var result = manager.FailIfStalled(late + TimeSpan.FromSeconds(30));
+
+        Assert.False(result.Success);
+        Assert.Equal(AmbientRequestStatus.Streaming, manager.GetSnapshot().ActiveRequest?.Status);
+    }
+
+    [Fact]
+    public void FailIfStalled_DoesNotTouchARequestThatAlreadyFinished()
+    {
+        var manager = CreateManager();
+        manager.Begin("¿qué ventana tengo activa?", context: null, ReferenceNow);
+        manager.BeginThinking(ReferenceNow);
+        manager.CompleteWithResult(
+            new AmbientRequestResult("Explorador", "Explorador de Windows", [], CanUndo: false),
+            ReferenceNow);
+
+        var result = manager.FailIfStalled(ReferenceNow + TimeSpan.FromHours(2));
+
+        Assert.False(result.Success);
+        Assert.Equal(AmbientRequestStatus.Result, manager.GetSnapshot().ActiveRequest?.Status);
+    }
+
+    [Fact]
+    public void Load_ClosesARequestLeftRunningByAPreviousProcess()
+    {
+        // Diseño D63 — el fallo de verdad, encontrado leyendo el archivo de estado del equipo de
+        // Adler: una solicitud en "Escuchando" del 2 de agosto, dieciséis días bloqueando cada
+        // orden de Lens con "ya hay una solicitud ambiental en curso". Si Kohana se cierra a mitad,
+        // nadie va a terminar esa solicitud al arrancar de nuevo: quien iba a hacerlo ya no existe.
+        var store = new MemoryAmbientRequestHistoryStore();
+        store.State.ActiveRequest = new AmbientRequest
+        {
+            Prompt = "solicitud",
+            Status = AmbientRequestStatus.Listening,
+            CreatedAt = ReferenceNow,
+            UpdatedAt = ReferenceNow
+        };
+
+        var manager = new AmbientRequestManager(store);
+        manager.Load();
+
+        Assert.Null(manager.GetSnapshot().ActiveRequest);
+        Assert.Single(manager.GetHistory());
+        Assert.Equal(AmbientRequestStatus.Failed, manager.GetHistory()[0].Status);
+
+        // Y lo que importa de verdad: se puede volver a pedir algo.
+        Assert.True(manager.Begin("Kohana Lens — modo estudio", context: null, ReferenceNow).Success);
+    }
+
+    [Fact]
+    public void Load_LeavesAFinishedRequestOnScreen()
+    {
+        // Un resultado sin descartar sí sobrevive al reinicio: se leyó o no se leyó, pero no
+        // bloquea nada y borrarlo sería tirar lo que la persona todavía no ha visto.
+        var store = new MemoryAmbientRequestHistoryStore();
+        store.State.ActiveRequest = new AmbientRequest
+        {
+            Prompt = "¿qué ventana tengo activa?",
+            Status = AmbientRequestStatus.Result,
+            CreatedAt = ReferenceNow,
+            UpdatedAt = ReferenceNow,
+            Result = new AmbientRequestResult("Explorador", null, [], CanUndo: false)
+        };
+
+        var manager = new AmbientRequestManager(store);
+        manager.Load();
+
+        Assert.NotNull(manager.GetSnapshot().ActiveRequest);
+        Assert.Empty(manager.GetHistory());
+    }
+
+    [Fact]
+    public void FailIfStalled_ClosesARequestThatNeverLeftListening()
+    {
+        // Escuchando dura milisegundos: es el hueco entre Begin y el primer paso asíncrono. Si
+        // alguien se va por una rama de error sin cerrarla, ahí se queda, y Begin rechaza todo lo
+        // que venga después.
+        var manager = CreateManager();
+        manager.Begin("Kohana Lens — modo soporte", context: null, ReferenceNow);
+
+        var result = manager.FailIfStalled(ReferenceNow + AmbientRequestManager.ListeningStallLimit);
+
+        Assert.True(result.Success);
+        Assert.Equal(AmbientRequestStatus.Failed, manager.GetSnapshot().ActiveRequest?.Status);
+    }
+
     private static AmbientRequestManager CreateManager()
     {
         var manager = new AmbientRequestManager(new MemoryAmbientRequestHistoryStore());

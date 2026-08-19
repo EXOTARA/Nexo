@@ -400,6 +400,11 @@ public partial class MainWindow : Window
     private bool _isHiding;
 
     // Diseño D58 — lo que se abre por roce tiene que saber retirarse solo.
+    private readonly DispatcherTimer _ambientStallWatch = new()
+    {
+        Interval = TimeSpan.FromSeconds(5)
+    };
+
     private readonly DispatcherTimer _unattendedWatch = new()
     {
         Interval = TimeSpan.FromMilliseconds(250)
@@ -700,6 +705,20 @@ public partial class MainWindow : Window
         _focusTickTimer.Tick += (_, _) => CheckFocusTimer();
 
         _unattendedWatch.Tick += (_, _) => CheckUnattendedReveal();
+
+        // Diseño D63 — el reloj cierra las solicitudes que se quedaron esperando una respuesta que
+        // no va a llegar. Arreglar los filtros de excepción de Lens es lo que quita la causa
+        // conocida; esto es lo que hace que la píldora no dependa de que ningún camino futuro se
+        // acuerde de cerrarse. Corre siempre, también con el shell oculto, porque la píldora vive
+        // fuera de la ventana principal.
+        _ambientStallWatch.Tick += (_, _) =>
+        {
+            if (_ambientRequestManager.FailIfStalled(DateTimeOffset.Now).Success)
+            {
+                CheckAmbientRequest();
+            }
+        };
+        _ambientStallWatch.Start();
 
         // Cualquier señal de que hay alguien delante cancela la retirada. Se escuchan en modo
         // Preview porque los controles hijos se quedan con los eventos normales: un clic dentro del
@@ -4408,6 +4427,7 @@ public partial class MainWindow : Window
         _taskReminderTimer.Stop();
         _focusTickTimer.Stop();
         _visualContextExpiryTimer.Stop();
+        _ambientStallWatch.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
         _answerPillWindow.HideImmediately();
@@ -7208,6 +7228,15 @@ public partial class MainWindow : Window
                     CheckAmbientRequest();
                 }
             }
+            catch (OperationCanceledException) when (!_lifetimeCancellation.IsCancellationRequested)
+            {
+                // Diseño D63 — el corte de noventa segundos del cliente de IA llega hasta aquí como
+                // cancelación, y no es la nuestra: Kohana no se está cerrando. Excluirla dejaba la
+                // solicitud en "Pensando…" para siempre, que es el fallo que Adler reportó. Cuando
+                // sí es nuestro cierre la excepción sigue subiendo, porque entonces no hay nada
+                // que enseñarle a nadie.
+                streamFailure = "La respuesta tardó demasiado y Kohana dejó de esperarla.";
+            }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 streamFailure = exception.Message;
@@ -7236,6 +7265,14 @@ public partial class MainWindow : Window
                         "La conexión se cortó mientras respondía; lo que alcanzó a escribir sigue visible.");
                 }
             }
+        }
+        catch (OperationCanceledException) when (!_lifetimeCancellation.IsCancellationRequested)
+        {
+            // Diseño D63 — lo mismo que arriba, para la parte de antes del streaming: capturar,
+            // OCR y UI Automation también pueden acabar en una cancelación que no es el cierre de
+            // Kohana, y dejarla pasar volvía a colgar la píldora.
+            _ambientRequestManager.Fail(
+                "La respuesta tardó demasiado y Kohana dejó de esperarla.", DateTimeOffset.Now);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
