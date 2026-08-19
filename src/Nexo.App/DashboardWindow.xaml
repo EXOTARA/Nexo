@@ -56,7 +56,9 @@
             </TransformGroup>
         </Grid.RenderTransform>
 
-        <Border Background="{DynamicResource BrushSidebarSurface}"
+        <!-- Diseño D69 — metido hacia dentro para que no asome por las esquinas. -->
+        <Border Margin="2,0,2,2"
+                Background="{DynamicResource BrushSidebarSurface}"
                 CornerRadius="0,0,34,34"
                 CacheMode="BitmapCache"
                 SnapsToDevicePixels="True">

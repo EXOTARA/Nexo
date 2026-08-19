@@ -88,7 +88,20 @@
             </TransformGroup>
         </Grid.RenderTransform>
 
-        <Border Background="{DynamicResource BrushBackground}"
+        <!--
+            Diseño D69 — el borde de la sombra va metido dos píxeles hacia dentro.
+
+            Sin esto asomaba por las cuatro esquinas. El de delante lleva trazo de un
+            píxel, así que su relleno se queda con un radio un pelo menor; el de atrás
+            rellena hasta el radio entero y por el arco de cada esquina se veía un filo
+            más claro. Con BitmapCache encima, que rasteriza a resolución fija, el filo
+            se marcaba todavía más y las esquinas dejaban de leerse como redondas.
+
+            Dos píxeles no cambian la sombra —está desenfocada treinta— y garantizan
+            que el de atrás nunca puede verse.
+        -->
+        <Border Margin="2"
+                Background="{DynamicResource BrushBackground}"
                 CornerRadius="28"
                 CacheMode="BitmapCache"
                 SnapsToDevicePixels="True">
