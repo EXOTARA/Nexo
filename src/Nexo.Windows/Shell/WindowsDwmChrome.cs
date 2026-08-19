@@ -18,6 +18,9 @@ namespace Nexo.Windows.Shell;
 /// </summary>
 public static class WindowsDwmChrome
 {
+    private const int DwmwaNcRenderingPolicy = 2;
+    private const int DwmncrpEnabled = 2;
+
     private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaWindowCornerPreference = 33;
     private const int DwmwaSystemBackdropType = 38;
@@ -55,6 +58,11 @@ public static class WindowsDwmChrome
             return false;
         }
 
+        // Una ventana sin barra de título tampoco tiene área no-cliente que DWM componga, y es ahí
+        // donde vive la sombra del marco. Pedirla explícitamente es lo único que puede devolverla
+        // sin volver a dibujarla nosotros.
+        TrySetAttribute(windowHandle, DwmwaNcRenderingPolicy, DwmncrpEnabled);
+
         // El modo oscuro va primero: es lo que decide de qué color dibuja DWM el borde y la sombra,
         // y sin él una ventana oscura queda enmarcada en un filo blanco.
         TrySetAttribute(windowHandle, DwmwaUseImmersiveDarkMode, 1);
@@ -72,7 +80,43 @@ public static class WindowsDwmChrome
         };
 
         var applied = TrySetAttribute(windowHandle, DwmwaSystemBackdropType, backdrop);
-        return applied && decision.Backdrop != WindowBackdrop.None;
+
+        if (!applied || decision.Backdrop == WindowBackdrop.None)
+        {
+            return false;
+        }
+
+        // Sin esto el fondo del sistema se compone solo donde hay marco, y una ventana sin barra de
+        // título no tiene marco: el área de cliente se queda pintada de negro y el acrílico existe
+        // pero no se ve por ninguna parte. Un margen de -1 es la «hoja de cristal» documentada:
+        // extiende el marco a la ventana entera. Medido antes de ponerlo, el hueco entre tarjetas
+        // daba R8 G5 B6 con la superficie al 45% —es decir, negro debajo— en vez del fondo de
+        // escritorio desenfocado.
+        return TryExtendFrame(windowHandle);
+    }
+
+    private static bool TryExtendFrame(IntPtr windowHandle)
+    {
+        var margins = new Margins
+        {
+            LeftWidth = -1,
+            RightWidth = -1,
+            TopHeight = -1,
+            BottomHeight = -1
+        };
+
+        try
+        {
+            return DwmExtendFrameIntoClientArea(windowHandle, ref margins) == 0;
+        }
+        catch (DllNotFoundException)
+        {
+            return false;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            return false;
+        }
     }
 
     private static int CornerValue(WindowCorner corner) => corner switch
@@ -144,8 +188,20 @@ public static class WindowsDwmChrome
         public IntPtr LpszDefaultScheme;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Margins
+    {
+        public int LeftWidth;
+        public int RightWidth;
+        public int TopHeight;
+        public int BottomHeight;
+    }
+
     [DllImport("dwmapi.dll", PreserveSig = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref Margins margins);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

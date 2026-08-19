@@ -23,7 +23,7 @@ public sealed class ShellPreferences
     /// número suelto repetido en el último rung y en una veintena de pruebas, y un número repetido es
     /// un número que se olvida de actualizar en algún sitio.
     /// </summary>
-    public const int CurrentSchemaVersion = 28;
+    public const int CurrentSchemaVersion = 29;
 
     /// <summary>
     /// Modelos que un proveedor ha apagado, y por cuál se sustituyen. La clave es el identificador
@@ -517,12 +517,41 @@ public sealed class ShellPreferences
                 }
             }
 
+            SchemaVersion = 28;
+        }
+
+        if (SchemaVersion < 29)
+        {
+            // Diseño D62 — quien tuviera la transparencia en el mínimo antiguo se queda en un
+            // mínimo, no en un número que ahora significa otra cosa.
+            //
+            // Hasta aquí el control iba de 0.82 a 1.0 y, por un fallo, no pintaba nada: el alfa se
+            // aplicaba a un contenedor tapado por un borde opaco. Con el acrílico detrás sí pinta,
+            // y 0.82 —que en la escala vieja era "lo más transparente que se puede"— pasa a ser
+            // casi opaco en la nueva, que llega hasta 0.35. Dejarlo quieto convertiría la elección
+            // de quien pidió el máximo de transparencia en lo contrario de lo que pidió.
+            //
+            // El destino, 0.65, está mirado en pantalla y no calculado: por debajo de ahí el marco
+            // se vuelve más claro que las tarjetas que contiene —jerarquía invertida— y Kohana deja
+            // de leerse como Kohana. A 0.65 el fondo de escritorio se nota y la superficie sigue
+            // siendo la suya. El control llega hasta 0.35 para quien quiera más.
+            //
+            // Solo se toca ese valor exacto. Cualquier otro es una elección dentro de un tramo que
+            // sigue existiendo igual, y esas no se tocan.
+            if (Math.Abs(Opacity - 0.82) < 0.001)
+            {
+                Opacity = 0.65;
+            }
+
             SchemaVersion = CurrentSchemaVersion;
         }
 
 
         Width = Math.Clamp(Width, MinimumWidth, MaximumWidth);
-        Opacity = Math.Clamp(Opacity, 0.82, 1.0);
+        // Diseño D62 — el suelo baja de 0.82 a 0.35. El de antes protegía la lectura sobre un
+        // escritorio sin desenfocar; ahora debajo hay acrílico del sistema, y donde no lo haya la
+        // superficie se pinta opaca sin mirar este número.
+        Opacity = Math.Clamp(Opacity, 0.35, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
             ? Math.Clamp(RecentConversationMessageLimit, 8, 30)
             : 8;

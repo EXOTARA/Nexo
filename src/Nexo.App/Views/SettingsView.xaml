@@ -73,9 +73,17 @@
                         <TextBlock Text="Transparencia" FontWeight="SemiBold" />
                         <TextBlock x:Name="OpacityValueText" Grid.Column="1"
                                    Foreground="{DynamicResource BrushTextSecondary}" />
+                        <!--
+                            Diseño D62 — el control llega ahora hasta 0.35. El suelo de 0.82 se puso
+                            cuando debajo de Kohana solo estaba el escritorio sin desenfocar, donde
+                            una superficie a medias se lee mal. Con el acrílico del sistema detrás,
+                            lo que se transparenta ya viene desenfocado, así que el texto aguanta
+                            mucho más abajo. En equipos sin fondo del sistema la superficie se pinta
+                            opaca pase lo que pase, así que el suelo nuevo no puede empeorarlos.
+                        -->
                         <Slider x:Name="OpacitySlider" Grid.Row="1" Grid.ColumnSpan="2"
-                                Margin="0,8,0,0" Minimum="0.82" Maximum="1"
-                                TickFrequency="0.02" IsSnapToTickEnabled="True"
+                                Margin="0,8,0,0" Minimum="0.35" Maximum="1"
+                                TickFrequency="0.05" IsSnapToTickEnabled="True"
                                 ValueChanged="OpacitySlider_ValueChanged"
                                 Style="{StaticResource NexoSliderStyle}" />
                     </Grid>

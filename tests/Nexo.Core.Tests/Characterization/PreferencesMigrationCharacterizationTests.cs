@@ -215,8 +215,15 @@ public sealed class PreferencesMigrationCharacterizationTests
         Assert.Equal(expected, preferences.Width);
     }
 
+    /// <summary>
+    /// Diseño D62 — el suelo cambió de 0.82 a 0.35 y esta caracterización se actualiza a
+    /// conciencia. Lo que protegía el 0.82 era la lectura de un texto sobre el escritorio sin
+    /// desenfocar, que es lo único que había debajo de Kohana; con el acrílico del sistema detrás,
+    /// lo que se ve a través ya viene desenfocado. Donde no hay fondo del sistema la superficie se
+    /// pinta opaca pase lo que pase, así que el suelo nuevo no llega a aplicarse ahí.
+    /// </summary>
     [Theory]
-    [InlineData(0.1, 0.82)]
+    [InlineData(0.1, 0.35)]
     [InlineData(0.9, 0.9)]
     [InlineData(3.0, 1.0)]
     public void Opacity_IsClamped(double input, double expected)

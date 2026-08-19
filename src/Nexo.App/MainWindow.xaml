@@ -23,6 +23,21 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
 
+    <!--
+        Diseño D62 — sin esto la ventana no tiene marco, y sin marco DWM no le dibuja sombra.
+        Medido: los píxeles justo por fuera del borde valían lo mismo que el escritorio a cien de
+        distancia. La barra de título mide cero y el borde de redimensión también, así que no
+        aparece nada de Windows dentro; lo único que se recupera es el marco que sostiene la
+        sombra y el cristal.
+    -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      CornerRadius="0"
+                      GlassFrameThickness="-1"
+                      ResizeBorderThickness="0"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
 
         <Style x:Key="HeaderCommandButtonStyle" TargetType="Button">

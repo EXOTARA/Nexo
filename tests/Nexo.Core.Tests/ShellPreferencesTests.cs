@@ -16,7 +16,11 @@ public sealed class ShellPreferencesTests
         preferences.Normalize();
 
         Assert.Equal(820, preferences.Width);
-        Assert.Equal(0.82, preferences.Opacity);
+
+        // Diseño D62 — el suelo bajó de 0.82 a 0.35 a propósito. El de antes protegía la lectura
+        // sobre un escritorio sin desenfocar; ahora debajo hay acrílico del sistema, y en los
+        // equipos que no lo tienen la superficie se pinta opaca sin consultar este número.
+        Assert.Equal(0.35, preferences.Opacity);
     }
 
 
@@ -56,6 +60,40 @@ public sealed class ShellPreferencesTests
         Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
     }
 
+
+    [Fact]
+    public void Normalize_MovesTheOldTransparencyFloorToTheNewOne()
+    {
+        // Diseño D62 — 0.82 era "lo más transparente que se podía pedir" en la escala vieja. En la
+        // nueva, que llega a 0.35, ese mismo número es casi opaco. Quien lo tuviera ahí pidió el
+        // máximo de transparencia y tiene que seguir teniéndolo.
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 28,
+            Opacity = 0.82
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(0.65, preferences.Opacity);
+        Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
+    }
+
+    [Fact]
+    public void Normalize_LeavesEveryOtherTransparencyAlone()
+    {
+        // Un valor intermedio es una elección dentro de un tramo que sigue existiendo igual, y esas
+        // no se tocan: solo se mueve el que estaba pegado al tope.
+        var preferences = new ShellPreferences
+        {
+            SchemaVersion = 28,
+            Opacity = 0.94
+        };
+
+        preferences.Normalize();
+
+        Assert.Equal(0.94, preferences.Opacity);
+    }
 
     [Fact]
     public void Normalize_RestoresDefaultAccentWhenEmpty()
