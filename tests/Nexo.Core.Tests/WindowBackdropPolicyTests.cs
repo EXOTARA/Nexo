@@ -32,6 +32,29 @@ public sealed class WindowBackdropPolicyTests
     }
 
     [Fact]
+    public void SquareCornersAreHonouredWhereRoundOnesWouldFit()
+    {
+        // Diseño D62 — Kohana pide rectas: en el arco de las redondeadas el borde de DWM se lee
+        // como una mancha oscura, y un canto recto no tiene arco.
+        var decision = WindowBackdropPolicy.Decide(Probe(), WindowBackdrop.Acrylic, WindowCorner.Square);
+
+        Assert.Equal(WindowCorner.Square, decision.Corner);
+        Assert.Equal(WindowBackdrop.Acrylic, decision.Backdrop);
+    }
+
+    [Fact]
+    public void OnWindows10_NoCornerIsAskedForEvenWhenOneIsRequested()
+    {
+        // Ahí no hay atributo que pedir, ni para redondear ni para no hacerlo.
+        var decision = WindowBackdropPolicy.Decide(
+            Probe(build: 19045),
+            WindowBackdrop.Acrylic,
+            WindowCorner.Square);
+
+        Assert.Equal(WindowCorner.System, decision.Corner);
+    }
+
+    [Fact]
     public void Windows10_GetsNeitherBackdropNorCorners()
     {
         var decision = WindowBackdropPolicy.Decide(Probe(build: 19045), WindowBackdrop.Acrylic);

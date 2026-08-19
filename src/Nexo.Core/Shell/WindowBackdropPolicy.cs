@@ -78,11 +78,20 @@ public static class WindowBackdropPolicy
     /// <summary>Windows 11 22H2: <c>DWMWA_SYSTEMBACKDROP_TYPE</c>, o sea Mica y acrílico.</summary>
     public const int SystemBackdropBuild = 22621;
 
-    public static WindowBackdropDecision Decide(WindowBackdropProbe probe, WindowBackdrop requested)
+    /// <param name="requestedCorner">
+    /// Diseño D62 — la esquina la pide quien llama. Kohana pide cuadrada: en el arco de las
+    /// redondeadas, el borde que DWM dibuja se lee como una mancha oscura, y Adler prefiere el
+    /// canto recto a seguir persiguiendo ese filo. Sigue siendo una petición y no una constante
+    /// porque en Windows 10 no hay nada que pedir.
+    /// </param>
+    public static WindowBackdropDecision Decide(
+        WindowBackdropProbe probe,
+        WindowBackdrop requested,
+        WindowCorner requestedCorner = WindowCorner.Round)
     {
         ArgumentNullException.ThrowIfNull(probe);
 
-        var corner = probe.WindowsBuild >= RoundedCornersBuild ? WindowCorner.Round : WindowCorner.System;
+        var corner = probe.WindowsBuild >= RoundedCornersBuild ? requestedCorner : WindowCorner.System;
 
         if (requested == WindowBackdrop.None)
         {

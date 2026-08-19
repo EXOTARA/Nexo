@@ -23,7 +23,11 @@ public static class WindowsDwmChrome
 
     private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaWindowCornerPreference = 33;
+    private const int DwmwaBorderColor = 34;
     private const int DwmwaSystemBackdropType = 38;
+
+    /// <summary>Valor documentado de <c>DWMWA_COLOR_NONE</c>: quita el borde en vez de pintarlo.</summary>
+    private const uint DwmColorNone = 0xFFFFFFFE;
 
     private const int DwmwcpDefault = 0;
     private const int DwmwcpDoNotRound = 1;
@@ -71,6 +75,11 @@ public static class WindowsDwmChrome
         {
             TrySetAttribute(windowHandle, DwmwaWindowCornerPreference, CornerValue(decision.Corner));
         }
+
+        // El borde de DWM es lo que se veía como filo oscuro recorriendo el arco de cada esquina:
+        // un trazo pensado para ventanas con marco, dibujado sobre una que no lo tiene. Quitarlo es
+        // un valor documentado, no un truco, y deja que el canto lo defina la propia superficie.
+        TrySetAttribute(windowHandle, DwmwaBorderColor, unchecked((int)DwmColorNone));
 
         var backdrop = decision.Backdrop switch
         {

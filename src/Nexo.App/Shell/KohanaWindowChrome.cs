@@ -34,6 +34,17 @@ public static class KohanaWindowChrome
     /// </summary>
     public static HardwarePerformanceMode PerformanceMode { get; set; } = HardwarePerformanceMode.Automatic;
 
+    /// <summary>
+    /// Diseño D62 — Kohana pide esquinas rectas.
+    ///
+    /// Las redondeadas de Windows miden unos 8px y, en el arco, el borde que DWM dibuja encima se
+    /// lee como una mancha oscura: el mismo filo que Adler llevaba tres versiones señalando, ahora
+    /// dibujado por el sistema en vez de por nosotros. Se puede quitar el borde, pero él pidió
+    /// dejarlo plano antes que seguir persiguiéndolo, y un canto recto no tiene arco donde nada
+    /// pueda asomar.
+    /// </summary>
+    public const WindowCorner Corner = WindowCorner.Square;
+
     public static WindowBackdropDecision Apply(
         Window window,
         Border surface,
@@ -45,7 +56,7 @@ public static class KohanaWindowChrome
 
         var handle = new WindowInteropHelper(window).Handle;
         var probe = WindowsDwmChrome.ReadProbe(PerformanceMode);
-        var decision = WindowBackdropPolicy.Decide(probe, WindowBackdrop.Acrylic);
+        var decision = WindowBackdropPolicy.Decide(probe, WindowBackdrop.Acrylic, Corner);
 
         // Manda lo que pasó de verdad, no lo que la política creía posible: si la llamada falló, la
         // ventana tiene que pintar su propio fondo o se queda negra.
@@ -72,7 +83,7 @@ public static class KohanaWindowChrome
 
         var handle = new WindowInteropHelper(window).Handle;
         var probe = WindowsDwmChrome.ReadProbe(PerformanceMode);
-        var decision = WindowBackdropPolicy.Decide(probe, WindowBackdrop.Acrylic);
+        var decision = WindowBackdropPolicy.Decide(probe, WindowBackdrop.Acrylic, Corner);
 
         var effective = WindowsDwmChrome.TryApply(handle, decision)
             ? decision
