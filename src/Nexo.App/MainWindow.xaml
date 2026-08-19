@@ -9,7 +9,6 @@
         MinHeight="680"
         WindowStyle="None"
         ResizeMode="NoResize"
-        AllowsTransparency="True"
         Background="Transparent"
         ShowInTaskbar="False"
         Topmost="True"
@@ -64,21 +63,24 @@
     </Window.Resources>
 
     <!--
-        Diseño D58 — la sombra va en un borde propio, detrás, y no en el que lleva el contenido.
+        Diseño D62 — la ventana ya no dibuja su propio marco: lo compone Windows.
 
-        Un Effect no cuesta por existir: cuesta cada vez que hay que recalcularlo, y WPF lo
-        recalcula **cuando cambia cualquier cosa dentro del elemento que lo lleva**, porque el
-        desenfoque se aplica al resultado de pintar todo el subárbol. Con la sombra en el borde que
-        envuelve el shell entero, escribir en el chat, una respuesta llegando por trozos o el
-        cronómetro de enfoque obligaban a volver a desenfocar la ventana completa. Por software,
-        además: una ventana con AllowsTransparency no la acelera la tarjeta.
+        Hasta D61 esto era un Grid con dieciséis píxeles de margen para que cupiera una sombra
+        pintada a mano (un DropShadowEffect en un borde propio, con BitmapCache, detrás del borde
+        con el contenido) y la ventana entera iba con AllowsTransparency, que obliga a WPF a
+        componer por software: nada de la tarjeta gráfica, y cada carácter escrito en el chat
+        volvía a desenfocar la ventana completa.
 
-        El borde de la sombra no tiene hijos, así que nada de dentro lo invalida, y con BitmapCache
-        el desenfoque se calcula una vez. El de delante es opaco y tapa la parte que sobra, así que
-        en pantalla no cambia nada.
+        DWM hace las tres cosas —desenfoque, esquinas y sombra— fuera de nuestro proceso y en la
+        GPU. Lo que queda aquí es una superficie plana que llega hasta el borde de la ventana. Las
+        esquinas ya no son las nuestras de 28: son las del sistema, unos 8, porque DWM no admite
+        radio a medida. Se pierde redondez y se gana que la ventana se pinte como cualquier otra
+        aplicación de Windows 11.
+
+        El margen desaparece, así que el ancho guardado en preferencias vale ahora lo que se ve;
+        la separación con el borde de la pantalla la pone PositionWindow.
     -->
     <Grid x:Name="ShellBorder"
-          Margin="16"
           Opacity="0"
           RenderTransformOrigin="0.5,0.5">
         <Grid.RenderTransform>
@@ -89,34 +91,12 @@
         </Grid.RenderTransform>
 
         <!--
-            Diseño D69 — el borde de la sombra va metido dos píxeles hacia dentro.
-
-            Sin esto asomaba por las cuatro esquinas. El de delante lleva trazo de un
-            píxel, así que su relleno se queda con un radio un pelo menor; el de atrás
-            rellena hasta el radio entero y por el arco de cada esquina se veía un filo
-            más claro. Con BitmapCache encima, que rasteriza a resolución fija, el filo
-            se marcaba todavía más y las esquinas dejaban de leerse como redondas.
-
-            Dos píxeles no cambian la sombra —está desenfocada treinta— y garantizan
-            que el de atrás nunca puede verse.
+            El fondo lo pone ApplyShellOpacity: opaco cuando no hay fondo del sistema detrás,
+            y con la transparencia elegida por el usuario cuando sí lo hay, que es lo que deja
+            ver el acrílico. Sin trazo ni radio propios: el borde y las esquinas son de DWM y
+            un borde nuestro se cortaría en el arco de cada esquina.
         -->
-        <Border Margin="2"
-                Background="{DynamicResource BrushBackground}"
-                CornerRadius="28"
-                CacheMode="BitmapCache"
-                SnapsToDevicePixels="True">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="30"
-                                  ShadowDepth="8"
-                                  Opacity="0.4"
-                                  Color="Black" />
-            </Border.Effect>
-        </Border>
-
-        <Border Background="{DynamicResource BrushBackground}"
-                BorderBrush="{DynamicResource BrushBorder}"
-                BorderThickness="1"
-                CornerRadius="28"
+        <Border x:Name="ShellSurface"
                 SnapsToDevicePixels="True">
         <Grid ClipToBounds="True">
             <Grid x:Name="ShellLayoutGrid" Margin="13">

@@ -386,6 +386,14 @@ public partial class MainWindow : Window
     private readonly DdcDisplayBrightnessService _brightnessService = new();
 
     private HwndSource? _windowSource;
+
+    /// <summary>
+    /// Diseño D62 — qué fondo compone el sistema detrás del shell. Es nulo hasta que la ventana
+    /// tiene identificador, y hasta entonces se pinta el fondo propio: una ventana transparente
+    /// esperando un acrílico que quizá no llegue se ve negra, y ese es el único fallo que no se
+    /// puede consentir.
+    /// </summary>
+    private WindowBackdropDecision? _backdropDecision;
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
     private ResourceGovernorDecision _resourceDecision = ResourceGovernorDecision.Normal;
     private bool _isHiding;
@@ -4230,6 +4238,8 @@ public partial class MainWindow : Window
         _windowSource = HwndSource.FromHwnd(windowHandle);
         _windowSource?.AddHook(WindowMessageHook);
 
+        ApplySystemBackdrop(windowHandle);
+
         if (!RegisterHotKey(windowHandle, ShellHotkeyId, ModAlt, VirtualKeyA))
         {
             _assistantView.AddKohanaMessage("Alt + A ya está siendo utilizado por otra aplicación.");
@@ -4829,14 +4839,24 @@ public partial class MainWindow : Window
         ShellBorder.BeginAnimation(OpacityProperty, opacityAnimation);
     }
 
+    /// <summary>
+    /// Separación entre el shell y el borde de la pantalla.
+    ///
+    /// Diseño D62 — antes eran doce píxeles de ventana más dieciséis de margen interior, que
+    /// existían para que cupiera la sombra pintada a mano. La sombra ahora la dibuja DWM fuera del
+    /// rectángulo de la ventana, así que el margen desapareció y la separación se declara entera
+    /// aquí, que es donde se decide dónde va la ventana.
+    /// </summary>
+    private const double ShellScreenInset = 24;
+
     private void PositionWindow()
     {
         var workArea = SystemParameters.WorkArea;
-        Height = Math.Max(MinHeight, workArea.Height - 24);
-        Top = workArea.Top + 12;
+        Height = Math.Max(MinHeight, workArea.Height - (ShellScreenInset * 2));
+        Top = workArea.Top + ShellScreenInset;
         Left = _preferences.Position == SidebarPosition.Right
-            ? workArea.Right - Width - 12
-            : workArea.Left + 12;
+            ? workArea.Right - Width - ShellScreenInset
+            : workArea.Left + ShellScreenInset;
     }
 
     /// <summary>
@@ -8390,14 +8410,52 @@ public partial class MainWindow : Window
             ?.ToHex();
     }
 
+    /// <summary>
+    /// Diseño D62 — le pide a DWM el fondo, las esquinas y la sombra de la ventana, y deja de
+    /// pintar el fondo de WPF si el sistema acepta componer uno.
+    ///
+    /// Ese último paso es el que hace falta para que el acrílico se vea: mientras WPF pinte el
+    /// fondo de la ventana, aunque sea negro, tapa lo que DWM compone debajo.
+    /// </summary>
+    private void ApplySystemBackdrop(IntPtr windowHandle)
+    {
+        var probe = WindowsDwmChrome.ReadProbe(_preferences.HardwarePerformanceMode);
+        var decision = WindowBackdropPolicy.Decide(probe, WindowBackdrop.Acrylic);
+
+        var applied = WindowsDwmChrome.TryApply(windowHandle, decision);
+
+        // Si la llamada falló pese a que la política la creía posible, manda lo que pasó de verdad:
+        // sin fondo del sistema, el shell tiene que pintar el suyo.
+        _backdropDecision = applied
+            ? decision
+            : decision with { Backdrop = WindowBackdrop.None, PaintOwnBackground = true };
+
+        if (_windowSource?.CompositionTarget is { } target)
+        {
+            target.BackgroundColor = _backdropDecision.PaintOwnBackground
+                ? Colors.Black
+                : Colors.Transparent;
+        }
+
+        ApplyShellOpacity();
+    }
+
     private void ApplyShellOpacity()
     {
         // Diseño D1: usa el color de fondo real del tema (BrushBackground) en vez de un
         // literal hexadecimal casi-duplicado, para que el shell siga una única fuente de
-        // verdad de color. El comportamiento (opacidad configurable del shell) no cambia.
+        // verdad de color.
         var baseColor = ((SolidColorBrush)FindResource("BrushBackground")).Color;
-        var alpha = (byte)Math.Round(_preferences.Opacity * 255);
-        ShellBorder.Background = new SolidColorBrush(Color.FromArgb(
+
+        // Diseño D62 — la opacidad elegida solo significa algo si detrás hay un fondo del sistema
+        // que se pueda ver a través de ella. Sin acrílico ni Mica, lo único que hay detrás es el
+        // escritorio sin desenfocar y una superficie a medias se leería mal, así que se pinta
+        // opaca. Antes esto se aplicaba al Grid contenedor, que quedaba tapado por un borde opaco
+        // encima: el deslizador existía y no cambiaba nada.
+        var opaque = _backdropDecision?.PaintOwnBackground ?? true;
+        var alpha = opaque ? (byte)255 : (byte)Math.Round(_preferences.Opacity * 255);
+
+        ShellSurface.Background = new SolidColorBrush(Color.FromArgb(
             alpha,
             baseColor.R,
             baseColor.G,
