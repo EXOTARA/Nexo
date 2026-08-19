@@ -35,6 +35,36 @@ tareas/enfoque/rutinas, IA y Vision fusionados con la vista) sigue intacto.
 **Aislamiento:** Ninguno.
 **Para estable:** Fase 9 — es criterio de salida explícito.
 
+### L12 — La versión que Windows muestra se queda vieja tras cada actualización
+**Qué:** el registro de "Aplicaciones instaladas" sigue diciendo la versión que puso el instalador.
+En el equipo de Adler decía `0.25.0-dev.20260817` con el ejecutable ya en 0.26.9.
+**Por qué:** el actualizador reemplaza los archivos de la carpeta de instalación mediante su ayudante;
+no ejecuta el instalador, así que nadie toca la entrada de desinstalación del registro.
+**Aislamiento:** ninguno. Es cosmético para quien mira la lista de aplicaciones, pero engaña sobre
+qué versión está instalada, que es justo lo que esa lista existe para responder.
+**Para estable:** que el ayudante actualice `DisplayVersion` al terminar, o que la actualización pase
+por el instalador en modo silencioso.
+
+### L13 — Desinstalar después de actualizar puede dejar archivos
+**Qué:** el desinstalador de Inno Setup borra lo que su registro de instalación dice que puso. Los
+archivos que llegan después, en una actualización, no están en ese registro.
+**Por qué:** el conjunto de archivos cambia entre versiones (DLL nuevas, modelos, recursos) y el
+actualizador los escribe sin anotarlos donde el desinstalador mira.
+**Aislamiento:** ninguno. **No está comprobado todavía**: se dedujo leyendo cómo funcionan las dos
+piezas, y hace falta el ciclo completo en una máquina para confirmarlo y medir cuánto queda.
+**Para estable:** ejecutar el ciclo instalar → actualizar → desinstalar y dejar la carpeta vacía, o
+documentar qué queda y por qué.
+
+### L14 — El instalador no llegaba a publicarse
+**Qué:** las cinco últimas versiones (0.26.4 a 0.26.9) se publicaron **solo con el zip portable**.
+**Por qué:** el flujo de release construía el instalador y luego intentaba *crear* una release que ya
+existía; `gh` respondía "a release with the same tag name already exists", el paso fallaba y los
+artefactos se perdían con él. Las cinco ejecuciones aparecen en rojo en GitHub Actions.
+**Aislamiento:** el zip portable sí se publicaba, así que la actualización automática seguía
+funcionando; lo que faltaba era la vía de instalación normal para alguien nuevo.
+**Resuelto en el flujo (Diseño D67):** ahora sube los artefactos a la release exista o no, y falla a
+propósito si no hay instalador que subir. **Pendiente de comprobar con la próxima versión.**
+
 ## Resueltas en la fase 1.1.1 (2026-07-23)
 
 Se dejan registradas para no perder la trazabilidad de por qué existían.

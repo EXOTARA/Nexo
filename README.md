@@ -38,8 +38,10 @@ La lista completa, con cómo se activa cada cosa y ejemplos, está en la
 
 ## Instalar
 
-Descarga el instalador de la [última versión](https://github.com/EXOTARA/Nexo/releases) y ejecútalo.
-No hace falta instalar nada más: el .NET necesario va dentro.
+En la [última versión](https://github.com/EXOTARA/Nexo/releases) hay dos formas de instalar: el
+instalador, que deja Kohana en el menú Inicio y se puede desinstalar desde Windows, o el zip
+portable, que se descomprime donde quieras y se ejecuta tal cual. No hace falta instalar nada más:
+el .NET necesario va dentro de los dos.
 
 Windows va a mostrar un aviso de SmartScreen diciendo que el programa no está firmado, porque no lo
 está: la firma de código cuesta dinero y todavía no la hay. Hay que darle a "Más información" →
