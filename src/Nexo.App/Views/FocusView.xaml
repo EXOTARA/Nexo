@@ -265,6 +265,7 @@
                         <ColumnDefinition Width="92" />
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="CustomMinutesTextBox"
+                             AutomationProperties.Name="Minutos de enfoque"
                              Text="40"
                              Style="{StaticResource CompactTextBoxStyle}"
                              ToolTip="Minutos" />

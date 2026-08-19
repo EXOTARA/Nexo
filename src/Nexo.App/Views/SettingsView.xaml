@@ -54,7 +54,8 @@
                         <TextBlock Text="Ancho" FontWeight="SemiBold" />
                         <TextBlock x:Name="WidthValueText" Grid.Column="1"
                                    Foreground="{DynamicResource BrushTextSecondary}" />
-                        <Slider x:Name="WidthSlider" Grid.Row="1" Grid.ColumnSpan="2"
+                        <Slider x:Name="WidthSlider"
+                                AutomationProperties.Name="Ancho de Kohana" Grid.Row="1" Grid.ColumnSpan="2"
                                 Margin="0,8,0,0" Minimum="460" Maximum="820"
                                 TickFrequency="10" IsSnapToTickEnabled="True"
                                 ValueChanged="WidthSlider_ValueChanged"
@@ -81,7 +82,8 @@
                             mucho más abajo. En equipos sin fondo del sistema la superficie se pinta
                             opaca pase lo que pase, así que el suelo nuevo no puede empeorarlos.
                         -->
-                        <Slider x:Name="OpacitySlider" Grid.Row="1" Grid.ColumnSpan="2"
+                        <Slider x:Name="OpacitySlider"
+                                AutomationProperties.Name="Transparencia de Kohana" Grid.Row="1" Grid.ColumnSpan="2"
                                 Margin="0,8,0,0" Minimum="0.35" Maximum="1"
                                 TickFrequency="0.05" IsSnapToTickEnabled="True"
                                 ValueChanged="OpacitySlider_ValueChanged"
@@ -332,6 +334,7 @@
 
                     <TextBlock Margin="0,14,0,6" Text="Modelo" FontWeight="SemiBold" />
                     <TextBox x:Name="AiModelTextBox"
+                             AutomationProperties.Name="Modelo de inteligencia artificial"
                              Style="{StaticResource CompactTextBoxStyle}"
                              Tag="Model"
                              LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
@@ -394,6 +397,7 @@
                         <StackPanel>
                             <TextBlock Margin="0,0,0,6" Text="Dirección del servicio" FontWeight="SemiBold" />
                             <TextBox x:Name="AiBaseUrlTextBox"
+                                     AutomationProperties.Name="Dirección del proveedor de inteligencia artificial"
                                      Style="{StaticResource CompactTextBoxStyle}"
                                      Tag="BaseUrl"
                                      LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
@@ -405,6 +409,7 @@
 
                             <TextBlock Margin="0,12,0,6" Text="Variable de entorno de la clave" FontWeight="SemiBold" />
                             <TextBox x:Name="AiApiKeyVariableTextBox"
+                                     AutomationProperties.Name="Variable de entorno con la clave de acceso"
                                      Style="{StaticResource CompactTextBoxStyle}"
                                      Tag="ApiKeyVariable"
                                      LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
@@ -428,6 +433,7 @@
 
                     <TextBlock Margin="0,14,0,6" Text="Micrófono" FontWeight="SemiBold" />
                     <ComboBox x:Name="VoiceInputDeviceComboBox"
+                              AutomationProperties.Name="Micrófono"
                               MinHeight="34"
                               SelectedValuePath="DeviceNumber"
                               SelectionChanged="VoiceInputDeviceComboBox_SelectionChanged">
@@ -473,6 +479,7 @@
 
                         <TextBlock Margin="0,14,0,6" Text="Sensibilidad" FontWeight="SemiBold" />
                         <ComboBox x:Name="WakeWordSensitivityComboBox"
+                                  AutomationProperties.Name="Sensibilidad de la palabra de activación"
                                   Width="220"
                                   HorizontalAlignment="Left"
                                   SelectionChanged="WakeWordSensitivityComboBox_SelectionChanged">

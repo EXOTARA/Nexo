@@ -85,6 +85,7 @@
                     <TextBlock Text="Micrófono" FontWeight="SemiBold" />
                     <!-- ItemTemplate explícita: ver la nota del selector de proveedor en SettingsView.xaml. -->
                     <ComboBox x:Name="MicrophoneComboBox"
+                              AutomationProperties.Name="Micrófono"
                               Margin="0,8,0,0"
                               MinHeight="38"
                               SelectedValuePath="DeviceNumber">
@@ -160,6 +161,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <ComboBox x:Name="AiModelComboBox"
+                                  AutomationProperties.Name="Modelo de inteligencia artificial"
                                   MinHeight="38"
                                   IsEditable="True"
                                   IsEnabled="False" />

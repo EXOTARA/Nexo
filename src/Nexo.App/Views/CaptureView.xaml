@@ -47,6 +47,7 @@
         </StackPanel>
 
         <Button Grid.Row="1"
+                AutomationProperties.Name="Compartir una ventana o pantalla"
                 Margin="0,22,0,0"
                 Padding="18,16"
                 HorizontalContentAlignment="Stretch"

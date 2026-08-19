@@ -67,6 +67,7 @@
             </Button>
 
             <Button x:Name="PauseResumeButton"
+                    AutomationProperties.Name="Pausar o reanudar el enfoque"
                     Margin="8,0,0,0"
                     Width="26"
                     Height="26"

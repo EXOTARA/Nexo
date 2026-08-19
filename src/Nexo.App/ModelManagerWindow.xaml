@@ -82,6 +82,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="ModelNameTextBox"
+                             AutomationProperties.Name="Nombre del modelo"
                              Text="qwen3.5:4b"
                              Style="{StaticResource CompactTextBoxStyle}" />
                     <Button x:Name="InstallButton"

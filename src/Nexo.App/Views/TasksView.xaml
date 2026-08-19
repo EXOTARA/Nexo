@@ -60,10 +60,12 @@
                            FontWeight="SemiBold"
                            FontSize="{DynamicResource FontSizeBody}" />
                 <TextBox x:Name="TitleTextBox"
+                         AutomationProperties.Name="Título de la tarea"
                          Margin="0,9,0,0"
                          Style="{StaticResource CompactTextBoxStyle}"
                          ToolTip="Título de la tarea" />
                 <TextBox x:Name="NotesTextBox"
+                         AutomationProperties.Name="Notas de la tarea"
                          Margin="0,7,0,0"
                          Height="54"
                          Style="{StaticResource PromptTextBoxStyle}"
@@ -81,12 +83,14 @@
                                 VerticalContentAlignment="Center"
                                 ToolTip="Fecha opcional" />
                     <TextBox x:Name="DueTimeTextBox"
+                             AutomationProperties.Name="Hora de vencimiento"
                              Grid.Column="1"
                              Margin="7,0,0,0"
                              Style="{StaticResource CompactTextBoxStyle}"
                              Text="09:00"
                              ToolTip="Hora en formato HH:mm" />
                     <ComboBox x:Name="PriorityComboBox"
+                              AutomationProperties.Name="Prioridad de la tarea"
                               Grid.Column="2"
                               Margin="7,0,0,0"
                               Height="36"

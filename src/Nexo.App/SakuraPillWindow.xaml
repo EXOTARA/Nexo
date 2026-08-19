@@ -120,6 +120,7 @@
                         Orientation="Horizontal"
                         Visibility="Collapsed">
                 <Button x:Name="ExpandToggleButton"
+                        AutomationProperties.Name="Ver la respuesta completa"
                         Style="{StaticResource SecondaryButtonStyle}"
                         Padding="10,4"
                         FontSize="{DynamicResource FontSizeFootnote}"

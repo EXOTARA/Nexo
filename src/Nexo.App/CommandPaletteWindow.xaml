@@ -210,6 +210,7 @@
 
                     <Grid Grid.Column="1" VerticalAlignment="Center">
                         <TextBox x:Name="PromptTextBox"
+                                 AutomationProperties.Name="Escribe una acción o pregunta"
                                  MinHeight="48"
                                  MaxHeight="104"
                                  Padding="1,8"

@@ -86,6 +86,7 @@
                         Height="46"
                         Margin="12,0,0,0"
                         Style="{StaticResource IconButtonStyle}"
+                        AutomationProperties.Name="Abrir la paleta de comandos"
                         ToolTip="Abrir paleta · Ctrl + Espacio"
                         Click="CommandButton_Click">
                     <Path Width="20"
@@ -245,6 +246,7 @@
                     -->
                     <Button Grid.Row="1"
                             x:Name="FocusQuickActionButton"
+                            AutomationProperties.Name="Empezar o detener el enfoque"
                             Margin="0,8,0,0"
                             Padding="0,7"
                             Style="{StaticResource SecondaryButtonStyle}"

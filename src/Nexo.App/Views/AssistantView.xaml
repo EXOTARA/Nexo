@@ -48,6 +48,7 @@
                     Margin="12,0,0,0"
                     Padding="11,8"
                     VerticalAlignment="Top"
+                    AutomationProperties.Name="Nueva conversación"
                     ToolTip="Nueva conversación"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Click="ClearConversationButton_Click">
@@ -210,6 +211,7 @@
                 </Grid.ColumnDefinitions>
 
                 <Button x:Name="VisionButton"
+                        AutomationProperties.Name="Mirar la ventana activa"
                         Grid.Column="0"
                         Margin="0,0,7,0"
                         Width="42"
@@ -239,6 +241,7 @@
                                Foreground="{DynamicResource BrushTextTertiary}"
                                FontSize="{DynamicResource FontSizeBody}" />
                     <TextBox x:Name="PromptBox"
+                             AutomationProperties.Name="Escribe una orden o pregunta"
                              MinHeight="46"
                              MaxHeight="108"
                              Padding="10,7"
@@ -253,6 +256,7 @@
                 </Grid>
 
                 <Button x:Name="MicButton"
+                        AutomationProperties.Name="Hablar por micrófono"
                         Grid.Column="2"
                         Margin="7,0,0,0"
                         Width="42"
@@ -282,6 +286,7 @@
                         Padding="0"
                         VerticalAlignment="Center"
                         Style="{StaticResource PrimaryButtonStyle}"
+                        AutomationProperties.Name="Enviar"
                         ToolTip="Enviar"
                         Click="SendButton_Click">
                     <Path Width="18"
