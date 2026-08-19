@@ -171,28 +171,21 @@
                                         BorderBrush="{DynamicResource BrushAccentBorder}"
                                         BorderThickness="1"
                                         CornerRadius="14">
+                                    <!--
+                                        Diseño D64 — el botón que pliega el rail lleva la marca de
+                                        Kohana, elegida por Adler. Antes llevaba un panel con un
+                                        chevrón que giraba según el lado; el chevrón se va con él
+                                        porque a diecinueve píxeles la flor y una flecha encima no
+                                        caben sin ensuciarse. Qué hace el botón lo siguen diciendo
+                                        su nombre de accesibilidad y su descripción emergente, que
+                                        no cambian.
+                                    -->
                                     <Grid Width="21" Height="21">
-                                        <Path Data="{StaticResource IconSidebarPanel}"
-                                              Style="{StaticResource SakuraNavigationIconStyle}"
-                                              Stroke="{DynamicResource BrushAccent}" />
-                                        <Path Data="M13.5,8 L17.5,12 L13.5,16"
-                                              Width="7"
-                                              Height="9"
-                                              HorizontalAlignment="Right"
-                                              VerticalAlignment="Center"
-                                              Stretch="Fill"
-                                              Stroke="{DynamicResource BrushAccent}"
-                                              StrokeThickness="1.7"
-                                              StrokeStartLineCap="Round"
-                                              StrokeEndLineCap="Round"
-                                              StrokeLineJoin="Round">
-                                            <Path.RenderTransform>
-                                                <RotateTransform x:Name="SideRailChevronRotate"
-                                                                 Angle="0"
-                                                                 CenterX="3.5"
-                                                                 CenterY="4.5" />
-                                            </Path.RenderTransform>
-                                        </Path>
+                                        <Path Data="{StaticResource IconKohanaMark}"
+                                              Width="19"
+                                              Height="19"
+                                              Stretch="Uniform"
+                                              Fill="{DynamicResource BrushAccent}" />
                                     </Grid>
                                 </Border>
                                 <StackPanel x:Name="SideRailBrandText"

@@ -417,13 +417,18 @@ public sealed class SakuraShellStructureTests
         Assert.Contains("SideRailBrandText.Visibility = expanded", body, StringComparison.Ordinal);
         Assert.Contains("SettingsNavLabel", body, StringComparison.Ordinal);
 
-        // El chevrón sigue reflejando si el rail está expandido, pero desde el diseño D26 también
-        // depende del lado: apunta hacia donde el rail va a crecer, y con Kohana acoplada a la
-        // izquierda el rail crece hacia el otro lado. Un ángulo que solo mirara `expanded` señalaría
-        // en dirección contraria en la mitad de los casos.
-        Assert.Contains("SideRailChevronRotate.Angle = RailIsOnLeft", body, StringComparison.Ordinal);
-        Assert.Contains("expanded ? 180 : 0", body, StringComparison.Ordinal);
-        Assert.Contains("expanded ? 0 : 180", body, StringComparison.Ordinal);
+        // Diseño D64 — aquí se comprobaba el ángulo del chevrón, que giraba según el lado del rail
+        // (D26). Ese chevrón ya no existe: el botón lleva la marca de Kohana, elegida por Adler, y
+        // a diecinueve píxeles no caben la flor y una flecha encima sin ensuciarse. La prueba se
+        // cambia a conciencia, no porque estorbara: lo que comprobaba dejó de tener sujeto.
+        //
+        // Lo que sí tiene que seguir siendo cierto es que el botón cuente qué hace sin depender de
+        // un dibujo, porque ahora el dibujo ya no lo dice.
+        Assert.DoesNotContain("SideRailChevronRotate", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "AutomationProperties.Name=\"Expandir o contraer navegación\"",
+            ReadMainWindowXaml(),
+            StringComparison.Ordinal);
     }
 
     [Fact]

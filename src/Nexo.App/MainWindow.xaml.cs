@@ -1773,12 +1773,6 @@ public partial class MainWindow : Window
         SettingsNavButton.Width = buttonWidth;
         SideRailBrandText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
 
-        // El chevrón apunta hacia donde el rail va a crecer, y eso depende del lado en que esté.
-        // La flecha dibujada mira a la derecha, así que 0° sirve para "abrirá hacia la derecha".
-        SideRailChevronRotate.Angle = RailIsOnLeft
-            ? (expanded ? 180 : 0)
-            : (expanded ? 0 : 180);
-
         foreach (var label in new[]
                  {
                      HomeNavLabel,
