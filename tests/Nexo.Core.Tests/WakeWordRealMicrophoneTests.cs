@@ -46,6 +46,73 @@ public sealed class WakeWordRealMicrophoneTests
         "habrá un pobre shell"
     ];
 
+
+    // ---------- Segunda grabación: a dos metros y con un video sonando ----------
+    //
+    // Diseño D68 — catorce intentos. Aquí Vosk deja de oír algo parecido a "kohana": escribe
+    // "cógeme", "con gana", "coge ama", "ojalá". Whisper, sobre el mismo audio, escribe catorce
+    // veces "Oye, coca". La señal que llega está degradada, no es solo cuestión de léxico.
+    private static readonly string[] FarFieldAttempts =
+    [
+        "gana",
+        "oye cógeme",
+        "oye cógeme",
+        "oye cojan",
+        "oye ojalá",
+        "oye con jarana",
+        "fluye con ganas",
+        "oye cogerme",
+        "oye coge ama",
+        "oye con gana",
+        "oye con gana"
+    ];
+
+    // ---------- Tercera grabación: hablar seguido sin decir nunca la frase ----------
+    //
+    // Adler la grabó a propósito con trampas: koala, Kyoto, kilovatios, Kazajistán, criptoniano,
+    // kimono. Es el vecindario fonético de "Kohana" y es la mitad que de verdad importa: subir la
+    // tolerancia no vale nada si con esto Kohana se despierta sola.
+    private static readonly string[] TheDecoyRecording =
+    [
+        "el cilantro fresco baila alegremente sobre un ala ancha submarina mientras un reloj de arena cuenta los minutos que faltan para que los gatos aprendan a volar en marte",
+        "el café el café frío sabe a metal antiguo cuando llueve de noche",
+        "con zapato morado camina siempre por la banqueta las nueve de cartón flotan sobre el mar de gelatina",
+        "el número cinco o de los martes nublados las tostada siempre candela donde hay risas",
+        "concordia deck cara teca comía que fir con ketchup en una kayak mientras un koala colosal toca el chico y miraban kimono morado en kioto",
+        "de repente bianco a la colosal que toca el qué cosa brooks creek",
+        "cala en yo es el cual a que era un krypton y no aficionada al quedando dejaba se kioto quería matron récord mundial de kilo ates consumidor velando que un kamikaze todo quedó registrado en un video de un kilo hay",
+        "kazajistán kioto kodak co koala kilo que lo bajito que lo que fir ketchup"
+    ];
+
+    [Fact]
+    public void AtTwoMetresWithNoise_TheWakeWordIsStillMostlyLost()
+    {
+        var woken = FarFieldAttempts.Count(
+            attempt => WakeWordTextMatcher.IsMatch(attempt, WakeWordPhrase.OyeKohana, WakeWordSensitivity.Balanced));
+
+        // Seis de catorce intentos, y era uno antes del D68. La cifra está escrita aquí sin adornos
+        // porque es el argumento para cambiar de reconocedor en la Fase 3: ninguna lista de
+        // variantes arregla que a dos metros la palabra deje de sonar como es.
+        Assert.Equal(6, woken);
+    }
+
+    [Fact]
+    public void TheDecoyRecordingNeverWakesKohana()
+    {
+        foreach (var sensitivity in new[]
+                 {
+                     WakeWordSensitivity.Strict, WakeWordSensitivity.Balanced, WakeWordSensitivity.High
+                 })
+        {
+            foreach (var line in TheDecoyRecording)
+            {
+                Assert.False(
+                    WakeWordTextMatcher.IsMatch(line, WakeWordPhrase.OyeKohana, sensitivity),
+                    $"Un despertar falso en sensibilidad {sensitivity}: “{line}”.");
+            }
+        }
+    }
+
     [Fact]
     public void AtTheDefaultSensitivity_MostOfTheRealAttemptsWakeKohana()
     {

@@ -22,6 +22,13 @@ public static class WakeWordTextMatcher
             "jana",
             "jena",
             "cojan",
+            // Diseño D68 — de la segunda grabación, hecha a dos metros y con un video sonando. A esa
+            // distancia Vosk deja de oír algo parecido a "kohana" y produce estas: son palabras
+            // reales, pero ninguna es algo que alguien le diga a su computadora por casualidad.
+            "cogeme",
+            "cogerme",
+            "cojeme",
+            "jarana",
             "kojan",
             "cojanna",
             "cohan",
@@ -416,6 +423,8 @@ public static class WakeWordTextMatcher
             .Replace("eco gana", "cojana", StringComparison.Ordinal)
             .Replace("ico gana", "cojana", StringComparison.Ordinal)
             .Replace("coja man", "cojana", StringComparison.Ordinal)
+            .Replace("coge ama", "cogeme", StringComparison.Ordinal)
+            .Replace("con jarana", "jarana", StringComparison.Ordinal)
             .Replace("ko hana", "kohana", StringComparison.Ordinal)
             .Replace("ko ana", "koana", StringComparison.Ordinal)
             .Replace("co hana", "cohana", StringComparison.Ordinal)
