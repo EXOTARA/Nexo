@@ -75,7 +75,7 @@ public sealed class ShellPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(0.65, preferences.Opacity);
+        Assert.Equal(0.85, preferences.Opacity);
         Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
     }
 

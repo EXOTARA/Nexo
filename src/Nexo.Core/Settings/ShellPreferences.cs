@@ -531,16 +531,18 @@ public sealed class ShellPreferences
             // casi opaco en la nueva, que llega hasta 0.35. Dejarlo quieto convertiría la elección
             // de quien pidió el máximo de transparencia en lo contrario de lo que pidió.
             //
-            // El destino, 0.65, está mirado en pantalla y no calculado: por debajo de ahí el marco
-            // se vuelve más claro que las tarjetas que contiene —jerarquía invertida— y Kohana deja
-            // de leerse como Kohana. A 0.65 el fondo de escritorio se nota y la superficie sigue
-            // siendo la suya. El control llega hasta 0.35 para quien quiera más.
+            // El destino, 0.85, lo eligió Adler mirando la pantalla. Se probó primero a 0.65 y él
+            // dijo que se veía raro: con el acrílico dejando pasar tanto fondo, el marco queda más
+            // claro que las tarjetas que contiene y la jerarquía se invierte —el contenedor no
+            // puede ser el elemento más luminoso. A 0.85 el marco vuelve a ser el morado oscuro de
+            // Kohana y el escritorio solo se intuye. El control llega hasta 0.35 para quien quiera
+            // más.
             //
             // Solo se toca ese valor exacto. Cualquier otro es una elección dentro de un tramo que
             // sigue existiendo igual, y esas no se tocan.
             if (Math.Abs(Opacity - 0.82) < 0.001)
             {
-                Opacity = 0.65;
+                Opacity = 0.85;
             }
 
             SchemaVersion = CurrentSchemaVersion;
