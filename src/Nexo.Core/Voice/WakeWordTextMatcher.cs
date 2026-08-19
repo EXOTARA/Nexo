@@ -12,9 +12,19 @@ public static class WakeWordTextMatcher
         };
 
     // Formas probables al pronunciar Kohana en español: co-ja-na / ko-ja-na.
+    //
+    // Diseño D66 — las seis últimas no son suposiciones: son lo que Vosk escribió al oír a Adler
+    // decir "Oye Kohana" ocho veces en una grabación de su propio micrófono. Antes de añadirlas,
+    // ninguno de esos ocho intentos despertaba a Kohana en sensibilidad Equilibrada.
     private static readonly HashSet<string> PhoneticBrandNames =
         new(StringComparer.Ordinal)
         {
+            "jana",
+            "jena",
+            "cojan",
+            "kojan",
+            "cojanna",
+            "cohan",
             "cojana",
             "kojana",
             "cohana",
@@ -36,7 +46,10 @@ public static class WakeWordTextMatcher
     private static readonly HashSet<string> OyePrefixes =
         new(StringComparer.Ordinal)
         {
-            "oye", "oi", "oy"
+            // "hoy" sale de la misma grabación: Vosk escribió "hoy" por "oye" dos veces de ocho.
+            // Como prefijo no decide nada por su cuenta —lo que discrimina es la palabra siguiente—
+            // así que admitirlo no abre la puerta a despertares por hablar del día de hoy.
+            "oye", "oi", "oy", "hoy", "oye,"
         };
 
     private static readonly HashSet<string> HeyPrefixes =
@@ -392,7 +405,17 @@ public static class WakeWordTextMatcher
             return normalized;
         }
 
+        // Diseño D66 — estas seis van primero a propósito. Vosk parte "Kohana" en dos fichas con
+        // una vocal suelta delante ("eco jana", "ico jana", "eco gana"), y las reglas de abajo
+        // reconocen "co jana" dentro de "eco jana": si corrieran antes, dejarían "ecojana", que no
+        // es nada. Medido sobre la grabación del micrófono de Adler.
         return normalized
+            .Replace("eco jana", "cojana", StringComparison.Ordinal)
+            .Replace("ico jana", "cojana", StringComparison.Ordinal)
+            .Replace("eco jena", "cojana", StringComparison.Ordinal)
+            .Replace("eco gana", "cojana", StringComparison.Ordinal)
+            .Replace("ico gana", "cojana", StringComparison.Ordinal)
+            .Replace("coja man", "cojana", StringComparison.Ordinal)
             .Replace("ko hana", "kohana", StringComparison.Ordinal)
             .Replace("ko ana", "koana", StringComparison.Ordinal)
             .Replace("co hana", "cohana", StringComparison.Ordinal)
