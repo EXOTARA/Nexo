@@ -61,11 +61,14 @@
     <CornerRadius x:Key="RadiusShell">28</CornerRadius>
 
     <!--
-        Para una píldora de verdad, donde el radio debe ser la mitad del alto sea cual sea. WPF
-        recorta el radio al que quepa, así que un número grande siempre da el extremo redondo sin
-        tener que saber el alto de antemano.
+        Diseño D64 — aquí vivía RadiusFull, con valor 999 y un comentario que aseguraba que WPF
+        recorta el radio al que quepa. No lo hace: con un radio mayor que la mitad del alto, Border
+        dibuja los arcos pedidos igualmente y salen dos puntas en vez de una píldora. Era lo que se
+        veía en los botones "Izquierda" y "Derecha".
+
+        Una píldora necesita saber el alto, y un token no puede saberlo. Lo hace
+        Views/Controls/PillCorner.cs, que lo mide.
     -->
-    <CornerRadius x:Key="RadiusFull">999</CornerRadius>
 
     <!--
         Sakura Shell v1 (Diseño D1) — dimensiones de la barra lateral, tokenizadas a partir de

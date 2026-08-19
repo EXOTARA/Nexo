@@ -1,6 +1,7 @@
 <UserControl x:Class="Nexo.App.Views.HomeView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pill="clr-namespace:Nexo.App.Views.Controls"
              Background="Transparent">
     <UserControl.Resources>
         <Style x:Key="BentoCardButtonStyle" TargetType="Button">
@@ -153,7 +154,7 @@
                                     Padding="8,3"
                                     VerticalAlignment="Center"
                                     Background="{DynamicResource BrushAccent}"
-                                    CornerRadius="{DynamicResource RadiusFull}"
+                                    pill:PillCorner.IsPill="True"
                                     Visibility="Collapsed">
                                 <TextBlock x:Name="TaskCountText"
                                            Text="0"

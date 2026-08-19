@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:Nexo.App.Views.Controls">
     <Style TargetType="Window">
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
         <Setter Property="FontSize" Value="13" />
@@ -130,7 +131,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusFull}">
+                            controls:PillCorner.IsPill="True">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="Center" />
                     </Border>
@@ -310,7 +311,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource RadiusFull}">
+                            controls:PillCorner.IsPill="True">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center" />
                     </Border>
