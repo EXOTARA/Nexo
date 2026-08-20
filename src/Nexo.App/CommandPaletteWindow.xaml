@@ -1,7 +1,7 @@
 <Window x:Class="Nexo.App.CommandPaletteWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Comandos de Kohana"
+        Title="Comandos de Sakura"
         Width="720"
         SizeToContent="Height"
         WindowStyle="None"
@@ -401,7 +401,7 @@
                             <TextBlock Text="Movimiento"
                                        FontWeight="SemiBold"
                                        FontSize="{DynamicResource FontSizeBody}" />
-                            <TextBlock Text="Sutil por defecto; cambia la sensación sin recargar Kohana."
+                            <TextBlock Text="Sutil por defecto; cambia la sensación sin recargar Sakura."
                                        Margin="0,3,0,0"
                                        Style="{StaticResource MutedTextStyle}" />
                         </StackPanel>

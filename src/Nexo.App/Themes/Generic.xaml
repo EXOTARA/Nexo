@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:controls="clr-namespace:Nexo.App.Views.Controls">
     <!--
-        Plantillas por omisión de los controles propios de Kohana. WPF busca este archivo por
+        Plantillas por omisión de los controles propios de Sakura. WPF busca este archivo por
         convención (Themes/Generic.xaml) cuando un control declara su propio estilo con
         DefaultStyleKey, así que el nombre y la ubicación no son negociables.
 

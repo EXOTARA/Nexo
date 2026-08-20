@@ -424,7 +424,7 @@ public sealed class ShellPreferences
         if (SchemaVersion < 23)
         {
             // Diseño D25 — "Ollama" se parte en dos: el motor que Kohana administra
-            // (AiProviderKind.KohanaLocal, puerto 11435) y el que la persona instaló por su cuenta
+            // (AiProviderKind.SakuraLocal, puerto 11435) y el que la persona instaló por su cuenta
             // (AiProviderKind.Ollama, puerto 11434). Quien ya apuntaba al administrado se mueve al
             // proveedor nuevo; si no, se queda donde estaba. Esta migración sí conserva una elección
             // previa en vez de reimponer un valor por omisión: no concede nada que no estuviera ya
@@ -432,7 +432,7 @@ public sealed class ShellPreferences
             if (AiProvider == AiProviderKind.Ollama &&
                 OllamaRuntimeEndpoints.IsManagedBaseUrl(AiBaseUrl))
             {
-                AiProvider = AiProviderKind.KohanaLocal;
+                AiProvider = AiProviderKind.SakuraLocal;
             }
 
             SchemaVersion = 23;
@@ -633,7 +633,7 @@ public sealed class ShellPreferences
         // El motor administrado solo existe en un sitio, y Kohana es quien lo pone ahí. Dejar que
         // la dirección se desvíe es exactamente el fallo que costó una tarde: el modelo descargado
         // en 11435 y la aplicación preguntando en 11434. Aquí no hay nada que respetar del archivo.
-        if (AiProviderDefaults.IsManagedByKohana(AiProvider))
+        if (AiProviderDefaults.IsManagedBySakura(AiProvider))
         {
             AiBaseUrl = OllamaRuntimeEndpoints.ManagedBaseUrl;
         }

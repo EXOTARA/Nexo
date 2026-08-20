@@ -122,7 +122,7 @@ public sealed class DdcDisplayBrightnessService : IDisplayBrightnessService, IDi
     /// pidieron. Al desenchufar un monitor, cambiar su entrada, girar la pantalla o volver de
     /// suspension, Windows rehace esa configuracion y los guardados dejan de servir: todas las
     /// llamadas fallan a partir de ahi. Como solo se pedian la primera vez, el mando de brillo
-    /// desaparecia del panel y no volvia hasta reiniciar Kohana — un fallo repetible, y con una
+    /// desaparecia del panel y no volvia hasta reiniciar Sakura — un fallo repetible, y con una
     /// causa que desde fuera no se adivina, porque el monitor sigue obedeciendo a sus botones.
     ///
     /// Se rehace una sola vez por lectura, no en bucle: si de verdad el monitor no trae DDC/CI, la

@@ -16,7 +16,7 @@ namespace Nexo.Windows.Media;
 ///
 /// La portada se lee solo cuando cambia la pista. Es lo único caro de aquí: abrir el flujo,
 /// copiarlo a memoria y decodificarlo. Repetirlo en cada tick por una imagen idéntica se notaba en
-/// el uso de CPU del propio Kohana, que es justo lo que esta pantalla dice medir.
+/// el uso de CPU del propio Sakura, que es justo lo que esta pantalla dice medir.
 /// </summary>
 public sealed class WindowsMediaSessionReader : IMediaSessionReader
 {

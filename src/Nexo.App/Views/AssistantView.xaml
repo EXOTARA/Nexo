@@ -61,7 +61,7 @@
                           StrokeThickness="1.7"
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
-                          Data="{StaticResource IconKohanaPlus}" />
+                          Data="{StaticResource IconSakuraPlus}" />
                     <TextBlock Text="Nuevo" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
@@ -89,7 +89,7 @@
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         Foreground="{DynamicResource BrushAccent}"
-                                        Style="{StaticResource KohanaFlowerMarkStyle}" />
+                                        Style="{StaticResource SakuraFlowerMarkStyle}" />
                     </Border>
                     <TextBlock Margin="0,17,0,0"
                                Text="¿Qué hacemos hoy?"
@@ -98,7 +98,7 @@
                                FontWeight="SemiBold" />
                     <TextBlock Margin="0,7,0,14"
                                MaxWidth="430"
-                               Text="Pide una acción, pregunta algo o comparte una ventana. Kohana ejecuta primero lo que puede resolver de forma local."
+                               Text="Pide una acción, pregunta algo o comparte una ventana. Sakura ejecuta primero lo que puede resolver de forma local."
                                TextAlignment="Center"
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushTextSecondary}"
@@ -229,7 +229,7 @@
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
                           StrokeLineJoin="Round"
-                          Data="{StaticResource IconKohanaLook}" />
+                          Data="{StaticResource IconSakuraLook}" />
                 </Button>
 
                 <Grid Grid.Column="1">
@@ -276,7 +276,7 @@
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
                           StrokeLineJoin="Round"
-                          Data="{StaticResource IconKohanaMic}" />
+                          Data="{StaticResource IconSakuraMic}" />
                 </Button>
 
                 <Button Grid.Column="3"
@@ -297,7 +297,7 @@
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
                           StrokeLineJoin="Round"
-                          Data="{StaticResource IconKohanaSend}" />
+                          Data="{StaticResource IconSakuraSend}" />
                 </Button>
             </Grid>
         </Border>

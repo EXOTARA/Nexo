@@ -8,7 +8,7 @@ namespace Nexo.Windows.AdaptiveEngine;
 public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
 {
     /// <summary>
-    /// Un motor puede servir a más de un proveedor: el motor de Ollama es el mismo tanto si Kohana
+    /// Un motor puede servir a más de un proveedor: el motor de Ollama es el mismo tanto si Sakura
     /// lo administra como si la instalación es propia, y los proveedores de nube compatibles con
     /// OpenAI comparten un único cliente. Mapear a un solo proveedor dejaba a la mitad de las
     /// opciones informando "no configurado" mientras estaban funcionando.
@@ -18,7 +18,7 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
         {
             [KnownEngineIds.OpenAiLanguageModel] = [AiProviderKind.OpenAI],
             [KnownEngineIds.OllamaLanguageModel] =
-                [AiProviderKind.Ollama, AiProviderKind.KohanaLocal],
+                [AiProviderKind.Ollama, AiProviderKind.SakuraLocal],
             [KnownEngineIds.LmStudioLanguageModel] = [AiProviderKind.LMStudio],
             [KnownEngineIds.OpenAiCompatibleLanguageModel] =
             [
@@ -103,14 +103,14 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
                 "Procesar audio con el modelo Whisper Base en CPU.",
                 EngineCostLevel.Moderate, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Moderate),
             RecommendedRequirement: new EngineRequirement(
-                "Kohana solo ofrece el modelo Whisper Base; no existe un nivel superior configurable.",
+                "Sakura solo ofrece el modelo Whisper Base; no existe un nivel superior configurable.",
                 EngineCostLevel.Moderate, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Moderate),
             Capabilities: ["Transcripción de voz a texto en español", "Modelo Whisper Base fijo"],
             Limitations: ["Ejecuta siempre en CPU: no se comprobó ni se usa GPU", "No se puede elegir un modelo distinto todavía"],
             AllowsRuntimeSelection: false,
             RequiresRestart: true,
             RequiresDownload: true,
-            IncludedWithKohana: true),
+            IncludedWithSakura: true),
 
         new EngineDescriptor(
             KnownEngineIds.VoskWakeWord,
@@ -121,14 +121,14 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
                 "Detectar la palabra de activación con el modelo Vosk pequeño en español.",
                 EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
             RecommendedRequirement: new EngineRequirement(
-                "Kohana solo ofrece este modelo pequeño en español.",
+                "Sakura solo ofrece este modelo pequeño en español.",
                 EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
             Capabilities: ["Detección de palabra de activación en español"],
             Limitations: ["Solo reconoce español", "No se puede elegir un modelo distinto todavía"],
             AllowsRuntimeSelection: false,
             RequiresRestart: true,
             RequiresDownload: false,
-            IncludedWithKohana: true),
+            IncludedWithSakura: true),
 
         new EngineDescriptor(
             KnownEngineIds.WindowsSapiTextToSpeech,
@@ -139,14 +139,14 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
                 "Sintetizar voz con las voces instaladas en Windows.",
                 EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
             RecommendedRequirement: new EngineRequirement(
-                "Igual que el mínimo: SAPI no tiene niveles de calidad configurables desde Kohana.",
+                "Igual que el mínimo: SAPI no tiene niveles de calidad configurables desde Sakura.",
                 EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Low),
             Capabilities: ["Síntesis de voz usando las voces instaladas en Windows"],
             Limitations: ["No expone cuál voz eligió ni si está hablando en este momento"],
             AllowsRuntimeSelection: false,
             RequiresRestart: true,
             RequiresDownload: false,
-            IncludedWithKohana: true),
+            IncludedWithSakura: true),
 
         new EngineDescriptor(
             KnownEngineIds.OpenAiLanguageModel,
@@ -164,7 +164,7 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
             AllowsRuntimeSelection: true,
             RequiresRestart: false,
             RequiresDownload: false,
-            IncludedWithKohana: true),
+            IncludedWithSakura: true),
 
         new EngineDescriptor(
             KnownEngineIds.OllamaLanguageModel,
@@ -177,12 +177,12 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
             RecommendedRequirement: new EngineRequirement(
                 "Ejecutar modelos más grandes con mejor calidad de respuesta.",
                 EngineCostLevel.High, EngineCostLevel.High, EngineCostLevel.Unknown, EngineCostLevel.High),
-            Capabilities: ["Modelos de lenguaje ejecutados localmente", "Puede administrarlo Kohana o apuntar a una instalación externa"],
-            Limitations: ["El uso de GPU depende de la instalación del usuario y no se puede comprobar desde Kohana", "El modelo debe descargarse por separado"],
+            Capabilities: ["Modelos de lenguaje ejecutados localmente", "Puede administrarlo Sakura o apuntar a una instalación externa"],
+            Limitations: ["El uso de GPU depende de la instalación del usuario y no se puede comprobar desde Sakura", "El modelo debe descargarse por separado"],
             AllowsRuntimeSelection: true,
             RequiresRestart: false,
             RequiresDownload: true,
-            IncludedWithKohana: true),
+            IncludedWithSakura: true),
 
         new EngineDescriptor(
             KnownEngineIds.LmStudioLanguageModel,
@@ -200,7 +200,7 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
             AllowsRuntimeSelection: true,
             RequiresRestart: false,
             RequiresDownload: true,
-            IncludedWithKohana: false),
+            IncludedWithSakura: false),
 
         new EngineDescriptor(
             KnownEngineIds.OpenAiCompatibleLanguageModel,
@@ -208,7 +208,7 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
             EngineCategory.LocalLanguageModel,
             IsLocal: null,
             MinimumRequirement: new EngineRequirement(
-                "El costo local de Kohana es bajo; el servidor configurado asume el resto.",
+                "El costo local de Sakura es bajo; el servidor configurado asume el resto.",
                 EngineCostLevel.Low, EngineCostLevel.Low, EngineCostLevel.Unknown, EngineCostLevel.Low),
             RecommendedRequirement: new EngineRequirement(
                 "Igual que el mínimo.",
@@ -218,6 +218,6 @@ public sealed class WindowsAdaptiveEngineRegistry : IAdaptiveEngineRegistry
             AllowsRuntimeSelection: true,
             RequiresRestart: false,
             RequiresDownload: false,
-            IncludedWithKohana: true)
+            IncludedWithSakura: true)
     ];
 }

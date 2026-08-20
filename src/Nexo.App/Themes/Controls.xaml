@@ -771,7 +771,7 @@
 
         Hasta ahora no tenían plantilla: WPF dibujaba la suya, que es el cuadrito gris de la época
         de Windows 8 y desentona con todo lo demás. El estilo anterior solo cambiaba el color del
-        texto y el cursor, así que el control seguía siendo ajeno a Kohana.
+        texto y el cursor, así que el control seguía siendo ajeno a Sakura.
 
         Las dos formas siguen la regla de siempre: cuadrado redondeado para lo que se puede marcar
         en cualquier combinación, círculo para elegir una de varias. Es la única señal que
@@ -1109,7 +1109,7 @@
 
     <!--
         Estado de error recuperable. Se muestra dentro del workspace, nunca como diálogo
-        modal: un fallo debe informar y dejar seguir usando Kohana.
+        modal: un fallo debe informar y dejar seguir usando Sakura.
     -->
     <Style x:Key="WorkspaceErrorStateStyle" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource BrushSurfaceRaised}" />

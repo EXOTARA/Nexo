@@ -3,7 +3,7 @@ using Nexo.Core.Branding;
 namespace Nexo.Core.Diagnostics;
 
 /// <summary>
-/// Rutas privadas de Kohana. El nombre de la clase se conserva temporalmente
+/// Rutas privadas de Sakura. El nombre de la clase se conserva temporalmente
 /// para no forzar un renombrado masivo de namespaces durante la migración.
 ///
 /// Diseño D3.2 — punto único de resolución de la raíz de datos. Antes de este diseño, todas las
@@ -14,7 +14,7 @@ namespace Nexo.Core.Diagnostics;
 ///    comandos o un arnés de pruebas/validación).
 /// 2. Variable de entorno <see cref="DataRootEnvironmentVariable"/> (pensada para scripts de
 ///    validación y desarrollo).
-/// 3. Ruta de producción real (`%LocalAppData%\Kohana`) — sin cambios de comportamiento cuando no
+/// 3. Ruta de producción real (`%LocalAppData%\Sakura`) — sin cambios de comportamiento cuando no
 ///    hay ningún override activo.
 ///
 /// Cuando hay un override activo, <see cref="LegacyRootDirectory"/> colapsa a la misma raíz que
@@ -29,7 +29,13 @@ public static class NexoDataPaths
     /// (validación interactiva, desarrollo, automatización, diagnóstico). No documentada como
     /// opción de usuario final: no hay selector en la UI normal.
     /// </summary>
-    public const string DataRootEnvironmentVariable = "KOHANA_DATA_ROOT";
+    public const string DataRootEnvironmentVariable = "SAKURA_DATA_ROOT";
+
+    /// <summary>
+    /// Diseño D70 — el nombre anterior de la variable sigue funcionando. Quien tenga un perfil de
+    /// validación montado con ella no debería descubrir el cambio de nombre por un fallo.
+    /// </summary>
+    public const string LegacyDataRootEnvironmentVariable = "KOHANA_DATA_ROOT";
 
     private static string? _explicitOverrideRoot;
 
@@ -63,7 +69,8 @@ public static class NexoDataPaths
         }
 
         var envOverride = NormalizeOverride(
-            Environment.GetEnvironmentVariable(DataRootEnvironmentVariable));
+            Environment.GetEnvironmentVariable(DataRootEnvironmentVariable) ??
+            Environment.GetEnvironmentVariable(LegacyDataRootEnvironmentVariable));
         return envOverride is not null
             ? (envOverride, $"variable de entorno {DataRootEnvironmentVariable}")
             : (RootDirectory, "producción");
@@ -78,6 +85,48 @@ public static class NexoDataPaths
             ? RootDirectory
             : Path.Combine(LocalApplicationData, ProductIdentity.LegacyDataDirectoryName);
 
+    /// <summary>
+    /// Diseño D70 — todas las carpetas de nombres anteriores, de la más reciente a la más vieja.
+    ///
+    /// Son dos porque el producto se ha llamado de tres formas y los datos no viajaron todos a la
+    /// vez: los modelos de voz siguen en la carpeta de la primera etapa. Buscar en cadena es lo que
+    /// permite renombrar sin dejar a nadie sin sus archivos, y es también lo que permite que la
+    /// consolidación los recoja de donde estén.
+    ///
+    /// Con un override de validación activo colapsa a la raíz activa, igual que
+    /// <see cref="LegacyRootDirectory"/>: un perfil aislado no debe leer los datos reales.
+    /// </summary>
+    public static IReadOnlyList<string> LegacyRootDirectories =>
+        IsUsingOverrideRoot
+            ? [RootDirectory]
+            : ProductIdentity.PreviousDataDirectoryNames
+                .Select(name => Path.Combine(LocalApplicationData, name))
+                .ToArray();
+
+    /// <summary>
+    /// Devuelve la primera ruta que exista: primero la actual, luego cada nombre anterior en orden.
+    /// Si no existe ninguna, devuelve la actual, que es donde se creará.
+    /// </summary>
+    private static string PreferExistingInChain(Func<string, string> build)
+    {
+        var current = build(RootDirectory);
+        if (Directory.Exists(current) || File.Exists(current))
+        {
+            return current;
+        }
+
+        foreach (var legacyRoot in LegacyRootDirectories)
+        {
+            var candidate = build(legacyRoot);
+            if (Directory.Exists(candidate) || File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return current;
+    }
+
     private static string? ResolveOverrideRoot()
     {
         if (_explicitOverrideRoot is not null)
@@ -85,7 +134,9 @@ public static class NexoDataPaths
             return _explicitOverrideRoot;
         }
 
-        return NormalizeOverride(Environment.GetEnvironmentVariable(DataRootEnvironmentVariable));
+        return NormalizeOverride(
+            Environment.GetEnvironmentVariable(DataRootEnvironmentVariable) ??
+            Environment.GetEnvironmentVariable(LegacyDataRootEnvironmentVariable));
     }
 
     /// <summary>
@@ -120,9 +171,8 @@ public static class NexoDataPaths
         LegacyRootDirectory,
         "Runtime");
 
-    public static string OllamaRuntimeDirectory => PreferExistingDirectory(
-        Path.Combine(RuntimeDirectory, "Ollama"),
-        Path.Combine(LegacyRuntimeDirectory, "Ollama"));
+    public static string OllamaRuntimeDirectory =>
+        PreferExistingInChain(root => Path.Combine(root, "Runtime", "Ollama"));
 
     public static string ModelsDirectory => Path.Combine(
         RootDirectory,
@@ -132,17 +182,14 @@ public static class NexoDataPaths
         LegacyRootDirectory,
         "Models");
 
-    public static string OllamaModelsDirectory => PreferExistingDirectory(
-        Path.Combine(ModelsDirectory, "Ollama"),
-        Path.Combine(LegacyModelsDirectory, "Ollama"));
+    public static string OllamaModelsDirectory =>
+        PreferExistingInChain(root => Path.Combine(root, "Models", "Ollama"));
 
-    public static string VoskModelsDirectory => PreferExistingDirectory(
-        Path.Combine(ModelsDirectory, "Vosk"),
-        Path.Combine(LegacyModelsDirectory, "Vosk"));
+    public static string VoskModelsDirectory =>
+        PreferExistingInChain(root => Path.Combine(root, "Models", "Vosk"));
 
-    public static string WhisperModel => PreferExistingFile(
-        Path.Combine(ModelsDirectory, "ggml-base.bin"),
-        Path.Combine(LegacyModelsDirectory, "ggml-base.bin"));
+    public static string WhisperModel =>
+        PreferExistingInChain(root => Path.Combine(root, "Models", "ggml-base.bin"));
 
     public static string OllamaExecutable =>
         Path.Combine(OllamaRuntimeDirectory, "ollama.exe");
@@ -197,13 +244,13 @@ public static class NexoDataPaths
     public static string OptimizationAudit =>
         Path.Combine(RootDirectory, "optimization-audit.json");
 
-    /// <summary>Diseño D13 — Audit Log orientado al usuario: qué hizo Kohana, cuándo y con qué permiso.</summary>
+    /// <summary>Diseño D13 — Audit Log orientado al usuario: qué hizo Sakura, cuándo y con qué permiso.</summary>
     public static string Audit => Path.Combine(RootDirectory, "audit.json");
 
     /// <summary>Diseño D12 — carpeta de trabajo autorizada y su historial de autorizaciones.</summary>
     public static string Workspace => Path.Combine(RootDirectory, "workspace.json");
 
-    /// <summary>Diseño D14 — copias previas de los archivos que Kohana modificó, para poder deshacer.</summary>
+    /// <summary>Diseño D14 — copias previas de los archivos que Sakura modificó, para poder deshacer.</summary>
     public static string WorkspaceCheckpoints =>
         Path.Combine(RootDirectory, "workspace-checkpoints.json");
 
@@ -211,7 +258,7 @@ public static class NexoDataPaths
     public static string SkillPackSnapshot =>
         Path.Combine(RootDirectory, "skill-pack-snapshot.json");
 
-    /// <summary>Diseño D18 — pasos de Computer Use que Kohana puede deshacer.</summary>
+    /// <summary>Diseño D18 — pasos de Computer Use que Sakura puede deshacer.</summary>
     public static string ComputerUseSnapshots =>
         Path.Combine(RootDirectory, "computer-use-snapshots.json");
     public static string Conversation => Path.Combine(

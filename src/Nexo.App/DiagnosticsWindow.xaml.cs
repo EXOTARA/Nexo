@@ -274,7 +274,7 @@ public partial class DiagnosticsWindow : Window
                 $"Actual: {result.CurrentVersion}\n" +
                 $"Disponible: {result.LatestVersion}\n\n" +
                 "¿Quieres abrir la página de descarga?",
-                "Actualización de Kohana",
+                "Actualización de Sakura",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Information);
 

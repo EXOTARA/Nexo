@@ -257,7 +257,7 @@
 
             Es un boton y no una tarjeta con texto porque un resumen que no se puede accionar deja
             a medias: ver "3 pendientes" y tener que ir a buscar donde estan es peor que no verlo.
-            Pulsar abre Kohana en ese modulo y recoge el cajon.
+            Pulsar abre Sakura en ese modulo y recoge el cajon.
         -->
         <!--
             Diseño D65 — aquí vivía DashboardChipStyle, para los tres resúmenes pulsables que D53
@@ -327,11 +327,11 @@
                                       StrokeStartLineCap="Round"
                                       StrokeEndLineCap="Round"
                                       StrokeLineJoin="Round"
-                                      Data="{StaticResource IconKohanaHome}" />
+                                      Data="{StaticResource IconSakuraHome}" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
                                 <TextBlock x:Name="PanelSessionTitleText"
-                                           Text="Kohana"
+                                           Text="Sakura"
                                            FontSize="{DynamicResource FontSizeBody}"
                                            FontWeight="SemiBold"
                                            TextTrimming="CharacterEllipsis" />
@@ -457,7 +457,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <!-- Diseño D58 — el hueco de la imagen de quien usa Kohana. -->
+                        <!-- Diseño D58 — el hueco de la imagen de quien usa Sakura. -->
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
@@ -597,7 +597,7 @@
                     </Border>
 
                     <!--
-                        Diseño D58 — un hueco que Kohana no usa para nada.
+                        Diseño D58 — un hueco que Sakura no usa para nada.
 
                         Va debajo del control de la canción y en la esquina, que es donde la
                         referencia pone el gato. No lleva título ni borde propio cuando hay imagen:

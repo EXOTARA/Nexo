@@ -76,7 +76,7 @@ public partial class FocusView : UserControl
         CancelButton.IsEnabled = true;
 
         // La tarea asociada se resuelve por Id cada vez (no se guarda el título en el timer):
-        // así, si Kohana se reinicia a mitad de una sesión asociada, el título mostrado sigue
+        // así, si Sakura se reinicia a mitad de una sesión asociada, el título mostrado sigue
         // siendo el actual de la tarea, no uno congelado del momento en que empezó.
         var taskTitle = timer.TaskId.HasValue ? _resolveTaskTitle?.Invoke(timer.TaskId.Value) : null;
         if (!string.IsNullOrWhiteSpace(taskTitle))

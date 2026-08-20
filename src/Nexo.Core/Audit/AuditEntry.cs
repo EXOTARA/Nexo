@@ -1,7 +1,7 @@
 namespace Nexo.Core.Audit;
 
 /// <summary>
-/// Diseño D13 — qué capacidad hizo algo. Sirve para filtrar: "¿qué ha tocado Kohana en mi equipo?"
+/// Diseño D13 — qué capacidad hizo algo. Sirve para filtrar: "¿qué ha tocado Sakura en mi equipo?"
 /// y "¿qué ha hecho con mi proyecto?" son dos preguntas distintas.
 /// </summary>
 public enum AuditCapability
@@ -42,7 +42,7 @@ public sealed class AuditEntry
     public string Detail { get; set; } = string.Empty;
 
     /// <summary>
-    /// Con qué permiso. Texto, no enum: los permisos de Kohana no viven todos en el mismo enum
+    /// Con qué permiso. Texto, no enum: los permisos de Sakura no viven todos en el mismo enum
     /// (una carpeta autorizada, la memoria activada, un plan de energía confirmado), y forzarlos a
     /// uno solo obligaría a inventar categorías que no significan nada.
     /// </summary>

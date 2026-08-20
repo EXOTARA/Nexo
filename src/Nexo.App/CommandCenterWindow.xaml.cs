@@ -15,12 +15,12 @@ namespace Nexo.App;
 /// lenguaje natural al asistente. Aquí no hay IA: cada entrada ejecuta una acción concreta del
 /// shell o de un servicio local ya existente.
 ///
-/// La ventana no sabe qué hace cada comando: recibe un <see cref="KohanaCommandRegistry"/> ya
+/// La ventana no sabe qué hace cada comando: recibe un <see cref="SakuraCommandRegistry"/> ya
 /// poblado y solo se ocupa de buscar, mostrar, trasladar el teclado e informar del resultado.
 /// </summary>
 public partial class CommandCenterWindow : Window
 {
-    private KohanaCommandRegistry _registry;
+    private SakuraCommandRegistry _registry;
     private IReadOnlyList<CommandCenterRow> _rows = [];
 
     /// <summary>
@@ -29,7 +29,7 @@ public partial class CommandCenterWindow : Window
     /// </summary>
     private IInputElement? _focusToRestore;
 
-    public CommandCenterWindow(KohanaCommandRegistry registry)
+    public CommandCenterWindow(SakuraCommandRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
@@ -42,7 +42,7 @@ public partial class CommandCenterWindow : Window
     /// se abre, en vez de congelarlo la primera vez, evita que la paleta muestre rutinas que ya se
     /// renombraron, se deshabilitaron o se eliminaron.
     /// </summary>
-    public void UpdateCommands(KohanaCommandRegistry registry)
+    public void UpdateCommands(SakuraCommandRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
@@ -227,7 +227,7 @@ public partial class CommandCenterWindow : Window
             return;
         }
 
-        // Un fallo nunca cierra Kohana ni se informa como éxito: se avisa de forma no modal y se
+        // Un fallo nunca cierra Sakura ni se informa como éxito: se avisa de forma no modal y se
         // entrega al shell para que lo registre con su stack trace.
         CommandFailed?.Invoke(
             this,
@@ -276,7 +276,7 @@ public partial class CommandCenterWindow : Window
     /// texto visible dependen del momento en que se abre la paleta, no del registro.
     /// </summary>
     public sealed record CommandCenterRow(
-        KohanaCommandDescriptor Command,
+        SakuraCommandDescriptor Command,
         bool IsAvailable,
         string Detail)
     {
@@ -289,27 +289,27 @@ public partial class CommandCenterWindow : Window
 
         public string CategoryLabel => Command.Category switch
         {
-            KohanaCommandCategory.Navigation => "Ir a",
-            KohanaCommandCategory.Focus => "Enfoque",
-            KohanaCommandCategory.Tasks => "Tareas",
-            KohanaCommandCategory.Audio => "Audio",
-            KohanaCommandCategory.Capture => "Captura",
-            KohanaCommandCategory.System => "Sistema",
-            KohanaCommandCategory.Ambient => "Ambiental",
+            SakuraCommandCategory.Navigation => "Ir a",
+            SakuraCommandCategory.Focus => "Enfoque",
+            SakuraCommandCategory.Tasks => "Tareas",
+            SakuraCommandCategory.Audio => "Audio",
+            SakuraCommandCategory.Capture => "Captura",
+            SakuraCommandCategory.System => "Sistema",
+            SakuraCommandCategory.Ambient => "Ambiental",
             _ => "Shell"
         };
     }
 
-    /// <summary>Diseño D62 — el marco lo compone Windows. Ver <see cref="KohanaWindowChrome"/>.</summary>
+    /// <summary>Diseño D62 — el marco lo compone Windows. Ver <see cref="SakuraWindowChrome"/>.</summary>
     private void Window_SourceInitialized(object? sender, EventArgs e) =>
-        KohanaWindowChrome.Apply(this, Surface);
+        SakuraWindowChrome.Apply(this, Surface);
 }
 
 public sealed class CommandCenterFailureEventArgs(
-    KohanaCommandDescriptor command,
+    SakuraCommandDescriptor command,
     CommandExecutionResult result) : EventArgs
 {
-    public KohanaCommandDescriptor Command { get; } = command;
+    public SakuraCommandDescriptor Command { get; } = command;
 
     public CommandExecutionResult Result { get; } = result;
 }

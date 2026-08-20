@@ -1,7 +1,7 @@
 namespace Nexo.Core.Vision;
 
 /// <summary>
-/// Diseño D5.3 (Fase 2 — Kohana Lens) — un elemento de la interfaz de una ventana ajena, leído por
+/// Diseño D5.3 (Fase 2 — Sakura Lens) — un elemento de la interfaz de una ventana ajena, leído por
 /// <see cref="IUiAutomationReader"/>. Solo lectura: nombre, tipo de control y posición en pantalla
 /// (píxeles, origen arriba-izquierda). Nunca incluye una acción para invocarlo — Lens observa y
 /// guía, no actúa (ver `docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md`, Fase 2, "No objetivos").

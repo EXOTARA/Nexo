@@ -83,7 +83,7 @@ public sealed class WindowsUpdateDownloader(HttpClient? client = null)
             }
 
             var packagePath = Path.Combine(
-                destinationFolder, $"Kohana-{manifest.Version}.zip");
+                destinationFolder, $"Sakura-{manifest.Version}.zip");
 
             // Una descarga anterior del mismo nombre se sustituye: ya se verificó la de ahora.
             Delete(packagePath);
@@ -161,14 +161,14 @@ public sealed class WindowsUpdateDownloader(HttpClient? client = null)
     /// fallar, porque el momento del fallo es justo cuando menos se puede confiar en que se ejecute
     /// nada más.
     ///
-    /// Solo se tocan archivos con el nombre que pone esta clase. La carpeta es de Kohana, pero
+    /// Solo se tocan archivos con el nombre que pone esta clase. La carpeta es de Sakura, pero
     /// borrar por comodín lo que haya dentro es cómo se acaba llevándose algo que no era tuyo.
     /// </summary>
     private static void DiscardOldPackages(string folder)
     {
         try
         {
-            foreach (var stale in Directory.EnumerateFiles(folder, "Kohana-*.zip"))
+            foreach (var stale in Directory.EnumerateFiles(folder, "Sakura-*.zip"))
             {
                 Delete(stale);
             }

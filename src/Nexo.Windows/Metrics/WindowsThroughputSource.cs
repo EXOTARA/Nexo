@@ -8,7 +8,7 @@ public readonly record struct DriveSpace(string Name, long UsedBytes, long Total
 
 /// <summary>
 /// Diseño D42 — velocidad de red y espacio de disco, los dos datos del boceto de rendimiento que
-/// Kohana no tenía.
+/// Sakura no tenía.
 ///
 /// La red se lee sumando los contadores de todas las interfaces activas y no de una sola: en un
 /// portátil con Wi-Fi y cable, mirar solo la primera da cero en cuanto se cambia de una a otra. Se

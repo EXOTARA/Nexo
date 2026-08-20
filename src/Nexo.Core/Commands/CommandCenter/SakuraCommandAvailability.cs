@@ -7,9 +7,9 @@ namespace Nexo.Core.Commands.CommandCenter;
 /// disponible se muestre deshabilitado con una explicación clara, en vez de aparecer como si
 /// funcionara y fallar al pulsarlo.
 /// </summary>
-public sealed record KohanaCommandAvailability
+public sealed record SakuraCommandAvailability
 {
-    private KohanaCommandAvailability(bool isAvailable, string? unavailableReason)
+    private SakuraCommandAvailability(bool isAvailable, string? unavailableReason)
     {
         IsAvailable = isAvailable;
         UnavailableReason = unavailableReason;
@@ -20,9 +20,9 @@ public sealed record KohanaCommandAvailability
     /// <summary>Motivo legible por una persona; <c>null</c> cuando el comando está disponible.</summary>
     public string? UnavailableReason { get; }
 
-    public static KohanaCommandAvailability Available { get; } = new(true, null);
+    public static SakuraCommandAvailability Available { get; } = new(true, null);
 
-    public static KohanaCommandAvailability Unavailable(string reason)
+    public static SakuraCommandAvailability Unavailable(string reason)
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
@@ -31,6 +31,6 @@ public sealed record KohanaCommandAvailability
                 nameof(reason));
         }
 
-        return new KohanaCommandAvailability(false, reason.Trim());
+        return new SakuraCommandAvailability(false, reason.Trim());
     }
 }

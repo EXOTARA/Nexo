@@ -38,12 +38,12 @@ public static class SupportBundleBuilder
 
         var builder = new StringBuilder();
 
-        builder.AppendLine("Kohana · paquete de soporte");
+        builder.AppendLine("Sakura · paquete de soporte");
         builder.Append("Generado: ").AppendLine(DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm"));
         builder.AppendLine();
 
         builder.AppendLine("── Equipo y versiones ──");
-        builder.Append("Versión de Kohana: ").AppendLine(diagnostics.AppVersion);
+        builder.Append("Versión de Sakura: ").AppendLine(diagnostics.AppVersion);
         builder.Append("Sistema: ").AppendLine(diagnostics.OperatingSystem);
         builder.Append("Runtime: ").AppendLine(diagnostics.RuntimeVersion);
         builder.Append("Carpeta de datos: ").AppendLine(PathRedactor.Shorten(diagnostics.DataDirectory));
@@ -59,7 +59,7 @@ public static class SupportBundleBuilder
 
         builder.AppendLine();
         builder.AppendLine("── Qué hay guardado (solo si existe y cuál es, nunca su contenido) ──");
-        foreach (var item in KohanaDataInventory.All)
+        foreach (var item in SakuraDataInventory.All)
         {
             builder.Append("· ").Append(item.FileName).Append(": ")
                 .AppendLine(fileExists(item.FullPath) ? "existe" : "no existe");
@@ -86,7 +86,7 @@ public static class SupportBundleBuilder
 
         builder.AppendLine();
         builder.AppendLine("── Qué NO se incluye en este archivo ──");
-        builder.AppendLine("· Lo que Kohana recuerda de ti (contenido de la memoria personal).");
+        builder.AppendLine("· Lo que Sakura recuerda de ti (contenido de la memoria personal).");
         builder.AppendLine("· Tus conversaciones.");
         builder.AppendLine("· El código o los archivos de tu proyecto.");
         builder.AppendLine("· El nombre de tu carpeta de usuario en las rutas.");

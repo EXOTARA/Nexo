@@ -5,7 +5,7 @@ using Nexo.Core.Permissions;
 namespace Nexo.Core.Tests;
 
 /// <summary>
-/// Diseño D18 (Fase 7, nivel 4) — la primera vez que Kohana actúa sobre el equipo. Es la capacidad
+/// Diseño D18 (Fase 7, nivel 4) — la primera vez que Sakura actúa sobre el equipo. Es la capacidad
 /// más arriesgada del roadmap, así que lo que se prueba aquí es cuándo se NIEGA.
 /// </summary>
 public sealed class ComputerUseCoordinatorTests
@@ -86,7 +86,7 @@ public sealed class ComputerUseCoordinatorTests
     {
         var settings = new PermissionSettings();
         settings.Normalize();
-        settings.For(KohanaCapability.ComputerUse).Level = level;
+        settings.For(SakuraCapability.ComputerUse).Level = level;
         return settings;
     }
 
@@ -193,7 +193,7 @@ public sealed class ComputerUseCoordinatorTests
     }
 
     [Fact]
-    public void AMethodKohanaCannotExecuteYet_IsRefused()
+    public void AMethodSakuraCannotExecuteYet_IsRefused()
     {
         var (coordinator, _, _, _) = Build(ComputerUseMethod.ApiOficial);
 
@@ -297,7 +297,7 @@ public sealed class ComputerUseCoordinatorTests
     }
 
     [Fact]
-    public void UndoRefuses_IfTheClipboardChangedAfterKohanaSetIt()
+    public void UndoRefuses_IfTheClipboardChangedAfterSakuraSetIt()
     {
         // Misma regla que con los archivos en D14: deshacer no puede destruir lo que hizo la
         // persona después.

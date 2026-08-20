@@ -28,7 +28,7 @@ public static class ShellNavigationPolicy
     /// <summary>
     /// Destino inicial del shell al arrancar.
     ///
-    /// Diseño D52 — arranca en el chat, no en un panel de resumen. Kohana es el agente con el que
+    /// Diseño D52 — arranca en el chat, no en un panel de resumen. Sakura es el agente con el que
     /// se habla; abrir en un tablero de tarjetas la presentaba como otra cosa, y obligaba a un clic
     /// para llegar a lo que de verdad se venía a hacer.
     /// </summary>

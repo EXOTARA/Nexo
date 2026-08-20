@@ -153,7 +153,7 @@ public static class AdaptiveEnginePolicy
 
             if (recommended.RequiresRestart)
             {
-                warnings.Add($"{recommended.DisplayName} requiere reiniciar Kohana para aplicarse.");
+                warnings.Add($"{recommended.DisplayName} requiere reiniciar Sakura para aplicarse.");
             }
         }
 
@@ -188,7 +188,7 @@ public static class AdaptiveEnginePolicy
         {
             return compatibleDescriptors
                 .OrderBy(ResourceScore)
-                .ThenByDescending(d => d.IncludedWithKohana)
+                .ThenByDescending(d => d.IncludedWithSakura)
                 .ThenBy(d => d.RequiresDownload)
                 .ThenBy(d => d.Id.Value, StringComparer.Ordinal)
                 .First();
@@ -199,7 +199,7 @@ public static class AdaptiveEnginePolicy
             return compatibleDescriptors
                 .OrderByDescending(ResourceScore)
                 .ThenByDescending(d => d.IsLocal == true)
-                .ThenByDescending(d => d.IncludedWithKohana)
+                .ThenByDescending(d => d.IncludedWithSakura)
                 .ThenBy(d => d.Id.Value, StringComparer.Ordinal)
                 .First();
         }
@@ -207,7 +207,7 @@ public static class AdaptiveEnginePolicy
         const int BalancedTarget = 8;
         return compatibleDescriptors
             .OrderBy(d => Math.Abs(ResourceScore(d) - BalancedTarget))
-            .ThenByDescending(d => d.IncludedWithKohana)
+            .ThenByDescending(d => d.IncludedWithSakura)
             .ThenBy(d => d.Id.Value, StringComparer.Ordinal)
             .First();
     }

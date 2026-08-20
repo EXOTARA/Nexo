@@ -7,7 +7,7 @@ namespace Nexo.Core.Tests.Characterization;
 /// Fase 1.1 — congela la conducta de navegación del shell tal como existe hoy en
 /// <c>MainWindow</c>, antes de extraer el Runtime (ADR 0001).
 ///
-/// Estas pruebas describen lo que Kohana **hace ahora**, no lo que debería hacer. Si un paso
+/// Estas pruebas describen lo que Sakura **hace ahora**, no lo que debería hacer. Si un paso
 /// posterior de la extracción las rompe, la extracción cambió conducta y debe corregirse el
 /// código, no la prueba (regla de `TEST_MATRIX.md`).
 /// </summary>
@@ -35,7 +35,7 @@ public sealed class ShellNavigationCharacterizationTests
     /// Diseño D52 — cambiada a propósito, no arreglada.
     ///
     /// Esta prueba congelaba «Inicio» como destino de arranque, y cumplió su papel: al reorganizar
-    /// el shell falló y obligó a declarar el cambio en vez de dejarlo pasar. Kohana arranca ahora
+    /// el shell falló y obligó a declarar el cambio en vez de dejarlo pasar. Sakura arranca ahora
     /// en el chat, porque el chat es la aplicación y abrir en un tablero de tarjetas la presentaba
     /// como otra cosa.
     /// </summary>

@@ -138,7 +138,7 @@ public sealed class ValidationProfileIsolationTests : IDisposable
         // Diseño D11/D13 — el Audit Log es un store más y tiene que quedar dentro del perfil
         // aislado: un registro que se escapara a la carpeta real mezclaría lo probado con lo que la
         // persona hizo de verdad en su equipo.
-        new Nexo.Windows.Audit.JsonKohanaAuditLog().Append(
+        new Nexo.Windows.Audit.JsonSakuraAuditLog().Append(
             new Nexo.Core.Audit.AuditEntry
             {
                 At = DateTimeOffset.Now,

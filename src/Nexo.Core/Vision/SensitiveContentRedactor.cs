@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Nexo.Core.Vision;
 
 /// <summary>
-/// Diseño D5.4 (Fase 2 — Kohana Lens) — redacción a nivel de contenido de texto (líneas de OCR,
+/// Diseño D5.4 (Fase 2 — Sakura Lens) — redacción a nivel de contenido de texto (líneas de OCR,
 /// nombres de elementos de UI Automation). Complementa a <see cref="VisionPrivacyPolicy"/>, que
 /// excluye ventanas completas por proceso/título: esto asume que la ventana ya pasó esa exclusión
 /// y aun así puede mostrar un dato sensible puntual (una contraseña visible en un campo, un número

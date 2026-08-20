@@ -6,9 +6,9 @@ namespace Nexo.Windows.Updates;
 /// <summary>
 /// Diseño D63 — el ayudante que hace el intercambio, escrito como un guion de PowerShell.
 ///
-/// Kohana no puede sustituirse a sí misma: Windows no deja mover la carpeta donde vive el
+/// Sakura no puede sustituirse a sí misma: Windows no deja mover la carpeta donde vive el
 /// ejecutable que se está ejecutando. Así que alguien tiene que hacerlo **desde fuera**, cuando
-/// Kohana ya no está.
+/// Sakura ya no está.
 ///
 /// Es un guion y no un segundo programa por tres razones, en orden de peso:
 ///
@@ -27,19 +27,19 @@ namespace Nexo.Windows.Updates;
 public static class UpdateHelperScript
 {
     /// <summary>
-    /// Cuánto espera a que Kohana termine antes de rendirse, en segundos.
+    /// Cuánto espera a que Sakura termine antes de rendirse, en segundos.
     ///
-    /// Se rinde en vez de forzar el cierre: matar el proceso podría interrumpir a Kohana mientras
+    /// Se rinde en vez de forzar el cierre: matar el proceso podría interrumpir a Sakura mientras
     /// guarda ajustes o una conversación, y perder eso por instalar una versión nueva es un mal
     /// negocio. Si no se cierra, la actualización se queda para la próxima.
     ///
-    /// **Eran treinta segundos y no bastaban.** Kohana no se cierra de golpe: antes para el runtime
+    /// **Eran treinta segundos y no bastaban.** Sakura no se cierra de golpe: antes para el runtime
     /// de IA que administra, que es un proceso aparte y se toma su tiempo. En la primera prueba
-    /// real el ayudante llegó al final de la espera con Kohana aún viva, se retiró sin tocar nada
-    /// —que es lo correcto— y el resultado visible fue que Kohana se cerró y no volvió.
+    /// real el ayudante llegó al final de la espera con Sakura aún viva, se retiró sin tocar nada
+    /// —que es lo correcto— y el resultado visible fue que Sakura se cerró y no volvió.
     ///
     /// Tres minutos cubren un apagado lento sin dejar el ayudante colgado si algo se atasca de
-    /// verdad. Esperar de más no cuesta nada: nadie está mirando, porque Kohana ya se cerró.
+    /// verdad. Esperar de más no cuesta nada: nadie está mirando, porque Sakura ya se cerró.
     /// </summary>
     private const int WaitForExitSeconds = 180;
 
@@ -61,8 +61,8 @@ public static class UpdateHelperScript
 
         var script = new StringBuilder();
 
-        script.AppendLine("# Ayudante de actualización de Kohana. Lo genera Kohana y puedes leerlo entero:");
-        script.AppendLine("# espera a que Kohana se cierre, aparta la carpeta actual, pone la nueva en su");
+        script.AppendLine("# Ayudante de actualización de Sakura. Lo genera Sakura y puedes leerlo entero:");
+        script.AppendLine("# espera a que Sakura se cierre, aparta la carpeta actual, pone la nueva en su");
         script.AppendLine("# sitio y vuelve a abrir. Si algo falla, devuelve la anterior a donde estaba.");
         script.AppendLine("$ErrorActionPreference = 'Stop'");
         script.AppendLine();
@@ -85,8 +85,8 @@ public static class UpdateHelperScript
         script.AppendLine($"$pid_ = {kohanaProcessId}");
         script.AppendLine();
 
-        // Esperar por identificador y no por nombre: otra instancia de Kohana abierta a la vez no
-        // tiene por qué bloquear esta, y matar «todo lo que se llame Kohana» es de las cosas que
+        // Esperar por identificador y no por nombre: otra instancia de Sakura abierta a la vez no
+        // tiene por qué bloquear esta, y matar «todo lo que se llame Sakura» es de las cosas que
         // parecen razonables hasta que cierran algo que no era.
         script.AppendLine("try {");
         script.AppendLine("    $proc = Get-Process -Id $pid_ -ErrorAction SilentlyContinue");
@@ -95,10 +95,10 @@ public static class UpdateHelperScript
         script.AppendLine();
 
         script.AppendLine("if (Get-Process -Id $pid_ -ErrorAction SilentlyContinue) {");
-        script.AppendLine("    Apunta 'Kohana sigue abierta tras la espera. No se toca nada.'");
+        script.AppendLine("    Apunta 'Sakura sigue abierta tras la espera. No se toca nada.'");
         script.AppendLine("    exit 2");
         script.AppendLine("}");
-        script.AppendLine("Apunta 'Kohana cerrada. Empieza el intercambio.'");
+        script.AppendLine("Apunta 'Sakura cerrada. Empieza el intercambio.'");
         script.AppendLine();
 
         script.AppendLine("if (-not (Test-Path -LiteralPath $staged)) {");

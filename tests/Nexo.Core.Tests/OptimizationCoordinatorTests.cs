@@ -56,7 +56,7 @@ public sealed class OptimizationCoordinatorTests
         }
     }
 
-    private sealed class FakeFootprintApplier : IKohanaFootprintApplier
+    private sealed class FakeFootprintApplier : ISakuraFootprintApplier
     {
         public HardwarePerformanceMode Mode { get; set; } = HardwarePerformanceMode.Balanced;
 
@@ -75,7 +75,7 @@ public sealed class OptimizationCoordinatorTests
 
             Mode = mode;
             Applied.Add(mode);
-            return OptimizationStepResult.Ok($"Kohana quedó en modo {mode}.");
+            return OptimizationStepResult.Ok($"Sakura quedó en modo {mode}.");
         }
     }
 
@@ -110,21 +110,21 @@ public sealed class OptimizationCoordinatorTests
         "Alto rendimiento",
         "Justificado por el hardware.",
         OptimizationTarget.PowerPlan,
-        IsReversibleByKohana: true);
+        IsReversibleBySakura: true);
 
     private static OptimizationChange FootprintChange() => new(
-        KohanaFootprintModes.Eco,
-        "Kohana en bajo consumo",
+        SakuraFootprintModes.Eco,
+        "Sakura en bajo consumo",
         "Justificado por el hardware.",
-        OptimizationTarget.KohanaFootprint,
-        IsReversibleByKohana: true);
+        OptimizationTarget.SakuraFootprint,
+        IsReversibleBySakura: true);
 
     private static OptimizationChange AdviceChange() => new(
         "memory.closeApps",
         "Cerrar aplicaciones",
         "Justificado por el hardware.",
         OptimizationTarget.Advice,
-        IsReversibleByKohana: false);
+        IsReversibleBySakura: false);
 
     private static OptimizationPlan Plan(params OptimizationChange[] changes) =>
         new(OptimizationScenario.Jugar, "Plan de prueba", changes, []);
@@ -214,7 +214,7 @@ public sealed class OptimizationCoordinatorTests
         coordinator.Apply(Plan(PowerChange(), FootprintChange()));
 
         Assert.Equal(PreviousPlan, snapshots.Current!.PreviousPowerPlanId);
-        Assert.Equal("Maximum", snapshots.Current.PreviousKohanaPerformanceMode);
+        Assert.Equal("Maximum", snapshots.Current.PreviousSakuraPerformanceMode);
     }
 
     // ---------- Fallo a mitad ----------
@@ -226,7 +226,7 @@ public sealed class OptimizationCoordinatorTests
         footprint.Mode = HardwarePerformanceMode.Maximum;
         footprint.FailApply = true;
 
-        // El plan de energía se aplica primero y el consumo de Kohana falla después.
+        // El plan de energía se aplica primero y el consumo de Sakura falla después.
         var result = coordinator.Apply(Plan(PowerChange(), FootprintChange()));
 
         Assert.False(result.IsApplied);
@@ -264,7 +264,7 @@ public sealed class OptimizationCoordinatorTests
 
         Assert.True(result.IsApplied);
 
-        // El consejo NO cuenta: lo ejecuta la persona, Kohana no lo aplicó.
+        // El consejo NO cuenta: lo ejecuta la persona, Sakura no lo aplicó.
         Assert.Equal(2, result.AppliedChangeCount);
         Assert.Equal(["power.highPerformance"], system.Applied);
         Assert.Equal([HardwarePerformanceMode.Eco], footprint.Applied);
@@ -322,8 +322,8 @@ public sealed class OptimizationCoordinatorTests
             "kohana.inventado",
             "Cambio inventado",
             "Sin justificación real.",
-            OptimizationTarget.KohanaFootprint,
-            IsReversibleByKohana: true);
+            OptimizationTarget.SakuraFootprint,
+            IsReversibleBySakura: true);
 
         var result = coordinator.Apply(Plan(unknown));
 

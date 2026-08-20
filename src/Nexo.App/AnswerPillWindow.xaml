@@ -62,7 +62,7 @@
                                 Height="16"
                                 VerticalAlignment="Center"
                                 Foreground="{DynamicResource BrushAccent}"
-                                Style="{StaticResource KohanaFlowerMarkStyle}" />
+                                Style="{StaticResource SakuraFlowerMarkStyle}" />
 
                 <TextBlock x:Name="QuestionText"
                            Grid.Column="1"
@@ -93,13 +93,13 @@
                 llenaba la píldora, este aviso quedaba fuera del recorte. Es decir, la única pista
                 de que el texto seguía era justamente la que no se veía.
             -->
-            <TextBlock x:Name="OpenInKohanaText"
+            <TextBlock x:Name="OpenInSakuraText"
                        Grid.Row="2"
                        Margin="0,10,0,0"
                        FontSize="{DynamicResource FontSizeCaption}"
                        Visibility="Collapsed"
                        Foreground="{DynamicResource BrushAccent}"
-                       Text="Pulsa aquí para verla completa en Kohana" />
+                       Text="Pulsa aquí para verla completa en Sakura" />
         </Grid>
     </Border>
 </Window>

@@ -5,7 +5,7 @@ using Nexo.Core.Productization;
 namespace Nexo.Windows.Productization;
 
 /// <summary>
-/// Diseño D20 (Fase 9) — copia los datos de Kohana a una carpeta con fecha, y los devuelve.
+/// Diseño D20 (Fase 9) — copia los datos de Sakura a una carpeta con fecha, y los devuelve.
 ///
 /// **Verificar es comparar el contenido, no el tamaño.** Se comparan los hashes SHA-256 del origen y
 /// del destino: dos archivos del mismo tamaño pueden ser distintos, y una copia que solo comprueba
@@ -38,10 +38,10 @@ public sealed class FileSystemDataBackupService : IDataBackupService
         _clock = clock ?? (() => DateTimeOffset.Now);
     }
 
-    private string SourcePathOf(KohanaDataItem item) =>
+    private string SourcePathOf(SakuraDataItem item) =>
         _dataRoot is null ? item.FullPath : Path.Combine(_dataRoot, item.FileName);
 
-    public BackupResult CreateBackup(IReadOnlyList<KohanaDataItem> items)
+    public BackupResult CreateBackup(IReadOnlyList<SakuraDataItem> items)
     {
         ArgumentNullException.ThrowIfNull(items);
 
@@ -97,7 +97,7 @@ public sealed class FileSystemDataBackupService : IDataBackupService
 
         var outcomes = new List<BackupFileOutcome>();
 
-        foreach (var item in KohanaDataInventory.All)
+        foreach (var item in SakuraDataInventory.All)
         {
             var backedUp = Path.Combine(source, item.FileName);
             if (!File.Exists(backedUp))

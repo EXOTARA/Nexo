@@ -26,7 +26,7 @@ public sealed record UpdateCheckResult(
             latestVersion,
             releaseName,
             releaseUrl,
-            "Ya tienes la versión más reciente de Kohana.");
+            "Ya tienes la versión más reciente de Sakura.");
 
     public static UpdateCheckResult Available(
         string currentVersion,

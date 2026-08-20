@@ -45,7 +45,7 @@ public partial class SettingsView : UserControl
     public event EventHandler? WakeWordAliasFromLastRequested;
     public event EventHandler? WakeWordAliasesClearRequested;
 
-    // Diseño D7 (Fase 3 — Kohana Flow)
+    // Diseño D7 (Fase 3 — Sakura Flow)
     public event Action<bool>? FlowEnabledChanged;
     public event Action<FlowMode>? FlowModeChanged;
     public event Action<IReadOnlyList<string>>? FlowDictionaryChanged;
@@ -60,7 +60,7 @@ public partial class SettingsView : UserControl
     public event EventHandler? MemoryForgetAllRequested;
 
     // Diseño D16: permisos por capacidad
-    public event Action<KohanaCapability, PermissionLevel>? CapabilityPermissionChanged;
+    public event Action<SakuraCapability, PermissionLevel>? CapabilityPermissionChanged;
 
     // Diseño D19: exclusiones por aplicación
     public event Action<IReadOnlyList<string>>? PermissionExclusionsChanged;
@@ -143,11 +143,11 @@ public partial class SettingsView : UserControl
         // de los dos nombres anteriores: lo que importa es la forma —corta, "oye" o "hey"—, no la
         // marca con la que se guardó.
         WakeWordShortRadioButton.IsChecked = preferences.WakeWordPhrase is
-            WakeWordPhrase.Sakura or WakeWordPhrase.Kohana or WakeWordPhrase.Nexo;
+            WakeWordPhrase.Sakura or WakeWordPhrase.Sakura or WakeWordPhrase.Nexo;
         WakeWordOyeRadioButton.IsChecked = preferences.WakeWordPhrase is
-            WakeWordPhrase.OyeSakura or WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeNexo;
+            WakeWordPhrase.OyeSakura or WakeWordPhrase.OyeSakura or WakeWordPhrase.OyeNexo;
         WakeWordHeyRadioButton.IsChecked = preferences.WakeWordPhrase is
-            WakeWordPhrase.HeySakura or WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
+            WakeWordPhrase.HeySakura or WakeWordPhrase.HeySakura or WakeWordPhrase.HeyNexo;
         SelectWakeWordSensitivity(preferences.WakeWordSensitivity);
         SetWakeWordAliases(preferences.WakeWordAliases);
 
@@ -508,8 +508,8 @@ public partial class SettingsView : UserControl
         VoiceInputDeviceStatusText.Text = devices.Count switch
         {
             0 => "Windows no encontró micrófonos disponibles.",
-            1 => "Se encontró un micrófono. Kohana lo usará para Mic y la frase de activación.",
-            _ => "El micrófono elegido se usa tanto para Mic como para “Oye Kohana”."
+            1 => "Se encontró un micrófono. Sakura lo usará para Mic y la frase de activación.",
+            _ => "El micrófono elegido se usa tanto para Mic como para “Oye Sakura”."
         };
         _isApplyingPreferences = false;
     }
@@ -808,12 +808,12 @@ public partial class SettingsView : UserControl
             : Visibility.Collapsed;
         AiGetApiKeyButton.IsEnabled = !string.IsNullOrWhiteSpace(preset.ApiKeyUrl);
 
-        AiBaseUrlHintText.Text = AiProviderDefaults.IsManagedByKohana(provider)
-            ? "La IA local de Kohana siempre vive en esta dirección y la administra la propia aplicación; cambiarla aquí no tiene efecto."
+        AiBaseUrlHintText.Text = AiProviderDefaults.IsManagedBySakura(provider)
+            ? "La IA local de Sakura siempre vive en esta dirección y la administra la propia aplicación; cambiarla aquí no tiene efecto."
             : $"Dirección por omisión de {preset.DisplayName}: {preset.BaseUrl}";
 
         AiBaseUrlTextBox.IsEnabled = provider != AiProviderKind.Disabled &&
-            !AiProviderDefaults.IsManagedByKohana(provider);
+            !AiProviderDefaults.IsManagedBySakura(provider);
     }
 
     private void HardwarePerformanceModeRadioButton_Checked(object sender, RoutedEventArgs e)
@@ -851,7 +851,7 @@ public partial class SettingsView : UserControl
         var provider = SelectedAiProvider;
         var enabled = provider != AiProviderKind.Disabled;
 
-        // La dirección la fija DescribeAiProvider: con la IA local de Kohana no se puede escribir,
+        // La dirección la fija DescribeAiProvider: con la IA local de Sakura no se puede escribir,
         // porque el motor solo existe donde la propia aplicación lo pone.
         AiModelTextBox.IsEnabled = enabled;
         AiApiKeyVariableTextBox.IsEnabled = enabled;
@@ -1009,7 +1009,7 @@ public partial class SettingsView : UserControl
             : (System.Windows.Media.Brush)FindResource("BrushSurfaceRaised");
     }
 
-    // ---------- Diseño D7 (Fase 3 — Kohana Flow) ----------
+    // ---------- Diseño D7 (Fase 3 — Sakura Flow) ----------
 
     private void FlowEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
     {
@@ -1068,7 +1068,7 @@ public partial class SettingsView : UserControl
 
     /// <summary>
     /// Diseño D7 — el parser ignora en silencio las líneas mal escritas para que una sola no tumbe
-    /// el resto, pero en la interfaz sí conviene decirlo: si alguien escribe "cojana Kohana" (sin
+    /// el resto, pero en la interfaz sí conviene decirlo: si alguien escribe "cojana Sakura" (sin
     /// el igual) y no pasa nada, parecería que el diccionario no funciona.
     /// </summary>
     private void ReportIgnoredLines(IReadOnlyList<string> lines, string listName)
@@ -1213,7 +1213,7 @@ public partial class SettingsView : UserControl
 
     /// <summary>
     /// Diseño D13 — el proyecto dejó de manejarse solo desde la paleta de comandos. Autorizar y
-    /// revocar están aquí, uno al lado del otro, junto a hasta dónde puede llegar Kohana.
+    /// revocar están aquí, uno al lado del otro, junto a hasta dónde puede llegar Sakura.
     /// </summary>
     public void ApplyWorkspaceSettings(WorkspaceSettings? workspace)
     {
@@ -1276,7 +1276,7 @@ public partial class SettingsView : UserControl
         PermissionExclusionsBox.Text = string.Join(
             Environment.NewLine, PermissionExclusionParser.Format(settings));
 
-        foreach (var capability in Enum.GetValues<KohanaCapability>())
+        foreach (var capability in Enum.GetValues<SakuraCapability>())
         {
             var permission = settings.For(capability);
             var excluded = permission.ExcludedApps.Count;
@@ -1324,7 +1324,7 @@ public partial class SettingsView : UserControl
         }
     }
 
-    private void OnPermissionRowChanged(KohanaCapability capability, PermissionLevel level)
+    private void OnPermissionRowChanged(SakuraCapability capability, PermissionLevel level)
     {
         if (_isApplyingPreferences)
         {
@@ -1421,23 +1421,23 @@ public partial class SettingsView : UserControl
             : Visibility.Visible;
     }
 
-    private static string CapabilityTitle(KohanaCapability capability) => capability switch
+    private static string CapabilityTitle(SakuraCapability capability) => capability switch
     {
-        KohanaCapability.Lens => "Ver la pantalla (Lens)",
-        KohanaCapability.Flow => "Dictado global (Flow)",
-        KohanaCapability.Memoria => "Memoria personal",
-        KohanaCapability.Proyecto => "Proyecto autorizado",
-        KohanaCapability.Optimizacion => "Optimizar el equipo",
-        KohanaCapability.ComputerUse => "Actuar sobre el equipo",
+        SakuraCapability.Lens => "Ver la pantalla (Lens)",
+        SakuraCapability.Flow => "Dictado global (Flow)",
+        SakuraCapability.Memoria => "Memoria personal",
+        SakuraCapability.Proyecto => "Proyecto autorizado",
+        SakuraCapability.Optimizacion => "Optimizar el equipo",
+        SakuraCapability.ComputerUse => "Actuar sobre el equipo",
         _ => capability.ToString()
     };
 
     private sealed class PermissionRow(
-        KohanaCapability capability,
+        SakuraCapability capability,
         string title,
         string detail,
         PermissionLevel level,
-        Action<KohanaCapability, PermissionLevel> onChanged)
+        Action<SakuraCapability, PermissionLevel> onChanged)
     {
         private PermissionLevel _level = level;
 

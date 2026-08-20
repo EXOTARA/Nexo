@@ -73,7 +73,7 @@ public sealed class AudioSpectrumMirrorTests
     [Fact]
     public void ItWorksWhenThereAreMoreBandsThanRays()
     {
-        // No es la configuración que usa Kohana, pero nada impide pedirla y no puede reventar.
+        // No es la configuración que usa Sakura, pero nada impide pedirla y no puede reventar.
         Assert.InRange(AudioSpectrum.MirroredBand(3, 8, 64), 0, 63);
     }
 

@@ -20,7 +20,7 @@ namespace Nexo.App;
 ///
 /// Es una ventana y no un panel dentro de Sistema porque el gesto es el que define la pieza: en la
 /// referencia se tira de ella desde el borde de la pantalla, no se navega hasta ella. Meterla en
-/// una vista obligaría a abrir Kohana, ir a Sistema y volver — tres pasos para mirar la hora.
+/// una vista obligaría a abrir Sakura, ir a Sistema y volver — tres pasos para mirar la hora.
 /// </summary>
 public partial class DashboardWindow : Window
 {
@@ -210,7 +210,7 @@ public partial class DashboardWindow : Window
     {
         var travel = PanelBorder.ActualHeight > 0 ? PanelBorder.ActualHeight : Height;
 
-        if (!KohanaMotion.AnimationsEnabled)
+        if (!SakuraMotion.AnimationsEnabled)
         {
             PanelTranslate.BeginAnimation(TranslateTransform.YProperty, null);
             PanelScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
@@ -230,22 +230,22 @@ public partial class DashboardWindow : Window
         PanelTranslate.AnimateTransform(
             TranslateTransform.YProperty,
             0,
-            KohanaMotion.Emphasized,
-            KohanaMotion.SubtleSpringCurve);
+            SakuraMotion.Emphasized,
+            SakuraMotion.SubtleSpringCurve);
 
         PanelScale.AnimateTransform(
             ScaleTransform.ScaleYProperty,
             1,
-            KohanaMotion.Emphasized,
-            KohanaMotion.DecelerateCurve);
+            SakuraMotion.Emphasized,
+            SakuraMotion.DecelerateCurve);
 
         // La opacidad entra antes que el movimiento y con su propia curva: si durase lo mismo, el
         // cajón terminaría de aparecer justo cuando rebota y el rebote no se vería.
         PanelBorder.Animate(
             OpacityProperty,
             1,
-            KohanaMotion.Reveal,
-            KohanaMotion.DecelerateCurve);
+            SakuraMotion.Reveal,
+            SakuraMotion.DecelerateCurve);
     }
 
     public void Dismiss()
@@ -269,7 +269,7 @@ public partial class DashboardWindow : Window
         // posible de una ventana, así que no puede depender de que una animación termine bien.
         IsHitTestVisible = false;
 
-        if (!KohanaMotion.AnimationsEnabled)
+        if (!SakuraMotion.AnimationsEnabled)
         {
             HideImmediately();
             Dismissed?.Invoke(this, EventArgs.Empty);
@@ -289,14 +289,14 @@ public partial class DashboardWindow : Window
         PanelTranslate.AnimateTransform(
             TranslateTransform.YProperty,
             -travel,
-            KohanaMotion.Exit,
-            KohanaMotion.AccelerateCurve);
+            SakuraMotion.Exit,
+            SakuraMotion.AccelerateCurve);
 
         PanelBorder.Animate(
             OpacityProperty,
             0,
-            KohanaMotion.Exit,
-            KohanaMotion.AccelerateCurve,
+            SakuraMotion.Exit,
+            SakuraMotion.AccelerateCurve,
             completed: () =>
             {
                 HideImmediately();
@@ -372,7 +372,7 @@ public partial class DashboardWindow : Window
 
         // Perder el foco no basta para irse: hay que perderlo Y tener el ratón fuera.
         //
-        // La ventana principal de Kohana es «siempre visible», y al bajar el cajón se lo devuelve
+        // La ventana principal de Sakura es «siempre visible», y al bajar el cajón se lo devuelve
         // en cuanto se muestra. Con la regla ingenua —desactivarse es marcharse— el cajón se
         // recogía en el mismo instante en que aparecía: llegaba a estar en pantalla, medía bien, y
         // desaparecía antes de que a nadie le diera tiempo a verlo.

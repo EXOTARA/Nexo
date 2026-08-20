@@ -16,13 +16,13 @@ $project = Join-Path $root "src\Nexo.App\Nexo.App.csproj"
 $artifactRoot = Join-Path $root "artifacts"
 $publishDirectory = Join-Path $artifactRoot "publish\$Runtime"
 $distributionDirectory = Join-Path $artifactRoot "dist"
-$portableZip = Join-Path $distributionDirectory "Kohana-$Version-$Runtime-portable.zip"
+$portableZip = Join-Path $distributionDirectory "Sakura-$Version-$Runtime-portable.zip"
 $checksumFile = "$portableZip.sha256"
 
-$running = Get-Process -Name "Kohana", "Nexo", "Nexo.App" -ErrorAction SilentlyContinue
+$running = Get-Process -Name "Sakura", "Kohana", "Nexo", "Nexo.App" -ErrorAction SilentlyContinue
 if ($running) {
     $ids = ($running | Select-Object -ExpandProperty Id) -join ", "
-    throw "Kohana sigue ejecutándose (PID: $ids). Usa 'Salir completamente' desde la bandeja antes de publicar."
+    throw "Sakura sigue ejecutándose (PID: $ids). Usa 'Salir completamente' desde la bandeja antes de publicar."
 }
 
 Write-Host "==> Limpiando artefactos anteriores"
@@ -80,13 +80,13 @@ Write-Host "==> Publicando $Runtime"
 & dotnet @publishArguments
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish falló." }
 
-$executable = Join-Path $publishDirectory "Kohana.exe"
+$executable = Join-Path $publishDirectory "Sakura.exe"
 if (-not (Test-Path $executable)) {
     throw "La publicación terminó, pero no se encontró $executable."
 }
 
 @"
-Kohana $Version
+Sakura $Version
 ===============
 
 Tu Windows, en flor.
@@ -94,13 +94,13 @@ Tu Windows, en flor.
 Esta es la edición portable y autocontenida para Windows x64.
 
 1. Extrae toda la carpeta antes de ejecutar.
-2. Abre Kohana.exe.
+2. Abre Sakura.exe.
 3. Ollama y sus modelos no están incluidos.
-4. Los datos personales se guardan en %LocalAppData%\Kohana.
-5. Si existe una instalación anterior de Nexo, Kohana copia sus datos sin borrar el origen.
+4. Los datos personales se guardan en %LocalAppData%\Sakura.
+5. Si existe una instalación anterior de Nexo, Sakura copia sus datos sin borrar el origen.
 6. Windows puede mostrar una advertencia mientras la beta no tenga firma digital.
 
-No muevas únicamente Kohana.exe: conserva todos los archivos de esta carpeta.
+No muevas únicamente Sakura.exe: conserva todos los archivos de esta carpeta.
 "@ | Set-Content (Join-Path $publishDirectory "LEEME.txt") -Encoding UTF8
 
 Write-Host "==> Creando ZIP portable"

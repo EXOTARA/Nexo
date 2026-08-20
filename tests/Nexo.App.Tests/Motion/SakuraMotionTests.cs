@@ -19,7 +19,7 @@ namespace Nexo.App.Tests.Motion;
 /// alguien las activó. De ahí que esto se compruebe sobre el objeto de animación y no sobre la
 /// pantalla: es lo único que se puede afirmar sin depender de un ajuste del sistema.
 /// </summary>
-public sealed class KohanaMotionTests
+public sealed class SakuraMotionTests
 {
     private static readonly IEasingFunction Easing = new CubicBezierEase();
     private static readonly Duration OneSecond = new(TimeSpan.FromSeconds(1));
@@ -27,7 +27,7 @@ public sealed class KohanaMotionTests
     [Fact]
     public void AnAnimationWithoutAStaggerStillPlays()
     {
-        var animation = KohanaMotion.CreateAnimation(1, OneSecond, Easing);
+        var animation = SakuraMotion.CreateAnimation(1, OneSecond, Easing);
 
         Assert.NotNull(animation.BeginTime);
         Assert.Equal(TimeSpan.Zero, animation.BeginTime);
@@ -37,7 +37,7 @@ public sealed class KohanaMotionTests
     public void AnExplicitlyEmptyStaggerStillPlays()
     {
         // El caso exacto que se rompía: el retraso llega como TimeSpan? vacío desde la ruta normal.
-        var animation = KohanaMotion.CreateAnimation(1, OneSecond, Easing, beginTime: null);
+        var animation = SakuraMotion.CreateAnimation(1, OneSecond, Easing, beginTime: null);
 
         Assert.Equal(TimeSpan.Zero, animation.BeginTime);
     }
@@ -47,7 +47,7 @@ public sealed class KohanaMotionTests
     {
         var delay = TimeSpan.FromMilliseconds(90);
 
-        var animation = KohanaMotion.CreateAnimation(1, OneSecond, Easing, delay);
+        var animation = SakuraMotion.CreateAnimation(1, OneSecond, Easing, delay);
 
         Assert.Equal(delay, animation.BeginTime);
     }
@@ -55,7 +55,7 @@ public sealed class KohanaMotionTests
     [Fact]
     public void TheAnimationCarriesItsTargetDurationAndCurve()
     {
-        var animation = KohanaMotion.CreateAnimation(0.75, OneSecond, Easing);
+        var animation = SakuraMotion.CreateAnimation(0.75, OneSecond, Easing);
 
         Assert.Equal(0.75, animation.To);
         Assert.Equal(OneSecond, animation.Duration);
@@ -69,16 +69,16 @@ public sealed class KohanaMotionTests
         // cualquier posición reintroduciría el mismo defecto para ese elemento en concreto.
         for (var index = 0; index < 40; index++)
         {
-            var delay = KohanaMotion.StaggerAt(index);
+            var delay = SakuraMotion.StaggerAt(index);
 
             Assert.True(
                 delay >= TimeSpan.Zero,
                 $"El retraso de la posición {index} era negativo: {delay}.");
             Assert.True(
-                delay <= KohanaMotion.MaximumStagger,
+                delay <= SakuraMotion.MaximumStagger,
                 $"El retraso de la posición {index} superó el tope: {delay}.");
 
-            var animation = KohanaMotion.CreateAnimation(1, OneSecond, Easing, delay);
+            var animation = SakuraMotion.CreateAnimation(1, OneSecond, Easing, delay);
             Assert.NotNull(animation.BeginTime);
         }
     }
@@ -86,7 +86,7 @@ public sealed class KohanaMotionTests
     [Fact]
     public void TheFirstItemOfAStaggeredListStartsImmediately()
     {
-        Assert.Equal(TimeSpan.Zero, KohanaMotion.StaggerAt(0));
+        Assert.Equal(TimeSpan.Zero, SakuraMotion.StaggerAt(0));
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class KohanaMotionTests
     {
         // Sin tope, una lista larga haría esperar al último elemento más de lo que dura la propia
         // animación, y entonces deja de leerse como coreografía y pasa a leerse como lentitud.
-        Assert.Equal(KohanaMotion.MaximumStagger, KohanaMotion.StaggerAt(500));
-        Assert.Equal(KohanaMotion.StaggerAt(100), KohanaMotion.StaggerAt(500));
+        Assert.Equal(SakuraMotion.MaximumStagger, SakuraMotion.StaggerAt(500));
+        Assert.Equal(SakuraMotion.StaggerAt(100), SakuraMotion.StaggerAt(500));
     }
 }

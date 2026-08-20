@@ -3,7 +3,7 @@ using Nexo.Core.Workspace;
 namespace Nexo.Core.Tests;
 
 /// <summary>
-/// Diseño D12 (Fase 5) — lo que se prueba aquí es lo que NO debe salir del equipo cuando Kohana
+/// Diseño D12 (Fase 5) — lo que se prueba aquí es lo que NO debe salir del equipo cuando Sakura
 /// explica un proyecto.
 /// </summary>
 public sealed class WorkspaceSecretScannerTests

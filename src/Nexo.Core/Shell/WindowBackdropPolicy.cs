@@ -35,7 +35,7 @@ public enum WindowCorner
 /// <param name="WindowsBuild">Compilación de Windows (<c>Environment.OSVersion.Version.Build</c>).</param>
 /// <param name="TransparencyEnabled">Configuración → Colores → "Efectos de transparencia".</param>
 /// <param name="HighContrast">Contraste alto activo.</param>
-/// <param name="PerformanceMode">Modo de rendimiento elegido en Kohana.</param>
+/// <param name="PerformanceMode">Modo de rendimiento elegido en Sakura.</param>
 public sealed record WindowBackdropProbe(
     int WindowsBuild,
     bool TransparencyEnabled,
@@ -56,7 +56,7 @@ public sealed record WindowBackdropDecision(
 /// <summary>
 /// Diseño D62 — decide qué le pedimos a DWM para cada ventana.
 ///
-/// Kohana dibujaba su propia transparencia: <c>AllowsTransparency</c> en las once ventanas, que
+/// Sakura dibujaba su propia transparencia: <c>AllowsTransparency</c> en las once ventanas, que
 /// obliga a WPF a componer por software, más una sombra pintada a mano que hay que recalcular cada
 /// vez que cambia algo dentro. El sistema hace las tres cosas —desenfoque, esquinas y sombra— en la
 /// GPU y gratis, así que lo que queda es saber cuándo puede hacerlas.
@@ -79,7 +79,7 @@ public static class WindowBackdropPolicy
     public const int SystemBackdropBuild = 22621;
 
     /// <param name="requestedCorner">
-    /// Diseño D62 — la esquina la pide quien llama. Kohana pide cuadrada: en el arco de las
+    /// Diseño D62 — la esquina la pide quien llama. Sakura pide cuadrada: en el arco de las
     /// redondeadas, el borde que DWM dibuja se lee como una mancha oscura, y Adler prefiere el
     /// canto recto a seguir persiguiendo ese filo. Sigue siendo una petición y no una constante
     /// porque en Windows 10 no hay nada que pedir.

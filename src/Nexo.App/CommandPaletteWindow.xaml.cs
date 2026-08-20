@@ -308,7 +308,7 @@ public partial class CommandPaletteWindow : Window
             CommandPaletteInputPolicy.IsLikelyNaturalPrompt(query))
         {
             var promptSuggestion = new CommandPaletteSuggestion(
-                "Preguntar a Kohana",
+                "Preguntar a Sakura",
                 query.Trim(),
                 "Enviar esta consulta exactamente como la escribiste",
                 "✦",
@@ -907,6 +907,6 @@ public partial class CommandPaletteWindow : Window
     /// degradado, así que aquí solo se pide el fondo del sistema.
     /// </summary>
     private void Window_SourceInitialized(object? sender, EventArgs e) =>
-        KohanaWindowChrome.ApplyBackdropOnly(this);
+        SakuraWindowChrome.ApplyBackdropOnly(this);
 
 }

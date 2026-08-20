@@ -14,9 +14,9 @@ using Nexo.Core.Shell;
 namespace Nexo.App;
 
 /// <summary>
-/// Diseño D35 — volumen y brillo al llevar el ratón al borde contrario a Kohana.
+/// Diseño D35 — volumen y brillo al llevar el ratón al borde contrario a Sakura.
 ///
-/// Los mandos van en el borde opuesto por una razón concreta: Kohana ya ocupa el suyo, y compartirlo
+/// Los mandos van en el borde opuesto por una razón concreta: Sakura ya ocupa el suyo, y compartirlo
 /// obligaría a que el mismo gesto decidiera cuál de las dos cosas aparece. Separados, el reparto se
 /// entiende sin explicarlo.
 ///
@@ -122,11 +122,11 @@ public partial class QuickControlsWindow : Window
 
         PanelBorder.BeginAnimation(OpacityProperty, null);
 
-        // Entra desde su propio borde, como Kohana desde el suyo: el movimiento dice de dónde viene.
+        // Entra desde su propio borde, como Sakura desde el suyo: el movimiento dice de dónde viene.
         var offset = edge == SidebarPosition.Left ? -28d : 28d;
         _edgeOffset = offset;
 
-        if (!KohanaMotion.AnimationsEnabled)
+        if (!SakuraMotion.AnimationsEnabled)
         {
             PanelBorder.Opacity = 1;
             PanelTranslate.X = 0;
@@ -135,9 +135,9 @@ public partial class QuickControlsWindow : Window
         {
             PanelBorder.Opacity = 0;
             PanelTranslate.X = offset;
-            PanelBorder.Animate(OpacityProperty, 1, KohanaMotion.Reveal, KohanaMotion.DecelerateCurve);
+            PanelBorder.Animate(OpacityProperty, 1, SakuraMotion.Reveal, SakuraMotion.DecelerateCurve);
             PanelTranslate.AnimateTransform(
-                TranslateTransform.XProperty, 0, KohanaMotion.Emphasized, KohanaMotion.EmphasizedCurve);
+                TranslateTransform.XProperty, 0, SakuraMotion.Emphasized, SakuraMotion.EmphasizedCurve);
         }
 
         RestartIdle();
@@ -177,15 +177,15 @@ public partial class QuickControlsWindow : Window
         var normalized = QuickControlsPolicy.NormalizePercent(percent);
         var target = TrackHeight * normalized / 100.0;
 
-        if (!animate || !KohanaMotion.AnimationsEnabled)
+        if (!animate || !SakuraMotion.AnimationsEnabled)
         {
             fill.BeginAnimation(HeightProperty, null);
             fill.Height = target;
             return;
         }
 
-        var animation = KohanaMotion.CreateAnimation(
-            target, KohanaMotion.Reveal, KohanaMotion.DecelerateCurve);
+        var animation = SakuraMotion.CreateAnimation(
+            target, SakuraMotion.Reveal, SakuraMotion.DecelerateCurve);
         fill.BeginAnimation(HeightProperty, animation);
     }
 
@@ -394,7 +394,7 @@ public partial class QuickControlsWindow : Window
         // corrección dejaría el valor real por detrás de la barra que se acaba de ver.
         FlushPendingWrite();
 
-        if (!KohanaMotion.AnimationsEnabled)
+        if (!SakuraMotion.AnimationsEnabled)
         {
             Hide();
             _dismissing = false;
@@ -420,14 +420,14 @@ public partial class QuickControlsWindow : Window
         PanelTranslate.AnimateTransform(
             TranslateTransform.XProperty,
             away,
-            KohanaMotion.Exit,
-            KohanaMotion.AccelerateCurve);
+            SakuraMotion.Exit,
+            SakuraMotion.AccelerateCurve);
 
         PanelBorder.Animate(
             OpacityProperty,
             0,
-            KohanaMotion.Exit,
-            KohanaMotion.AccelerateCurve,
+            SakuraMotion.Exit,
+            SakuraMotion.AccelerateCurve,
             completed: () =>
             {
                 Hide();

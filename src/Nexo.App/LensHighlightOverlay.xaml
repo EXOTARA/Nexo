@@ -9,7 +9,7 @@
         ShowActivated="False"
         Topmost="True"
         Visibility="Collapsed"
-        AutomationProperties.Name="Kohana Lens — resaltado visual">
+        AutomationProperties.Name="Sakura Lens — resaltado visual">
     <!--
         Diseño D5.7 — superposición de resaltado. A diferencia de SakuraPillWindow (interactiva),
         esta ventana además marca WS_EX_TRANSPARENT en el code-behind: cubre el área completa de la

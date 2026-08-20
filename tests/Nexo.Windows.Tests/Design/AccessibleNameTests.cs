@@ -9,7 +9,7 @@ namespace Nexo.Windows.Tests.Design;
 ///
 /// Un lector de pantalla no ve iconos. Un botón cuyo contenido es un dibujo y cuyo único texto está
 /// en una descripción emergente se anuncia como "botón", sin más; una caja de texto sin nombre se
-/// anuncia como "editar". Recorriendo el árbol de accesibilidad de Kohana en marcha aparecieron
+/// anuncia como "editar". Recorriendo el árbol de accesibilidad de Sakura en marcha aparecieron
 /// cinco así en la pantalla principal, y uno era la caja donde se escribe todo.
 ///
 /// La comprobación se hace sobre el XAML y no sobre la aplicación en marcha a propósito: así cubre

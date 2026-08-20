@@ -5,7 +5,7 @@ using Nexo.Core.Optimization;
 namespace Nexo.Windows.Optimization;
 
 /// <summary>
-/// Diseño D8 — guarda el estado previo en disco, no en memoria: si Kohana se cierra (o se cae)
+/// Diseño D8 — guarda el estado previo en disco, no en memoria: si Sakura se cierra (o se cae)
 /// después de aplicar un plan, el usuario tiene que poder deshacerlo en la siguiente sesión. Un
 /// snapshot que solo viviera en RAM dejaría de existir justo cuando más falta hace. Sigue el mismo
 /// patrón atómico de escritura que el resto de stores del proyecto.
@@ -82,7 +82,7 @@ public sealed class JsonOptimizationSnapshotStore : IOptimizationSnapshotStore
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException)
         {
-            // No poder borrar el snapshot no debe impedir seguir usando Kohana.
+            // No poder borrar el snapshot no debe impedir seguir usando Sakura.
         }
     }
 }

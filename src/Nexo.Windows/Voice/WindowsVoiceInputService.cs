@@ -26,8 +26,8 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         "completas, con comas, puntos y mayúscula al inicio de cada oración.";
 
     private const string CommandPrompt =
-        "Conversación natural y órdenes para Kohana en español. Frases frecuentes: " +
-        "Oye Kohana; qué es esto; qué problema es este; por qué falla; mira la pantalla; " +
+        "Conversación natural y órdenes para Sakura en español. Frases frecuentes: " +
+        "Oye Sakura; qué es esto; qué problema es este; por qué falla; mira la pantalla; " +
         "abre Calculadora; abre PowerShell; muestra Peek; cómo está mi PC; " +
         "baja Spotify; sube Spotify al 50 por ciento; silencia Discord.";
 
@@ -312,7 +312,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         {
             if (!IsListening || _recorder is null)
             {
-                return VoiceRecognitionResult.NoSpeech("Kohana no estaba escuchando.");
+                return VoiceRecognitionResult.NoSpeech("Sakura no estaba escuchando.");
             }
 
             IsListening = false;
@@ -597,7 +597,7 @@ public sealed class WhisperVoiceInputService : IVoiceInputService
         catch (Exception)
         {
             return VoiceRecognitionResult.NoSpeech(
-                "No pude transcribir el audio localmente. Reinicia Kohana e inténtalo otra vez.");
+                "No pude transcribir el audio localmente. Reinicia Sakura e inténtalo otra vez.");
         }
         finally
         {

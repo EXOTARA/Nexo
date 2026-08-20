@@ -5,7 +5,7 @@ namespace Nexo.Core.Tests;
 /// <summary>
 /// Diseño D12 (Fase 5) — el roadmap dice que el acceso es "a un workspace explícitamente
 /// autorizado, nunca a todo el disco". Esta clase es lo que hace que esa frase signifique algo, así
-/// que casi todo lo que se prueba aquí es lo que Kohana se NIEGA a leer.
+/// que casi todo lo que se prueba aquí es lo que Sakura se NIEGA a leer.
 /// </summary>
 public sealed class WorkspacePathPolicyTests
 {

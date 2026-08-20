@@ -5,10 +5,10 @@ using Nexo.Core.Flow;
 namespace Nexo.Windows.Flow;
 
 /// <summary>
-/// Diseño D6.2 (Fase 3 — Kohana Flow) — escribe texto en la aplicación activa mediante
+/// Diseño D6.2 (Fase 3 — Sakura Flow) — escribe texto en la aplicación activa mediante
 /// <c>SendInput</c> con <c>KEYEVENTF_UNICODE</c>, la vía documentada de Win32 para inyectar texto:
 /// entrega directamente el carácter Unicode, así que acentos y "ñ" funcionan sin depender de la
-/// distribución de teclado del usuario. Es el ÚNICO punto de todo Kohana que envía entrada a otro
+/// distribución de teclado del usuario. Es el ÚNICO punto de todo Sakura que envía entrada a otro
 /// programa (antes de D6 no existía ninguno).
 ///
 /// Tres negativas deliberadas antes de escribir una sola tecla:
@@ -69,7 +69,7 @@ public sealed class WindowsFlowTextInserter : IFlowTextInserter
         {
             return FlowInsertionResult.Failed(
                 FlowInsertionFailure.SensitiveWindow,
-                "Esa ventana está marcada como sensible; Kohana no escribe en ella.");
+                "Esa ventana está marcada como sensible; Sakura no escribe en ella.");
         }
 
         var inputs = BuildInputs(text);

@@ -9,7 +9,7 @@ public static class AiProviderDefaults
     /// </summary>
     public static IReadOnlyList<AiProviderKind> SelectableOrder { get; } =
     [
-        AiProviderKind.KohanaLocal,
+        AiProviderKind.SakuraLocal,
         AiProviderKind.Groq,
         AiProviderKind.Gemini,
         AiProviderKind.OpenRouter,
@@ -25,15 +25,15 @@ public static class AiProviderDefaults
     {
         return provider switch
         {
-            AiProviderKind.KohanaLocal => new AiProviderPreset(
-                "IA local de Kohana",
+            AiProviderKind.SakuraLocal => new AiProviderPreset(
+                "IA local de Sakura",
                 OllamaRuntimeEndpoints.ManagedBaseUrl,
                 "qwen3.5:4b",
                 string.Empty,
                 RequiresApiKey: false,
                 AiProviderLocation.Local,
                 AiProviderCost.FreeOnDevice,
-                "Kohana descarga e inicia el motor por ti. Nada sale de este equipo, pero pide un equipo con holgura."),
+                "Sakura descarga e inicia el motor por ti. Nada sale de este equipo, pero pide un equipo con holgura."),
 
             AiProviderKind.Ollama => new AiProviderPreset(
                 "Ollama",
@@ -43,7 +43,7 @@ public static class AiProviderDefaults
                 RequiresApiKey: false,
                 AiProviderLocation.Local,
                 AiProviderCost.FreeOnDevice,
-                "Usa una instalación propia de Ollama. Tienes que iniciarla tú; Kohana no la administra."),
+                "Usa una instalación propia de Ollama. Tienes que iniciarla tú; Sakura no la administra."),
 
             AiProviderKind.Groq => new AiProviderPreset(
                 "Groq",
@@ -141,22 +141,22 @@ public static class AiProviderDefaults
                 RequiresApiKey: false,
                 AiProviderLocation.None,
                 AiProviderCost.None,
-                "Kohana sigue funcionando: tareas, enfoque, rutinas y atajos no necesitan IA.")
+                "Sakura sigue funcionando: tareas, enfoque, rutinas y atajos no necesitan IA.")
         };
     }
 
     /// <summary>
     /// Los proveedores que hablan el protocolo nativo de Ollama en vez del de OpenAI. Reemplaza a la
     /// comparación suelta contra <see cref="AiProviderKind.Ollama"/> que había repartida por el
-    /// código: al añadir <see cref="AiProviderKind.KohanaLocal"/>, cada una de esas comparaciones se
+    /// código: al añadir <see cref="AiProviderKind.SakuraLocal"/>, cada una de esas comparaciones se
     /// habría vuelto silenciosamente incorrecta.
     /// </summary>
     public static bool UsesOllamaProtocol(AiProviderKind provider) =>
-        provider is AiProviderKind.Ollama or AiProviderKind.KohanaLocal;
+        provider is AiProviderKind.Ollama or AiProviderKind.SakuraLocal;
 
-    /// <summary>true si Kohana misma instala, inicia y detiene el motor.</summary>
-    public static bool IsManagedByKohana(AiProviderKind provider) =>
-        provider == AiProviderKind.KohanaLocal;
+    /// <summary>true si Sakura misma instala, inicia y detiene el motor.</summary>
+    public static bool IsManagedBySakura(AiProviderKind provider) =>
+        provider == AiProviderKind.SakuraLocal;
 
     public static bool IsCloud(AiProviderKind provider) =>
         Get(provider).Location == AiProviderLocation.Cloud;

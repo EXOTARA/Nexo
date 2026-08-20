@@ -14,7 +14,7 @@ namespace Nexo.App.Views;
 
 /// <summary>
 /// Diseño D44 — Sistema se queda con el diagnóstico: capacidad del equipo, plan adaptativo,
-/// optimización, registro de lo que Kohana ha hecho y estado del runtime.
+/// optimización, registro de lo que Sakura ha hecho y estado del runtime.
 ///
 /// Las medidas en vivo —procesador, gráfica, disco, red, memoria— se fueron al cajón del borde de
 /// arriba (<see cref="Nexo.App.DashboardWindow"/>). No es un reparto arbitrario: esto de aquí se lee
@@ -195,7 +195,7 @@ public partial class SystemView : UserControl
             ? (Brush)FindResource("BrushSuccess")
             : (Brush)FindResource("BrushWarning");
         RuntimeDetailText.Text = string.IsNullOrWhiteSpace(resourceReason)
-            ? "Kohana está lista."
+            ? "Sakura está lista."
             : resourceReason;
     }
 

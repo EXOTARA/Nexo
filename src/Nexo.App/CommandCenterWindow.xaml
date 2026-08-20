@@ -17,7 +17,7 @@
         TextOptions.TextRenderingMode="ClearType"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
-        AutomationProperties.Name="Centro de comandos de Kohana">
+        AutomationProperties.Name="Centro de comandos de Sakura">
 
     <!--
         Diseño D62 — el marco lo compone Windows: acrílico, esquinas y sombra. Sin

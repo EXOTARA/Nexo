@@ -34,7 +34,7 @@ public sealed class WindowBackdropPolicyTests
     [Fact]
     public void SquareCornersAreHonouredWhereRoundOnesWouldFit()
     {
-        // Diseño D62 — Kohana pide rectas: en el arco de las redondeadas el borde de DWM se lee
+        // Diseño D62 — Sakura pide rectas: en el arco de las redondeadas el borde de DWM se lee
         // como una mancha oscura, y un canto recto no tiene arco.
         var decision = WindowBackdropPolicy.Decide(Probe(), WindowBackdrop.Acrylic, WindowCorner.Square);
 

@@ -3,10 +3,10 @@ using Nexo.Core.Audit;
 namespace Nexo.Core.Workspace;
 
 /// <summary>
-/// Diseño D14 (Fase 5, nivel 4 — "Ejecutar un paso") — el único camino por el que Kohana escribe en
+/// Diseño D14 (Fase 5, nivel 4 — "Ejecutar un paso") — el único camino por el que Sakura escribe en
 /// un proyecto. Todo lo que la fase exige antes de permitir escritura pasa por aquí, en este orden:
 ///
-/// 1. **Nivel de autonomía suficiente.** Nivel 4 o más. Por debajo, Kohana guía; no toca.
+/// 1. **Nivel de autonomía suficiente.** Nivel 4 o más. Por debajo, Sakura guía; no toca.
 /// 2. **La ruta pasa por <see cref="WorkspacePathPolicy"/>**, la misma que gobierna la lectura. Que
 ///    escribir tenga sus propias reglas de contención sería la forma más fácil de que una de las dos
 ///    se quedara atrás.
@@ -24,7 +24,7 @@ namespace Nexo.Core.Workspace;
 public sealed class WorkspaceEditCoordinator
 {
     /// <summary>
-    /// Tope del contenido que Kohana puede escribir, igual que el de lectura. Un archivo que no
+    /// Tope del contenido que Sakura puede escribir, igual que el de lectura. Un archivo que no
     /// puede leerse entero tampoco debería poder reemplazarse entero.
     /// </summary>
     public const long MaximumEditBytes = WorkspacePathPolicy.MaximumFileBytes;
@@ -183,7 +183,7 @@ public sealed class WorkspaceEditCoordinator
     }
 
     /// <summary>
-    /// Deshace un cambio concreto. **Se niega si el archivo cambió desde que Kohana lo escribió**:
+    /// Deshace un cambio concreto. **Se niega si el archivo cambió desde que Sakura lo escribió**:
     /// en ese caso, deshacer no devolvería el archivo a como estaba, destruiría lo que la persona
     /// hizo después. Es el peor daño que esta capacidad puede causar y el único que no sería culpa
     /// de un fallo, sino del diseño.
@@ -298,7 +298,7 @@ public sealed class WorkspaceEditCoordinator
     }
 
     /// <summary>
-    /// Un intento rechazado también se registra. Saber que Kohana intentó tocar un archivo y no
+    /// Un intento rechazado también se registra. Saber que Sakura intentó tocar un archivo y no
     /// pudo es exactamente el tipo de cosa que una auditoría existe para contar.
     /// </summary>
     private void RecordRefusal(string? relativePath, string detail, WorkspaceSettings settings) =>

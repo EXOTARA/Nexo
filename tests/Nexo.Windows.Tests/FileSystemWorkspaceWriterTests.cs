@@ -65,7 +65,7 @@ public sealed class FileSystemWorkspaceWriterTests : IDisposable
     [Fact]
     public void OverwritingKeepsTheFileIntact_NotTruncated()
     {
-        // Escritura atómica: si Kohana muriera a media escritura, el original seguiría entero.
+        // Escritura atómica: si Sakura muriera a media escritura, el original seguiría entero.
         _writer.WriteFile(_root, "a.cs", "primera versión");
         _writer.WriteFile(_root, "a.cs", "segunda versión");
 

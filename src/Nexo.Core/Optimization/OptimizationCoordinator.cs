@@ -24,14 +24,14 @@ namespace Nexo.Core.Optimization;
 public sealed class OptimizationCoordinator
 {
     private readonly IOptimizationApplier _system;
-    private readonly IKohanaFootprintApplier _footprint;
+    private readonly ISakuraFootprintApplier _footprint;
     private readonly IOptimizationSnapshotStore _snapshots;
     private readonly IAuditLog _audit;
     private readonly Func<DateTimeOffset> _clock;
 
     public OptimizationCoordinator(
         IOptimizationApplier system,
-        IKohanaFootprintApplier footprint,
+        ISakuraFootprintApplier footprint,
         IOptimizationSnapshotStore snapshots,
         IAuditLog audit,
         Func<DateTimeOffset>? clock = null)
@@ -52,7 +52,7 @@ public sealed class OptimizationCoordinator
         var changes = plan.ApplicableChanges;
         if (changes.Count == 0)
         {
-            return OptimizationApplyResult.Failed("Este plan no tiene cambios que Kohana pueda aplicar.");
+            return OptimizationApplyResult.Failed("Este plan no tiene cambios que Sakura pueda aplicar.");
         }
 
         var snapshot = CaptureSnapshot(plan, changes, out var blocker);
@@ -83,7 +83,7 @@ public sealed class OptimizationCoordinator
             var detail = rolledBack
                 ? $"{step.Detail} Dejé el equipo como estaba antes."
                 : $"{step.Detail} Además, no pude deshacer del todo lo ya aplicado: " +
-                  "revisa el plan de energía y el modo de rendimiento de Kohana.";
+                  "revisa el plan de energía y el modo de rendimiento de Sakura.";
 
             Record(
                 plan.Scenario,
@@ -122,7 +122,7 @@ public sealed class OptimizationCoordinator
             }
         }
 
-        if (TryParseMode(snapshot.PreviousKohanaPerformanceMode, out var mode))
+        if (TryParseMode(snapshot.PreviousSakuraPerformanceMode, out var mode))
         {
             var step = _footprint.ApplyMode(mode);
             if (step.Success)
@@ -182,9 +182,9 @@ public sealed class OptimizationCoordinator
             }
         }
 
-        if (changes.Any(change => change.Target == OptimizationTarget.KohanaFootprint))
+        if (changes.Any(change => change.Target == OptimizationTarget.SakuraFootprint))
         {
-            snapshot.PreviousKohanaPerformanceMode = _footprint.ReadCurrentMode().ToString();
+            snapshot.PreviousSakuraPerformanceMode = _footprint.ReadCurrentMode().ToString();
         }
 
         return snapshot;
@@ -193,7 +193,7 @@ public sealed class OptimizationCoordinator
     private OptimizationStepResult ApplyChange(OptimizationChange change) => change.Target switch
     {
         OptimizationTarget.PowerPlan => _system.ApplyPowerPlan(change.Id),
-        OptimizationTarget.KohanaFootprint when KohanaFootprintModes.Resolve(change.Id) is { } mode =>
+        OptimizationTarget.SakuraFootprint when SakuraFootprintModes.Resolve(change.Id) is { } mode =>
             _footprint.ApplyMode(mode),
         _ => OptimizationStepResult.Failed($"No reconozco el cambio «{change.Id}», así que no lo apliqué.")
     };
@@ -208,7 +208,7 @@ public sealed class OptimizationCoordinator
             {
                 OptimizationTarget.PowerPlan when snapshot.PreviousPowerPlanId is { Length: > 0 } previous =>
                     _system.RestorePowerPlan(previous),
-                OptimizationTarget.KohanaFootprint when TryParseMode(snapshot.PreviousKohanaPerformanceMode, out var mode) =>
+                OptimizationTarget.SakuraFootprint when TryParseMode(snapshot.PreviousSakuraPerformanceMode, out var mode) =>
                     _footprint.ApplyMode(mode),
                 _ => OptimizationStepResult.Failed("Sin estado anterior guardado.")
             };

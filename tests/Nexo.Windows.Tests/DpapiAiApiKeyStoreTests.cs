@@ -140,7 +140,7 @@ public sealed class DpapiAiApiKeyStoreTests : IDisposable
     public void AnUnreadableFileIsSetAsideInsteadOfBreakingStartup()
     {
         // Pasa de verdad: el archivo copiado desde otra cuenta de Windows no se puede descifrar.
-        // Eso no puede impedir abrir Kohana ni configurar una clave nueva.
+        // Eso no puede impedir abrir Sakura ni configurar una clave nueva.
         File.WriteAllBytes(_filePath, [0x00, 0x01, 0x02, 0x03, 0x04]);
         var store = new DpapiAiApiKeyStore(_filePath);
 
@@ -156,7 +156,7 @@ public sealed class DpapiAiApiKeyStoreTests : IDisposable
     [Fact]
     public void ASecondStoreOverTheSameFileSeesWhatTheFirstWrote()
     {
-        // Kohana no mantiene el almacén vivo entre sesiones: al reabrir se construye otro sobre el
+        // Sakura no mantiene el almacén vivo entre sesiones: al reabrir se construye otro sobre el
         // mismo archivo. Si la lectura dependiera del estado en memoria, la clave se "perdería" en
         // cada reinicio.
         new DpapiAiApiKeyStore(_filePath).Write(AiProviderKind.OpenRouter, "clave-openrouter");
@@ -170,7 +170,7 @@ public sealed class DpapiAiApiKeyStoreTests : IDisposable
     public void TheStoredKeyTakesPrecedenceOverTheEnvironmentVariable()
     {
         // Las dos vías conviven: la variable de entorno sigue funcionando para quien ya la tenía,
-        // pero lo que alguien acaba de escribir en Kohana es lo que quiere usar ahora.
+        // pero lo que alguien acaba de escribir en Sakura es lo que quiere usar ahora.
         var store = new DpapiAiApiKeyStore(_filePath);
         store.Write(AiProviderKind.Groq, "clave-escrita-en-kohana");
 

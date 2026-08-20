@@ -6,7 +6,7 @@ namespace Nexo.Core.Permissions;
 /// demás — habilitar Lens no habilita Computer Use"*. Por eso son un enum y no banderas de un mismo
 /// permiso general: un permiso general es como se acaba concediendo de más sin querer.
 /// </summary>
-public enum KohanaCapability
+public enum SakuraCapability
 {
     /// <summary>Ver y explicar lo que hay en pantalla (Fase 2).</summary>
     Lens,

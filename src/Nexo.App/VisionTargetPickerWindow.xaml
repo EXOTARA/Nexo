@@ -1,7 +1,7 @@
 <Window x:Class="Nexo.App.VisionTargetPickerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Elegir qué verá Kohana"
+        Title="Elegir qué verá Sakura"
         Width="520"
         Height="560"
         MinWidth="440"
@@ -19,7 +19,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel>
-            <TextBlock Text="¿Qué quieres mostrarle a Kohana?"
+            <TextBlock Text="¿Qué quieres mostrarle a Sakura?"
                        FontSize="{DynamicResource FontSizeTitle2}"
                        FontWeight="SemiBold" />
             <TextBlock Margin="0,6,0,14"

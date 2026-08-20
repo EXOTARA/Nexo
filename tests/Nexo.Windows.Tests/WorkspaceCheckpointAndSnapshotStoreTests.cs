@@ -9,7 +9,7 @@ namespace Nexo.Windows.Tests;
 
 /// <summary>
 /// Diseño D14/D15/D18 — los tres almacenes JSON que solo se habían probado a través de dobles en
-/// Core. Siguen el mismo patrón atómico ya probado en <c>JsonKohanaAuditLog</c> y
+/// Core. Siguen el mismo patrón atómico ya probado en <c>JsonSakuraAuditLog</c> y
 /// <c>FileSystemDataBackupService</c>, pero "sigue el mismo patrón" no es lo mismo que "se probó":
 /// es exactamente el tipo de suposición que este repaso existe para no dar por buena.
 /// </summary>
@@ -134,7 +134,7 @@ public sealed class WorkspaceCheckpointAndSnapshotStoreTests : IDisposable
             At = DateTimeOffset.Now,
             Description = "prueba",
             PreviousClipboard = "lo que había",
-            WrittenClipboard = "lo que puso Kohana"
+            WrittenClipboard = "lo que puso Sakura"
         };
 
         store.Save(snapshot);
@@ -169,7 +169,7 @@ public sealed class WorkspaceCheckpointAndSnapshotStoreTests : IDisposable
         Assert.Empty(new JsonComputerUseSnapshotStore(path).Read());
     }
 
-    // ---------- Los tres: un archivo corrupto no debe tumbar Kohana ----------
+    // ---------- Los tres: un archivo corrupto no debe tumbar Sakura ----------
 
     [Theory]
     [InlineData("checkpoints.json")]

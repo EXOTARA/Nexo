@@ -30,7 +30,7 @@ public static class SafeShellCatalog
     // Dos candidatos que se descartaron al escribir la lista, anotados para que no vuelvan solos:
     // `powercfg /batteryreport` ESCRIBE un archivo, así que rompe la invariante de "solo leen"; y
     // `wmic` está en la lista de intérpretes de `ShellExecutionPolicy` —binarios del sistema que
-    // ejecutan código ajeno—, así que meterlo aquí contradiría la política que Kohana ya aplica en
+    // ejecutan código ajeno—, así que meterlo aquí contradiría la política que Sakura ya aplica en
     // otro sitio. Una lista de permitidos solo vale si se defiende cuando estorba.
 
     public static SafeShellCommand? Find(string? id) =>

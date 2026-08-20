@@ -16,12 +16,12 @@ public sealed record BackupResult(
 }
 
 /// <summary>
-/// Diseño D20 — copia y restaura los datos de Kohana. **Verificar es releer**, igual que en las
+/// Diseño D20 — copia y restaura los datos de Sakura. **Verificar es releer**, igual que en las
 /// Fases 4, 5 y 7: una copia que no se ha comprobado no es una copia, es una intención.
 /// </summary>
 public interface IDataBackupService
 {
-    BackupResult CreateBackup(IReadOnlyList<KohanaDataItem> items);
+    BackupResult CreateBackup(IReadOnlyList<SakuraDataItem> items);
 
     BackupResult Restore(string backupId);
 
@@ -69,7 +69,7 @@ public sealed class UpdateSafetyCoordinator
 
     public UpdateReadiness PrepareUpdate()
     {
-        var backup = _backups.CreateBackup(KohanaDataInventory.ToBackUp);
+        var backup = _backups.CreateBackup(SakuraDataInventory.ToBackUp);
 
         var unverified = backup.Files.Where(file => file.Copied && !file.Verified).ToArray();
         var failed = backup.Files.Where(file => !file.Copied).ToArray();

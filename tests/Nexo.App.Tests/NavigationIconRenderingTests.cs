@@ -27,7 +27,7 @@ public sealed class NavigationIconRenderingTests
     /// <summary>
     /// Por encima de esta cobertura (tinta / área del recuadro delimitador) una geometría ha
     /// dejado de leerse como icono de línea y se ha convertido en una mancha sólida. Los iconos
-    /// reales de Kohana miden entre 3 % y 17 % en cualquiera de sus dos estados; el defecto
+    /// reales de Sakura miden entre 3 % y 17 % en cualquiera de sus dos estados; el defecto
     /// llegaba a 95.6 %. El umbral deja margen amplio para variantes futuras sin volver a admitir
     /// un bloque.
     /// </summary>
@@ -35,15 +35,15 @@ public sealed class NavigationIconRenderingTests
 
     public static TheoryData<string> NavigationIconKeys() =>
     [
-        "IconKohanaHome",
-        "IconKohanaAssistant",
-        "IconKohanaTasks",
-        "IconKohanaFocus",
-        "IconKohanaRoutines",
-        "IconKohanaAudio",
-        "IconKohanaCapture",
-        "IconKohanaSystem",
-        "IconKohanaSettings"
+        "IconSakuraHome",
+        "IconSakuraAssistant",
+        "IconSakuraTasks",
+        "IconSakuraFocus",
+        "IconSakuraRoutines",
+        "IconSakuraAudio",
+        "IconSakuraCapture",
+        "IconSakuraSystem",
+        "IconSakuraSettings"
     ];
 
     /// <summary>
@@ -147,7 +147,7 @@ public sealed class NavigationIconRenderingTests
             var host = new Button { Foreground = Brushes.White };
             var path = new System.Windows.Shapes.Path
             {
-                Data = (Geometry)Application.Current.Resources["IconKohanaSettings"],
+                Data = (Geometry)Application.Current.Resources["IconSakuraSettings"],
                 Style = style
             };
             host.Content = path;

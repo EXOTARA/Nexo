@@ -49,8 +49,8 @@ public sealed class WindowsUpdateDownloaderTests : IDisposable
 
     private static UpdateManifest ManifestFor(byte[] content, string? hash = null, long? size = null) =>
         new(
-            new KohanaVersion(0, 9, 6, "beta"),
-            new Uri("https://example.invalid/Kohana.zip"),
+            new SakuraVersion(0, 9, 6, "beta"),
+            new Uri("https://example.invalid/Sakura.zip"),
             hash ?? HashOf(content),
             size ?? content.Length,
             "notas");
@@ -61,7 +61,7 @@ public sealed class WindowsUpdateDownloaderTests : IDisposable
     [Fact]
     public async Task AMatchingPackageIsKept()
     {
-        var content = Encoding.UTF8.GetBytes("una versión de Kohana");
+        var content = Encoding.UTF8.GetBytes("una versión de Sakura");
         var result = await DownloaderFor(content).DownloadAsync(ManifestFor(content), _folder);
 
         Assert.True(result.Ok, result.Problem);
@@ -120,7 +120,7 @@ public sealed class WindowsUpdateDownloaderTests : IDisposable
 
         Assert.DoesNotContain(
             Directory.GetFiles(_folder),
-            file => Path.GetFileName(file).StartsWith("Kohana-", StringComparison.Ordinal));
+            file => Path.GetFileName(file).StartsWith("Sakura-", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public sealed class WindowsUpdateDownloaderTests : IDisposable
         // nada — y cada uno pesa cien megas. Tras las dos primeras pruebas en vivo quedaron ciento
         // noventa megas en el disco sin que nadie los reclamara.
         Directory.CreateDirectory(_folder);
-        var stale = Path.Combine(_folder, "Kohana-0.0.1-beta.zip");
+        var stale = Path.Combine(_folder, "Sakura-0.0.1-beta.zip");
         var halfDone = Path.Combine(_folder, "kohana-update-abc123.part");
         await File.WriteAllTextAsync(stale, "intento anterior");
         await File.WriteAllTextAsync(halfDone, "a medias");
@@ -146,7 +146,7 @@ public sealed class WindowsUpdateDownloaderTests : IDisposable
     [Fact]
     public async Task SomethingElseInTheFolderIsLeftAlone()
     {
-        // La carpeta es de Kohana, pero borrar por comodín lo que haya dentro es cómo se acaba
+        // La carpeta es de Sakura, pero borrar por comodín lo que haya dentro es cómo se acaba
         // llevándose algo que no era tuyo. El registro del ayudante vive ahí mismo.
         Directory.CreateDirectory(_folder);
         var log = Path.Combine(_folder, "ultima-actualizacion.log");

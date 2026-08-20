@@ -37,7 +37,7 @@ public static partial class SpanishVoiceTranscriptNormalizer
         }
 
         // Cuando la activación y la orden se dicen de corrido, el búfer previo
-        // también contiene “Kohana” u “Oye Kohana”. Durante la transición se
+        // también contiene “Sakura” u “Oye Sakura”. Durante la transición se
         // aceptan las frases heredadas de Nexo. Se elimina solo al inicio.
         normalized = WakeWordPrefixRegex().Replace(normalized, string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(normalized))
@@ -120,7 +120,7 @@ public static partial class SpanishVoiceTranscriptNormalizer
     private static int WordCount(string value) =>
         value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
 
-    [GeneratedRegex(@"^(?:(?:oye|oi|hey|ey|ei|ahi|ai|ay)\s+)?(?:kohana|koana|cohana|kojana|ohana|nexo|neso|nejo|exo)(?:\s+|$)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:(?:oye|oi|hey|ey|ei|ahi|ai|ay)\s+)?(?:sakura|sacura|zacura|kohana|koana|cohana|kojana|ohana|nexo|neso|nejo|exo)(?:\s+|$)", RegexOptions.IgnoreCase)]
     private static partial Regex WakeWordPrefixRegex();
 
     [GeneratedRegex(@"\s+")]

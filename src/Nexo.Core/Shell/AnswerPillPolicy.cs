@@ -1,9 +1,9 @@
 namespace Nexo.Core.Shell;
 
 /// <summary>
-/// Diseño D34 — las reglas de la píldora que responde sin abrir Kohana.
+/// Diseño D34 — las reglas de la píldora que responde sin abrir Sakura.
 ///
-/// Nace de una observación sencilla: quien pulsa Ctrl+Espacio no quiso abrir Kohana. Estaba en otra
+/// Nace de una observación sencilla: quien pulsa Ctrl+Espacio no quiso abrir Sakura. Estaba en otra
 /// aplicación y preguntó desde ahí. Traerle la ventana entera encima y dejarle la respuesta en la
 /// pestaña de chat le obliga a volver a donde estaba: la respuesta llega, pero el gesto se
 /// convierte en una interrupción.
@@ -30,13 +30,13 @@ public static class AnswerPillPolicy
 
     /// <summary>
     /// Tope. Pasado este punto la respuesta ya no es «un vistazo» y lo razonable es abrirla en
-    /// Kohana, no dejar una ventana flotando encima de lo que la persona esté haciendo.
+    /// Sakura, no dejar una ventana flotando encima de lo que la persona esté haciendo.
     /// </summary>
     public static readonly TimeSpan MaximumVisible = TimeSpan.FromSeconds(40);
 
     /// <summary>
     /// A partir de aquí la respuesta ya no cabe cómodamente en una píldora de esquina y se ofrece
-    /// abrirla en Kohana. No se recorta el texto: se muestra lo que quepa y se deja la puerta.
+    /// abrirla en Sakura. No se recorta el texto: se muestra lo que quepa y se deja la puerta.
     /// </summary>
     public const int LongAnswerCharacters = 600;
 
@@ -58,7 +58,7 @@ public static class AnswerPillPolicy
                 : reading;
     }
 
-    public static bool DeservesOpeningInKohana(string? text) =>
+    public static bool DeservesOpeningInSakura(string? text) =>
         !string.IsNullOrWhiteSpace(text) && text.Length > LongAnswerCharacters;
 
     private static int CountWords(string text)

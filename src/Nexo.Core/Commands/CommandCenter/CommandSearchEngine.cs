@@ -28,8 +28,8 @@ public static class CommandSearchEngine
     /// consulta vacía devuelve todos en su orden de registro, que es el comportamiento esperado
     /// al abrir la paleta sin escribir nada.
     /// </summary>
-    public static IReadOnlyList<KohanaCommandDescriptor> Search(
-        IReadOnlyList<KohanaCommandDescriptor> commands,
+    public static IReadOnlyList<SakuraCommandDescriptor> Search(
+        IReadOnlyList<SakuraCommandDescriptor> commands,
         string? query)
     {
         ArgumentNullException.ThrowIfNull(commands);
@@ -40,7 +40,7 @@ public static class CommandSearchEngine
             return commands;
         }
 
-        var matches = new List<(KohanaCommandDescriptor Command, int Score, int Order)>();
+        var matches = new List<(SakuraCommandDescriptor Command, int Score, int Order)>();
         for (var index = 0; index < commands.Count; index++)
         {
             var command = commands[index];
@@ -67,7 +67,7 @@ public static class CommandSearchEngine
     /// Puntuación de un comando frente a una consulta ya normalizada. Cero significa "no coincide".
     /// El título pesa más que las palabras clave, y estas más que la descripción.
     /// </summary>
-    public static int Score(KohanaCommandDescriptor command, string normalizedQuery)
+    public static int Score(SakuraCommandDescriptor command, string normalizedQuery)
     {
         ArgumentNullException.ThrowIfNull(command);
 

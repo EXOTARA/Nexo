@@ -5,7 +5,7 @@ namespace Nexo.Core.Optimization;
 /// de diseño, no como opción: "un cambio de sistema mal revertido puede dejar el equipo en peor
 /// estado — el snapshot y la reversión no son opcionales".
 ///
-/// Diseño D11 — guarda también el modo de rendimiento propio de Kohana, el segundo objetivo que se
+/// Diseño D11 — guarda también el modo de rendimiento propio de Sakura, el segundo objetivo que se
 /// aplica de verdad. Cada objetivo que se aplique tiene que traer su valor anterior aquí: un
 /// objetivo sin línea de vuelta no debería poder aplicarse.
 /// </summary>
@@ -19,17 +19,17 @@ public sealed class OptimizationSnapshot
     public string? PreviousPowerPlanId { get; set; }
 
     /// <summary>
-    /// Diseño D11 — modo de rendimiento de Kohana antes del cambio, como texto para que el archivo
+    /// Diseño D11 — modo de rendimiento de Sakura antes del cambio, como texto para que el archivo
     /// siga siendo legible y sobreviva a que el enum crezca.
     /// </summary>
-    public string? PreviousKohanaPerformanceMode { get; set; }
+    public string? PreviousSakuraPerformanceMode { get; set; }
 
     public OptimizationSnapshot Copy() => new()
     {
         CapturedAt = CapturedAt,
         Scenario = Scenario,
         PreviousPowerPlanId = PreviousPowerPlanId,
-        PreviousKohanaPerformanceMode = PreviousKohanaPerformanceMode
+        PreviousSakuraPerformanceMode = PreviousSakuraPerformanceMode
     };
 }
 

@@ -1,8 +1,8 @@
-# Kohana
+# Sakura
 
 Un asistente para Windows que vive en la bandeja del sistema y aparece cuando lo llamas.
 
-Kohana escucha una palabra de activación, entiende órdenes normales ("abre PowerShell", "pon un
+Sakura escucha una palabra de activación, entiende órdenes normales ("abre PowerShell", "pon un
 temporizador de veinte minutos", "¿qué ventana tengo abierta?") y hace lo que puede resolver sola,
 en tu equipo, sin consultar a nadie. Cuando hace falta un modelo de lenguaje, lo usa; para todo lo
 demás no lo necesita.
@@ -16,7 +16,7 @@ día y tocar cosas del sistema — siempre pidiendo permiso antes de lo que no s
 Habla y escucha en local: la palabra de activación y el dictado corren en tu máquina, sin enviar
 audio a ningún servidor.
 
-Mira la pantalla cuando se lo pides. Kohana Lens captura la ventana activa, la lee con OCR y con la
+Mira la pantalla cuando se lo pides. Sakura Lens captura la ventana activa, la lee con OCR y con la
 información de accesibilidad de Windows, tapa lo que parezca sensible antes de usarlo, y te explica
 qué estás viendo en modo soporte, estudio o desarrollo.
 
@@ -34,12 +34,12 @@ Cada capacidad tiene su permiso: bloqueado, preguntar o permitido. Las confirmac
 nunca, ni siquiera cuando tú mismo pediste la acción.
 
 La lista completa, con cómo se activa cada cosa y ejemplos, está en la
-[guía de capacidades](docs/product/KOHANA_CAPABILITIES_GUIDE.md).
+[guía de capacidades](docs/product/SAKURA_CAPABILITIES_GUIDE.md).
 
 ## Instalar
 
 En la [última versión](https://github.com/EXOTARA/Nexo/releases) hay dos formas de instalar: el
-instalador, que deja Kohana en el menú Inicio y se puede desinstalar desde Windows, o el zip
+instalador, que deja Sakura en el menú Inicio y se puede desinstalar desde Windows, o el zip
 portable, que se descomprime donde quieras y se ejecuta tal cual. No hace falta instalar nada más:
 el .NET necesario va dentro de los dos.
 
@@ -47,17 +47,17 @@ Windows va a mostrar un aviso de SmartScreen diciendo que el programa no está f
 está: la firma de código cuesta dinero y todavía no la hay. Hay que darle a "Más información" →
 "Ejecutar de todas formas". Es un inconveniente real y está en la lista de cosas por resolver.
 
-Kohana guarda sus datos en `%LocalAppData%\Kohana` y sus modelos de voz en la misma carpeta. Al
+Sakura guarda sus datos en `%LocalAppData%\Sakura` y sus modelos de voz en la misma carpeta. Al
 desinstalar puedes elegir si esa carpeta se va contigo o se queda.
 
 ## Estado
 
-Kohana está en beta y se usa a diario, pero todavía no es 1.0. Lo que falta para serlo no son
+Sakura está en beta y se usa a diario, pero todavía no es 1.0. Lo que falta para serlo no son
 funciones: es firma de código, una prueba de instalación completa en una máquina limpia, medir de
 verdad la latencia de la voz, revisar la accesibilidad con un lector de pantalla, y unas semanas de
 uso sostenido sin sorpresas.
 
-Las actualizaciones ya llegan solas: Kohana busca una vez al día, avisa cuando hay algo nuevo y
+Las actualizaciones ya llegan solas: Sakura busca una vez al día, avisa cuando hay algo nuevo y
 tú decides si se instala.
 
 ## Privacidad
@@ -105,7 +105,7 @@ El trabajo va en ramas cortas contra `main`, con CI en verde antes de fusionar.
 
 | Para… | Documento |
 |---|---|
-| Ver qué hace cada capacidad y cómo activarla | [Guía de capacidades](docs/product/KOHANA_CAPABILITIES_GUIDE.md) |
+| Ver qué hace cada capacidad y cómo activarla | [Guía de capacidades](docs/product/SAKURA_CAPABILITIES_GUIDE.md) |
 | Entender por qué cada cosa está hecha así | [Registro de implementación](docs/stable-release/IMPLEMENTATION_LOG.md) |
 | Ver el estado real por fase | [Roadmap técnico](docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md) |
 | Permisos, autonomía y confirmaciones | [Modelo de confianza](docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md) |
@@ -117,5 +117,5 @@ MIT — ver [`LICENSE`](LICENSE). Las bibliotecas y modelos de terceros conserva
 listados en [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
 Los nombres internos `Nexo.App`, `Nexo.Core` y `Nexo.slnx` son de antes del cambio de nombre a
-Kohana y siguen ahí a propósito: renombrarlos es un cambio grande y sin valor para nadie que use la
+Sakura y siguen ahí a propósito: renombrarlos es un cambio grande y sin valor para nadie que use la
 aplicación.

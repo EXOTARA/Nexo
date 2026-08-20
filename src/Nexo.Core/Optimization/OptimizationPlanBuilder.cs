@@ -34,7 +34,7 @@ public static class OptimizationPlanBuilder
         var skipped = new List<string>();
 
         AddPowerPlanChange(scenario, snapshot, changes, skipped);
-        AddKohanaFootprintChange(scenario, snapshot, changes, skipped);
+        AddSakuraFootprintChange(scenario, snapshot, changes, skipped);
         AddMemoryAdvice(scenario, snapshot, changes, skipped);
         AddGraphicsAdvice(scenario, snapshot, changes, skipped);
 
@@ -64,7 +64,7 @@ public static class OptimizationPlanBuilder
                     "Cambiar a plan de energía «Economizador»",
                     "Este equipo tiene batería, así que reducir el consumo alarga la autonomía.",
                     OptimizationTarget.PowerPlan,
-                    IsReversibleByKohana: true));
+                    IsReversibleBySakura: true));
                 break;
 
             case OptimizationScenario.Bateria:
@@ -83,7 +83,7 @@ public static class OptimizationPlanBuilder
                         : "Equipo sin batería: sostener la frecuencia del procesador no tiene coste " +
                           "de autonomía.",
                     OptimizationTarget.PowerPlan,
-                    IsReversibleByKohana: true));
+                    IsReversibleBySakura: true));
                 break;
 
             case OptimizationScenario.General:
@@ -92,29 +92,29 @@ public static class OptimizationPlanBuilder
                     "Cambiar a plan de energía «Equilibrado»",
                     "Equilibrado es el punto neutro de Windows y el que conviene para uso mixto.",
                     OptimizationTarget.PowerPlan,
-                    IsReversibleByKohana: true));
+                    IsReversibleBySakura: true));
                 break;
         }
     }
 
     /// <summary>
     /// Diseño D11 — antes de pedirle a la persona que cierre sus programas, la aplicación que se
-    /// aparta primero es Kohana.
+    /// aparta primero es Sakura.
     ///
     /// La misma regla de siempre decide si se propone: **hace falta una medición**. Aquí la medición
     /// es cuánto margen tiene el equipo, medido en procesadores lógicos. En una máquina holgada
-    /// Kohana no le estorba a nada y bajar su modo sería un gesto vacío que solo empeoraría sus
+    /// Sakura no le estorba a nada y bajar su modo sería un gesto vacío que solo empeoraría sus
     /// propios motores; en una justa, sí compite de verdad por el procesador. Sin ese dato no se
     /// propone nada, igual que con la batería o la RAM.
     /// </summary>
-    private static void AddKohanaFootprintChange(
+    private static void AddSakuraFootprintChange(
         OptimizationScenario scenario,
         HardwareCapabilitySnapshot? snapshot,
         List<OptimizationChange> changes,
         List<string> skipped)
     {
-        // Escenarios donde Kohana compite con lo que la persona está haciendo. Programar queda
-        // fuera a propósito: ahí Kohana es justamente la herramienta que se está usando, y
+        // Escenarios donde Sakura compite con lo que la persona está haciendo. Programar queda
+        // fuera a propósito: ahí Sakura es justamente la herramienta que se está usando, y
         // ralentizarla iría en contra de lo que se pidió.
         var competes = scenario is OptimizationScenario.Jugar
             or OptimizationScenario.EdicionVideo
@@ -124,11 +124,11 @@ public static class OptimizationPlanBuilder
         if (scenario == OptimizationScenario.General)
         {
             changes.Add(new OptimizationChange(
-                KohanaFootprintModes.Automatic,
-                "Devolver a Kohana a su modo de rendimiento automático",
-                "Para uso mixto, el modo automático deja que Kohana se ajuste sola al equipo.",
-                OptimizationTarget.KohanaFootprint,
-                IsReversibleByKohana: true));
+                SakuraFootprintModes.Automatic,
+                "Devolver a Sakura a su modo de rendimiento automático",
+                "Para uso mixto, el modo automático deja que Sakura se ajuste sola al equipo.",
+                OptimizationTarget.SakuraFootprint,
+                IsReversibleBySakura: true));
             return;
         }
 
@@ -141,7 +141,7 @@ public static class OptimizationPlanBuilder
         if (logicalProcessors is null)
         {
             skipped.Add(
-                "Consumo de Kohana: no se pudo medir cuántos procesadores lógicos tiene el equipo, " +
+                "Consumo de Sakura: no se pudo medir cuántos procesadores lógicos tiene el equipo, " +
                 "así que no se propone bajar su modo de rendimiento.");
             return;
         }
@@ -152,20 +152,20 @@ public static class OptimizationPlanBuilder
         if (!justified)
         {
             skipped.Add(
-                $"Consumo de Kohana: con {logicalProcessors} procesadores lógicos este equipo tiene " +
-                "margen de sobra, así que bajar el modo de Kohana no aportaría nada.");
+                $"Consumo de Sakura: con {logicalProcessors} procesadores lógicos este equipo tiene " +
+                "margen de sobra, así que bajar el modo de Sakura no aportaría nada.");
             return;
         }
 
         changes.Add(new OptimizationChange(
-            KohanaFootprintModes.Eco,
-            "Poner a Kohana en modo de bajo consumo",
+            SakuraFootprintModes.Eco,
+            "Poner a Sakura en modo de bajo consumo",
             scenario == OptimizationScenario.Bateria
                 ? "Los motores locales de voz e IA son lo más caro que corre aquí; en batería, cada uno resta autonomía."
                 : $"Este equipo tiene {logicalProcessors} procesadores lógicos, así que los motores " +
-                  $"locales de Kohana compiten de verdad con {ScenarioLabel(scenario)}.",
-            OptimizationTarget.KohanaFootprint,
-            IsReversibleByKohana: true));
+                  $"locales de Sakura compiten de verdad con {ScenarioLabel(scenario)}.",
+            OptimizationTarget.SakuraFootprint,
+            IsReversibleBySakura: true));
     }
 
     private static void AddMemoryAdvice(
@@ -197,7 +197,7 @@ public static class OptimizationPlanBuilder
                 $"Este equipo tiene {gigabytes:0.#} GB de RAM y {ScenarioLabel(scenario)} suele " +
                 $"necesitar al menos {threshold} GB cómodos.",
                 OptimizationTarget.Advice,
-                IsReversibleByKohana: false));
+                IsReversibleBySakura: false));
         }
     }
 
@@ -229,7 +229,7 @@ public static class OptimizationPlanBuilder
                 $"El adaptador preferido de este equipo ({adapter.Name ?? "gráficos integrados"}) es " +
                 "integrado, no dedicado: comparte memoria con el sistema.",
                 OptimizationTarget.Advice,
-                IsReversibleByKohana: false));
+                IsReversibleBySakura: false));
         }
     }
 

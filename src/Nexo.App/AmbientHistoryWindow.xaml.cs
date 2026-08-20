@@ -75,8 +75,8 @@ public partial class AmbientHistoryWindow : Window
         public Visibility UndoButtonVisibility =>
             item.CanUndo && !item.Undone ? Visibility.Visible : Visibility.Collapsed;
     }
-    /// <summary>Diseño D62 — el marco lo compone Windows. Ver <see cref="KohanaWindowChrome"/>.</summary>
+    /// <summary>Diseño D62 — el marco lo compone Windows. Ver <see cref="SakuraWindowChrome"/>.</summary>
     private void Window_SourceInitialized(object? sender, EventArgs e) =>
-        KohanaWindowChrome.Apply(this, Surface);
+        SakuraWindowChrome.Apply(this, Surface);
 
 }

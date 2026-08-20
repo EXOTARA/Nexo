@@ -6,7 +6,7 @@ using Nexo.Windows.Flow;
 namespace Nexo.Windows.Tests.Flow;
 
 /// <summary>
-/// Diseño D6.2 (Fase 3 — Kohana Flow).
+/// Diseño D6.2 (Fase 3 — Sakura Flow).
 ///
 /// **Aquí solo se prueban los casos en los que el insertor SE NIEGA a escribir, y es a propósito.**
 /// Una prueba del camino feliz tendría que llamar a <c>SendInput</c> de verdad, y <c>SendInput</c>

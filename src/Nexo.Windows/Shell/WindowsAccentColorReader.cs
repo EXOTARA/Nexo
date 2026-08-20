@@ -5,7 +5,7 @@ namespace Nexo.Windows.Shell;
 
 /// <summary>
 /// Lee el color de acento vigente de Windows —el mismo que Personalización → Colores ya calcula a
-/// partir del fondo de escritorio cuando "Color de acento automático" está activo— para que Kohana
+/// partir del fondo de escritorio cuando "Color de acento automático" está activo— para que Sakura
 /// pueda ofrecerlo como acento propio en vez de uno de los cuatro fijos.
 /// </summary>
 public static class WindowsAccentColorReader

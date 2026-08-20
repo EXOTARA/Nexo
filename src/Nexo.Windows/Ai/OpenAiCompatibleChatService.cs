@@ -158,7 +158,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
         catch (JsonException)
         {
             return AiChatResult.Failed(
-                "El proveedor respondió con un formato que Kohana todavía no reconoce.");
+                "El proveedor respondió con un formato que Sakura todavía no reconoce.");
         }
     }
 
@@ -338,7 +338,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
             var variable = string.IsNullOrWhiteSpace(configuration.ApiKeyEnvironmentVariable)
                 ? "OPENAI_API_KEY"
                 : configuration.ApiKeyEnvironmentVariable;
-            return $"No encontré la variable de entorno {variable}. Kohana no guarda claves dentro del proyecto.";
+            return $"No encontré la variable de entorno {variable}. Sakura no guarda claves dentro del proyecto.";
         }
 
         return null;
@@ -635,7 +635,7 @@ public sealed class OpenAiCompatibleChatService : IAiChatService, IDisposable
     /// <summary>
     /// Diseño D37 — saca el mensaje de error mire como mire el proveedor.
     ///
-    /// Corrección de una caída real y reproducible: con Gemini, Kohana se cerraba entera al primer
+    /// Corrección de una caída real y reproducible: con Gemini, Sakura se cerraba entera al primer
     /// error. Gemini envuelve sus errores en un array —<c>[{"error":{"message":"..."}}]</c>— y
     /// <see cref="JsonElement.TryGetProperty(string, out JsonElement)"/> sobre un array no devuelve
     /// falso: <b>lanza</b> <see cref="InvalidOperationException"/>. Se llamaba sobre la raíz sin

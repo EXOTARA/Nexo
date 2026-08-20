@@ -4,9 +4,9 @@ using Xunit;
 namespace Nexo.Core.Tests;
 
 /// <summary>
-/// Regresión de un fallo real: se autorizó <c>C:\</c> como carpeta de proyecto y Kohana dejó de
+/// Regresión de un fallo real: se autorizó <c>C:\</c> como carpeta de proyecto y Sakura dejó de
 /// responder. La lentitud era el síntoma; el problema es que un permiso pensado para acotar hasta
-/// dónde llega Kohana no puede aceptar «todo el disco».
+/// dónde llega Sakura no puede aceptar «todo el disco».
 /// </summary>
 public sealed class WorkspaceRootPolicyTests
 {

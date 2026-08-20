@@ -13,20 +13,20 @@ public sealed class FlowSettingsParserTests
     [Fact]
     public void ParseDictionary_ReadsSpokenAndWritten()
     {
-        var entries = FlowSettingsParser.ParseDictionary(["cojana=Kohana"]);
+        var entries = FlowSettingsParser.ParseDictionary(["cojana=Sakura"]);
 
         var entry = Assert.Single(entries);
         Assert.Equal("cojana", entry.Spoken);
-        Assert.Equal("Kohana", entry.Replacement);
+        Assert.Equal("Sakura", entry.Replacement);
     }
 
     [Fact]
     public void ParseDictionary_TrimsSurroundingSpaces()
     {
-        var entry = Assert.Single(FlowSettingsParser.ParseDictionary(["  cojana  =  Kohana  "]));
+        var entry = Assert.Single(FlowSettingsParser.ParseDictionary(["  cojana  =  Sakura  "]));
 
         Assert.Equal("cojana", entry.Spoken);
-        Assert.Equal("Kohana", entry.Replacement);
+        Assert.Equal("Sakura", entry.Replacement);
     }
 
     [Theory]
@@ -45,7 +45,7 @@ public sealed class FlowSettingsParserTests
     [Fact]
     public void ParseDictionary_KeepsTheGoodLinesWhenOthersAreBroken()
     {
-        var entries = FlowSettingsParser.ParseDictionary(["roto", "cojana=Kohana", ""]);
+        var entries = FlowSettingsParser.ParseDictionary(["roto", "cojana=Sakura", ""]);
 
         Assert.Single(entries);
     }

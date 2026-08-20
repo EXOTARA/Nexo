@@ -13,9 +13,9 @@ public sealed class UpdateCheckPolicyTests
 {
     private static readonly DateTimeOffset Now = new(2026, 8, 18, 12, 0, 0, TimeSpan.Zero);
 
-    private static KohanaVersion V(string text)
+    private static SakuraVersion V(string text)
     {
-        Assert.True(KohanaVersion.TryParse(text, out var version));
+        Assert.True(SakuraVersion.TryParse(text, out var version));
         return version;
     }
 
@@ -60,7 +60,7 @@ public sealed class UpdateCheckPolicyTests
     [Fact]
     public void TheSameVersion_IsNotOffered()
     {
-        // Lo que evita que Kohana se ofrezca actualizarse a lo que ya tiene puesto.
+        // Lo que evita que Sakura se ofrezca actualizarse a lo que ya tiene puesto.
         var decision = UpdateCheckPolicy.Evaluate(
             V("0.9.5-beta"), V("0.9.5-beta"), skipped: null, wantsPreReleases: true);
 

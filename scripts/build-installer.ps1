@@ -13,7 +13,7 @@ Set-StrictMode -Version Latest
 $root = Split-Path -Parent $PSScriptRoot
 $publishDirectory = Join-Path $root "artifacts\publish\$Runtime"
 $outputDirectory = Join-Path $root "artifacts\installer"
-$installerScript = Join-Path $root "installer\Kohana.iss"
+$installerScript = Join-Path $root "installer\Sakura.iss"
 
 if (-not $SkipPublish) {
     & (Join-Path $PSScriptRoot "publish.ps1") `
@@ -22,8 +22,8 @@ if (-not $SkipPublish) {
         -RepositoryUrl $RepositoryUrl
 }
 
-if (-not (Test-Path (Join-Path $publishDirectory "Kohana.exe"))) {
-    throw "No existe una publicación válida de Kohana en $publishDirectory."
+if (-not (Test-Path (Join-Path $publishDirectory "Sakura.exe"))) {
+    throw "No existe una publicación válida de Sakura en $publishDirectory."
 }
 
 if ([string]::IsNullOrWhiteSpace($InnoSetupPath)) {
@@ -49,9 +49,9 @@ else {
 }
 
 New-Item $outputDirectory -ItemType Directory -Force | Out-Null
-Remove-Item (Join-Path $outputDirectory "Kohana-*-Setup.exe") -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $outputDirectory "Sakura-*-Setup.exe") -Force -ErrorAction SilentlyContinue
 
-Write-Host "==> Creando instalador de Kohana"
+Write-Host "==> Creando instalador de Sakura"
 & $InnoSetupPath `
     "/DMyAppVersion=$Version" `
     "/DMyNumericVersion=$numericVersion.0" `
@@ -63,7 +63,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup no pudo crear el instalador."
 }
 
-$installer = Get-ChildItem $outputDirectory -Filter "Kohana-*-Setup.exe" |
+$installer = Get-ChildItem $outputDirectory -Filter "Sakura-*-Setup.exe" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 

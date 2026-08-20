@@ -50,7 +50,7 @@ public static class WorkspaceAutonomyPolicy
     };
 
     /// <summary>
-    /// Diseño D14 — si Kohana puede escribir con este nivel. Separado de
+    /// Diseño D14 — si Sakura puede escribir con este nivel. Separado de
     /// <see cref="IsAvailable"/> a propósito: "el nivel se puede elegir" y "con este nivel se toca
     /// el disco" son preguntas distintas, y mezclarlas es como se cuela una escritura donde no
     /// debía.

@@ -26,7 +26,7 @@ public sealed class AmbientRequestManager
     /// <summary>
     /// Diseño D63 — una solicitud en curso no sobrevive al proceso que la estaba atendiendo.
     ///
-    /// Si Kohana se cierra —o la matan— mientras hay una solicitud escuchando, pensando o
+    /// Si Sakura se cierra —o la matan— mientras hay una solicitud escuchando, pensando o
     /// respondiendo, ese estado queda escrito en disco y al arrancar de nuevo nadie lo va a
     /// terminar: quien iba a hacerlo ya no existe. Y como <see cref="Begin"/> rechaza una solicitud
     /// nueva mientras haya otra en curso, **la función entera queda bloqueada para siempre**.
@@ -35,7 +35,7 @@ public sealed class AmbientRequestManager
     /// del 2 de agosto: dieciséis días en los que cada orden de Lens respondía "ya hay una
     /// solicitud ambiental en curso" y nadie sabía por qué.
     ///
-    /// Se archiva en vez de dejarse visible: es de otra sesión, y abrir Kohana con el error de algo
+    /// Se archiva en vez de dejarse visible: es de otra sesión, y abrir Sakura con el error de algo
     /// que pasó hace días sería ruido, no información. El historial sí lo conserva.
     /// </summary>
     private void CloseRequestLeftRunningByAPreviousProcessLocked(DateTimeOffset now)
@@ -49,7 +49,7 @@ public sealed class AmbientRequestManager
         }
 
         request.Status = AmbientRequestStatus.Failed;
-        request.ErrorMessage = "Kohana se cerró mientras la solicitud estaba en curso.";
+        request.ErrorMessage = "Sakura se cerró mientras la solicitud estaba en curso.";
         request.UpdatedAt = now;
         ArchiveActiveLocked(now);
         SaveLocked();
@@ -443,7 +443,7 @@ public sealed class AmbientRequestManager
                     partial,
                     [],
                     CanUndo: false);
-                request.ErrorMessage = "La respuesta se cortó y Kohana dejó de esperarla.";
+                request.ErrorMessage = "La respuesta se cortó y Sakura dejó de esperarla.";
                 request.UpdatedAt = now;
                 SaveLocked();
                 return AmbientRequestOperationResult.Completed(
@@ -452,7 +452,7 @@ public sealed class AmbientRequestManager
             }
 
             request.Status = AmbientRequestStatus.Failed;
-            request.ErrorMessage = "La respuesta tardó demasiado y Kohana dejó de esperarla.";
+            request.ErrorMessage = "La respuesta tardó demasiado y Sakura dejó de esperarla.";
             request.UpdatedAt = now;
             SaveLocked();
             return AmbientRequestOperationResult.Completed(

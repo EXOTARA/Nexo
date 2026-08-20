@@ -6,7 +6,7 @@ namespace Nexo.Core.Tests;
 /// <summary>
 /// Diseño D58 — el modo Ocupado tiene que sostenerse antes de cambiar nada.
 ///
-/// Estas pruebas existen por un defecto que Adler vio usando la aplicación: Kohana anunció «El
+/// Estas pruebas existen por un defecto que Adler vio usando la aplicación: Sakura anunció «El
 /// equipo está ocupado: GPU 100%» sin nada pesado abierto y sin haberle pedido nada a la IA. Una
 /// sola lectura bastaba, y los contadores de GPU de Windows dan picos por muestra.
 /// </summary>

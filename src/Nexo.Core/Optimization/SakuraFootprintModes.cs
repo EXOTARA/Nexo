@@ -3,11 +3,11 @@ using Nexo.Core.AdaptiveEngine;
 namespace Nexo.Core.Optimization;
 
 /// <summary>
-/// Diseño D11 — traduce el id de un cambio al modo de rendimiento propio de Kohana. La tabla vive
+/// Diseño D11 — traduce el id de un cambio al modo de rendimiento propio de Sakura. La tabla vive
 /// en un solo sitio para que el planificador (que propone ids) y el coordinador (que los aplica) no
 /// puedan discrepar.
 /// </summary>
-public static class KohanaFootprintModes
+public static class SakuraFootprintModes
 {
     public const string Eco = "kohana.eco";
 

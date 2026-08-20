@@ -20,7 +20,7 @@ namespace Nexo.App.Shell;
 /// La llamada va en <c>SourceInitialized</c>, que es el primer momento en el que la ventana tiene
 /// identificador, y antes del primer pintado.
 /// </summary>
-public static class KohanaWindowChrome
+public static class SakuraWindowChrome
 {
     /// <summary>
     /// Transparencia de los paneles que no tienen un control propio. El shell usa el del usuario;
@@ -35,7 +35,7 @@ public static class KohanaWindowChrome
     public static HardwarePerformanceMode PerformanceMode { get; set; } = HardwarePerformanceMode.Automatic;
 
     /// <summary>
-    /// Diseño D62 — Kohana pide esquinas rectas.
+    /// Diseño D62 — Sakura pide esquinas rectas.
     ///
     /// Las redondeadas de Windows miden unos 8px y, en el arco, el borde que DWM dibuja encima se
     /// lee como una mancha oscura: el mismo filo que Adler llevaba tres versiones señalando, ahora

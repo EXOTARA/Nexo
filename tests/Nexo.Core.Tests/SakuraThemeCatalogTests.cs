@@ -3,13 +3,13 @@ using Xunit;
 
 namespace Nexo.Core.Tests;
 
-public sealed class KohanaThemeCatalogTests
+public sealed class SakuraThemeCatalogTests
 {
     [Fact]
     public void EveryThemeHasAUniqueIdAndAccent()
     {
-        var ids = KohanaThemeCatalog.All.Select(theme => theme.Id).ToList();
-        var accents = KohanaThemeCatalog.All.Select(theme => theme.AccentHex).ToList();
+        var ids = SakuraThemeCatalog.All.Select(theme => theme.Id).ToList();
+        var accents = SakuraThemeCatalog.All.Select(theme => theme.AccentHex).ToList();
 
         Assert.Equal(ids.Count, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Equal(accents.Count, accents.Distinct(StringComparer.OrdinalIgnoreCase).Count());
@@ -18,7 +18,7 @@ public sealed class KohanaThemeCatalogTests
     [Fact]
     public void FindByAccentMatchesRegardlessOfCase()
     {
-        var found = KohanaThemeCatalog.FindByAccent("#35c58a");
+        var found = SakuraThemeCatalog.FindByAccent("#35c58a");
 
         Assert.NotNull(found);
         Assert.Equal("bosque", found!.Id);
@@ -27,7 +27,7 @@ public sealed class KohanaThemeCatalogTests
     [Fact]
     public void FindByAccentReturnsNullForAHandPickedColorOutsideTheGallery()
     {
-        var found = KohanaThemeCatalog.FindByAccent("#123456");
+        var found = SakuraThemeCatalog.FindByAccent("#123456");
 
         Assert.Null(found);
     }

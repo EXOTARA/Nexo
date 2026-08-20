@@ -16,7 +16,7 @@ public sealed class LiveWallpaperReaderTests
     public void NothingIsReportedWhileWallpaperEngineIsNotRunning()
     {
         // Su config conserva el último fondo elegido aunque el programa esté cerrado, y en ese caso
-        // el escritorio vuelve a mostrar el fondo de Windows. Leerlo igualmente pintaba Kohana con
+        // el escritorio vuelve a mostrar el fondo de Windows. Leerlo igualmente pintaba Sakura con
         // el color de un fondo que nadie ve.
         var running = System.Diagnostics.Process.GetProcessesByName("wallpaper32").Length > 0 ||
                       System.Diagnostics.Process.GetProcessesByName("wallpaper64").Length > 0;

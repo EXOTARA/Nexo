@@ -2,7 +2,7 @@ namespace Nexo.Core.Memory;
 
 /// <summary>
 /// Diseño D9 (Fase 6 — Context and Memory) — las tres categorías que decidió la sesión de roadmap.
-/// Cada una se activa por separado: aceptar que Kohana recuerde tus preferencias no autoriza que
+/// Cada una se activa por separado: aceptar que Sakura recuerde tus preferencias no autoriza que
 /// recuerde tus conversaciones.
 /// </summary>
 public enum MemoryCategory

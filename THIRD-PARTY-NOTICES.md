@@ -1,6 +1,6 @@
 # Componentes de terceros
 
-Kohana se distribuye bajo la licencia MIT (ver `LICENSE`). Esa licencia cubre el código de este
+Sakura se distribuye bajo la licencia MIT (ver `LICENSE`). Esa licencia cubre el código de este
 repositorio. Lo que viene de fuera se lista aquí con su licencia propia, que es la que manda sobre
 cada uno.
 
@@ -20,7 +20,7 @@ restricción de uso no comercial queda descartada por decisión de producto, no 
 
 ## Modelos de voz
 
-Los modelos **no se redistribuyen** con Kohana: se descargan del sitio de su autor la primera vez
+Los modelos **no se redistribuyen** con Sakura: se descargan del sitio de su autor la primera vez
 que hacen falta, y se guardan en la carpeta de datos del usuario.
 
 | Modelo | Origen | Licencia |

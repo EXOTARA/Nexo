@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
-        Kohana Design System — Agregador de fundación (0.1).
+        Sakura Design System — Agregador de fundación (0.1).
 
         Punto único de entrada del tema. El orden importa: Colors define los Color*/Brush* base;
         Brushes añade alias semánticos que referencian esos Color*; Brand y Controls consumen los

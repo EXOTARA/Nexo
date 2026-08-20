@@ -18,7 +18,7 @@ namespace Nexo.Windows.Memory;
 ///
 /// Si el archivo no se puede descifrar (perfil distinto, archivo corrupto), se preserva a un lado y
 /// se empieza de cero en vez de tumbar el arranque: perder memoria opt-in es molesto, no poder
-/// abrir Kohana es peor.
+/// abrir Sakura es peor.
 /// </summary>
 public sealed class DpapiMemoryStore : IMemoryStore
 {
@@ -93,7 +93,7 @@ public sealed class DpapiMemoryStore : IMemoryStore
         }
         catch
         {
-            // Un archivo ilegible no debe impedir que Kohana abra.
+            // Un archivo ilegible no debe impedir que Sakura abra.
         }
     }
 }

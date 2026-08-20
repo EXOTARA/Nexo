@@ -39,7 +39,7 @@ public static class UpdateSwapPathPolicy
 
     /// <summary>
     /// Lo menos que puede tener una ruta de instalación para no ser un sitio compartido: una unidad
-    /// y al menos dos carpetas, como <c>…\Programs\Kohana</c>.
+    /// y al menos dos carpetas, como <c>…\Programs\Sakura</c>.
     /// </summary>
     private const int MinimumDepth = 2;
 
@@ -47,7 +47,7 @@ public static class UpdateSwapPathPolicy
     {
         if (string.IsNullOrWhiteSpace(installFolder))
         {
-            return UpdateSwapPaths.Refuse("No se sabe dónde está instalada Kohana.");
+            return UpdateSwapPaths.Refuse("No se sabe dónde está instalada Sakura.");
         }
 
         var raw = installFolder.Trim();
@@ -85,7 +85,7 @@ public static class UpdateSwapPathPolicy
                 full,
                 StringComparison.OrdinalIgnoreCase))
         {
-            return UpdateSwapPaths.Refuse("La raíz de una unidad no puede ser la carpeta de Kohana.");
+            return UpdateSwapPaths.Refuse("La raíz de una unidad no puede ser la carpeta de Sakura.");
         }
 
         var parent = Path.GetDirectoryName(full);
@@ -97,7 +97,7 @@ public static class UpdateSwapPathPolicy
         if (Depth(full, root) < MinimumDepth)
         {
             return UpdateSwapPaths.Refuse(
-                "Esa carpeta está demasiado arriba para ser una instalación de Kohana.");
+                "Esa carpeta está demasiado arriba para ser una instalación de Sakura.");
         }
 
         // Carpetas conocidas del perfil: nadie instala en el escritorio, pero un ajuste mal escrito
@@ -116,7 +116,7 @@ public static class UpdateSwapPathPolicy
             Problem: string.Empty);
     }
 
-    /// <summary>Cuántas carpetas cuelgan de la raíz. <c>C:\Kohana</c> es 1; <c>C:\a\Kohana</c> es 2.</summary>
+    /// <summary>Cuántas carpetas cuelgan de la raíz. <c>C:\Sakura</c> es 1; <c>C:\a\Sakura</c> es 2.</summary>
     private static int Depth(string full, string root) =>
         full[root.Length..]
             .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],

@@ -88,7 +88,7 @@ public partial class AssistantView : UserControl
             VisionButton.IsEnabled = available;
             VisionButton.ToolTip = available
                 ? "Mirar la ventana activa · Ctrl + Shift + Espacio"
-                : "Kohana Vision está desactivado en Personalización";
+                : "Sakura Vision está desactivado en Personalización";
         }
     }
 
@@ -209,9 +209,9 @@ public partial class AssistantView : UserControl
         }
     }
 
-    public void BeginKohanaStreamingMessage(string placeholder = "Pensando…")
+    public void BeginSakuraStreamingMessage(string placeholder = "Pensando…")
     {
-        CancelKohanaStreamingMessage();
+        CancelSakuraStreamingMessage();
 
         ShowConversationSurface();
         _streamingBuffer.Clear();
@@ -227,7 +227,7 @@ public partial class AssistantView : UserControl
         ScrollConversationToEnd();
     }
 
-    public void AppendKohanaStreamingText(string text)
+    public void AppendSakuraStreamingText(string text)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -236,7 +236,7 @@ public partial class AssistantView : UserControl
 
         if (_streamingBubble is null || _streamingTextBlock is null)
         {
-            BeginKohanaStreamingMessage();
+            BeginSakuraStreamingMessage();
         }
 
         if (!_streamingHasContent)
@@ -251,7 +251,7 @@ public partial class AssistantView : UserControl
         ScrollConversationToEnd();
     }
 
-    public string CompleteKohanaStreamingMessage()
+    public string CompleteSakuraStreamingMessage()
     {
         var text = _streamingBuffer.ToString().Trim();
         ClearStreamingReferences(removeBubble: false);
@@ -272,7 +272,7 @@ public partial class AssistantView : UserControl
         return text;
     }
 
-    public void CancelKohanaStreamingMessage()
+    public void CancelSakuraStreamingMessage()
     {
         var hadStreamingBubble = _streamingBubble is not null;
         ClearStreamingReferences(removeBubble: true);
@@ -290,7 +290,7 @@ public partial class AssistantView : UserControl
             DateTimeOffset.Now));
     }
 
-    public void AddKohanaMessage(string text)
+    public void AddSakuraMessage(string text)
     {
         AddMessage(new ConversationMessage(
             ConversationRole.Assistant,
@@ -562,7 +562,7 @@ public partial class AssistantView : UserControl
 
     private void ClearConversationButton_Click(object sender, RoutedEventArgs e)
     {
-        CancelKohanaStreamingMessage();
+        CancelSakuraStreamingMessage();
         _messages.Clear();
         if (HasVisionAttachment)
         {
@@ -614,7 +614,7 @@ public partial class AssistantView : UserControl
 
         // Diseño D58 — una respuesta con apartados se dibuja con apartados.
         //
-        // Solo del lado de Kohana: lo que escribe la persona se enseña tal cual lo escribió, y
+        // Solo del lado de Sakura: lo que escribe la persona se enseña tal cual lo escribió, y
         // reinterpretar su texto como si tuviera secciones sería corregirle.
         //
         // Y nunca mientras se está escribiendo. Reconocer sobre un texto a medias parte por donde
@@ -750,7 +750,7 @@ public partial class AssistantView : UserControl
     }
 
     /// <summary>
-    /// Diseño D58 — poder llevarse lo que Kohana responde.
+    /// Diseño D58 — poder llevarse lo que Sakura responde.
     ///
     /// Un <c>TextBlock</c> de WPF no deja seleccionar, así que hasta ahora una respuesta se podía
     /// leer y nada más: para usarla había que copiarla a mano. El menú contextual se pone en la
@@ -768,7 +768,7 @@ public partial class AssistantView : UserControl
 
         var menu = new ContextMenu { Items = { copy } };
 
-        // Diseño D59 — solo del lado de Kohana: guardar como documento lo que uno mismo acaba de
+        // Diseño D59 — solo del lado de Sakura: guardar como documento lo que uno mismo acaba de
         // escribir no es una necesidad, y el menú se lee mejor con una opción que con dos.
         if (!isUser)
         {
@@ -831,15 +831,15 @@ public partial class AssistantView : UserControl
 
     // Compatibilidad temporal para extensiones que todavía usan los nombres internos anteriores.
     public void BeginNexoStreamingMessage(string placeholder = "Pensando…") =>
-        BeginKohanaStreamingMessage(placeholder);
+        BeginSakuraStreamingMessage(placeholder);
 
-    public void AppendNexoStreamingText(string text) => AppendKohanaStreamingText(text);
+    public void AppendNexoStreamingText(string text) => AppendSakuraStreamingText(text);
 
-    public string CompleteNexoStreamingMessage() => CompleteKohanaStreamingMessage();
+    public string CompleteNexoStreamingMessage() => CompleteSakuraStreamingMessage();
 
-    public void CancelNexoStreamingMessage() => CancelKohanaStreamingMessage();
+    public void CancelNexoStreamingMessage() => CancelSakuraStreamingMessage();
 
-    public void AddNexoMessage(string text) => AddKohanaMessage(text);
+    public void AddNexoMessage(string text) => AddSakuraMessage(text);
 }
 
 public enum AssistantVoiceState

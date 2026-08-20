@@ -151,7 +151,7 @@ public sealed class CoverVisualizer : FrameworkElement
             for (var i = 0; i < rays; i++)
             {
                 // Se arranca a las doce y se gira en el sentido del reloj, igual que los medidores
-                // circulares del resto de Kohana. Que dos piezas distintas empiecen en sitios
+                // circulares del resto de Sakura. Que dos piezas distintas empiecen en sitios
                 // distintos es de esas cosas que nadie sabe nombrar pero se sienten desordenadas.
                 var angle = (2 * Math.PI * i / rays) - (Math.PI / 2);
                 var cos = Math.Cos(angle);

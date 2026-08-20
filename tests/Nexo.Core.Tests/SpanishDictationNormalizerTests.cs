@@ -3,7 +3,7 @@ using Nexo.Core.Flow;
 namespace Nexo.Core.Tests;
 
 /// <summary>
-/// Diseño D6.1 (Fase 3 — Kohana Flow) — el normalizador de DICTADO, que no debe confundirse con
+/// Diseño D6.1 (Fase 3 — Sakura Flow) — el normalizador de DICTADO, que no debe confundirse con
 /// <c>SpanishVoiceTranscriptNormalizer</c> (el de comandos, deliberadamente destructivo). Estas
 /// pruebas fijan sobre todo lo que NO debe hacer: no borrar palabras reales que suenan a muletilla,
 /// no pegar guiones que la persona dictó bien, no capitalizar un correo.
@@ -186,10 +186,10 @@ public sealed class SpanishDictationNormalizerTests
     {
         var options = FlowDictationOptions.Default with
         {
-            Dictionary = [new FlowDictionaryEntry("cojana", "Kohana")]
+            Dictionary = [new FlowDictionaryEntry("cojana", "Sakura")]
         };
 
-        Assert.Equal("Abre Kohana ahora",
+        Assert.Equal("Abre Sakura ahora",
             SpanishDictationNormalizer.Normalize("abre cojana ahora", options));
     }
 

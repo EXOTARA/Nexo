@@ -44,7 +44,7 @@ public partial class VisionTargetPickerWindow : Window
             MessageBox.Show(
                 this,
                 "Selecciona una ventana o un monitor.",
-                "Kohana Vision",
+                "Sakura Vision",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;

@@ -8,9 +8,9 @@ namespace Nexo.Core.Tests;
 /// aun así el texto tiene que leerse. Estas pruebas son lo que permite afirmarlo sin abrir la
 /// aplicación con cada fondo posible.
 /// </summary>
-public sealed class KohanaThemeBuilderTests
+public sealed class SakuraThemeBuilderTests
 {
-    private static readonly RgbColor Text = RgbColor.FromHex(KohanaThemeBuilder.TextPrimaryHex);
+    private static readonly RgbColor Text = RgbColor.FromHex(SakuraThemeBuilder.TextPrimaryHex);
 
     [Fact]
     public void TextStaysReadableOnEverySurfaceForAnyAccentImaginable()
@@ -24,7 +24,7 @@ public sealed class KohanaThemeBuilderTests
                 (byte)random.Next(256),
                 (byte)random.Next(256));
 
-            var theme = KohanaThemeBuilder.FromAccent(accent);
+            var theme = SakuraThemeBuilder.FromAccent(accent);
 
             foreach (var (name, surface) in new[]
                      {
@@ -35,7 +35,7 @@ public sealed class KohanaThemeBuilderTests
                      })
             {
                 Assert.True(
-                    ColorMath.ContrastRatio(surface, Text) >= KohanaThemeBuilder.MinimumTextContrast,
+                    ColorMath.ContrastRatio(surface, Text) >= SakuraThemeBuilder.MinimumTextContrast,
                     $"Con el acento {accent.ToHex()}, el texto sobre la {name} " +
                     $"({surface.ToHex()}) bajó a {ColorMath.ContrastRatio(surface, Text):F2}:1.");
             }
@@ -47,9 +47,9 @@ public sealed class KohanaThemeBuilderTests
     {
         // El caso extremo: teñir con blanco es lo que más acerca las superficies al color del
         // texto. Si algo va a romper la legibilidad, es esto.
-        var theme = KohanaThemeBuilder.FromAccent(new RgbColor(255, 255, 255));
+        var theme = SakuraThemeBuilder.FromAccent(new RgbColor(255, 255, 255));
 
-        Assert.True(ColorMath.ContrastRatio(theme.SurfaceRaised, Text) >= KohanaThemeBuilder.MinimumTextContrast);
+        Assert.True(ColorMath.ContrastRatio(theme.SurfaceRaised, Text) >= SakuraThemeBuilder.MinimumTextContrast);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class KohanaThemeBuilderTests
     {
         // La tarjeta elevada siempre fue más clara que el fondo. Un tema que aplane eso hace que
         // las tarjetas dejen de leerse como tarjetas.
-        var theme = KohanaThemeBuilder.FromAccent(RgbColor.FromHex("#35C58A"));
+        var theme = SakuraThemeBuilder.FromAccent(RgbColor.FromHex("#35C58A"));
 
         Assert.True(
             ColorMath.RelativeLuminance(theme.SurfaceRaised) > ColorMath.RelativeLuminance(theme.Background),
@@ -76,7 +76,7 @@ public sealed class KohanaThemeBuilderTests
         {
             var accent = RgbColor.FromHex(accentHex);
             var expectedHue = ColorMath.Hue(accent);
-            var theme = KohanaThemeBuilder.FromAccent(accent);
+            var theme = SakuraThemeBuilder.FromAccent(accent);
 
             foreach (var (name, surface) in new[]
                      {
@@ -118,7 +118,7 @@ public sealed class KohanaThemeBuilderTests
         // Teñir superficies es una cosa; el acento que la persona eligió no se retoca.
         var accent = RgbColor.FromHex("#F06CA8");
 
-        Assert.Equal(accent, KohanaThemeBuilder.FromAccent(accent).Accent);
+        Assert.Equal(accent, SakuraThemeBuilder.FromAccent(accent).Accent);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class KohanaThemeBuilderTests
     {
         // La otra mitad del contrato: si por proteger el texto la saturación se anulara siempre, los
         // temas dejarían de notarse y esto sería un sistema de temas que no cambia nada.
-        var theme = KohanaThemeBuilder.FromAccent(RgbColor.FromHex("#35C58A"));
+        var theme = SakuraThemeBuilder.FromAccent(RgbColor.FromHex("#35C58A"));
 
         Assert.True(
             ColorMath.Chroma(theme.Surface) > 0.01,
@@ -139,8 +139,8 @@ public sealed class KohanaThemeBuilderTests
     [Fact]
     public void TwoDifferentAccentsProduceVisiblyDifferentSurfaces()
     {
-        var green = KohanaThemeBuilder.FromAccent(RgbColor.FromHex("#35C58A"));
-        var pink = KohanaThemeBuilder.FromAccent(RgbColor.FromHex("#F06CA8"));
+        var green = SakuraThemeBuilder.FromAccent(RgbColor.FromHex("#35C58A"));
+        var pink = SakuraThemeBuilder.FromAccent(RgbColor.FromHex("#F06CA8"));
 
         Assert.NotEqual(green.Surface, pink.Surface);
         Assert.NotEqual(green.Background, pink.Background);

@@ -264,7 +264,7 @@ public sealed class SakuraShellStructureTests
         Assert.Contains("ShellAnimationsAllowed", content, StringComparison.Ordinal);
 
         // Los dos únicos disparadores de animación del shell (navegación y expandir/contraer)
-        // deben consultar la propiedad combinada, no solo la preferencia propia de Kohana.
+        // deben consultar la propiedad combinada, no solo la preferencia propia de Sakura.
         var navigateBody = ExtractMethodBody(content, "private void NavigateTo(", "private void FocusCurrentView(");
         var sidebarBody = ExtractMethodBody(content, "private void SetSideRailExpanded(", "private void ApplySideRailButtonLayout(");
 
@@ -360,7 +360,13 @@ public sealed class SakuraShellStructureTests
         var content = File.ReadAllText(
             Path.Combine(RepositoryRoot, "src", "Nexo.Windows", "Voice", "VoiceCoordinator.cs"));
 
-        Assert.DoesNotContain("Sakura", content, StringComparison.Ordinal);
+        // Diseño D69 — antes esto buscaba la palabra "Sakura", que servía de atajo para "clases del
+        // shell y del lenguaje visual". Desde que el producto se llama Sakura, esa palabra aparece
+        // en comentarios y mensajes sin significar acoplamiento ninguno, así que la comprobación
+        // pasa a nombrar lo que de verdad no debe estar aquí: ventanas, vistas y controles.
+        Assert.DoesNotContain("SakuraPill", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nexo.App", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Windows", content, StringComparison.Ordinal);
         Assert.DoesNotContain("ShellBorder", content, StringComparison.Ordinal);
         Assert.DoesNotContain("SideRail", content, StringComparison.Ordinal);
         Assert.DoesNotContain("MainWindow", content, StringComparison.Ordinal);
@@ -374,7 +380,10 @@ public sealed class SakuraShellStructureTests
         var content = File.ReadAllText(
             Path.Combine(RepositoryRoot, "src", "Nexo.Core", "AdaptiveEngine", "AdaptiveEnginePolicy.cs"));
 
-        Assert.DoesNotContain("Sakura", content, StringComparison.Ordinal);
+        // Diseño D69 — igual que arriba: el nombre del producto ya no vale como señal de
+        // acoplamiento, así que se comprueban los tipos del shell.
+        Assert.DoesNotContain("SakuraPill", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nexo.App", content, StringComparison.Ordinal);
         Assert.DoesNotContain("MainWindow", content, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Windows", content, StringComparison.Ordinal);
     }
@@ -418,7 +427,7 @@ public sealed class SakuraShellStructureTests
         Assert.Contains("SettingsNavLabel", body, StringComparison.Ordinal);
 
         // Diseño D64 — aquí se comprobaba el ángulo del chevrón, que giraba según el lado del rail
-        // (D26). Ese chevrón ya no existe: el botón lleva la marca de Kohana, elegida por Adler, y
+        // (D26). Ese chevrón ya no existe: el botón lleva la marca de Sakura, elegida por Adler, y
         // a diecinueve píxeles no caben la flor y una flecha encima sin ensuciarse. La prueba se
         // cambia a conciencia, no porque estorbara: lo que comprobaba dejó de tener sujeto.
         //

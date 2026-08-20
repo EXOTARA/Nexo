@@ -12,7 +12,7 @@ public enum AiProviderKind
 
     /// <summary>
     /// Ollama que la persona instaló por su cuenta, escuchando en el puerto 11434.
-    /// No es el motor que Kohana administra — ese es <see cref="KohanaLocal"/>.
+    /// No es el motor que Sakura administra — ese es <see cref="SakuraLocal"/>.
     /// </summary>
     Ollama = 2,
 
@@ -20,12 +20,12 @@ public enum AiProviderKind
     OpenAICompatible = 4,
 
     /// <summary>
-    /// El motor local que Kohana descarga, inicia y detiene sola, en el puerto 11435. Separado de
+    /// El motor local que Sakura descarga, inicia y detiene sola, en el puerto 11435. Separado de
     /// <see cref="Ollama"/> porque confundirlos es justo el defecto que este diseño corrige: elegir
     /// "Ollama" escribía la dirección del externo (11434) y dejaba el motor administrado (11435)
     /// instalado pero inalcanzable, con el modelo ya descargado y ninguna forma de usarlo.
     /// </summary>
-    KohanaLocal = 5,
+    SakuraLocal = 5,
 
     Anthropic = 6,
     Groq = 7,

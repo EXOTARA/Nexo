@@ -12,7 +12,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <AssemblyName>Kohana</AssemblyName>
+    <AssemblyName>Sakura</AssemblyName>
     <RootNamespace>Nexo.App</RootNamespace>
     <Title>Kohana</Title>
     <Product>Kohana</Product>
@@ -20,7 +20,7 @@
     <AssemblyVersion>0.9.5.0</AssemblyVersion>
     <FileVersion>0.9.5.0</FileVersion>
     <Description>Kohana — Tu Windows, en flor.</Description>
-    <ApplicationIcon>Assets\Kohana.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\Sakura.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PublishTrimmed>false</PublishTrimmed>
     <PublishSingleFile>false</PublishSingleFile>

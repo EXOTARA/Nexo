@@ -11,16 +11,16 @@ public enum QuickControlKind
 
 /// <summary>
 /// Diseño D35 — las reglas del panel rápido que aparece al llevar el ratón al borde contrario a
-/// Kohana.
+/// Sakura.
 ///
-/// El lado importa: Kohana ya ocupa su borde, y poner los mandos ahí obligaría a decidir cuál de las
+/// El lado importa: Sakura ya ocupa su borde, y poner los mandos ahí obligaría a decidir cuál de las
 /// dos cosas aparece con el mismo gesto. En el borde opuesto no compiten, y además queda el reparto
-/// natural —Kohana de un lado, los mandos del otro— sin nada que recordar.
+/// natural —Sakura de un lado, los mandos del otro— sin nada que recordar.
 /// </summary>
 public static class QuickControlsPolicy
 {
     /// <summary>
-    /// El borde donde viven los mandos: el contrario al de Kohana.
+    /// El borde donde viven los mandos: el contrario al de Sakura.
     /// </summary>
     public static SidebarPosition ControlsEdgeFor(SidebarPosition kohanaSide) =>
         kohanaSide == SidebarPosition.Right

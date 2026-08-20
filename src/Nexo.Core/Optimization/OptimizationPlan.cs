@@ -11,7 +11,7 @@ public sealed record OptimizationPlan(
     IReadOnlyList<OptimizationChange> Changes,
     IReadOnlyList<string> SkippedForMissingData)
 {
-    /// <summary>Cambios que Kohana aplicaría de verdad (los demás son consejos para la persona).</summary>
+    /// <summary>Cambios que Sakura aplicaría de verdad (los demás son consejos para la persona).</summary>
     public IReadOnlyList<OptimizationChange> ApplicableChanges =>
         [.. Changes.Where(change => change.Target != OptimizationTarget.Advice)];
 

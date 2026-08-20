@@ -18,7 +18,7 @@ namespace Nexo.Windows.Voice;
 ///
 /// Propiedad: este coordinador **no es dueño** del ciclo de vida de los tres servicios que
 /// recibe; no los libera nunca. Quien los construye y los libera es
-/// <c>KohanaCompositionRoot</c> (ver su <c>Dispose</c>). <see cref="Dispose"/> aquí solo
+/// <c>SakuraCompositionRoot</c> (ver su <c>Dispose</c>). <see cref="Dispose"/> aquí solo
 /// libera los dos semáforos que este tipo crea para sí mismo.
 ///
 /// No depende de infraestructura de interfaz de usuario, de la ventana principal de la
@@ -234,7 +234,7 @@ public sealed class VoiceCoordinator : IDisposable
     /// Libera únicamente los dos <see cref="SemaphoreSlim"/> que este coordinador crea.
     /// No llama <c>Dispose()</c> sobre <see cref="IVoiceInputService"/>,
     /// <see cref="IVoiceOutputService"/> ni <see cref="IWakeWordService"/>: el coordinador
-    /// no es su dueño — lo es <c>KohanaCompositionRoot</c>, que los libera después de este.
+    /// no es su dueño — lo es <c>SakuraCompositionRoot</c>, que los libera después de este.
     /// </summary>
     public void Dispose()
     {

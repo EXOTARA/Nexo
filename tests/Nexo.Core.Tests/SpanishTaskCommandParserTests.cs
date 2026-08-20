@@ -71,8 +71,8 @@ public sealed class SpanishTaskCommandParserTests
     }
 
     [Theory]
-    [InlineData("Kohana recuérdame llamar a mamá hoy a las ocho pm")]
-    [InlineData("Oye Kohana recuérdame llamar a mamá hoy a las ocho pm")]
+    [InlineData("Sakura recuérdame llamar a mamá hoy a las ocho pm")]
+    [InlineData("Oye Sakura recuérdame llamar a mamá hoy a las ocho pm")]
     [InlineData("Nexo recuérdame llamar a mamá hoy a las ocho pm")]
     public void Parse_SpokenHourWord_UsesCorrectHour(string input)
     {

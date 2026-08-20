@@ -9,7 +9,7 @@ using Windows.Storage.Streams;
 namespace Nexo.Windows.Vision;
 
 /// <summary>
-/// Diseño D5.2 (Fase 2 — Kohana Lens) — implementación real de <see cref="IOcrService"/> sobre
+/// Diseño D5.2 (Fase 2 — Sakura Lens) — implementación real de <see cref="IOcrService"/> sobre
 /// <c>Windows.Media.Ocr</c>, desbloqueada por la migración de TFM a
 /// <c>net10.0-windows10.0.26100.0</c> (D5.1 / ADR 0003). Nativo de Windows: sin modelo que
 /// descargar, sin dependencia nueva.

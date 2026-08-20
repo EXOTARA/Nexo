@@ -11,7 +11,7 @@ namespace Nexo.Windows.Tests.Ai;
 /// a Groq con <c>llama-3.3-70b-versatile</c>, un modelo de solo texto. Groq lo rechazó con
 /// «messages[5].content must be a string», y eso es lo único que veía la persona en el chat — nada
 /// que sugiriera que el problema era la imagen. Estas pruebas fijan que, cuando la petición llevaba
-/// una imagen y el proveedor responde 400, Kohana añade una explicación en español; y que en
+/// una imagen y el proveedor responde 400, Sakura añade una explicación en español; y que en
 /// cualquier otro caso —sin imagen, o un código de error distinto— no inventa una causa que no
 /// tiene forma de confirmar.
 /// </summary>
@@ -87,7 +87,7 @@ public sealed class OpenAiCompatibleChatServiceTests
     [Fact]
     public async Task AnErrorWrappedInAnArrayDoesNotBringDownTheApplication()
     {
-        // Regresión de una caída real: Kohana se cerraba entera al primer error con Gemini.
+        // Regresión de una caída real: Sakura se cerraba entera al primer error con Gemini.
         // TryGetProperty sobre un array no devuelve falso, lanza, y esa excepción no estaba
         // capturada. Que este método devuelva en vez de lanzar es la prueba.
         using var handler = new FakeHandler(HttpStatusCode.BadRequest, GeminiArrayWrappedError);
@@ -135,12 +135,12 @@ public sealed class OpenAiCompatibleChatServiceTests
 
     private static AiChatRequest RequestWithImage() => new(
         [new ConversationMessage(ConversationRole.User, "¿Qué ves aquí?", DateTimeOffset.Now)],
-        Instructions: "Eres Kohana.",
+        Instructions: "Eres Sakura.",
         Images: [AiImageAttachment.FromBytes([1, 2, 3, 4])]);
 
     private static AiChatRequest RequestWithoutImage() => new(
         [new ConversationMessage(ConversationRole.User, "Hola", DateTimeOffset.Now)],
-        Instructions: "Eres Kohana.");
+        Instructions: "Eres Sakura.");
 
     private sealed class FakeHandler(HttpStatusCode statusCode, string body) : HttpMessageHandler
     {

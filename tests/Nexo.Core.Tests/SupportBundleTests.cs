@@ -15,7 +15,7 @@ public sealed class SupportBundleTests
         "0.11.0-beta",
         "Windows 11",
         ".NET 10",
-        @"C:\Users\adler\AppData\Local\Kohana",
+        @"C:\Users\adler\AppData\Local\Sakura",
         items);
 
     private static DiagnosticItem Item(string detail) =>
@@ -30,7 +30,7 @@ public sealed class SupportBundleTests
     public void TheUserFolderNameNeverAppears()
     {
         // Sin esto, cada línea con una ruta revela cómo se llama la persona.
-        var bundle = Build(Diagnostics(Item(@"Modelo en C:\Users\adler\AppData\Local\Kohana\models")));
+        var bundle = Build(Diagnostics(Item(@"Modelo en C:\Users\adler\AppData\Local\Sakura\models")));
 
         Assert.DoesNotContain("adler", bundle, StringComparison.OrdinalIgnoreCase);
     }
@@ -134,7 +134,7 @@ public sealed class SupportBundleTests
     [Fact]
     public void ThePrivacyReportSeparatesYourDataFromOperationalData()
     {
-        var report = PrivacyReportBuilder.Build(@"C:\Users\adler\AppData\Local\Kohana", _ => false, _ => 0);
+        var report = PrivacyReportBuilder.Build(@"C:\Users\adler\AppData\Local\Sakura", _ => false, _ => 0);
 
         Assert.Contains("Datos tuyos", report);
         Assert.Contains("Datos de funcionamiento", report);
@@ -144,7 +144,7 @@ public sealed class SupportBundleTests
     [Fact]
     public void ThePrivacyReportSaysHowToDeleteThings()
     {
-        var report = PrivacyReportBuilder.Build(@"C:\Kohana", _ => false, _ => 0);
+        var report = PrivacyReportBuilder.Build(@"C:\Sakura", _ => false, _ => 0);
 
         Assert.Contains("Cómo borrarlo", report);
         Assert.Contains("Olvidar todo", report);
@@ -153,7 +153,7 @@ public sealed class SupportBundleTests
     [Fact]
     public void ThePrivacyReportSaysWhatIsEncrypted()
     {
-        var report = PrivacyReportBuilder.Build(@"C:\Kohana", _ => true, _ => 2048);
+        var report = PrivacyReportBuilder.Build(@"C:\Sakura", _ => true, _ => 2048);
 
         Assert.Contains("cifrado", report);
     }
@@ -162,7 +162,7 @@ public sealed class SupportBundleTests
     public void ThePrivacyReportNeverShowsContent()
     {
         // Enseñar los datos para demostrar que se guardan sería contradictorio.
-        var report = PrivacyReportBuilder.Build(@"C:\Kohana", _ => true, _ => 100);
+        var report = PrivacyReportBuilder.Build(@"C:\Sakura", _ => true, _ => 100);
 
         Assert.Contains("No incluye el contenido de nada", report);
     }
@@ -170,8 +170,8 @@ public sealed class SupportBundleTests
     [Fact]
     public void ThePrivacyReportCoversTheWholeInventory()
     {
-        var report = PrivacyReportBuilder.Build(@"C:\Kohana", _ => true, _ => 10);
+        var report = PrivacyReportBuilder.Build(@"C:\Sakura", _ => true, _ => 10);
 
-        Assert.All(KohanaDataInventory.All, item => Assert.Contains(item.FileName, report));
+        Assert.All(SakuraDataInventory.All, item => Assert.Contains(item.FileName, report));
     }
 }

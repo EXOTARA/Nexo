@@ -331,7 +331,7 @@ public sealed class AmbientRequestManagerTests
         // corte del cliente de IA llega como cancelación desde dentro de un iterador y se escapaba
         // de los filtros de excepción, así que nadie cerraba la solicitud.
         var manager = CreateManager();
-        manager.Begin("Kohana Lens — modo estudio", context: null, ReferenceNow);
+        manager.Begin("Sakura Lens — modo estudio", context: null, ReferenceNow);
         manager.BeginThinking(ReferenceNow);
 
         var result = manager.FailIfStalled(ReferenceNow + AmbientRequestManager.ThinkingStallLimit);
@@ -346,7 +346,7 @@ public sealed class AmbientRequestManagerTests
         // Un modelo local sobre una gráfica modesta tarda minutos en soltar el primer fragmento, y
         // eso es lentitud, no un cuelgue. El plazo se cumple o no se toca nada.
         var manager = CreateManager();
-        manager.Begin("Kohana Lens — modo soporte", context: null, ReferenceNow);
+        manager.Begin("Sakura Lens — modo soporte", context: null, ReferenceNow);
         manager.BeginThinking(ReferenceNow);
 
         var result = manager.FailIfStalled(
@@ -362,7 +362,7 @@ public sealed class AmbientRequestManagerTests
         // La regla de D7: media respuesta es más que ninguna. Si ya había texto, la solicitud se
         // cierra COMO RESULTADO y no como fallo, con la nota de que se cortó.
         var manager = CreateManager();
-        manager.Begin("Kohana Lens — modo desarrollo", context: null, ReferenceNow);
+        manager.Begin("Sakura Lens — modo desarrollo", context: null, ReferenceNow);
         manager.BeginThinking(ReferenceNow);
         manager.BeginStreaming(ReferenceNow);
         manager.AppendStreamedText("La ventana muestra", ReferenceNow);
@@ -384,7 +384,7 @@ public sealed class AmbientRequestManagerTests
         // Una respuesta larga puede tardar más que el plazo entero sin estar colgada: lo que se
         // mide es el silencio, no la duración.
         var manager = CreateManager();
-        manager.Begin("Kohana Lens — modo estudio", context: null, ReferenceNow);
+        manager.Begin("Sakura Lens — modo estudio", context: null, ReferenceNow);
         manager.BeginThinking(ReferenceNow);
         manager.BeginStreaming(ReferenceNow);
 
@@ -418,7 +418,7 @@ public sealed class AmbientRequestManagerTests
     {
         // Diseño D63 — el fallo de verdad, encontrado leyendo el archivo de estado del equipo de
         // Adler: una solicitud en "Escuchando" del 2 de agosto, dieciséis días bloqueando cada
-        // orden de Lens con "ya hay una solicitud ambiental en curso". Si Kohana se cierra a mitad,
+        // orden de Lens con "ya hay una solicitud ambiental en curso". Si Sakura se cierra a mitad,
         // nadie va a terminar esa solicitud al arrancar de nuevo: quien iba a hacerlo ya no existe.
         var store = new MemoryAmbientRequestHistoryStore();
         store.State.ActiveRequest = new AmbientRequest
@@ -437,7 +437,7 @@ public sealed class AmbientRequestManagerTests
         Assert.Equal(AmbientRequestStatus.Failed, manager.GetHistory()[0].Status);
 
         // Y lo que importa de verdad: se puede volver a pedir algo.
-        Assert.True(manager.Begin("Kohana Lens — modo estudio", context: null, ReferenceNow).Success);
+        Assert.True(manager.Begin("Sakura Lens — modo estudio", context: null, ReferenceNow).Success);
     }
 
     [Fact]
@@ -469,7 +469,7 @@ public sealed class AmbientRequestManagerTests
         // alguien se va por una rama de error sin cerrarla, ahí se queda, y Begin rechaza todo lo
         // que venga después.
         var manager = CreateManager();
-        manager.Begin("Kohana Lens — modo soporte", context: null, ReferenceNow);
+        manager.Begin("Sakura Lens — modo soporte", context: null, ReferenceNow);
 
         var result = manager.FailIfStalled(ReferenceNow + AmbientRequestManager.ListeningStallLimit);
 

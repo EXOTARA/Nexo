@@ -105,9 +105,9 @@ public sealed class ShellLifecycleCharacterizationTests
     }
 
     [Fact]
-    public void GameMode_IgnoresKohanaAndShellSurfacesInFullScreen()
+    public void GameMode_IgnoresSakuraAndShellSurfacesInFullScreen()
     {
-        // Sin esto, la propia ventana de Kohana a pantalla completa activaría el modo juego.
+        // Sin esto, la propia ventana de Sakura a pantalla completa activaría el modo juego.
         foreach (var process in new[] { "kohana", "nexo", "explorer", "snippingtool" })
         {
             var decision = ResourceGovernorPolicy.Evaluate(new ResourceGovernorInput(

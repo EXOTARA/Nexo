@@ -13,7 +13,7 @@ namespace Nexo.Windows.ComputerUse;
 /// hay entrada del usuario ni del modelo, y por tanto no hay nada que escapar. Una cadena que se
 /// compone es una cadena en la que alguien acaba metiendo algo.
 ///
-/// El portapapeles requiere hilo STA. Kohana lo llama desde el hilo de interfaz, que ya lo es; si
+/// El portapapeles requiere hilo STA. Sakura lo llama desde el hilo de interfaz, que ya lo es; si
 /// algún día se llamara desde otro sitio, fallaría de forma visible en vez de en silencio.
 /// </summary>
 public sealed class WindowsComputerUseExecutor : IComputerUseExecutor

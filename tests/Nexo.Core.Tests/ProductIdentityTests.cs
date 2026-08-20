@@ -11,19 +11,25 @@ namespace Nexo.Core.Tests;
 public sealed class ProductIdentityTests
 {
     [Fact]
-    public void PublicIdentity_UsesKohanaWithoutLosingLegacyName()
+    public void PublicIdentity_UsesSakuraWithoutLosingLegacyName()
     {
-        Assert.Equal("Kohana", ProductIdentity.ProductName);
-        Assert.Equal("Nexo", ProductIdentity.PreviousProductName);
+        Assert.Equal("Sakura", ProductIdentity.ProductName);
+        Assert.Equal("Kohana", ProductIdentity.PreviousProductName);
         Assert.Equal("Tu Windows, en flor.", ProductIdentity.Tagline);
-        Assert.Equal("Oye Kohana", ProductIdentity.DefaultWakePhrase);
+        Assert.Equal("Oye Sakura", ProductIdentity.DefaultWakePhrase);
     }
 
     [Fact]
     public void DataPaths_SeparateCurrentAndLegacyIdentity()
     {
-        Assert.Equal("Kohana", Path.GetFileName(NexoDataPaths.RootDirectory));
-        Assert.Equal("Nexo", Path.GetFileName(NexoDataPaths.LegacyRootDirectory));
+        Assert.Equal("Sakura", Path.GetFileName(NexoDataPaths.RootDirectory));
+
+        // Diseño D70 — los nombres anteriores son dos y en orden: primero Kohana, luego Nexo, que
+        // es donde siguen los modelos de voz de quien viene de la primera etapa.
+        Assert.Equal("Kohana", Path.GetFileName(NexoDataPaths.LegacyRootDirectory));
+        Assert.Equal(
+            new[] { "Kohana", "Nexo" },
+            NexoDataPaths.LegacyRootDirectories.Select(root => Path.GetFileName(root)!).ToArray());
     }
 
     [Fact]

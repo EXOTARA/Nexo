@@ -6,7 +6,7 @@ namespace Nexo.Windows.Tests;
 /// <summary>
 /// Ejecuta el Diseño D22 de verdad — sobre disco real, con DPAPI real — en vez de solo probar la
 /// lógica pura. Es lo más cerca que una prueba automatizada puede llegar del comando «Comprobar que
-/// Kohana funciona bien» sin abrir la interfaz: si algo en la máquina de compilación no puede
+/// Sakura funciona bien» sin abrir la interfaz: si algo en la máquina de compilación no puede
 /// escribir, cifrar o verificar, esto lo dice aquí y no en el equipo de alguien.
 /// </summary>
 public sealed class SelfCheckEndToEndTests

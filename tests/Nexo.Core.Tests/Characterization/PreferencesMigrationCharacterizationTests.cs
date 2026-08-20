@@ -53,13 +53,13 @@ public sealed class PreferencesMigrationCharacterizationTests
         var preferences = new ShellPreferences
         {
             SchemaVersion = 17,
-            FlowDictionary = ["cojana=Kohana"],
+            FlowDictionary = ["cojana=Sakura"],
             FlowSnippets = ["mi correo=adler@ejemplo.com"]
         };
 
         preferences.Normalize();
 
-        Assert.Equal(["cojana=Kohana"], preferences.FlowDictionary);
+        Assert.Equal(["cojana=Sakura"], preferences.FlowDictionary);
         Assert.Equal(["mi correo=adler@ejemplo.com"], preferences.FlowSnippets);
     }
 
@@ -82,7 +82,7 @@ public sealed class PreferencesMigrationCharacterizationTests
     [Fact]
     public void MigratingToNineteen_LeavesMemoryOff_BecauseAnUpdateIsNotConsent()
     {
-        // El roadmap dice que la memoria "nunca" se activa por defecto. Actualizar Kohana no es
+        // El roadmap dice que la memoria "nunca" se activa por defecto. Actualizar Sakura no es
         // que la persona haya dicho que sí.
         var preferences = new ShellPreferences { SchemaVersion = 18 };
 
@@ -195,7 +195,7 @@ public sealed class PreferencesMigrationCharacterizationTests
         Assert.Equal("#E98AAF", preferences.AccentColor);
     }
 
-    // Diseño D58 — cambiada a propósito: el suelo del rango bajó de 680 a 460 para que Kohana
+    // Diseño D58 — cambiada a propósito: el suelo del rango bajó de 680 a 460 para que Sakura
     // pueda ponerse tan estrecha como una barra lateral. El techo y la forma de recortar no se
     // tocan, y 700 sigue pasando intacto porque sigue estando dentro del rango.
     [Theory]
@@ -218,7 +218,7 @@ public sealed class PreferencesMigrationCharacterizationTests
     /// <summary>
     /// Diseño D62 — el suelo cambió de 0.82 a 0.35 y esta caracterización se actualiza a
     /// conciencia. Lo que protegía el 0.82 era la lectura de un texto sobre el escritorio sin
-    /// desenfocar, que es lo único que había debajo de Kohana; con el acrílico del sistema detrás,
+    /// desenfocar, que es lo único que había debajo de Sakura; con el acrílico del sistema detrás,
     /// lo que se ve a través ya viene desenfocado. Donde no hay fondo del sistema la superficie se
     /// pinta opaca pase lo que pase, así que el suelo nuevo no llega a aplicarse ahí.
     /// </summary>

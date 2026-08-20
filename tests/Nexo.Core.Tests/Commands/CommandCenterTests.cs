@@ -8,14 +8,14 @@ namespace Nexo.Core.Tests.Commands;
 /// </summary>
 public sealed class CommandCenterTests
 {
-    private static KohanaCommandDescriptor Command(
+    private static SakuraCommandDescriptor Command(
         string id,
         string title,
         string description = "",
-        KohanaCommandCategory category = KohanaCommandCategory.Navigation,
+        SakuraCommandCategory category = SakuraCommandCategory.Navigation,
         IReadOnlyList<string>? keywords = null,
         Func<CancellationToken, Task<CommandExecutionResult>>? execute = null,
-        Func<KohanaCommandAvailability>? availability = null) =>
+        Func<SakuraCommandAvailability>? availability = null) =>
         new(
             id,
             title,
@@ -30,7 +30,7 @@ public sealed class CommandCenterTests
     [Fact]
     public void Registry_KeepsRegistrationOrder()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Ir a Inicio"));
         registry.Register(Command("b", "Ir a Sistema"));
 
@@ -41,7 +41,7 @@ public sealed class CommandCenterTests
     [Fact]
     public void Registry_RejectsDuplicateIds()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("go.home", "Ir a Inicio"));
 
         // Dos acciones distintas bajo el mismo identificador estable es un error de programación,
@@ -54,7 +54,7 @@ public sealed class CommandCenterTests
     [Fact]
     public void Registry_FindsById_IgnoringCaseAndSurroundingSpace()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("go.system", "Ir a Sistema"));
 
         Assert.NotNull(registry.Find("GO.SYSTEM"));
@@ -69,8 +69,8 @@ public sealed class CommandCenterTests
     {
         Assert.Throws<ArgumentException>(() => Command(" ", "Título"));
         Assert.Throws<ArgumentException>(() => Command("id", " "));
-        Assert.Throws<ArgumentNullException>(() => new KohanaCommandDescriptor(
-            "id", "Título", "", KohanaCommandCategory.Shell, execute: null!));
+        Assert.Throws<ArgumentNullException>(() => new SakuraCommandDescriptor(
+            "id", "Título", "", SakuraCommandCategory.Shell, execute: null!));
     }
 
     // ---------- Normalización de la búsqueda ----------
@@ -164,7 +164,7 @@ public sealed class CommandCenterTests
 
     [Fact]
     public void Availability_Unavailable_RequiresAReason() =>
-        Assert.Throws<ArgumentException>(() => KohanaCommandAvailability.Unavailable("  "));
+        Assert.Throws<ArgumentException>(() => SakuraCommandAvailability.Unavailable("  "));
 
     [Fact]
     public void Availability_DefaultsToAvailable() =>
@@ -178,8 +178,8 @@ public sealed class CommandCenterTests
             "focus.end",
             "Finalizar enfoque",
             availability: () => enabled
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa."));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa."));
 
         Assert.False(command.GetAvailability().IsAvailable);
         enabled = true;
@@ -226,7 +226,7 @@ public sealed class CommandCenterTests
                 ran = true;
                 return Task.FromResult(CommandExecutionResult.Success());
             },
-            availability: () => KohanaCommandAvailability.Unavailable("El mezclador no está disponible."));
+            availability: () => SakuraCommandAvailability.Unavailable("El mezclador no está disponible."));
 
         var result = await command.ExecuteAsync();
 
@@ -241,7 +241,7 @@ public sealed class CommandCenterTests
         var thrown = new InvalidOperationException("el servicio falló");
         var command = Command("audio.mute", "Silenciar audio", execute: _ => throw thrown);
 
-        // Una excepción dentro de un comando no debe propagarse a la UI ni cerrar Kohana, pero
+        // Una excepción dentro de un comando no debe propagarse a la UI ni cerrar Sakura, pero
         // tampoco debe perderse: el stack trace original se conserva para el registro.
         var result = await command.ExecuteAsync();
 

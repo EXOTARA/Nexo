@@ -170,9 +170,9 @@ public partial class DashboardTabStrip : UserControl
             IndicatorTranslate.AnimateTransform(
                 TranslateTransform.XProperty,
                 target,
-                KohanaMotion.Emphasized,
-                KohanaMotion.EmphasizedCurve);
-            Indicator.Animate(OpacityProperty, 1, KohanaMotion.Fast, KohanaMotion.DecelerateCurve);
+                SakuraMotion.Emphasized,
+                SakuraMotion.EmphasizedCurve);
+            Indicator.Animate(OpacityProperty, 1, SakuraMotion.Fast, SakuraMotion.DecelerateCurve);
         }
         else
         {

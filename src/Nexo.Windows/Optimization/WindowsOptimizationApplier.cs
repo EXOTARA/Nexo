@@ -12,7 +12,7 @@ namespace Nexo.Windows.Optimization;
 /// Diseño D11 — **cada cambio se verifica releyendo el estado**. Que <c>PowerSetActiveScheme</c>
 /// devuelva 0 significa que Windows aceptó la llamada, no que el plan activo sea ahora el que se
 /// pidió: una directiva de grupo o un fabricante pueden reponer el suyo. El criterio de terminado de
-/// la fase pide reversión *verificada*, y verificar es releer. Sin esto, Kohana podía anunciar
+/// la fase pide reversión *verificada*, y verificar es releer. Sin esto, Sakura podía anunciar
 /// "listo" sobre un cambio que no ocurrió, y ofrecer después deshacer algo que nunca se hizo.
 /// </summary>
 public sealed class WindowsOptimizationApplier : IOptimizationApplier

@@ -7,15 +7,15 @@ namespace Nexo.Core.Commands.CommandCenter;
 /// una sola vez al construir el shell y a partir de ahí se consultan y buscan sin reflexión y sin
 /// construir vistas.
 /// </summary>
-public sealed class KohanaCommandRegistry
+public sealed class SakuraCommandRegistry
 {
-    private readonly Dictionary<string, KohanaCommandDescriptor> _commandsById =
+    private readonly Dictionary<string, SakuraCommandDescriptor> _commandsById =
         new(StringComparer.OrdinalIgnoreCase);
 
-    private readonly List<KohanaCommandDescriptor> _ordered = [];
+    private readonly List<SakuraCommandDescriptor> _ordered = [];
 
     /// <summary>Comandos en el orden en que se registraron; el orden de registro es el desempate estable.</summary>
-    public IReadOnlyList<KohanaCommandDescriptor> Commands => _ordered;
+    public IReadOnlyList<SakuraCommandDescriptor> Commands => _ordered;
 
     public int Count => _ordered.Count;
 
@@ -24,7 +24,7 @@ public sealed class KohanaCommandRegistry
     /// error de programación (dos acciones distintas respondiendo al mismo identificador estable),
     /// no algo que deba resolverse en silencio.
     /// </summary>
-    public void Register(KohanaCommandDescriptor command)
+    public void Register(SakuraCommandDescriptor command)
     {
         ArgumentNullException.ThrowIfNull(command);
 
@@ -37,7 +37,7 @@ public sealed class KohanaCommandRegistry
         _ordered.Add(command);
     }
 
-    public void RegisterRange(IEnumerable<KohanaCommandDescriptor> commands)
+    public void RegisterRange(IEnumerable<SakuraCommandDescriptor> commands)
     {
         ArgumentNullException.ThrowIfNull(commands);
 
@@ -47,7 +47,7 @@ public sealed class KohanaCommandRegistry
         }
     }
 
-    public KohanaCommandDescriptor? Find(string? id) =>
+    public SakuraCommandDescriptor? Find(string? id) =>
         string.IsNullOrWhiteSpace(id)
             ? null
             : _commandsById.GetValueOrDefault(id.Trim());

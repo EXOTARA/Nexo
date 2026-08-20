@@ -15,7 +15,7 @@ using Nexo.Windows.Voice;
 namespace Nexo.Windows.Composition;
 
 /// <summary>
-/// Raíz de composición única de Kohana: construye, en un único <see cref="ServiceProvider"/>,
+/// Raíz de composición única de Sakura: construye, en un único <see cref="ServiceProvider"/>,
 /// los seis servicios de interfaz de la aplicación y el <see cref="Voice.VoiceCoordinator"/>, y
 /// es su propietario de ciclo de vida. La crea exclusivamente <c>App.OnStartup</c>, de modo que
 /// existe una sola composición y un solo <see cref="ServiceProvider"/> durante toda la vida del
@@ -28,7 +28,7 @@ namespace Nexo.Windows.Composition;
 /// (Whisper, TTS, Vosk) accede únicamente a través de <see cref="VoiceCoordinator"/>. La
 /// liberación de todo el subsistema de voz ocurre aquí (ver <see cref="Dispose"/>).
 /// </summary>
-public sealed class KohanaCompositionRoot : IDisposable
+public sealed class SakuraCompositionRoot : IDisposable
 {
     private bool _disposed;
 
@@ -53,14 +53,14 @@ public sealed class KohanaCompositionRoot : IDisposable
     public VoiceCoordinator VoiceCoordinator { get; }
 
     /// <summary>
-    /// Catálogo de motores reales de Kohana y su estado observable, usado por
+    /// Catálogo de motores reales de Sakura y su estado observable, usado por
     /// <see cref="Nexo.Core.AdaptiveEngine.AdaptiveEnginePolicy"/> para producir recomendaciones.
     /// Depende de <see cref="Voice.VoiceCoordinator"/> únicamente para leer su estado ya expuesto
     /// (listo/escuchando), sin alterar su comportamiento ni su ciclo de vida.
     /// </summary>
     public IAdaptiveEngineRegistry AdaptiveEngineRegistry { get; }
 
-    public KohanaCompositionRoot()
+    public SakuraCompositionRoot()
     {
         // Orden de construcción de los seis servicios de interfaz
         // (IAiChatService -> IAudioMixerService -> IVoiceInputService -> IVoiceOutputService ->

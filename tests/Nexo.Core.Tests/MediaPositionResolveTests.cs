@@ -91,7 +91,7 @@ public sealed class MediaPositionResolveTests
     [Fact]
     public void AClockThatDisagrees_DoesNotPushTheBarBackwards()
     {
-        // El instante lo pone el servicio de medios y la hora la pone Kohana; no tienen por qué
+        // El instante lo pone el servicio de medios y la hora la pone Sakura; no tienen por qué
         // coincidir al milisegundo. Un tiempo negativo no significa que la pista haya retrocedido.
         var resolved = MediaProgress.Resolve(
             position: TimeSpan.FromMinutes(1),

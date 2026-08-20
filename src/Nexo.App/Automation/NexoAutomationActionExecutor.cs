@@ -53,7 +53,7 @@ public sealed class NexoAutomationActionExecutor : IAutomationActionExecutor
             _ => AutomationActionResult.Failed(
                 action,
                 "Acción no disponible",
-                "Kohana bloqueó una acción que no pertenece a la lista permitida.")
+                "Sakura bloqueó una acción que no pertenece a la lista permitida.")
         };
     }
 
@@ -177,7 +177,7 @@ public sealed class NexoAutomationActionExecutor : IAutomationActionExecutor
         while (current is not null)
         {
             if (File.Exists(Path.Combine(current.FullName, "Nexo.slnx")) ||
-                File.Exists(Path.Combine(current.FullName, "Kohana.slnx")))
+                File.Exists(Path.Combine(current.FullName, "Sakura.slnx")))
             {
                 return current.FullName;
             }

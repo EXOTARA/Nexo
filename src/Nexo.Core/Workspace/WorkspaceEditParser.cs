@@ -133,7 +133,7 @@ public static class WorkspaceEditParser
             : new WorkspaceEdit(
                 relativePath,
                 text,
-                string.IsNullOrWhiteSpace(reason) ? "Cambio propuesto por Kohana." : reason);
+                string.IsNullOrWhiteSpace(reason) ? "Cambio propuesto por Sakura." : reason);
     }
 
     public static WorkspaceEdit? Parse(string? answer)
@@ -196,7 +196,7 @@ public static class WorkspaceEditParser
         return new WorkspaceEdit(
             relativePath,
             text,
-            string.IsNullOrWhiteSpace(reason) ? "Cambio propuesto por Kohana." : reason);
+            string.IsNullOrWhiteSpace(reason) ? "Cambio propuesto por Sakura." : reason);
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ namespace Nexo.App.Tests;
 /// Diseño D43 — la tira de pestañas del panel superior, con WPF de verdad.
 ///
 /// La prueba central de aquí reproduce un defecto que se encontró usando la aplicación y no
-/// leyéndola: la vista Sistema se construye al arrancar Kohana aunque nadie la abra, así que la
+/// leyéndola: la vista Sistema se construye al arrancar Sakura aunque nadie la abra, así que la
 /// tira existe con ancho cero durante toda la sesión. La primera versión, al no poder medir el
 /// subrayado, se volvía a encolar en el Dispatcher para reintentarlo — y como el ancho seguía
 /// siendo cero, se encolaba otra vez, para siempre. La ventana no se rompía: se ponía pastosa y se

@@ -5,7 +5,7 @@ using System.Windows.Media.Animation;
 namespace Nexo.App.Motion;
 
 /// <summary>
-/// Diseño D26 — el vocabulario de movimiento de Kohana en un solo sitio.
+/// Diseño D26 — el vocabulario de movimiento de Sakura en un solo sitio.
 ///
 /// Antes cada vista construía su propia <see cref="DoubleAnimation"/> con su propia duración y su
 /// propia curva. El resultado era que el mismo gesto —abrir algo— tardaba 170 ms en el shell,
@@ -16,7 +16,7 @@ namespace Nexo.App.Motion;
 /// animan: dejan la propiedad en su valor final de inmediato. Ese es el contrato — apagar las
 /// animaciones nunca puede dejar algo a medio camino ni invisible.
 /// </summary>
-public static class KohanaMotion
+public static class SakuraMotion
 {
     /// <summary>
     /// Retardo entre elementos consecutivos de una lista que entra. Corto a propósito: un

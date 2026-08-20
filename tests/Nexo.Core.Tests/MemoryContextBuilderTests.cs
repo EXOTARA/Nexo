@@ -51,7 +51,7 @@ public sealed class MemoryContextBuilderTests
     {
         // La entrada sigue guardada — borrarla por mover un interruptor sería destruir datos, y
         // para eso está "olvidar" — pero deja de usarse en el acto.
-        var entries = new[] { Entry(MemoryCategory.Conversacion, "el proyecto se llama Kohana") };
+        var entries = new[] { Entry(MemoryCategory.Conversacion, "el proyecto se llama Sakura") };
         var settings = AllOn();
         settings.RememberConversation = false;
 

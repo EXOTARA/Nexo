@@ -2,7 +2,7 @@ using Nexo.Core.Settings;
 
 namespace Nexo.Core.Shell;
 
-/// <summary>Lo que hay que saber del ratón y de la pantalla para decidir si Kohana debe asomarse.</summary>
+/// <summary>Lo que hay que saber del ratón y de la pantalla para decidir si Sakura debe asomarse.</summary>
 public sealed record EdgeRevealProbe(
     double CursorX,
     double CursorY,
@@ -13,7 +13,7 @@ public sealed record EdgeRevealProbe(
     SidebarPosition Side);
 
 /// <summary>
-/// Diseño D27 — llevar el ratón al borde donde vive Kohana la hace aparecer, sin atajo ni clic.
+/// Diseño D27 — llevar el ratón al borde donde vive Sakura la hace aparecer, sin atajo ni clic.
 ///
 /// La parte difícil no es detectar el borde sino no molestar. Un borde de pantalla es un sitio muy
 /// concurrido: ahí están la barra de desplazamiento de cualquier ventana maximizada, el gesto de
@@ -57,7 +57,7 @@ public static class EdgeRevealPolicy
     public static readonly TimeSpan Dwell = TimeSpan.FromMilliseconds(160);
 
     /// <summary>
-    /// Tras ocultar Kohana, el ratón suele quedarse justo donde estaba: encima del borde. Sin esta
+    /// Tras ocultar Sakura, el ratón suele quedarse justo donde estaba: encima del borde. Sin esta
     /// pausa, cerrarla la volvería a abrir de inmediato y no habría forma de quitarla de en medio.
     /// </summary>
     public static readonly TimeSpan CooldownAfterHide = TimeSpan.FromMilliseconds(900);

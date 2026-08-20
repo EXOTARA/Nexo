@@ -149,7 +149,7 @@ public partial class OnboardingWindow : Window
 
         _activeAiBaseUrl = snapshot.BaseUrl;
         AiRuntimeTitleText.Text = snapshot.State == OllamaRuntimeState.ManagedRunning
-            ? "IA local de Kohana lista"
+            ? "IA local de Sakura lista"
             : "Ollama conectado";
 
         await LoadModelsAsync(snapshot.BaseUrl, cancellationToken);
@@ -354,7 +354,7 @@ public partial class OnboardingWindow : Window
 
             _activeAiBaseUrl = snapshot.BaseUrl;
             AiRuntimeTitleText.Text = snapshot.State == OllamaRuntimeState.ManagedRunning
-                ? "IA local de Kohana lista"
+                ? "IA local de Sakura lista"
                 : "Ollama conectado";
 
             var modelReady = await DownloadRecommendedModelAsync(
@@ -368,7 +368,7 @@ public partial class OnboardingWindow : Window
             await LoadModelsAsync(snapshot.BaseUrl, cancellationToken);
             AiRuntimeTitleText.Text = "Todo listo";
             AiStatusText.Text =
-                $"{RecommendedModel} está instalado. Ya puedes usar la IA de Kohana.";
+                $"{RecommendedModel} está instalado. Ya puedes usar la IA de Sakura.";
         }
         catch (OperationCanceledException)
         {
@@ -544,7 +544,7 @@ public partial class OnboardingWindow : Window
             var result = MessageBox.Show(
                 this,
                 "¿Omitir la configuración inicial? Puedes repetirla después desde Personalización.",
-                "Configurar Kohana",
+                "Configurar Sakura",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
             if (result != MessageBoxResult.Yes)

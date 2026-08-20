@@ -103,7 +103,7 @@ public sealed class PromptDispatchPolicyTests
     {
         Assert.Equal(
             PromptDispatchTarget.Routine,
-            Dispatch("Oye Kohana modo programación", "modo programacion").Target);
+            Dispatch("Oye Sakura modo programación", "modo programacion").Target);
     }
 
     [Theory]

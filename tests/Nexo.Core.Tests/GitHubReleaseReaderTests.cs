@@ -18,14 +18,14 @@ public sealed class GitHubReleaseReaderTests
       "body": "Arreglos varios",
       "assets": [
         {
-          "name": "Kohana-0.9.6-beta-win-x64-portable.zip",
+          "name": "Sakura-0.9.6-beta-win-x64-portable.zip",
           "size": 99700000,
-          "browser_download_url": "https://github.com/EXOTARA/Nexo/releases/download/v0.9.6/Kohana.zip"
+          "browser_download_url": "https://github.com/EXOTARA/Nexo/releases/download/v0.9.6/Sakura.zip"
         },
         {
-          "name": "Kohana-0.9.6-beta-win-x64-portable.zip.sha256",
+          "name": "Sakura-0.9.6-beta-win-x64-portable.zip.sha256",
           "size": 105,
-          "browser_download_url": "https://github.com/EXOTARA/Nexo/releases/download/v0.9.6/Kohana.zip.sha256"
+          "browser_download_url": "https://github.com/EXOTARA/Nexo/releases/download/v0.9.6/Sakura.zip.sha256"
         }
       ]
     }
@@ -38,15 +38,15 @@ public sealed class GitHubReleaseReaderTests
 
         Assert.True(release.IsUsable, release.Problem);
         Assert.Equal("v0.9.6-beta", release.Version);
-        Assert.EndsWith("Kohana.zip", release.PackageUrl, StringComparison.Ordinal);
-        Assert.EndsWith("Kohana.zip.sha256", release.ChecksumUrl, StringComparison.Ordinal);
+        Assert.EndsWith("Sakura.zip", release.PackageUrl, StringComparison.Ordinal);
+        Assert.EndsWith("Sakura.zip.sha256", release.ChecksumUrl, StringComparison.Ordinal);
         Assert.Equal(99700000, release.PackageSize);
     }
 
     [Fact]
     public void TheChecksumIsNotMistakenForThePackage()
     {
-        // «.zip.sha256» también termina en «.zip» si se mira mal el orden, y entonces Kohana
+        // «.zip.sha256» también termina en «.zip» si se mira mal el orden, y entonces Sakura
         // descargaría el archivo de la huella creyendo que es la aplicación.
         var release = GitHubReleaseReader.Read(Complete);
 
@@ -71,7 +71,7 @@ public sealed class GitHubReleaseReaderTests
         {
           "tag_name": "v1.0.0",
           "assets": [
-            { "name": "Kohana.zip", "size": 10, "browser_download_url": "https://x.invalid/Kohana.zip" }
+            { "name": "Sakura.zip", "size": 10, "browser_download_url": "https://x.invalid/Sakura.zip" }
           ]
         }
         """;
@@ -116,7 +116,7 @@ public sealed class GitHubReleaseReaderTests
     {
         // Es lo que escriben sha256sum y el script de publicación: «huella  nombre».
         const string content =
-            "c4b2b97223b013944f30ad7f0ee529007a71251f64d920569a133e897bba2985  Kohana.zip";
+            "c4b2b97223b013944f30ad7f0ee529007a71251f64d920569a133e897bba2985  Sakura.zip";
 
         Assert.Equal(
             "c4b2b97223b013944f30ad7f0ee529007a71251f64d920569a133e897bba2985",
@@ -148,7 +148,7 @@ public sealed class GitHubReleaseReaderTests
     [Fact]
     public void TheApiAddressAsksForTheListNotForLatest()
     {
-        // «latest» en GitHub significa la última que NO es preliminar, y Kohana publica todas sus
+        // «latest» en GitHub significa la última que NO es preliminar, y Sakura publica todas sus
         // versiones como preliminares: ese camino devolvía 404. Lo encontró la primera consulta de
         // verdad, no estas pruebas — ninguna podía, porque todas traen su JSON escrito a mano.
         var url = GitHubReleaseReader.ReleasesUrl("EXOTARA", "Nexo").ToString();

@@ -29,12 +29,12 @@ public static class SkillPackCatalog
     };
 
     /// <summary>
-    /// Kohana Study — para leer, estudiar y tomar apuntes. Dicta en prosa, contesta en voz alta y
+    /// Sakura Study — para leer, estudiar y tomar apuntes. Dicta en prosa, contesta en voz alta y
     /// quita de en medio lo que distrae.
     /// </summary>
     public static SkillPack Study { get; } = new(
         SkillPackId.Study,
-        "Kohana Study",
+        "Sakura Study",
         "Para estudiar: dictar apuntes, oír las respuestas y tener menos cosas parpadeando alrededor.",
         [
             Boolean("flow.enabled", "Dictado global activado",
@@ -47,7 +47,7 @@ public static class SkillPackCatalog
                 (preferences, value) => preferences.FlowMode = value,
                 desired: FlowMode.Texto),
 
-            Boolean("voice.speak", "Kohana lee sus respuestas en voz alta",
+            Boolean("voice.speak", "Sakura lee sus respuestas en voz alta",
                 preferences => preferences.SpeakVoiceResponses,
                 (preferences, value) => preferences.SpeakVoiceResponses = value,
                 desired: true),
@@ -64,7 +64,7 @@ public static class SkillPackCatalog
         ],
         [
             new SkillPackRequirement(
-                "Que Kohana pueda ver la pantalla (Lens)",
+                "Que Sakura pueda ver la pantalla (Lens)",
                 "Sin esto no puede explicarte lo que estás leyendo, solo lo que le dictes.",
                 preferences => preferences.VisionEnabled,
                 "Actívalo en Personalizar → Vision."),
@@ -83,13 +83,13 @@ public static class SkillPackCatalog
         ]);
 
     /// <summary>
-    /// Kohana Dev — para programar. Dicta con símbolos, deja Sistema y Captura a mano y le pide a
-    /// Kohana toda la potencia.
+    /// Sakura Dev — para programar. Dicta con símbolos, deja Sistema y Captura a mano y le pide a
+    /// Sakura toda la potencia.
     /// </summary>
     public static SkillPack Dev { get; } = new(
         SkillPackId.Dev,
-        "Kohana Dev",
-        "Para programar: dictado con símbolos, Sistema y Captura a la vista, y Kohana a pleno rendimiento.",
+        "Sakura Dev",
+        "Para programar: dictado con símbolos, Sistema y Captura a la vista, y Sakura a pleno rendimiento.",
         [
             Boolean("flow.enabled", "Dictado global activado",
                 preferences => preferences.FlowEnabled,
@@ -124,7 +124,7 @@ public static class SkillPackCatalog
                 "Autorízala en Personalizar → Proyecto autorizado."),
 
             new SkillPackRequirement(
-                "Que Kohana pueda ver la pantalla (Lens)",
+                "Que Sakura pueda ver la pantalla (Lens)",
                 "Sin esto no puede leer el error que tienes delante.",
                 preferences => preferences.VisionEnabled,
                 "Actívalo en Personalizar → Vision."),
@@ -137,12 +137,12 @@ public static class SkillPackCatalog
         ]);
 
     /// <summary>
-    /// Kohana Support — para arreglar algo que no funciona. Deja Sistema y Captura a mano, con las
+    /// Sakura Support — para arreglar algo que no funciona. Deja Sistema y Captura a mano, con las
     /// métricas visibles en la vista rápida.
     /// </summary>
     public static SkillPack Support { get; } = new(
         SkillPackId.Support,
-        "Kohana Support",
+        "Sakura Support",
         "Para resolver un problema: Sistema y Captura a la vista, métricas delante y dictado normal.",
         [
             Boolean("modules.system", "Módulo Sistema visible",
@@ -172,7 +172,7 @@ public static class SkillPackCatalog
         ],
         [
             new SkillPackRequirement(
-                "Que Kohana pueda ver la pantalla (Lens)",
+                "Que Sakura pueda ver la pantalla (Lens)",
                 "Es lo que le deja leer el error que tienes delante en vez de que se lo describas.",
                 preferences => preferences.VisionEnabled,
                 "Actívalo en Personalizar → Vision."),
@@ -185,12 +185,12 @@ public static class SkillPackCatalog
         ]);
 
     /// <summary>
-    /// Kohana Creator — para editar, diseñar o montar algo. Todo el rendimiento y nada parpadeando
+    /// Sakura Creator — para editar, diseñar o montar algo. Todo el rendimiento y nada parpadeando
     /// alrededor.
     /// </summary>
     public static SkillPack Creator { get; } = new(
         SkillPackId.Creator,
-        "Kohana Creator",
+        "Sakura Creator",
         "Para crear sin interrupciones: máximo rendimiento, sin avisos y con el audio por aplicación a mano.",
         [
             Enum("hardware.mode", "Rendimiento al máximo",
@@ -227,15 +227,15 @@ public static class SkillPackCatalog
         ]);
 
     /// <summary>
-    /// Kohana Access — manos libres y menos movimiento en pantalla. Es el pack que más se nota en el
+    /// Sakura Access — manos libres y menos movimiento en pantalla. Es el pack que más se nota en el
     /// día a día de quien lo necesita, y el que menos capacidades nuevas usa: todo esto ya existía.
     /// </summary>
     public static SkillPack Access { get; } = new(
         SkillPackId.Access,
-        "Kohana Access",
-        "Para usar Kohana sin manos y con menos movimiento: responde en voz alta, escucha siempre y no anima nada.",
+        "Sakura Access",
+        "Para usar Sakura sin manos y con menos movimiento: responde en voz alta, escucha siempre y no anima nada.",
         [
-            Boolean("voice.speak", "Kohana lee sus respuestas en voz alta",
+            Boolean("voice.speak", "Sakura lee sus respuestas en voz alta",
                 preferences => preferences.SpeakVoiceResponses,
                 (preferences, value) => preferences.SpeakVoiceResponses = value,
                 desired: true),
@@ -260,7 +260,7 @@ public static class SkillPackCatalog
                 "Micrófono y modelos de voz preparados",
                 "La palabra de activación y el dictado necesitan que Whisper y Vosk estén descargados.",
                 preferences => preferences.VoiceInputDeviceNumber >= -1,
-                "Compruébalo en Sistema → Runtime, o con «Comprobar que Kohana funciona bien»."),
+                "Compruébalo en Sistema → Runtime, o con «Comprobar que Sakura funciona bien»."),
 
             new SkillPackRequirement(
                 "Un proveedor de IA configurado",
@@ -270,15 +270,15 @@ public static class SkillPackCatalog
         ]);
 
     /// <summary>
-    /// Kohana Meeting — durante una videollamada. Kohana se aparta: ni avisos, ni voz, ni competir
+    /// Sakura Meeting — durante una videollamada. Sakura se aparta: ni avisos, ni voz, ni competir
     /// por el procesador con la llamada.
     /// </summary>
     public static SkillPack Meeting { get; } = new(
         SkillPackId.Meeting,
-        "Kohana Meeting",
-        "Para una reunión: Kohana se calla, no interrumpe y baja su consumo para no competir con la llamada.",
+        "Sakura Meeting",
+        "Para una reunión: Sakura se calla, no interrumpe y baja su consumo para no competir con la llamada.",
         [
-            Boolean("voice.speak", "Kohana no habla en voz alta",
+            Boolean("voice.speak", "Sakura no habla en voz alta",
                 preferences => preferences.SpeakVoiceResponses,
                 (preferences, value) => preferences.SpeakVoiceResponses = value,
                 desired: false),
@@ -298,7 +298,7 @@ public static class SkillPackCatalog
                 (preferences, value) => preferences.PlayNotificationSounds = value,
                 desired: false),
 
-            Enum("hardware.mode", "Kohana en bajo consumo",
+            Enum("hardware.mode", "Sakura en bajo consumo",
                 preferences => preferences.HardwarePerformanceMode,
                 (preferences, value) => preferences.HardwarePerformanceMode = value,
                 desired: HardwarePerformanceMode.Eco)

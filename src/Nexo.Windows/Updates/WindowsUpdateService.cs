@@ -5,6 +5,8 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using Nexo.Core.Updates;
 
+using Nexo.Core.Branding;
+
 namespace Nexo.Windows.Updates;
 
 /// <summary>Lo que se encontró al mirar si hay versión nueva.</summary>
@@ -47,7 +49,7 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
         // GitHub rechaza las peticiones sin identificación de cliente. Sin esto, la consulta
         // devuelve un 403 que parece un problema de permisos y no lo es.
         client.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("Kohana", "1.0"));
+            new ProductInfoHeaderValue("Sakura", "1.0"));
         client.Timeout = TimeSpan.FromSeconds(20);
 
         return client;
@@ -57,8 +59,8 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
     /// Mira si hay algo más nuevo. No descarga nada: solo consulta y decide.
     /// </summary>
     public async Task<UpdateLookup> LookForUpdateAsync(
-        KohanaVersion current,
-        KohanaVersion? skipped,
+        SakuraVersion current,
+        SakuraVersion? skipped,
         CancellationToken cancellationToken = default)
     {
         try
@@ -105,14 +107,14 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
         catch (Exception exception) when (
             exception is HttpRequestException or IOException or InvalidOperationException)
         {
-            // Estar sin conexión no es un fallo de Kohana y no debe contarse como tal.
+            // Estar sin conexión no es un fallo de Sakura y no debe contarse como tal.
             return UpdateLookup.Nothing("No se pudo consultar si hay una versión nueva.");
         }
     }
 
     private static string Explain(UpdateVerdict verdict) => verdict switch
     {
-        UpdateVerdict.AlreadyCurrent => "Kohana ya está en la última versión.",
+        UpdateVerdict.AlreadyCurrent => "Sakura ya está en la última versión.",
         UpdateVerdict.PreReleaseNotWanted => "Solo hay una versión preliminar, y no la usas.",
         UpdateVerdict.Skipped => "Esa versión ya la dejaste pasar.",
         _ => string.Empty
@@ -122,7 +124,7 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
     /// Descarga, desempaqueta al lado de la instalación y deja el ayudante listo. Devuelve la ruta
     /// del guion, o vacío con el motivo.
     ///
-    /// Lo que **no** hace es cerrar Kohana: eso lo decide quien llama, porque cerrar la aplicación
+    /// Lo que **no** hace es cerrar Sakura: eso lo decide quien llama, porque cerrar la aplicación
     /// de alguien es una acción suya y no de una tarea de fondo.
     /// </summary>
     public async Task<(bool Ready, string HelperPath, string Problem)> PrepareAsync(
@@ -161,11 +163,19 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
 
             // Un paquete que se desempaqueta pero no trae el ejecutable no sirve, y descubrirlo
             // ahora es gratis: descubrirlo después de mover la instalación, no.
-            var staged = Path.Combine(paths.Staged, "Kohana.exe");
+            // Diseño D70 — el paquete puede venir con el nombre nuevo o con el anterior: una
+            // instalación que todavía no ha saltado el cambio de nombre se actualiza igual, y una
+            // que ya saltó no debe rechazar un paquete viejo por llamarse distinto.
+            var staged = Path.Combine(paths.Staged, ProductIdentity.ExecutableName);
+            if (!File.Exists(staged))
+            {
+                staged = Path.Combine(paths.Staged, ProductIdentity.LegacyExecutableName);
+            }
+
             if (!File.Exists(staged))
             {
                 Directory.Delete(paths.Staged, recursive: true);
-                return (false, string.Empty, "El paquete descargado no contiene Kohana.");
+                return (false, string.Empty, "El paquete descargado no contiene Sakura.");
             }
 
             Directory.CreateDirectory(workFolder);
@@ -176,7 +186,7 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
                 UpdateHelperScript.Build(
                     paths,
                     Environment.ProcessId,
-                    Path.Combine(paths.Install, "Kohana.exe"),
+                    Path.Combine(paths.Install, Path.GetFileName(staged)),
                     download.PackagePath),
                 cancellationToken);
 
@@ -190,7 +200,7 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
     }
 
     /// <summary>
-    /// Lanza el ayudante y devuelve si arrancó. Quien llama debe cerrar Kohana justo después: el
+    /// Lanza el ayudante y devuelve si arrancó. Quien llama debe cerrar Sakura justo después: el
     /// guion espera a que este proceso termine antes de tocar nada.
     /// </summary>
     public static bool LaunchHelper(string helperPath)
@@ -205,14 +215,14 @@ public sealed class WindowsUpdateService(HttpClient? client = null)
 
                 // Diseño D67 — el ayudante NO puede trabajar desde la carpeta que va a mover.
                 //
-                // Sin esto hereda el directorio de trabajo de Kohana, que es su propia carpeta de
+                // Sin esto hereda el directorio de trabajo de Sakura, que es su propia carpeta de
                 // instalación. En Windows, un proceso cuyo directorio actual está dentro de una
                 // carpeta **impide moverla**: el ayudante retenía justo lo que venía a mover, el
-                // primer movimiento fallaba, la recuperación dejaba todo como estaba y Kohana no
+                // primer movimiento fallaba, la recuperación dejaba todo como estaba y Sakura no
                 // volvía a abrirse. Dos intentos en vivo con el mismo síntoma y dos causas
                 // distintas; esta es la segunda.
                 //
-                // Se usa el directorio del propio guión, que vive en los datos de Kohana y nunca es
+                // Se usa el directorio del propio guión, que vive en los datos de Sakura y nunca es
                 // la instalación.
                 WorkingDirectory = Path.GetDirectoryName(helperPath) ?? Path.GetTempPath()
             };

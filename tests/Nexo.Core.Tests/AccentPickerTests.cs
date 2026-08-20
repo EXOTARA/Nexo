@@ -10,7 +10,7 @@ namespace Nexo.Core.Tests;
 /// </summary>
 public sealed class AccentPickerTests
 {
-    /// <summary>El fondo del panel de Kohana, contra el que tiene que verse el acento.</summary>
+    /// <summary>El fondo del panel de Sakura, contra el que tiene que verse el acento.</summary>
     private static readonly RgbColor Panel = new(0x0C, 0x0E, 0x14);
 
     [Fact]
@@ -39,7 +39,7 @@ public sealed class AccentPickerTests
     {
         // Encontrado con un fondo real: una imagen oscura con cintas naranjas y magentas. Sus
         // colores tienen croma de sobra pero su contraste contra el panel no llega, y rechazarlos
-        // hacía que Kohana concluyera que ese fondo "no tiene color" — cuando cualquiera diría que
+        // hacía que Sakura concluyera que ese fondo "no tiene color" — cuando cualquiera diría que
         // es naranja y morado. Los fondos oscuros son el caso normal, no el raro.
         var darkOrange = RgbColor.FromHex("#8C2A00");
         Assert.True(ColorMath.ContrastRatio(darkOrange, Panel) < AccentPicker.MinimumContrast);

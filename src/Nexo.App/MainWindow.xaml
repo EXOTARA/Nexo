@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:Nexo.App.Views"
-        Title="Kohana"
+        Title="Sakura"
         Width="560"
         Height="790"
         MinWidth="460"
@@ -116,11 +116,11 @@
         <Grid ClipToBounds="True">
             <Grid x:Name="ShellLayoutGrid" Margin="13">
                 <!--
-                    Las dos columnas son intercambiables: cuando Kohana se acopla al borde izquierdo
+                    Las dos columnas son intercambiables: cuando Sakura se acopla al borde izquierdo
                     de la pantalla, el rail de navegación pasa a la columna 1 y el contenido a la 0.
                     Antes el rail estaba clavado en la columna 0 y quedaba en el lado interior,
                     lejos del borde por el que la ventana aparece — el menú se quedaba donde no
-                    estaba Kohana. Los anchos también se intercambian; por eso ninguno es fijo aquí.
+                    estaba Sakura. Los anchos también se intercambian; por eso ninguno es fijo aquí.
                 -->
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition x:Name="ShellFirstColumn" Width="Auto" />
@@ -173,7 +173,7 @@
                                         CornerRadius="14">
                                     <!--
                                         Diseño D64 — el botón que pliega el rail lleva la marca de
-                                        Kohana, elegida por Adler. Antes llevaba un panel con un
+                                        Sakura, elegida por Adler. Antes llevaba un panel con un
                                         chevrón que giraba según el lado; el chevrón se va con él
                                         porque a diecinueve píxeles la flor y una flecha encima no
                                         caben sin ensuciarse. Qué hace el botón lo siguen diciendo
@@ -181,7 +181,7 @@
                                         no cambian.
                                     -->
                                     <Grid Width="21" Height="21">
-                                        <Path Data="{StaticResource IconKohanaMark}"
+                                        <Path Data="{StaticResource IconSakuraMark}"
                                               Width="19"
                                               Height="19"
                                               Stretch="Uniform"
@@ -193,7 +193,7 @@
                                             Margin="10,0,0,0"
                                             VerticalAlignment="Center"
                                             Visibility="Collapsed">
-                                    <TextBlock Text="Kohana"
+                                    <TextBlock Text="Sakura"
                                                FontSize="{DynamicResource FontSizeBody}"
                                                FontWeight="SemiBold" />
                                     <TextBlock Text="Tu Windows, en flor"
@@ -220,7 +220,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="HomeNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                    <Path Grid.Column="1" x:Name="HomeNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaHome}" />
+                                    <Path Grid.Column="1" x:Name="HomeNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraHome}" />
                                     <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="HomeNavLabel" Text="Inicio" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
@@ -238,7 +238,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="AssistantNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                    <Path Grid.Column="1" x:Name="AssistantNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaAssistant}" />
+                                    <Path Grid.Column="1" x:Name="AssistantNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraAssistant}" />
                                     <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AssistantNavLabel" Text="Chat" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
@@ -256,7 +256,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="TasksNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                    <Path Grid.Column="1" x:Name="TasksNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaTasks}" />
+                                    <Path Grid.Column="1" x:Name="TasksNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraTasks}" />
                                     <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="TasksNavLabel" Text="Hoy" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
@@ -274,7 +274,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="FocusNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                    <Path Grid.Column="1" x:Name="FocusNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaFocus}" />
+                                    <Path Grid.Column="1" x:Name="FocusNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraFocus}" />
                                     <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="FocusNavLabel" Text="Enfoque" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
@@ -292,7 +292,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="RoutinesNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                    <Path Grid.Column="1" x:Name="RoutinesNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaRoutines}" />
+                                    <Path Grid.Column="1" x:Name="RoutinesNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraRoutines}" />
                                     <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="RoutinesNavLabel" Text="Rutinas" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
@@ -310,7 +310,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="AudioNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                    <Path Grid.Column="1" x:Name="AudioNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaAudio}" />
+                                    <Path Grid.Column="1" x:Name="AudioNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraAudio}" />
                                     <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="AudioNavLabel" Text="Audio" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
@@ -328,7 +328,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="CaptureNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                    <Path Grid.Column="1" x:Name="CaptureNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaCapture}" />
+                                    <Path Grid.Column="1" x:Name="CaptureNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraCapture}" />
                                     <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="CaptureNavLabel" Text="Captura" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
@@ -346,7 +346,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Border x:Name="SystemNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                    <Path Grid.Column="1" x:Name="SystemNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaSystem}" />
+                                    <Path Grid.Column="1" x:Name="SystemNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraSystem}" />
                                     <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SystemNavLabel" Text="Sistema" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                                 </Grid>
                             </Button>
@@ -366,7 +366,7 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <Border x:Name="SettingsNavIndicator" Grid.Column="0" Width="{DynamicResource NavigationIndicatorWidth}" Margin="0,6" CornerRadius="2" Background="{DynamicResource BrushAccent}" Visibility="Collapsed" />
-                                <Path Grid.Column="1" x:Name="SettingsNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconKohanaSettings}" />
+                                <Path Grid.Column="1" x:Name="SettingsNavIcon" Style="{StaticResource SakuraNavigationIconStyle}" Data="{StaticResource IconSakuraSettings}" />
                                 <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" x:Name="SettingsNavLabel" Text="Personalizar" FontSize="{DynamicResource FontSizeBody}" Visibility="Collapsed" />
                             </Grid>
                         </Button>
@@ -408,7 +408,7 @@
                                                  VerticalAlignment="Center"
                                                  Fill="{DynamicResource BrushSuccess}" />
                                         <TextBlock x:Name="WakeWordIndicatorText"
-                                                   Text="Kohana atenta"
+                                                   Text="Sakura atenta"
                                                    Foreground="{DynamicResource BrushTextSecondary}"
                                                    FontSize="{DynamicResource FontSizeCaption}"
                                                    FontWeight="SemiBold" />
@@ -444,8 +444,8 @@
                                         Background="{DynamicResource BrushAccentSoft}"
                                         CornerRadius="9"
                                         Visibility="Collapsed"
-                                        ToolTip="Kohana está dictando: habla y pulsa Ctrl + Shift + D otra vez para escribir."
-                                        AutomationProperties.Name="Kohana está escuchando tu dictado">
+                                        ToolTip="Sakura está dictando: habla y pulsa Ctrl + Shift + D otra vez para escribir."
+                                        AutomationProperties.Name="Sakura está escuchando tu dictado">
                                     <StackPanel Orientation="Horizontal">
                                         <Ellipse Width="7"
                                                  Height="7"
@@ -465,8 +465,8 @@
                                         Background="{DynamicResource BrushAccentSoft}"
                                         CornerRadius="9"
                                         Visibility="Collapsed"
-                                        ToolTip="Kohana Lens está observando la ventana activa, con tu autorización."
-                                        AutomationProperties.Name="Kohana Lens está observando la ventana activa">
+                                        ToolTip="Sakura Lens está observando la ventana activa, con tu autorización."
+                                        AutomationProperties.Name="Sakura Lens está observando la ventana activa">
                                     <StackPanel Orientation="Horizontal">
                                         <Ellipse Width="7"
                                                  Height="7"
@@ -493,8 +493,8 @@
                                     Margin="0,0,11,0"
                                     Background="{DynamicResource BrushSuccess}"
                                     CornerRadius="5"
-                                    ToolTip="Kohana está activa"
-                                    AutomationProperties.Name="Kohana está activa" />
+                                    ToolTip="Sakura está activa"
+                                    AutomationProperties.Name="Sakura está activa" />
                             <views:FocusMiniTimer x:Name="FocusMiniTimerControl"
                                                    Margin="0,0,10,0"
                                                    VerticalAlignment="Center" />
@@ -507,9 +507,9 @@
                                     Click="CommandCenterButton_Click"
                                     ToolTip="Centro de comandos · Ctrl + K"
                                     AutomationProperties.Name="Abrir centro de comandos"
-                                    AutomationProperties.HelpText="Ejecuta acciones de Kohana sin usar el ratón. Atajo: Ctrl + K.">
+                                    AutomationProperties.HelpText="Ejecuta acciones de Sakura sin usar el ratón. Atajo: Ctrl + K.">
                                 <Grid Width="19" Height="19">
-                                    <Path Data="{StaticResource IconKohanaPlus}"
+                                    <Path Data="{StaticResource IconSakuraPlus}"
                                           Stretch="Uniform"
                                           Stroke="{DynamicResource BrushAccent}"
                                           StrokeThickness="1.75"
@@ -524,7 +524,7 @@
                                     Padding="0"
                                     Style="{StaticResource HeaderCommandButtonStyle}"
                                     Click="CommandPaletteButton_Click"
-                                    ToolTip="Preguntar a Kohana · Ctrl + Espacio"
+                                    ToolTip="Preguntar a Sakura · Ctrl + Espacio"
                                     AutomationProperties.Name="Abrir paleta de comandos">
                                 <Grid Width="19" Height="19">
                                     <Path Data="{StaticResource IconCommandPalette}"
@@ -538,7 +538,7 @@
                             </Button>
 
                             <!--
-                                Diseño D58 — una forma visible de recoger Kohana.
+                                Diseño D58 — una forma visible de recoger Sakura.
 
                                 Escape ya la cierra, y ahora también desde fuera, pero un atajo no se
                                 ve: quien no lo sepa no tiene ninguna señal de cómo quitarla de en
@@ -553,11 +553,11 @@
                                     Padding="0"
                                     Style="{StaticResource HeaderCommandButtonStyle}"
                                     Click="HideShellButton_Click"
-                                    ToolTip="Recoger Kohana · Esc"
-                                    AutomationProperties.Name="Recoger Kohana"
-                                    AutomationProperties.HelpText="Oculta el shell sin cerrar Kohana. Atajo: Esc.">
+                                    ToolTip="Recoger Sakura · Esc"
+                                    AutomationProperties.Name="Recoger Sakura"
+                                    AutomationProperties.HelpText="Oculta el shell sin cerrar Sakura. Atajo: Esc.">
                                 <Grid Width="17" Height="17">
-                                    <Path Data="{StaticResource IconKohanaClose}"
+                                    <Path Data="{StaticResource IconSakuraClose}"
                                           Stretch="Uniform"
                                           Stroke="{DynamicResource BrushTextSecondary}"
                                           StrokeThickness="1.6"

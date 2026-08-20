@@ -86,8 +86,8 @@ public sealed class SettingsSection : HeaderedContentControl
             _chevronRotation.AnimateTransform(
                 RotateTransform.AngleProperty,
                 IsOpen ? 90 : 0,
-                animate ? KohanaMotion.Base : KohanaMotion.Fast,
-                KohanaMotion.EmphasizedCurve);
+                animate ? SakuraMotion.Base : SakuraMotion.Fast,
+                SakuraMotion.EmphasizedCurve);
         }
 
         if (IsOpen)
@@ -105,7 +105,7 @@ public sealed class SettingsSection : HeaderedContentControl
         var host = _contentHost!;
         host.Visibility = Visibility.Visible;
 
-        if (!animate || !KohanaMotion.AnimationsEnabled)
+        if (!animate || !SakuraMotion.AnimationsEnabled)
         {
             host.BeginAnimation(HeightProperty, null);
             host.Height = double.NaN;
@@ -113,12 +113,12 @@ public sealed class SettingsSection : HeaderedContentControl
             return;
         }
 
-        host.Animate(OpacityProperty, 1, KohanaMotion.Reveal, KohanaMotion.DecelerateCurve);
+        host.Animate(OpacityProperty, 1, SakuraMotion.Reveal, SakuraMotion.DecelerateCurve);
         host.Animate(
             HeightProperty,
             MeasureContentHeight(host),
-            KohanaMotion.Emphasized,
-            KohanaMotion.EmphasizedCurve,
+            SakuraMotion.Emphasized,
+            SakuraMotion.EmphasizedCurve,
             completed: () =>
             {
                 // Se devuelve a Auto en cuanto termina: una altura fija dejaría la sección
@@ -132,7 +132,7 @@ public sealed class SettingsSection : HeaderedContentControl
     {
         var host = _contentHost!;
 
-        if (!animate || !KohanaMotion.AnimationsEnabled)
+        if (!animate || !SakuraMotion.AnimationsEnabled)
         {
             host.BeginAnimation(HeightProperty, null);
             host.Height = 0;
@@ -145,12 +145,12 @@ public sealed class SettingsSection : HeaderedContentControl
         host.BeginAnimation(HeightProperty, null);
         host.Height = current;
 
-        host.Animate(OpacityProperty, 0, KohanaMotion.Exit, KohanaMotion.AccelerateCurve);
+        host.Animate(OpacityProperty, 0, SakuraMotion.Exit, SakuraMotion.AccelerateCurve);
         host.Animate(
             HeightProperty,
             0,
-            KohanaMotion.Exit,
-            KohanaMotion.AccelerateCurve,
+            SakuraMotion.Exit,
+            SakuraMotion.AccelerateCurve,
             completed: () =>
             {
                 // Collapsed y no Hidden: una sección cerrada no debe seguir participando en el
