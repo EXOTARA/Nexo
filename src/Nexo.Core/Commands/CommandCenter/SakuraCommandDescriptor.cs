@@ -9,21 +9,21 @@ namespace Nexo.Core.Commands.CommandCenter;
 /// (<c>FocusManager</c>, <c>IAudioMixerService</c>, navegación del shell…). Así el registro y la
 /// búsqueda pueden probarse sin levantar interfaz.
 /// </summary>
-public sealed class KohanaCommandDescriptor
+public sealed class SakuraCommandDescriptor
 {
     private readonly Func<CancellationToken, Task<CommandExecutionResult>> _execute;
-    private readonly Func<KohanaCommandAvailability>? _availability;
+    private readonly Func<SakuraCommandAvailability>? _availability;
 
-    public KohanaCommandDescriptor(
+    public SakuraCommandDescriptor(
         string id,
         string title,
         string description,
-        KohanaCommandCategory category,
+        SakuraCommandCategory category,
         Func<CancellationToken, Task<CommandExecutionResult>> execute,
         IReadOnlyList<string>? keywords = null,
         string? iconKey = null,
         string? shortcut = null,
-        Func<KohanaCommandAvailability>? availability = null)
+        Func<SakuraCommandAvailability>? availability = null)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -58,7 +58,7 @@ public sealed class KohanaCommandDescriptor
 
     public string Description { get; }
 
-    public KohanaCommandCategory Category { get; }
+    public SakuraCommandCategory Category { get; }
 
     /// <summary>Alias y sinónimos por los que también debe encontrarse el comando.</summary>
     public IReadOnlyList<string> Keywords { get; }
@@ -73,22 +73,22 @@ public sealed class KohanaCommandDescriptor
     /// Se consulta en el momento de mostrar o ejecutar, no al registrar: la disponibilidad de
     /// "silenciar audio" o "finalizar sesión de enfoque" depende del estado actual.
     /// </summary>
-    public KohanaCommandAvailability GetAvailability()
+    public SakuraCommandAvailability GetAvailability()
     {
         if (_availability is null)
         {
-            return KohanaCommandAvailability.Available;
+            return SakuraCommandAvailability.Available;
         }
 
         try
         {
-            return _availability() ?? KohanaCommandAvailability.Available;
+            return _availability() ?? SakuraCommandAvailability.Available;
         }
         catch (Exception exception)
         {
             // Consultar disponibilidad nunca debe tumbar la paleta: si el servicio subyacente
             // falla al responder, el comando se muestra deshabilitado explicando el motivo.
-            return KohanaCommandAvailability.Unavailable(
+            return SakuraCommandAvailability.Unavailable(
                 $"No se pudo comprobar si esta acción está disponible: {exception.Message}");
         }
     }

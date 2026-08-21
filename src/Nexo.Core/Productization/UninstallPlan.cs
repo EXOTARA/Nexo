@@ -11,14 +11,14 @@ public enum UninstallDataChoice
 }
 
 public sealed record UninstallPlan(
-    IReadOnlyList<KohanaDataItem> PersonalData,
-    IReadOnlyList<KohanaDataItem> OperationalData,
+    IReadOnlyList<SakuraDataItem> PersonalData,
+    IReadOnlyList<SakuraDataItem> OperationalData,
     UninstallDataChoice Choice)
 {
-    public IReadOnlyList<KohanaDataItem> WillBeDeleted =>
+    public IReadOnlyList<SakuraDataItem> WillBeDeleted =>
         Choice == UninstallDataChoice.Borrar ? [.. PersonalData, .. OperationalData] : OperationalData;
 
-    public IReadOnlyList<KohanaDataItem> WillBeKept =>
+    public IReadOnlyList<SakuraDataItem> WillBeKept =>
         Choice == UninstallDataChoice.Borrar ? [] : PersonalData;
 }
 
@@ -32,14 +32,14 @@ public sealed record UninstallPlan(
 /// persona creía eliminado.
 ///
 /// Por eso el plan enumera **las dos listas** y no propone ninguna por omisión: los datos
-/// operativos (registros, copias previas, marcas de pack) se van siempre porque Kohana los rehace, y
+/// operativos (registros, copias previas, marcas de pack) se van siempre porque Sakura los rehace, y
 /// los personales solo se van si la persona lo dice.
 /// </summary>
 public static class UninstallPlanner
 {
     public static UninstallPlan Build(UninstallDataChoice choice) => new(
-        KohanaDataInventory.Personal,
-        [.. KohanaDataInventory.All.Where(item => !item.IsPersonal)],
+        SakuraDataInventory.Personal,
+        [.. SakuraDataInventory.All.Where(item => !item.IsPersonal)],
         Enum.IsDefined(choice) ? choice : UninstallDataChoice.Conservar);
 
     /// <summary>
@@ -63,14 +63,14 @@ public static class UninstallPlanner
             return builder.ToString().TrimEnd();
         }
 
-        builder.AppendLine("Se conservará lo tuyo, por si vuelves a instalar Kohana:");
+        builder.AppendLine("Se conservará lo tuyo, por si vuelves a instalar Sakura:");
         foreach (var item in plan.WillBeKept)
         {
             builder.Append("· ").Append(item.Title).Append(" — ").AppendLine(item.WhatItHolds);
         }
 
         builder.AppendLine();
-        builder.AppendLine("Se borrarán los datos de funcionamiento, que Kohana rehace sola:");
+        builder.AppendLine("Se borrarán los datos de funcionamiento, que Sakura rehace sola:");
         foreach (var item in plan.WillBeDeleted)
         {
             builder.Append("· ").AppendLine(item.Title);

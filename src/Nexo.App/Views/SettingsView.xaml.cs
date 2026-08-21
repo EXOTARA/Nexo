@@ -17,6 +17,15 @@ public partial class SettingsView : UserControl
 {
     private bool _isApplyingPreferences;
 
+    /// <summary>Se pidió mirar si hay una versión nueva.</summary>
+    public event Action? UpdateCheckRequested;
+
+    /// <summary>Se aceptó instalar la versión encontrada.</summary>
+    public event Action? UpdateInstallRequested;
+
+    /// <summary>Se dejó pasar la versión encontrada.</summary>
+    public event Action? UpdateSkipRequested;
+
     public event Action<SidebarPosition>? PositionChanged;
     public event Action<double>? WidthChanged;
     public event Action<double>? OpacityChanged;
@@ -36,7 +45,7 @@ public partial class SettingsView : UserControl
     public event EventHandler? WakeWordAliasFromLastRequested;
     public event EventHandler? WakeWordAliasesClearRequested;
 
-    // Diseño D7 (Fase 3 — Kohana Flow)
+    // Diseño D7 (Fase 3 — Sakura Flow)
     public event Action<bool>? FlowEnabledChanged;
     public event Action<FlowMode>? FlowModeChanged;
     public event Action<IReadOnlyList<string>>? FlowDictionaryChanged;
@@ -51,7 +60,7 @@ public partial class SettingsView : UserControl
     public event EventHandler? MemoryForgetAllRequested;
 
     // Diseño D16: permisos por capacidad
-    public event Action<KohanaCapability, PermissionLevel>? CapabilityPermissionChanged;
+    public event Action<SakuraCapability, PermissionLevel>? CapabilityPermissionChanged;
 
     // Diseño D19: exclusiones por aplicación
     public event Action<IReadOnlyList<string>>? PermissionExclusionsChanged;
@@ -130,9 +139,15 @@ public partial class SettingsView : UserControl
         SpeakVoiceResponsesCheckBox.IsChecked = preferences.SpeakVoiceResponses;
         VoiceInputDeviceComboBox.SelectedValue = preferences.VoiceInputDeviceNumber;
         WakeWordEnabledCheckBox.IsChecked = preferences.WakeWordEnabled;
-        WakeWordKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.Kohana or WakeWordPhrase.Nexo;
-        WakeWordOyeKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeNexo;
-        WakeWordHeyKohanaRadioButton.IsChecked = preferences.WakeWordPhrase is WakeWordPhrase.HeyKohana or WakeWordPhrase.HeyNexo;
+        // Diseño D69 — los tres controles ofrecen Sakura, pero siguen sabiendo leer las elecciones
+        // de los dos nombres anteriores: lo que importa es la forma —corta, "oye" o "hey"—, no la
+        // marca con la que se guardó.
+        WakeWordShortRadioButton.IsChecked = preferences.WakeWordPhrase is
+            WakeWordPhrase.Sakura or WakeWordPhrase.Sakura or WakeWordPhrase.Nexo;
+        WakeWordOyeRadioButton.IsChecked = preferences.WakeWordPhrase is
+            WakeWordPhrase.OyeSakura or WakeWordPhrase.OyeSakura or WakeWordPhrase.OyeNexo;
+        WakeWordHeyRadioButton.IsChecked = preferences.WakeWordPhrase is
+            WakeWordPhrase.HeySakura or WakeWordPhrase.HeySakura or WakeWordPhrase.HeyNexo;
         SelectWakeWordSensitivity(preferences.WakeWordSensitivity);
         SetWakeWordAliases(preferences.WakeWordAliases);
 
@@ -493,8 +508,8 @@ public partial class SettingsView : UserControl
         VoiceInputDeviceStatusText.Text = devices.Count switch
         {
             0 => "Windows no encontró micrófonos disponibles.",
-            1 => "Se encontró un micrófono. Kohana lo usará para Mic y la frase de activación.",
-            _ => "El micrófono elegido se usa tanto para Mic como para “Oye Kohana”."
+            1 => "Se encontró un micrófono. Sakura lo usará para Mic y la frase de activación.",
+            _ => "El micrófono elegido se usa tanto para Mic como para “Oye Sakura”."
         };
         _isApplyingPreferences = false;
     }
@@ -793,12 +808,12 @@ public partial class SettingsView : UserControl
             : Visibility.Collapsed;
         AiGetApiKeyButton.IsEnabled = !string.IsNullOrWhiteSpace(preset.ApiKeyUrl);
 
-        AiBaseUrlHintText.Text = AiProviderDefaults.IsManagedByKohana(provider)
-            ? "La IA local de Kohana siempre vive en esta dirección y la administra la propia aplicación; cambiarla aquí no tiene efecto."
+        AiBaseUrlHintText.Text = AiProviderDefaults.IsManagedBySakura(provider)
+            ? "La IA local de Sakura siempre vive en esta dirección y la administra la propia aplicación; cambiarla aquí no tiene efecto."
             : $"Dirección por omisión de {preset.DisplayName}: {preset.BaseUrl}";
 
         AiBaseUrlTextBox.IsEnabled = provider != AiProviderKind.Disabled &&
-            !AiProviderDefaults.IsManagedByKohana(provider);
+            !AiProviderDefaults.IsManagedBySakura(provider);
     }
 
     private void HardwarePerformanceModeRadioButton_Checked(object sender, RoutedEventArgs e)
@@ -836,7 +851,7 @@ public partial class SettingsView : UserControl
         var provider = SelectedAiProvider;
         var enabled = provider != AiProviderKind.Disabled;
 
-        // La dirección la fija DescribeAiProvider: con la IA local de Kohana no se puede escribir,
+        // La dirección la fija DescribeAiProvider: con la IA local de Sakura no se puede escribir,
         // porque el motor solo existe donde la propia aplicación lo pone.
         AiModelTextBox.IsEnabled = enabled;
         AiApiKeyVariableTextBox.IsEnabled = enabled;
@@ -863,11 +878,11 @@ public partial class SettingsView : UserControl
             return;
         }
 
-        var value = phrase.Equals("OyeKohana", StringComparison.OrdinalIgnoreCase)
-            ? WakeWordPhrase.OyeKohana
-            : phrase.Equals("HeyKohana", StringComparison.OrdinalIgnoreCase)
-                ? WakeWordPhrase.HeyKohana
-                : WakeWordPhrase.Kohana;
+        var value = phrase.Equals("OyeSakura", StringComparison.OrdinalIgnoreCase)
+            ? WakeWordPhrase.OyeSakura
+            : phrase.Equals("HeySakura", StringComparison.OrdinalIgnoreCase)
+                ? WakeWordPhrase.HeySakura
+                : WakeWordPhrase.Sakura;
         WakeWordPhraseChanged?.Invoke(value);
     }
 
@@ -952,15 +967,15 @@ public partial class SettingsView : UserControl
 
     private void UpdateWakeWordOptionsAvailability()
     {
-        if (WakeWordKohanaRadioButton is null)
+        if (WakeWordShortRadioButton is null)
         {
             return;
         }
 
         var enabled = WakeWordEnabledCheckBox.IsChecked == true;
-        WakeWordKohanaRadioButton.IsEnabled = enabled;
-        WakeWordOyeKohanaRadioButton.IsEnabled = enabled;
-        WakeWordHeyKohanaRadioButton.IsEnabled = enabled;
+        WakeWordShortRadioButton.IsEnabled = enabled;
+        WakeWordOyeRadioButton.IsEnabled = enabled;
+        WakeWordHeyRadioButton.IsEnabled = enabled;
         WakeWordSensitivityComboBox.IsEnabled = enabled;
         WakeWordTestButton.IsEnabled = enabled;
         WakeWordUseObservedAliasButton.IsEnabled = false;
@@ -994,7 +1009,7 @@ public partial class SettingsView : UserControl
             : (System.Windows.Media.Brush)FindResource("BrushSurfaceRaised");
     }
 
-    // ---------- Diseño D7 (Fase 3 — Kohana Flow) ----------
+    // ---------- Diseño D7 (Fase 3 — Sakura Flow) ----------
 
     private void FlowEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
     {
@@ -1053,7 +1068,7 @@ public partial class SettingsView : UserControl
 
     /// <summary>
     /// Diseño D7 — el parser ignora en silencio las líneas mal escritas para que una sola no tumbe
-    /// el resto, pero en la interfaz sí conviene decirlo: si alguien escribe "cojana Kohana" (sin
+    /// el resto, pero en la interfaz sí conviene decirlo: si alguien escribe "cojana Sakura" (sin
     /// el igual) y no pasa nada, parecería que el diccionario no funciona.
     /// </summary>
     private void ReportIgnoredLines(IReadOnlyList<string> lines, string listName)
@@ -1198,7 +1213,7 @@ public partial class SettingsView : UserControl
 
     /// <summary>
     /// Diseño D13 — el proyecto dejó de manejarse solo desde la paleta de comandos. Autorizar y
-    /// revocar están aquí, uno al lado del otro, junto a hasta dónde puede llegar Kohana.
+    /// revocar están aquí, uno al lado del otro, junto a hasta dónde puede llegar Sakura.
     /// </summary>
     public void ApplyWorkspaceSettings(WorkspaceSettings? workspace)
     {
@@ -1261,7 +1276,7 @@ public partial class SettingsView : UserControl
         PermissionExclusionsBox.Text = string.Join(
             Environment.NewLine, PermissionExclusionParser.Format(settings));
 
-        foreach (var capability in Enum.GetValues<KohanaCapability>())
+        foreach (var capability in Enum.GetValues<SakuraCapability>())
         {
             var permission = settings.For(capability);
             var excluded = permission.ExcludedApps.Count;
@@ -1309,7 +1324,7 @@ public partial class SettingsView : UserControl
         }
     }
 
-    private void OnPermissionRowChanged(KohanaCapability capability, PermissionLevel level)
+    private void OnPermissionRowChanged(SakuraCapability capability, PermissionLevel level)
     {
         if (_isApplyingPreferences)
         {
@@ -1406,23 +1421,23 @@ public partial class SettingsView : UserControl
             : Visibility.Visible;
     }
 
-    private static string CapabilityTitle(KohanaCapability capability) => capability switch
+    private static string CapabilityTitle(SakuraCapability capability) => capability switch
     {
-        KohanaCapability.Lens => "Ver la pantalla (Lens)",
-        KohanaCapability.Flow => "Dictado global (Flow)",
-        KohanaCapability.Memoria => "Memoria personal",
-        KohanaCapability.Proyecto => "Proyecto autorizado",
-        KohanaCapability.Optimizacion => "Optimizar el equipo",
-        KohanaCapability.ComputerUse => "Actuar sobre el equipo",
+        SakuraCapability.Lens => "Ver la pantalla (Lens)",
+        SakuraCapability.Flow => "Dictado global (Flow)",
+        SakuraCapability.Memoria => "Memoria personal",
+        SakuraCapability.Proyecto => "Proyecto autorizado",
+        SakuraCapability.Optimizacion => "Optimizar el equipo",
+        SakuraCapability.ComputerUse => "Actuar sobre el equipo",
         _ => capability.ToString()
     };
 
     private sealed class PermissionRow(
-        KohanaCapability capability,
+        SakuraCapability capability,
         string title,
         string detail,
         PermissionLevel level,
-        Action<KohanaCapability, PermissionLevel> onChanged)
+        Action<SakuraCapability, PermissionLevel> onChanged)
     {
         private PermissionLevel _level = level;
 
@@ -1453,4 +1468,74 @@ public partial class SettingsView : UserControl
 
     private void WorkspaceRevokeButton_Click(object sender, RoutedEventArgs e) =>
         WorkspaceRevokeRequested?.Invoke(this, EventArgs.Empty);
+
+    // ---------- Actualizaciones (Diseño D65) ----------
+
+    /// <summary>La versión que está corriendo ahora, para que se vea sin buscarla.</summary>
+    public void SetCurrentVersion(string version) =>
+        UpdateCurrentVersionText.Text = $"Versión instalada: {version}";
+
+    /// <summary>
+    /// Enseña en qué punto va la comprobación. El botón se desactiva mientras trabaja: pulsarlo dos
+    /// veces lanzaría dos consultas y dos descargas de cien megas.
+    /// </summary>
+    public void SetUpdateStatus(string status, bool busy)
+    {
+        UpdateStatusText.Text = status;
+        UpdateCheckButton.IsEnabled = !busy;
+    }
+
+    /// <summary>
+    /// Enseña la versión encontrada, o esconde la tarjeta si no hay ninguna.
+    ///
+    /// Las notas de la publicación se enseñan tal cual las escribió quien publicó: son la única
+    /// respuesta a «qué cambia si instalo esto», y resumirlas por mi cuenta sería inventar.
+    /// </summary>
+    public void ShowUpdateOffer(string? version, string? notes) =>
+        ShowUpdateOffer(version, notes, targetFolder: null);
+
+    public void ShowUpdateOffer(string? version, string? notes, string? targetFolder)
+    {
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            UpdateOfferPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        UpdateOfferTitleText.Text = $"Hay una versión nueva: {version}";
+        UpdateOfferNotesText.Text = string.IsNullOrWhiteSpace(notes)
+            ? "Sin notas de la publicación."
+            : notes.Trim();
+
+        UpdateTargetText.Text = string.IsNullOrWhiteSpace(targetFolder)
+            ? string.Empty
+            : $"Se reemplazará la carpeta: {targetFolder}";
+
+        UpdateOfferNotesText.Visibility = Visibility.Visible;
+        UpdateProgressBar.Visibility = Visibility.Collapsed;
+        UpdateInstallButton.IsEnabled = true;
+        UpdateSkipButton.IsEnabled = true;
+        UpdateOfferPanel.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// Avance de la descarga. Los dos botones se apagan: una vez que empieza a bajar, «ahora no» ya
+    /// no describe nada que pueda pasar, y un botón que no cumple es peor que ninguno.
+    /// </summary>
+    public void SetUpdateProgress(double fraction)
+    {
+        UpdateProgressBar.Visibility = Visibility.Visible;
+        UpdateProgressBar.Value = Math.Clamp(fraction, 0, 1);
+        UpdateInstallButton.IsEnabled = false;
+        UpdateSkipButton.IsEnabled = false;
+    }
+
+    private void UpdateCheckButton_Click(object sender, RoutedEventArgs e) =>
+        UpdateCheckRequested?.Invoke();
+
+    private void UpdateInstallButton_Click(object sender, RoutedEventArgs e) =>
+        UpdateInstallRequested?.Invoke();
+
+    private void UpdateSkipButton_Click(object sender, RoutedEventArgs e) =>
+        UpdateSkipRequested?.Invoke();
 }

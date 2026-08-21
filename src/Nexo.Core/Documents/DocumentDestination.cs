@@ -2,7 +2,7 @@ using System.IO;
 
 namespace Nexo.Core.Documents;
 
-/// <summary>Los sitios con nombre donde Kohana puede dejar un documento.</summary>
+/// <summary>Los sitios con nombre donde Sakura puede dejar un documento.</summary>
 public enum DocumentFolder
 {
     Desktop,
@@ -108,7 +108,7 @@ public static class DocumentDestination
     /// <summary>
     /// Comprueba el destino completo y devuelve el nombre ya con su extensión.
     ///
-    /// La extensión la pone Kohana y no se toma del nombre pedido: quien dicta un título no está
+    /// La extensión la pone Sakura y no se toma del nombre pedido: quien dicta un título no está
     /// eligiendo un formato, y un documento llamado «notas.txt» guardado como Word sería un archivo
     /// que miente sobre lo que lleva dentro.
     /// </summary>

@@ -6,7 +6,7 @@ using Nexo.Core.Documents;
 namespace Nexo.Core.Tests;
 
 /// <summary>
-/// Diseño D59 — el .docx que Kohana deja en el escritorio.
+/// Diseño D59 — el .docx que Sakura deja en el escritorio.
 ///
 /// Lo que estas pruebas protegen no es el formato en abstracto: es que el archivo **abra**. Un
 /// .docx al que le falta una pieza o que lleva un carácter que XML no admite no se abre a medias,

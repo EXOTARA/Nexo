@@ -5,7 +5,7 @@ namespace Nexo.Core.Tests;
 /// <summary>
 /// Diseño D9 (Fase 6) — el criterio de terminado de la fase es que los controles de exclusión y
 /// retención funcionen ANTES de que exista almacenamiento. Por eso casi todo lo que se prueba aquí
-/// es lo que Kohana se NIEGA a recordar.
+/// es lo que Sakura se NIEGA a recordar.
 /// </summary>
 public sealed class MemoryTests
 {
@@ -61,7 +61,7 @@ public sealed class MemoryTests
 
         Assert.True(manager.Remember(MemoryCategory.Preferencias, "prefiero café", settings, Now).Success);
         Assert.False(manager.Remember(MemoryCategory.Conversacion, "hablamos del reporte", settings, Now).Success);
-        Assert.False(manager.Remember(MemoryCategory.Habitos, "abre Kohana temprano", settings, Now).Success);
+        Assert.False(manager.Remember(MemoryCategory.Habitos, "abre Sakura temprano", settings, Now).Success);
     }
 
     [Fact]

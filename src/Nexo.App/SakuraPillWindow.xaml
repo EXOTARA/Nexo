@@ -54,7 +54,7 @@
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Foreground="{DynamicResource BrushAccent}"
-                                    Style="{StaticResource KohanaFlowerMarkStyle}" />
+                                    Style="{StaticResource SakuraFlowerMarkStyle}" />
                 </Border>
 
                 <StackPanel Grid.Column="1" Margin="10,0,6,0">
@@ -120,6 +120,7 @@
                         Orientation="Horizontal"
                         Visibility="Collapsed">
                 <Button x:Name="ExpandToggleButton"
+                        AutomationProperties.Name="Ver la respuesta completa"
                         Style="{StaticResource SecondaryButtonStyle}"
                         Padding="10,4"
                         FontSize="{DynamicResource FontSizeFootnote}"

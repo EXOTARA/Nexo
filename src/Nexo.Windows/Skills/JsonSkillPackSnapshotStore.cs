@@ -5,7 +5,7 @@ using Nexo.Core.Skills;
 namespace Nexo.Windows.Skills;
 
 /// <summary>
-/// Diseño D15 — el estado anterior a activar un pack, en disco. Si Kohana se cierra con un pack
+/// Diseño D15 — el estado anterior a activar un pack, en disco. Si Sakura se cierra con un pack
 /// puesto, desactivarlo en la siguiente sesión tiene que devolver los ajustes reales de la persona,
 /// no unos por omisión. Mismo patrón atómico que el resto de stores.
 /// </summary>
@@ -90,7 +90,7 @@ public sealed class JsonSkillPackSnapshotStore : ISkillPackSnapshotStore
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException)
         {
-            // No poder borrar la marca del pack no debe impedir seguir usando Kohana.
+            // No poder borrar la marca del pack no debe impedir seguir usando Sakura.
         }
     }
 }

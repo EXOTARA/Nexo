@@ -12,4 +12,4 @@ public sealed record EngineDescriptor(
     bool AllowsRuntimeSelection,
     bool RequiresRestart,
     bool RequiresDownload,
-    bool IncludedWithKohana);
+    bool IncludedWithSakura);

@@ -5,7 +5,7 @@
                   HorizontalScrollBarVisibility="Disabled"
                   Padding="0,0,8,0">
         <StackPanel>
-            <TextBlock Text="Estado del equipo y de los servicios que Kohana mantiene en segundo plano. Las medidas en vivo viven en el panel de arriba: lleva el ratón al centro del borde superior de la pantalla."
+            <TextBlock Text="Estado del equipo y de los servicios que Sakura mantiene en segundo plano. Las medidas en vivo viven en el panel de arriba: lleva el ratón al centro del borde superior de la pantalla."
                        Margin="0,0,0,14"
                        TextWrapping="Wrap"
                        Style="{StaticResource MutedTextStyle}" />
@@ -168,7 +168,7 @@
                 <StackPanel>
                     <TextBlock Text="Optimización del equipo" FontSize="{DynamicResource FontSizeTitle3}" FontWeight="SemiBold" />
                     <TextBlock Margin="0,3,0,0"
-                               Text="Kohana revisa tu hardware real y propone solo lo que ese hardware justifica. Nada se aplica sin que lo confirmes, y siempre se puede deshacer."
+                               Text="Sakura revisa tu hardware real y propone solo lo que ese hardware justifica. Nada se aplica sin que lo confirmes, y siempre se puede deshacer."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -207,7 +207,7 @@
 
                     <TextBlock x:Name="OptimizationStatusText"
                                Margin="0,9,0,0"
-                               Text="Elige para qué quieres optimizar y Kohana te enseñará el plan antes de tocar nada."
+                               Text="Elige para qué quieres optimizar y Sakura te enseñará el plan antes de tocar nada."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
                 </StackPanel>
@@ -222,7 +222,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="Qué ha hecho Kohana" FontSize="{DynamicResource FontSizeTitle3}" FontWeight="SemiBold" />
+                            <TextBlock Text="Qué ha hecho Sakura" FontSize="{DynamicResource FontSizeTitle3}" FontWeight="SemiBold" />
                             <TextBlock Margin="0,3,0,0"
                                        Text="Cada acción con efecto real: qué se hizo, cuándo, con qué permiso y cómo deshacerlo."
                                        TextWrapping="Wrap"
@@ -313,7 +313,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="Kohana Runtime" FontSize="{DynamicResource FontSizeTitle3}" FontWeight="SemiBold" />
+                            <TextBlock Text="Sakura Runtime" FontSize="{DynamicResource FontSizeTitle3}" FontWeight="SemiBold" />
                             <TextBlock Margin="0,3,0,0"
                                        Text="Servicios locales, privacidad y rendimiento en una sola vista."
                                        Style="{StaticResource MutedTextStyle}" />
@@ -357,7 +357,7 @@
                     </UniformGrid>
                     <TextBlock x:Name="RuntimeDetailText"
                                Margin="4,9,4,0"
-                               Text="Kohana está lista."
+                               Text="Sakura está lista."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
                 </StackPanel>

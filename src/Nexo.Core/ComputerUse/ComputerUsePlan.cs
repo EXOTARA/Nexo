@@ -27,7 +27,7 @@ public sealed record ComputerUsePlan(
 }
 
 /// <summary>
-/// Diseño D17 — arma el plan. **No ejecuta nada**: en los niveles 1–3 del modelo de confianza Kohana
+/// Diseño D17 — arma el plan. **No ejecuta nada**: en los niveles 1–3 del modelo de confianza Sakura
 /// observa, guía y propone, y la Fase 7 es explícita en que *"no se salta niveles del modelo de
 /// autonomía"*.
 ///
@@ -52,7 +52,7 @@ public static class ComputerUsePlanner
 
         var decision = PermissionBroker.Decide(
             new PermissionRequest(
-                KohanaCapability.ComputerUse,
+                SakuraCapability.ComputerUse,
                 intent.Description,
                 intent.TargetApp,
                 intent.MandatoryCategories),
@@ -86,7 +86,7 @@ public static class ComputerUsePlanner
     }
 
     /// <summary>
-    /// Si Kohana puede deshacer lo que ese método hace. Solo se marca reversible lo que se puede
+    /// Si Sakura puede deshacer lo que ese método hace. Solo se marca reversible lo que se puede
     /// devolver **con certeza**: el portapapeles porque se guarda lo que había, y un comando de solo
     /// lectura porque no cambió nada. Todo lo demás se declara irreversible aunque a veces pudiera
     /// deshacerse, porque "a veces" no es una garantía que se pueda ofrecer.

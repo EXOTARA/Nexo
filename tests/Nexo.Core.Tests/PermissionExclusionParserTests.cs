@@ -22,7 +22,7 @@ public sealed class PermissionExclusionParserTests
         var outcome = PermissionExclusionParser.Parse(["Lens: bitwarden"]);
 
         var exclusion = Assert.Single(outcome.Exclusions);
-        Assert.Equal(KohanaCapability.Lens, exclusion.Capability);
+        Assert.Equal(SakuraCapability.Lens, exclusion.Capability);
         Assert.Equal("bitwarden", exclusion.App);
         Assert.Equal(0, outcome.IgnoredLines);
     }
@@ -76,10 +76,10 @@ public sealed class PermissionExclusionParserTests
         // Si se acumularan, quitar una exclusión desde la interfaz sería imposible.
         var settings = Settings();
         PermissionExclusionParser.Apply(settings, ["Lens: bitwarden", "Lens: banco"]);
-        Assert.Equal(2, settings.For(KohanaCapability.Lens).ExcludedApps.Count);
+        Assert.Equal(2, settings.For(SakuraCapability.Lens).ExcludedApps.Count);
 
         PermissionExclusionParser.Apply(settings, ["Lens: bitwarden"]);
-        Assert.Equal(["bitwarden"], settings.For(KohanaCapability.Lens).ExcludedApps);
+        Assert.Equal(["bitwarden"], settings.For(SakuraCapability.Lens).ExcludedApps);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class PermissionExclusionParserTests
 
         PermissionExclusionParser.Apply(settings, ["Lens: bitwarden", "Lens: BITWARDEN"]);
 
-        Assert.Single(settings.For(KohanaCapability.Lens).ExcludedApps);
+        Assert.Single(settings.For(SakuraCapability.Lens).ExcludedApps);
     }
 
     [Fact]
@@ -108,12 +108,12 @@ public sealed class PermissionExclusionParserTests
     {
         // Lo que importa de verdad: que la línea escrita en la interfaz llegue a negar la acción.
         var settings = Settings();
-        settings.For(KohanaCapability.Lens).Level = PermissionLevel.Permitido;
+        settings.For(SakuraCapability.Lens).Level = PermissionLevel.Permitido;
 
         PermissionExclusionParser.Apply(settings, ["Lens: bitwarden"]);
 
         var decision = PermissionBroker.Decide(
-            new PermissionRequest(KohanaCapability.Lens, "Leer la ventana", "Bitwarden - Chrome"),
+            new PermissionRequest(SakuraCapability.Lens, "Leer la ventana", "Bitwarden - Chrome"),
             settings);
 
         Assert.True(decision.IsDenied);

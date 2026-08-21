@@ -6,9 +6,9 @@ namespace Nexo.Windows.Updates;
 /// <summary>
 /// Diseño D63 — el ayudante que hace el intercambio, escrito como un guion de PowerShell.
 ///
-/// Kohana no puede sustituirse a sí misma: Windows no deja mover la carpeta donde vive el
+/// Sakura no puede sustituirse a sí misma: Windows no deja mover la carpeta donde vive el
 /// ejecutable que se está ejecutando. Así que alguien tiene que hacerlo **desde fuera**, cuando
-/// Kohana ya no está.
+/// Sakura ya no está.
 ///
 /// Es un guion y no un segundo programa por tres razones, en orden de peso:
 ///
@@ -27,19 +27,31 @@ namespace Nexo.Windows.Updates;
 public static class UpdateHelperScript
 {
     /// <summary>
-    /// Cuánto espera a que Kohana termine antes de rendirse, en segundos.
+    /// Cuánto espera a que Sakura termine antes de rendirse, en segundos.
     ///
-    /// Se rinde en vez de forzar el cierre: matar el proceso podría interrumpir a Kohana mientras
+    /// Se rinde en vez de forzar el cierre: matar el proceso podría interrumpir a Sakura mientras
     /// guarda ajustes o una conversación, y perder eso por instalar una versión nueva es un mal
     /// negocio. Si no se cierra, la actualización se queda para la próxima.
+    ///
+    /// **Eran treinta segundos y no bastaban.** Sakura no se cierra de golpe: antes para el runtime
+    /// de IA que administra, que es un proceso aparte y se toma su tiempo. En la primera prueba
+    /// real el ayudante llegó al final de la espera con Sakura aún viva, se retiró sin tocar nada
+    /// —que es lo correcto— y el resultado visible fue que Sakura se cerró y no volvió.
+    ///
+    /// Tres minutos cubren un apagado lento sin dejar el ayudante colgado si algo se atasca de
+    /// verdad. Esperar de más no cuesta nada: nadie está mirando, porque Sakura ya se cerró.
     /// </summary>
-    private const int WaitForExitSeconds = 30;
+    private const int WaitForExitSeconds = 180;
 
     /// <summary>
     /// Genera el guion. Todo lo que decide qué carpetas se tocan viene ya resuelto y comprobado por
     /// <see cref="UpdateSwapPathPolicy"/>: aquí no se decide nada, solo se ejecuta.
     /// </summary>
-    public static string Build(UpdateSwapPaths paths, int kohanaProcessId, string executableToLaunch)
+    public static string Build(
+        UpdateSwapPaths paths,
+        int kohanaProcessId,
+        string executableToLaunch,
+        string packagePath = "")
     {
         if (!paths.IsSafe)
         {
@@ -49,22 +61,32 @@ public static class UpdateHelperScript
 
         var script = new StringBuilder();
 
-        script.AppendLine("# Ayudante de actualización de Kohana.");
-        script.AppendLine("# Lo genera Kohana y se borra solo al terminar. Puedes leerlo entero:");
-        script.AppendLine("# espera a que Kohana se cierre, aparta la carpeta actual, pone la nueva");
-        script.AppendLine("# en su sitio y vuelve a abrir. Si algo falla, devuelve la anterior.");
+        script.AppendLine("# Ayudante de actualización de Sakura. Lo genera Sakura y puedes leerlo entero:");
+        script.AppendLine("# espera a que Sakura se cierre, aparta la carpeta actual, pone la nueva en su");
+        script.AppendLine("# sitio y vuelve a abrir. Si algo falla, devuelve la anterior a donde estaba.");
         script.AppendLine("$ErrorActionPreference = 'Stop'");
+        script.AppendLine();
+
+        // Diseño D67 — deja rastro. Los dos fallos en vivo hubo que deducirlos del estado de las
+        // carpetas, porque el ayudante no decía nada: ni qué paso alcanzó, ni con qué error salió.
+        // Un registro de cuatro líneas convierte media hora de deducción en una lectura.
+        script.AppendLine("$registro = Join-Path $PSScriptRoot 'ultima-actualizacion.log'");
+        script.AppendLine("function Apunta($t) {");
+        script.AppendLine("    \"$(Get-Date -Format o)  $t\" | Add-Content -LiteralPath $registro -Encoding UTF8");
+        script.AppendLine("}");
+        script.AppendLine("Set-Content -LiteralPath $registro -Value '' -Encoding UTF8");
         script.AppendLine();
 
         script.AppendLine($"$install = {Quote(paths.Install)}");
         script.AppendLine($"$staged = {Quote(paths.Staged)}");
         script.AppendLine($"$previous = {Quote(paths.Previous)}");
         script.AppendLine($"$exe = {Quote(executableToLaunch)}");
+        script.AppendLine($"$paquete = {Quote(packagePath)}");
         script.AppendLine($"$pid_ = {kohanaProcessId}");
         script.AppendLine();
 
-        // Esperar por identificador y no por nombre: otra instancia de Kohana abierta a la vez no
-        // tiene por qué bloquear esta, y matar «todo lo que se llame Kohana» es de las cosas que
+        // Esperar por identificador y no por nombre: otra instancia de Sakura abierta a la vez no
+        // tiene por qué bloquear esta, y matar «todo lo que se llame Sakura» es de las cosas que
         // parecen razonables hasta que cierran algo que no era.
         script.AppendLine("try {");
         script.AppendLine("    $proc = Get-Process -Id $pid_ -ErrorAction SilentlyContinue");
@@ -73,12 +95,16 @@ public static class UpdateHelperScript
         script.AppendLine();
 
         script.AppendLine("if (Get-Process -Id $pid_ -ErrorAction SilentlyContinue) {");
-        script.AppendLine("    # Sigue abierta. Se deja todo como estaba y la actualización espera.");
+        script.AppendLine("    Apunta 'Sakura sigue abierta tras la espera. No se toca nada.'");
         script.AppendLine("    exit 2");
         script.AppendLine("}");
+        script.AppendLine("Apunta 'Sakura cerrada. Empieza el intercambio.'");
         script.AppendLine();
 
-        script.AppendLine("if (-not (Test-Path -LiteralPath $staged)) { exit 3 }");
+        script.AppendLine("if (-not (Test-Path -LiteralPath $staged)) {");
+        script.AppendLine("    Apunta 'No hay carpeta preparada que instalar.'");
+        script.AppendLine("    exit 3");
+        script.AppendLine("}");
         script.AppendLine();
 
         // Un intento anterior pudo dejar una carpeta apartada. Se quita antes de empezar, porque si
@@ -112,8 +138,11 @@ public static class UpdateHelperScript
         script.AppendLine("            Move-Item -LiteralPath $previous -Destination $install -ErrorAction SilentlyContinue");
         script.AppendLine("        }");
         script.AppendLine("    }");
+        script.AppendLine("    Apunta (\"FALLO: \" + $_.Exception.Message)");
+        script.AppendLine("    Apunta (\"se habia apartado la actual: \" + $moved)");
         script.AppendLine("    exit 1");
         script.AppendLine("}");
+        script.AppendLine("Apunta 'Intercambio hecho.'");
         script.AppendLine();
 
         // Lo viejo se borra solo cuando lo nuevo está en su sitio. Que no se pueda borrar es un
@@ -122,6 +151,24 @@ public static class UpdateHelperScript
         script.AppendLine();
 
         script.AppendLine("if (Test-Path -LiteralPath $exe) { Start-Process -FilePath $exe }");
+        script.AppendLine();
+
+        // El paquete descargado se borra al terminar. Son cien megas por actualización, y tras la
+        // primera prueba real se quedaron en disco porque nadie los limpiaba.
+        //
+        // El guión **no** se borra a sí mismo, aunque la cabecera lo llegara a prometer: un guión no
+        // puede borrarse mientras se ejecuta, y las maniobras para conseguirlo —lanzar otro proceso
+        // que espere y lo borre— añaden una pieza frágil a la parte que menos puede permitirse una.
+        // Ocupa dos kilobytes, se sobrescribe en la siguiente actualización, y dejarlo tiene una
+        // ventaja: si algo sale mal, queda ahí para poder leerlo.
+        // Se comprueba que hay ruta antes de borrar: Remove-Item con una cadena vacía es un error
+        // de enlace de parámetros, que **no** lo silencia -ErrorAction, y el guión terminaba con
+        // código de fallo después de haber hecho el intercambio bien. Un paso de limpieza no puede
+        // convertir un éxito en un fallo aparente — es exactamente lo que despista al diagnosticar.
+        script.AppendLine("if ($paquete -and (Test-Path -LiteralPath $paquete)) {");
+        script.AppendLine("    Remove-Item -LiteralPath $paquete -Force -ErrorAction SilentlyContinue");
+        script.AppendLine("}");
+        script.AppendLine("Apunta 'Terminado.'");
         script.AppendLine("exit 0");
 
         return script.ToString();

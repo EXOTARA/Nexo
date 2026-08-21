@@ -5,7 +5,7 @@ using Nexo.Core.Workspace;
 namespace Nexo.Windows.Workspace;
 
 /// <summary>
-/// Diseño D14 — los checkpoints en disco, no en memoria. Si Kohana se cierra (o se cae) después de
+/// Diseño D14 — los checkpoints en disco, no en memoria. Si Sakura se cierra (o se cae) después de
 /// modificar un archivo, la persona tiene que poder deshacerlo en la siguiente sesión: un checkpoint
 /// que solo viviera en RAM dejaría de existir justo cuando más falta hace. Mismo patrón atómico de
 /// escritura que el resto de stores del proyecto.

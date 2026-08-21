@@ -8,7 +8,7 @@ namespace Nexo.Windows.Tests.Characterization;
 /// <see cref="SingleInstanceCoordinator"/> y la consume <c>App.OnStartup</c>.
 ///
 /// Cada prueba usa una clave de instancia única para no interferir con una instancia real de
-/// Kohana que el usuario pueda tener abierta.
+/// Sakura que el usuario pueda tener abierta.
 ///
 /// <para>
 /// <b>Detalle importante descubierto en 1.1:</b> el guardián se apoya en un

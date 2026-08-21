@@ -5,7 +5,7 @@ using Nexo.Core.Workspace;
 namespace Nexo.Core.Tests;
 
 /// <summary>
-/// Diseño D14 (Fase 5, nivel 4) — es la primera vez que Kohana escribe en archivos de la persona, así
+/// Diseño D14 (Fase 5, nivel 4) — es la primera vez que Sakura escribe en archivos de la persona, así
 /// que lo que se prueba aquí es sobre todo cuándo se NIEGA a hacerlo y qué pasa cuando algo sale mal.
 /// </summary>
 public sealed class WorkspaceEditCoordinatorTests
@@ -13,7 +13,7 @@ public sealed class WorkspaceEditCoordinatorTests
     private static readonly DateTimeOffset Now =
         new(2026, 8, 1, 12, 0, 0, TimeSpan.FromHours(-6));
 
-    private const string Root = @"C:\Proyectos\Kohana";
+    private const string Root = @"C:\Proyectos\Sakura";
 
     // ---------- Dobles ----------
 
@@ -269,7 +269,7 @@ public sealed class WorkspaceEditCoordinatorTests
     }
 
     [Fact]
-    public void IfTheRollbackAlsoFails_KohanaSaysSoInsteadOfClaimingItIsFine()
+    public void IfTheRollbackAlsoFails_SakuraSaysSoInsteadOfClaimingItIsFine()
     {
         // "Lo dejé como estaba" es justo la frase que no puede decirse a la ligera: si la reversión
         // tampoco quedó bien, la persona necesita saberlo para mirar el archivo ella misma.
@@ -311,7 +311,7 @@ public sealed class WorkspaceEditCoordinatorTests
     }
 
     [Fact]
-    public void Undo_DeletesAFileThatKohanaCreated()
+    public void Undo_DeletesAFileThatSakuraCreated()
     {
         var (coordinator, writer, _, _) = Build();
 
@@ -324,14 +324,14 @@ public sealed class WorkspaceEditCoordinatorTests
     }
 
     [Fact]
-    public void UndoRefuses_IfTheFileChangedAfterKohanaWroteIt()
+    public void UndoRefuses_IfTheFileChangedAfterSakuraWroteIt()
     {
         // Es el peor daño que esta capacidad puede causar: deshacer no devolvería el archivo a como
         // estaba, destruiría lo que la persona hizo después.
         var (coordinator, writer, _, _) = Build();
         writer.Files["src\\Program.cs"] = "antes";
 
-        coordinator.Apply(Edit(content: "de Kohana"), Settings());
+        coordinator.Apply(Edit(content: "de Sakura"), Settings());
         writer.Files["src\\Program.cs"] = "editado a mano después";
 
         var result = coordinator.RevertLast(Settings());
@@ -375,7 +375,7 @@ public sealed class WorkspaceEditCoordinatorTests
     [Fact]
     public void ARefusedChange_IsAuditedAsWell()
     {
-        // Saber que Kohana intentó tocar un archivo y no pudo es de lo que una auditoría existe
+        // Saber que Sakura intentó tocar un archivo y no pudo es de lo que una auditoría existe
         // para contar.
         var (coordinator, _, _, audit) = Build();
 

@@ -101,7 +101,7 @@ public sealed class VoiceCoordinatorTests
         WakeWordDetectedEventArgs? received = null;
         coordinator.WakeWordDetected += (_, e) => received = e;
 
-        var args = new WakeWordDetectedEventArgs(WakeWordPhrase.OyeKohana, "oye kohana");
+        var args = new WakeWordDetectedEventArgs(WakeWordPhrase.OyeSakura, "oye kohana");
         wakeWord.RaiseWakeWordDetected(args);
 
         Assert.Same(args, received);
@@ -115,7 +115,7 @@ public sealed class VoiceCoordinatorTests
         coordinator.RecognitionObserved += (_, e) => received = e;
 
         var match = WakeWordMatchResult.Accepted("oye kohana", "oye kohana", WakeWordMatchKind.Exact, "ok");
-        var args = new WakeWordRecognitionObservedEventArgs(WakeWordPhrase.OyeKohana, "oye kohana", true, match);
+        var args = new WakeWordRecognitionObservedEventArgs(WakeWordPhrase.OyeSakura, "oye kohana", true, match);
         wakeWord.RaiseRecognitionObserved(args);
 
         Assert.Same(args, received);
@@ -130,7 +130,7 @@ public sealed class VoiceCoordinatorTests
 
         coordinator.WakeWordDetected += Handler;
         coordinator.WakeWordDetected -= Handler;
-        wakeWord.RaiseWakeWordDetected(new WakeWordDetectedEventArgs(WakeWordPhrase.Kohana, "kohana"));
+        wakeWord.RaiseWakeWordDetected(new WakeWordDetectedEventArgs(WakeWordPhrase.Sakura, "kohana"));
 
         Assert.Equal(0, callCount);
     }
@@ -189,7 +189,7 @@ public sealed class VoiceCoordinatorTests
 
         await using (var scope = await coordinator.AcquireWakeWordScopeAsync())
         {
-            var startResult = await scope.StartListeningAsync(WakeWordPhrase.HeyKohana, startCts.Token);
+            var startResult = await scope.StartListeningAsync(WakeWordPhrase.HeySakura, startCts.Token);
             await scope.StopListeningAsync();
 
             Assert.Same(wakeWord.StartResult, startResult);
@@ -197,7 +197,7 @@ public sealed class VoiceCoordinatorTests
 
         Assert.Equal(1, wakeWord.StartListeningCallCount);
         Assert.Equal(1, wakeWord.StopListeningCallCount);
-        Assert.Equal(WakeWordPhrase.HeyKohana, wakeWord.LastStartPhrase);
+        Assert.Equal(WakeWordPhrase.HeySakura, wakeWord.LastStartPhrase);
         Assert.Equal(startCts.Token, wakeWord.LastStartListeningToken);
         Assert.Equal(["wakeWord.startListening", "wakeWord.stopListening"], log.Entries);
     }
@@ -361,7 +361,7 @@ public sealed class VoiceCoordinatorTests
         var (coordinator, _, voiceInput, voiceOutput, wakeWord) = CreateCoordinator();
         await using (var scope = await coordinator.AcquireWakeWordScopeAsync())
         {
-            await scope.StartListeningAsync(WakeWordPhrase.OyeKohana);
+            await scope.StartListeningAsync(WakeWordPhrase.OyeSakura);
         }
 
         coordinator.Dispose();

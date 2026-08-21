@@ -63,6 +63,7 @@
                         Style="{StaticResource SecondaryButtonStyle}" />
 
                 <Slider x:Name="MasterVolumeSlider"
+                        AutomationProperties.Name="Volumen general"
                         Grid.Row="1"
                         Grid.ColumnSpan="3"
                         Margin="0,12,0,0"

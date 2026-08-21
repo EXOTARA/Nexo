@@ -43,7 +43,7 @@ public sealed class RoutineRunner
                 results.Add(AutomationActionResult.Failed(
                     action,
                     "Confirmación requerida",
-                    "Kohana no ejecuta una acción sensible sin que la apruebes primero."));
+                    "Sakura no ejecuta una acción sensible sin que la apruebes primero."));
                 continue;
             }
 

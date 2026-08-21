@@ -66,7 +66,7 @@ public sealed class WindowsSelfCheckProbes
     {
         const string id = "disco.ajustes";
         const string title = "Tus ajustes se guardan y se releen";
-        const string proves = "Que lo que configuras sobrevive a cerrar y abrir Kohana.";
+        const string proves = "Que lo que configuras sobrevive a cerrar y abrir Sakura.";
 
         try
         {
@@ -93,11 +93,11 @@ public sealed class WindowsSelfCheckProbes
     {
         const string id = "disco.auditoria";
         const string title = "El registro de actividad se escribe";
-        const string proves = "Que lo que Kohana hace queda anotado y se puede releer después.";
+        const string proves = "Que lo que Sakura hace queda anotado y se puede releer después.";
 
         try
         {
-            var log = new JsonKohanaAuditLog(
+            var log = new JsonSakuraAuditLog(
                 Path.Combine(sandbox, "audit.json"),
                 Path.Combine(sandbox, "optimization-audit.json"));
 
@@ -126,7 +126,7 @@ public sealed class WindowsSelfCheckProbes
         const string id = "disco.memoria";
         const string title = "La memoria se guarda cifrada";
         const string proves =
-            "Que lo que Kohana recuerda no se puede leer abriendo el archivo, y que sí se puede " +
+            "Que lo que Sakura recuerda no se puede leer abriendo el archivo, y que sí se puede " +
             "recuperar desde tu cuenta.";
 
         try
@@ -191,7 +191,7 @@ public sealed class WindowsSelfCheckProbes
             var service = new FileSystemDataBackupService(
                 Path.Combine(sandbox, "backups"), dataRoot);
 
-            var item = KohanaDataInventory.Find("settings.json")!;
+            var item = SakuraDataInventory.Find("settings.json")!;
             var result = service.CreateBackup([item]);
 
             var outcome = result.Files.FirstOrDefault();
@@ -210,7 +210,7 @@ public sealed class WindowsSelfCheckProbes
     private static SelfCheckResult CheckDataFolderIsWritable()
     {
         const string id = "disco.carpeta";
-        const string title = "Kohana puede escribir en su carpeta de datos";
+        const string title = "Sakura puede escribir en su carpeta de datos";
         const string proves = "Que la carpeta real donde vive todo no está bloqueada ni llena.";
 
         try

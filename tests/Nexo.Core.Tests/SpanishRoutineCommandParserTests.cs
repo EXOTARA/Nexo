@@ -8,7 +8,7 @@ public sealed class SpanishRoutineCommandParserTests
 
     [Theory]
     [InlineData("abre rutinas")]
-    [InlineData("Kohana muestra mis rutinas")]
+    [InlineData("Sakura muestra mis rutinas")]
     [InlineData("Nexo muestra mis rutinas")]
     public void Parse_OpenRoutines_IsLocal(string input)
     {
@@ -19,7 +19,7 @@ public sealed class SpanishRoutineCommandParserTests
     [Fact]
     public void Parse_ModeProgramming_ExtractsRoutine()
     {
-        var result = _parser.Parse("Oye Kohana modo programación");
+        var result = _parser.Parse("Oye Sakura modo programación");
 
         Assert.Equal(RoutineCommandType.RunRoutine, result.Type);
         Assert.Equal("modo programacion", result.RoutineName);

@@ -10,12 +10,12 @@ namespace Nexo.Core.SelfCheck;
 
 /// <summary>
 /// Diseño D22 — comprueba, **en el equipo de la persona y con el código que se está ejecutando**,
-/// que las garantías que Kohana promete siguen en pie.
+/// que las garantías que Sakura promete siguen en pie.
 ///
 /// Por qué existe teniendo 1500 pruebas: las pruebas corren en la máquina de desarrollo, sobre el
 /// código de ese momento. Esto corre aquí, ahora, sobre el binario instalado. No sustituye a las
 /// pruebas ni las repite por gusto — repite justo las que, si fallaran en un equipo concreto,
-/// significarían que algo que Kohana promete no se está cumpliendo en ESE equipo.
+/// significarían que algo que Sakura promete no se está cumpliendo en ESE equipo.
 ///
 /// **Lo que esto NO comprueba, y hay que decirlo:** que la interfaz se vea bien, que los botones
 /// hagan lo que dicen, que el dictado inserte donde toca o que la píldora no robe el foco. Eso solo
@@ -84,7 +84,7 @@ public static class SelfCheckSuite
         var settings = new PermissionSettings();
         settings.Normalize();
 
-        if (settings.For(KohanaCapability.ComputerUse).Level != PermissionLevel.Bloqueado)
+        if (settings.For(SakuraCapability.ComputerUse).Level != PermissionLevel.Bloqueado)
         {
             return SelfCheckResult.Fail(id, title, proves,
                 "Actuar sobre el equipo NO está bloqueado por omisión.");
@@ -110,12 +110,12 @@ public static class SelfCheckSuite
 
         var settings = new PermissionSettings();
         settings.Normalize();
-        settings.For(KohanaCapability.Memoria).Level = PermissionLevel.Permitido;
+        settings.For(SakuraCapability.Memoria).Level = PermissionLevel.Permitido;
 
         foreach (var category in Enum.GetValues<MandatoryConfirmation>())
         {
             var decision = PermissionBroker.Decide(
-                new PermissionRequest(KohanaCapability.Memoria, "prueba", null, [category]),
+                new PermissionRequest(SakuraCapability.Memoria, "prueba", null, [category]),
                 settings);
 
             if (decision.MayProceedWithoutAsking)
@@ -136,11 +136,11 @@ public static class SelfCheckSuite
 
         var settings = new PermissionSettings();
         settings.Normalize();
-        settings.For(KohanaCapability.Lens).Level = PermissionLevel.Permitido;
-        settings.For(KohanaCapability.Lens).ExcludedApps = ["gestor"];
+        settings.For(SakuraCapability.Lens).Level = PermissionLevel.Permitido;
+        settings.For(SakuraCapability.Lens).ExcludedApps = ["gestor"];
 
         var decision = PermissionBroker.Decide(
-            new PermissionRequest(KohanaCapability.Lens, "prueba", "Mi Gestor de contraseñas"),
+            new PermissionRequest(SakuraCapability.Lens, "prueba", "Mi Gestor de contraseñas"),
             settings);
 
         return decision.IsDenied
@@ -177,7 +177,7 @@ public static class SelfCheckSuite
     private static SelfCheckResult CheckWorkspaceContainment()
     {
         const string id = "proyecto.contencion";
-        const string title = "Kohana no se sale de la carpeta autorizada";
+        const string title = "Sakura no se sale de la carpeta autorizada";
         const string proves = "Que una ruta con «..» no escapa del proyecto que autorizaste.";
 
         var root = Path.Combine(Path.GetTempPath(), "kohana-selfcheck", "Proyecto");
@@ -212,7 +212,7 @@ public static class SelfCheckSuite
     {
         const string id = "equipo.comandos";
         const string title = "Los comandos permitidos solo leen";
-        const string proves = "Que ninguno de los comandos que Kohana puede ejecutar cambia el equipo.";
+        const string proves = "Que ninguno de los comandos que Sakura puede ejecutar cambia el equipo.";
 
         string[] interpreters = ["powershell", "pwsh", "cmd", "wmic", "wscript", "cscript", "bash"];
 
@@ -283,14 +283,14 @@ public static class SelfCheckSuite
         const string id = "datos.inventario";
         const string title = "El inventario de datos está completo";
         const string proves =
-            "Que cada archivo que Kohana guarda está descrito, para la copia, el borrado y el informe de privacidad.";
+            "Que cada archivo que Sakura guarda está descrito, para la copia, el borrado y el informe de privacidad.";
 
-        var undescribed = KohanaDataInventory.All
+        var undescribed = SakuraDataInventory.All
             .Where(item => string.IsNullOrWhiteSpace(item.WhatItHolds))
             .ToArray();
 
         return undescribed.Length == 0
-            ? SelfCheckResult.Ok(id, title, proves, $"{KohanaDataInventory.All.Count} archivos descritos.")
+            ? SelfCheckResult.Ok(id, title, proves, $"{SakuraDataInventory.All.Count} archivos descritos.")
             : SelfCheckResult.Fail(id, title, proves, $"{undescribed.Length} archivos sin describir.");
     }
 

@@ -7,7 +7,7 @@ namespace Nexo.Core.Tests;
 /// <summary>
 /// Un borde de pantalla es un sitio disputado: ahí están la barra de desplazamiento de cualquier
 /// ventana maximizada, el gesto de acoplar de Windows y, en las esquinas, el menú Inicio y el reloj.
-/// Estas pruebas fijan dónde SÍ y dónde NO debe reaccionar Kohana, porque el fallo caro no es que no
+/// Estas pruebas fijan dónde SÍ y dónde NO debe reaccionar Sakura, porque el fallo caro no es que no
 /// aparezca: es que aparezca cuando alguien iba a otra cosa.
 /// </summary>
 public sealed class EdgeRevealPolicyTests
@@ -30,7 +30,7 @@ public sealed class EdgeRevealPolicyTests
     [Fact]
     public void TheOppositeEdgeDoesNothing()
     {
-        // Kohana solo asoma por el lado en el que está. Reaccionar en el otro borde sería aparecer
+        // Sakura solo asoma por el lado en el que está. Reaccionar en el otro borde sería aparecer
         // desde donde nadie la llamó.
         Assert.False(EdgeRevealPolicy.IsInHotZone(At(Left, 500, SidebarPosition.Right)));
         Assert.False(EdgeRevealPolicy.IsInHotZone(At(Right, 500, SidebarPosition.Left)));
@@ -53,7 +53,7 @@ public sealed class EdgeRevealPolicyTests
     {
         // El primer píxel fuera de la franja es donde empieza la barra de desplazamiento de una
         // ventana maximizada. Si la franja se desbordara aunque fuera un píxel, desplazarse por
-        // cualquier página abriría Kohana.
+        // cualquier página abriría Sakura.
         Assert.False(EdgeRevealPolicy.IsInHotZone(
             At(Right - EdgeRevealPolicy.HotZoneWidth, 500, SidebarPosition.Right)));
         Assert.False(EdgeRevealPolicy.IsInHotZone(
@@ -64,7 +64,7 @@ public sealed class EdgeRevealPolicyTests
     public void CursorBeyondTheScreenIsNotInTheZone()
     {
         // Con varios monitores, el ratón puede estar más allá de este borde porque hay otra pantalla
-        // al lado. Ahí no está pidiendo Kohana: está yendo a la otra pantalla.
+        // al lado. Ahí no está pidiendo Sakura: está yendo a la otra pantalla.
         Assert.False(EdgeRevealPolicy.IsInHotZone(At(Right + 1, 500, SidebarPosition.Right)));
         Assert.False(EdgeRevealPolicy.IsInHotZone(At(Left - 1, 500, SidebarPosition.Left)));
     }
@@ -117,7 +117,7 @@ public sealed class EdgeRevealPolicyTests
     [Fact]
     public void TheCooldownOutlastsTheDwell()
     {
-        // Si la pausa tras ocultar fuera más corta que la permanencia necesaria, cerrar Kohana con
+        // Si la pausa tras ocultar fuera más corta que la permanencia necesaria, cerrar Sakura con
         // el ratón todavía en el borde la volvería a abrir sola.
         Assert.True(EdgeRevealPolicy.CooldownAfterHide > EdgeRevealPolicy.Dwell);
     }

@@ -1,7 +1,7 @@
 namespace Nexo.Core.Voice;
 
 /// <summary>
-/// Diseño D6.3 (Fase 3 — Kohana Flow) — para qué se va a usar la transcripción, porque eso cambia
+/// Diseño D6.3 (Fase 3 — Sakura Flow) — para qué se va a usar la transcripción, porque eso cambia
 /// cómo debe entregarse.
 /// </summary>
 public enum VoiceTranscriptionMode

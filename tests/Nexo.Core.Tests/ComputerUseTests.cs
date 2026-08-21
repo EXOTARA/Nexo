@@ -14,7 +14,7 @@ public sealed class ComputerUseTests
     {
         var settings = new PermissionSettings();
         settings.Normalize();
-        settings.For(KohanaCapability.ComputerUse).Level = level;
+        settings.For(SakuraCapability.ComputerUse).Level = level;
         return settings;
     }
 

@@ -67,7 +67,7 @@ public sealed class ResourceGovernorPolicyTests
     }
 
     [Theory]
-    [InlineData("Kohana")]
+    [InlineData("Sakura")]
     [InlineData("Nexo")]
     public void ProductFullScreen_IsNotTreatedAsGame(string processName)
     {

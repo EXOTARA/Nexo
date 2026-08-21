@@ -19,7 +19,11 @@ public sealed class WakeWordPreferencesTests
 
         Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
         Assert.False(preferences.WakeWordEnabled);
-        Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
+        // Diseño D69 — cambiada a conciencia con el cambio de nombre. La frase por omisión es
+        // ahora "Oye Sakura": "kohana" no existe en el léxico español del reconocedor y salía
+        // escrita "oye co ana", así que conservarla habría sido conservar la única que no
+        // funcionaba. La forma —corta, "oye" o "hey"— sí se respeta al migrar.
+        Assert.Equal(WakeWordPhrase.OyeSakura, preferences.WakeWordPhrase);
     }
 
     [Theory]
@@ -39,11 +43,11 @@ public sealed class WakeWordPreferencesTests
 
         Assert.True(preferences.WakeWordEnabled);
         Assert.Equal(ShellPreferences.CurrentSchemaVersion, preferences.SchemaVersion);
-        Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
+        Assert.Equal(WakeWordPhrase.OyeSakura, preferences.WakeWordPhrase);
     }
 
     [Fact]
-    public void Normalize_PreservesCurrentKohanaPreference()
+    public void Normalize_KeepsTheShapeOfTheChoiceWhenTheNameChanges()
     {
         var preferences = new ShellPreferences
         {
@@ -55,7 +59,10 @@ public sealed class WakeWordPreferencesTests
         preferences.Normalize();
 
         Assert.True(preferences.WakeWordEnabled);
-        Assert.Equal(WakeWordPhrase.Kohana, preferences.WakeWordPhrase);
+
+        // Diseño D69 — quien había elegido la frase corta se queda con la corta; lo que cambia es
+        // el nombre, no la forma de llamarla.
+        Assert.Equal(WakeWordPhrase.Sakura, preferences.WakeWordPhrase);
     }
 
     [Fact]
@@ -69,7 +76,7 @@ public sealed class WakeWordPreferencesTests
 
         preferences.Normalize();
 
-        Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
+        Assert.Equal(WakeWordPhrase.OyeSakura, preferences.WakeWordPhrase);
     }
 
     [Fact]

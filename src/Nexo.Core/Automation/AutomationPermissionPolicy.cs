@@ -103,7 +103,7 @@ public static class AutomationPermissionPolicy
                 return true;
 
             default:
-                error = "La acción no está permitida por Kohana.";
+                error = "La acción no está permitida por Sakura.";
                 return false;
         }
     }

@@ -5,7 +5,7 @@ namespace Nexo.Core.Tests;
 /// <summary>
 /// Diseño D58 — lo que se abre por roce tiene que saber irse solo.
 ///
-/// Adler lo dijo así: pasar el ratón sin querer deja Kohana abierta «a pesar de que ya no pasó
+/// Adler lo dijo así: pasar el ratón sin querer deja Sakura abierta «a pesar de que ya no pasó
 /// nada», y eso es invasivo.
 /// </summary>
 public sealed class UnattendedRevealPolicyTests

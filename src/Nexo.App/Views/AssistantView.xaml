@@ -48,6 +48,7 @@
                     Margin="12,0,0,0"
                     Padding="11,8"
                     VerticalAlignment="Top"
+                    AutomationProperties.Name="Nueva conversación"
                     ToolTip="Nueva conversación"
                     Style="{StaticResource SecondaryButtonStyle}"
                     Click="ClearConversationButton_Click">
@@ -60,7 +61,7 @@
                           StrokeThickness="1.7"
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
-                          Data="{StaticResource IconKohanaPlus}" />
+                          Data="{StaticResource IconSakuraPlus}" />
                     <TextBlock Text="Nuevo" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
@@ -88,7 +89,7 @@
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         Foreground="{DynamicResource BrushAccent}"
-                                        Style="{StaticResource KohanaFlowerMarkStyle}" />
+                                        Style="{StaticResource SakuraFlowerMarkStyle}" />
                     </Border>
                     <TextBlock Margin="0,17,0,0"
                                Text="¿Qué hacemos hoy?"
@@ -97,7 +98,7 @@
                                FontWeight="SemiBold" />
                     <TextBlock Margin="0,7,0,14"
                                MaxWidth="430"
-                               Text="Pide una acción, pregunta algo o comparte una ventana. Kohana ejecuta primero lo que puede resolver de forma local."
+                               Text="Pide una acción, pregunta algo o comparte una ventana. Sakura ejecuta primero lo que puede resolver de forma local."
                                TextAlignment="Center"
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource BrushTextSecondary}"
@@ -210,6 +211,7 @@
                 </Grid.ColumnDefinitions>
 
                 <Button x:Name="VisionButton"
+                        AutomationProperties.Name="Mirar la ventana activa"
                         Grid.Column="0"
                         Margin="0,0,7,0"
                         Width="42"
@@ -227,7 +229,7 @@
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
                           StrokeLineJoin="Round"
-                          Data="{StaticResource IconKohanaLook}" />
+                          Data="{StaticResource IconSakuraLook}" />
                 </Button>
 
                 <Grid Grid.Column="1">
@@ -239,6 +241,7 @@
                                Foreground="{DynamicResource BrushTextTertiary}"
                                FontSize="{DynamicResource FontSizeBody}" />
                     <TextBox x:Name="PromptBox"
+                             AutomationProperties.Name="Escribe una orden o pregunta"
                              MinHeight="46"
                              MaxHeight="108"
                              Padding="10,7"
@@ -253,6 +256,7 @@
                 </Grid>
 
                 <Button x:Name="MicButton"
+                        AutomationProperties.Name="Hablar por micrófono"
                         Grid.Column="2"
                         Margin="7,0,0,0"
                         Width="42"
@@ -272,7 +276,7 @@
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
                           StrokeLineJoin="Round"
-                          Data="{StaticResource IconKohanaMic}" />
+                          Data="{StaticResource IconSakuraMic}" />
                 </Button>
 
                 <Button Grid.Column="3"
@@ -282,6 +286,7 @@
                         Padding="0"
                         VerticalAlignment="Center"
                         Style="{StaticResource PrimaryButtonStyle}"
+                        AutomationProperties.Name="Enviar"
                         ToolTip="Enviar"
                         Click="SendButton_Click">
                     <Path Width="18"
@@ -292,7 +297,7 @@
                           StrokeStartLineCap="Round"
                           StrokeEndLineCap="Round"
                           StrokeLineJoin="Round"
-                          Data="{StaticResource IconKohanaSend}" />
+                          Data="{StaticResource IconSakuraSend}" />
                 </Button>
             </Grid>
         </Border>

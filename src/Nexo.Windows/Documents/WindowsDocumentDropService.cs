@@ -73,7 +73,7 @@ public sealed class WindowsDocumentDropService
     /// Se comprueba la existencia en vez de abrir con CreateNew y capturar, porque el caso normal es
     /// que esté libre y no tiene sentido pagar una excepción por lo habitual. La carrera que eso
     /// deja abierta —que alguien cree el archivo entre la comprobación y la escritura— existe, pero
-    /// aquí el único que escribe es Kohana y la consecuencia sería un archivo sustituido, no un
+    /// aquí el único que escribe es Sakura y la consecuencia sería un archivo sustituido, no un
     /// fallo silencioso.
     /// </summary>
     private static string? FindFreeName(string folder, string fileName)

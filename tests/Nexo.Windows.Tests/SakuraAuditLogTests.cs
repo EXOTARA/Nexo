@@ -9,13 +9,13 @@ namespace Nexo.Windows.Tests;
 /// efecto real diga qué se hizo, cuándo, con qué permiso y cómo revertirla, y que el registro no se
 /// pueda maquillar.
 /// </summary>
-public sealed class KohanaAuditLogTests : IDisposable
+public sealed class SakuraAuditLogTests : IDisposable
 {
     private readonly string _directory;
     private readonly string _auditPath;
     private readonly string _legacyPath;
 
-    public KohanaAuditLogTests()
+    public SakuraAuditLogTests()
     {
         _directory = Path.Combine(Path.GetTempPath(), "kohana-audit-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
@@ -35,7 +35,7 @@ public sealed class KohanaAuditLogTests : IDisposable
         }
     }
 
-    private JsonKohanaAuditLog CreateLog() => new(_auditPath, _legacyPath);
+    private JsonSakuraAuditLog CreateLog() => new(_auditPath, _legacyPath);
 
     private static AuditEntry Entry(string action, DateTimeOffset at, string revertHint = "") => new()
     {
@@ -114,7 +114,7 @@ public sealed class KohanaAuditLogTests : IDisposable
     }
 
     [Fact]
-    public void ACorruptFile_DoesNotCrashKohana()
+    public void ACorruptFile_DoesNotCrashSakura()
     {
         File.WriteAllText(_auditPath, "{ esto no es json válido");
 

@@ -101,7 +101,7 @@ public static partial class MemoryCandidateDetector
     /// "recuérdame comprar pan" en un recuerdo en vez de en la tarea que la persona pidió.
     /// </summary>
     [GeneratedRegex(
-        @"^(?:oye\s+kohana[,\s]+|kohana[,\s]+)?(?:recuerda\s+(?:que\s+|esto\s*[:,]\s*)|acu[eé]rdate\s+de\s+(?:que\s+)?|(?:quiero|necesito)\s+que\s+recuerdes\s+(?:que\s+)?|(?:toma\s+nota|ten\s+en\s+cuenta)\s+(?:de\s+)?que\s+)(?<fact>.+)$",
+        @"^(?:oye\s+(?:sakura|kohana)[,\s]+|(?:sakura|kohana)[,\s]+)?(?:recuerda\s+(?:que\s+|esto\s*[:,]\s*)|acu[eé]rdate\s+de\s+(?:que\s+)?|(?:quiero|necesito)\s+que\s+recuerdes\s+(?:que\s+)?|(?:toma\s+nota|ten\s+en\s+cuenta)\s+(?:de\s+)?que\s+)(?<fact>.+)$",
         RegexOptions.IgnoreCase)]
     private static partial Regex ExplicitRequestPattern();
 

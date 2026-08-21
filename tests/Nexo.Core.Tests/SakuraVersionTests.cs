@@ -9,11 +9,11 @@ namespace Nexo.Core.Tests;
 /// aquí no da ninguna señal de que algo va mal: simplemente deja de ofrecer actualizaciones, o
 /// peor, ofrece una vieja. Es el tipo de fallo que se descubre meses después y sin pista.
 /// </summary>
-public sealed class KohanaVersionTests
+public sealed class SakuraVersionTests
 {
-    private static KohanaVersion Parse(string text)
+    private static SakuraVersion Parse(string text)
     {
-        Assert.True(KohanaVersion.TryParse(text, out var version), $"No se pudo leer «{text}».");
+        Assert.True(SakuraVersion.TryParse(text, out var version), $"No se pudo leer «{text}».");
         return version;
     }
 
@@ -38,7 +38,7 @@ public sealed class KohanaVersionTests
     public void BuildMetadata_DoesNotCount()
     {
         // La versión informativa de la compilación lleva el commit pegado. Si contara, cada
-        // compilación parecería una versión nueva y Kohana se ofrecería actualizarse a sí misma.
+        // compilación parecería una versión nueva y Sakura se ofrecería actualizarse a sí misma.
         Assert.Equal(
             0,
             Parse("0.9.5-beta+563688b44104984ff2f1e422848a21e905b2b9a0")
@@ -70,7 +70,7 @@ public sealed class KohanaVersionTests
     [Fact]
     public void TheSameVersionIsNotNewerThanItself()
     {
-        // Lo que evita que Kohana se ofrezca actualizarse a lo que ya tiene puesto.
+        // Lo que evita que Sakura se ofrezca actualizarse a lo que ya tiene puesto.
         Assert.Equal(0, Parse("0.9.5-beta").CompareTo(Parse("0.9.5-beta")));
         Assert.False(Parse("0.9.5-beta") > Parse("0.9.5-beta"));
     }
@@ -95,7 +95,7 @@ public sealed class KohanaVersionTests
         // Esto se lee de algo que llega de la red. Un servidor que responde cualquier cosa —una
         // página de error, HTML, una redirección— es un caso normal, y adivinar una versión a
         // partir de ella es cómo se instala algo que nadie publicó.
-        Assert.False(KohanaVersion.TryParse(text, out _));
+        Assert.False(SakuraVersion.TryParse(text, out _));
     }
 
     [Fact]

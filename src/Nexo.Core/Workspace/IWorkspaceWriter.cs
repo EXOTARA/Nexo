@@ -38,6 +38,6 @@ public interface IWorkspaceWriter
 
     WorkspaceStepResult WriteFile(string authorizedRoot, string relativePath, string content);
 
-    /// <summary>Borra un archivo que Kohana creó. Solo se usa al deshacer.</summary>
+    /// <summary>Borra un archivo que Sakura creó. Solo se usa al deshacer.</summary>
     WorkspaceStepResult DeleteFile(string authorizedRoot, string relativePath);
 }

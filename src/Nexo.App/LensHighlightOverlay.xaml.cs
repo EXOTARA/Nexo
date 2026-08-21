@@ -10,7 +10,7 @@ using Nexo.Core.Vision;
 namespace Nexo.App;
 
 /// <summary>
-/// Diseño D5.7 (Fase 2 — Kohana Lens) — dibuja recuadros sobre las regiones que
+/// Diseño D5.7 (Fase 2 — Sakura Lens) — dibuja recuadros sobre las regiones que
 /// <see cref="LensHighlightMatcher"/> identificó, posicionados en coordenadas reales de pantalla
 /// sobre la ventana observada. Se autodescarta sola tras unos segundos: es guía visual pasajera,
 /// no un estado que el usuario tenga que cerrar a mano.

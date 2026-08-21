@@ -11,9 +11,9 @@ public readonly record struct WorkspaceRootVerdict(bool IsAllowed, string Messag
 /// <summary>
 /// Diseño D41 — qué carpetas tiene sentido autorizar como proyecto.
 ///
-/// Nace de un fallo real: se autorizó <c>C:\</c> y Kohana se quedó sin responder. La causa inmediata
+/// Nace de un fallo real: se autorizó <c>C:\</c> y Sakura se quedó sin responder. La causa inmediata
 /// era de rendimiento —recorrer un disco entero—, pero el fondo es de diseño: el permiso de proyecto
-/// existe para acotar hasta dónde llega Kohana, y autorizar la raíz del disco es exactamente no
+/// existe para acotar hasta dónde llega Sakura, y autorizar la raíz del disco es exactamente no
 /// acotar nada. Un tope de archivos no arregla eso; solo hace que el mismo permiso desmedido tarde
 /// menos.
 ///
@@ -67,7 +67,7 @@ public static class WorkspaceRootPolicy
         if (SystemFolder(full) is { } systemFolder)
         {
             return WorkspaceRootVerdict.Refuse(
-                $"«{systemFolder}» es una carpeta del sistema. Ahí no hay nada tuyo que Kohana " +
+                $"«{systemFolder}» es una carpeta del sistema. Ahí no hay nada tuyo que Sakura " +
                 "deba leer.");
         }
 

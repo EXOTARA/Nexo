@@ -5,7 +5,7 @@ using Nexo.Core.Diagnostics;
 namespace Nexo.Windows.Storage;
 
 /// <summary>
-/// Copia de forma conservadora los datos de la etapa Nexo hacia Kohana.
+/// Copia de forma conservadora los datos de la etapa Nexo hacia Sakura.
 /// Nunca elimina ni sobrescribe el origen y puede ejecutarse más de una vez.
 /// </summary>
 public static class LegacyDataMigrator
@@ -24,6 +24,65 @@ public static class LegacyDataMigrator
     public static LegacyDataMigrationResult MigrateIfNeeded() => Migrate(
         NexoDataPaths.LegacyRootDirectory,
         NexoDataPaths.RootDirectory);
+
+    /// <summary>
+    /// Diseño D70 — trae los modelos de voz y el runtime de IA a la carpeta actual.
+    ///
+    /// La migración normal los deja fuera a propósito: son gigas y copiarlos alargaría el primer
+    /// arranque. El precio de dejarlos fuera resultó ser peor de lo previsto: en el equipo de Adler
+    /// seguían en la carpeta de la etapa Nexo —tres giga y medio de modelos, casi dos de Ollama—,
+    /// leídos en vivo desde ahí, así que borrar la carpeta vieja habría dejado a la aplicación sin
+    /// voz sin que nada avisara.
+    ///
+    /// Aquí se **mueven**, no se copian: dentro del mismo volumen mover una carpeta es renombrarla,
+    /// así que cuesta lo mismo con tres gigas que con tres kilobytes y no hace falta el doble de
+    /// disco libre. Si el destino ya existe no se toca nada, y si el movimiento falla —otro volumen,
+    /// un archivo abierto— se deja como estaba: la búsqueda en cadena sigue encontrándolos donde
+    /// están y nadie se queda sin nada.
+    /// </summary>
+    public static IReadOnlyList<string> ConsolidateHeavyFolders()
+    {
+        var moved = new List<string>();
+
+        if (NexoDataPaths.IsUsingOverrideRoot)
+        {
+            return moved;
+        }
+
+        foreach (var folder in new[] { "Models", "Runtime" })
+        {
+            var destination = Path.Combine(NexoDataPaths.RootDirectory, folder);
+            if (Directory.Exists(destination))
+            {
+                continue;
+            }
+
+            foreach (var legacyRoot in NexoDataPaths.LegacyRootDirectories)
+            {
+                var source = Path.Combine(legacyRoot, folder);
+                if (!Directory.Exists(source))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Directory.CreateDirectory(NexoDataPaths.RootDirectory);
+                    Directory.Move(source, destination);
+                    moved.Add($"{source} → {destination}");
+                }
+                catch (Exception exception) when (
+                    exception is IOException or UnauthorizedAccessException)
+                {
+                    // Se queda donde está y se sigue leyendo desde ahí.
+                }
+
+                break;
+            }
+        }
+
+        return moved;
+    }
 
     /// <summary>
     /// Sobrecarga explícita para poder comprobar la migración sin depender de

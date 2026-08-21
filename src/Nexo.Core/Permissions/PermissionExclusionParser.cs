@@ -17,12 +17,12 @@ namespace Nexo.Core.Permissions;
 public static class PermissionExclusionParser
 {
     public sealed record ParseOutcome(
-        IReadOnlyList<(KohanaCapability Capability, string App)> Exclusions,
+        IReadOnlyList<(SakuraCapability Capability, string App)> Exclusions,
         int IgnoredLines);
 
     public static ParseOutcome Parse(IEnumerable<string>? lines)
     {
-        var exclusions = new List<(KohanaCapability, string)>();
+        var exclusions = new List<(SakuraCapability, string)>();
         var ignored = 0;
 
         foreach (var line in lines ?? [])
@@ -43,7 +43,7 @@ public static class PermissionExclusionParser
             var app = line[(separator + 1)..].Trim();
 
             if (app.Length == 0 ||
-                !Enum.TryParse<KohanaCapability>(capabilityText, ignoreCase: true, out var capability) ||
+                !Enum.TryParse<SakuraCapability>(capabilityText, ignoreCase: true, out var capability) ||
                 !Enum.IsDefined(capability))
             {
                 ignored++;
@@ -80,7 +80,7 @@ public static class PermissionExclusionParser
 
         var parsed = Parse(lines);
 
-        foreach (var capability in Enum.GetValues<KohanaCapability>())
+        foreach (var capability in Enum.GetValues<SakuraCapability>())
         {
             settings.For(capability).ExcludedApps = parsed.Exclusions
                 .Where(exclusion => exclusion.Capability == capability)

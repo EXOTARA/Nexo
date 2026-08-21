@@ -29,7 +29,7 @@ public sealed class ComputerUseSnapshot
     /// <summary>Contenido anterior del portapapeles. Null si no se pudo leer o no aplica.</summary>
     public string? PreviousClipboard { get; set; }
 
-    /// <summary>Lo que Kohana dejó puesto, para saber si alguien lo cambió después.</summary>
+    /// <summary>Lo que Sakura dejó puesto, para saber si alguien lo cambió después.</summary>
     public string? WrittenClipboard { get; set; }
 
     public ComputerUseSnapshot Copy() => new()
@@ -60,14 +60,14 @@ public sealed record ComputerUseResult(bool Success, string Detail, string Outpu
 }
 
 /// <summary>
-/// Diseño D18 (Fase 7, nivel 4 — "Ejecutar un paso") — el único camino por el que Kohana actúa sobre
+/// Diseño D18 (Fase 7, nivel 4 — "Ejecutar un paso") — el único camino por el que Sakura actúa sobre
 /// el equipo. Mismo esqueleto que <c>WorkspaceEditCoordinator</c> en D14, y a propósito: los dos
 /// resuelven el mismo problema —ejecutar un paso confirmado sin quedarse a medias— y darle a cada
 /// capacidad su propio esqueleto es como acaban divergiendo las garantías.
 ///
 /// El orden:
 /// 1. **El Permission Broker decide.** Denegado es denegado; ninguna capacidad se salta al broker.
-/// 2. **Nivel 4 o más.** Por debajo, Kohana propone y no toca.
+/// 2. **Nivel 4 o más.** Por debajo, Sakura propone y no toca.
 /// 3. **El método pedido tiene que ser el más seguro disponible.** No basta con que sea ejecutable:
 ///    si hay uno mejor, se rechaza. Si no, el orden estricto de D17 sería decorativo — bastaría con
 ///    pedir el método cómodo para saltárselo.
@@ -122,7 +122,7 @@ public sealed class ComputerUseCoordinator
 
         var decision = PermissionBroker.Decide(
             new PermissionRequest(
-                KohanaCapability.ComputerUse,
+                SakuraCapability.ComputerUse,
                 request.Description,
                 request.TargetApp,
                 request.MandatoryCategories),
@@ -189,7 +189,7 @@ public sealed class ComputerUseCoordinator
 
     /// <summary>
     /// Diseño D19 — pulsar un control. **Sin snapshot y sin reversión**, y se dice: pulsar un botón
-    /// ajeno no tiene vuelta atrás que Kohana pueda garantizar. Por eso el plan lo declara
+    /// ajeno no tiene vuelta atrás que Sakura pueda garantizar. Por eso el plan lo declara
     /// irreversible y por eso cada uno se confirma; prometer una reversión que no existe sería peor
     /// que no ofrecer la acción.
     /// </summary>
@@ -287,7 +287,7 @@ public sealed class ComputerUseCoordinator
     }
 
     /// <summary>
-    /// Deshace un paso. **Se niega si el portapapeles cambió desde que Kohana lo puso**: devolverlo
+    /// Deshace un paso. **Se niega si el portapapeles cambió desde que Sakura lo puso**: devolverlo
     /// entonces borraría lo que la persona copió después. Misma regla que en D14 con los archivos, y
     /// por el mismo motivo.
     /// </summary>

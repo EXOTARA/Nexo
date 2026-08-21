@@ -128,7 +128,7 @@ public static class WindowsWallpaperReader
                 or ArgumentException or OverflowException or FileFormatException)
         {
             // Un fondo en un formato que WPF no decodifica, un archivo a medio escribir o un disco
-            // desconectado no deben impedir que Kohana abra: se prueba el siguiente candidato.
+            // desconectado no deben impedir que Sakura abra: se prueba el siguiente candidato.
             return null;
         }
     }

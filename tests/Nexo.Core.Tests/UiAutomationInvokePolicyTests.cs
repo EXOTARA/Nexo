@@ -94,7 +94,7 @@ public sealed class UiAutomationInvokePolicyTests
     [Fact]
     public void ASensitiveWindow_IsNotTouched()
     {
-        // Si Kohana no puede ni mirar un gestor de contraseñas, mucho menos pulsar dentro de él.
+        // Si Sakura no puede ni mirar un gestor de contraseñas, mucho menos pulsar dentro de él.
         var verdict = UiAutomationInvokePolicy.CheckWindow("Bitwarden", "bitwarden");
 
         Assert.Equal(InvokeRefusal.VentanaSensible, verdict.Refusal);

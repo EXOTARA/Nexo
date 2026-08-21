@@ -42,10 +42,10 @@ public static class SelfCheckReport
         builder.AppendLine("· Que la interfaz se vea bien y los botones hagan lo que dicen.");
         builder.AppendLine("· Que el dictado escriba en la ventana correcta.");
         builder.AppendLine("· Que la píldora no robe el foco a lo que estés haciendo.");
-        builder.AppendLine("· Que Kohana entienda tu voz en tu micrófono.");
+        builder.AppendLine("· Que Sakura entienda tu voz en tu micrófono.");
         builder.AppendLine();
         builder.AppendLine(
-            "Todo eso solo lo comprueba una persona usando Kohana un rato. Esto reduce ese trabajo; " +
+            "Todo eso solo lo comprueba una persona usando Sakura un rato. Esto reduce ese trabajo; " +
             "no lo sustituye.");
 
         return builder.ToString().TrimEnd();

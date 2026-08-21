@@ -91,7 +91,7 @@ public sealed class WorkspaceAutonomyTests
         // La autonomía no se hereda de un archivo escrito a mano, se concede.
         var settings = new WorkspaceSettings
         {
-            AuthorizedPath = @"C:\Proyectos\Kohana",
+            AuthorizedPath = @"C:\Proyectos\Sakura",
             AutonomyLevel = AutonomyLevel.AutomatizarSecuencia
         };
 
@@ -105,7 +105,7 @@ public sealed class WorkspaceAutonomyTests
     {
         var settings = new WorkspaceSettings
         {
-            AuthorizedPath = @"C:\Proyectos\Kohana",
+            AuthorizedPath = @"C:\Proyectos\Sakura",
             AuthorizedAt = DateTimeOffset.Now
         };
 
@@ -123,12 +123,12 @@ public sealed class WorkspaceAutonomyTests
     {
         var files = new[]
         {
-            new WorkspaceFile(@"C:\Proyectos\Kohana\Program.cs", "Program.cs", 1200),
-            new WorkspaceFile(@"C:\Proyectos\Kohana\src\App.cs", @"src\App.cs", 800)
+            new WorkspaceFile(@"C:\Proyectos\Sakura\Program.cs", "Program.cs", 1200),
+            new WorkspaceFile(@"C:\Proyectos\Sakura\src\App.cs", @"src\App.cs", 800)
         };
 
         var context = WorkspaceContextBuilder.BuildStructure(
-            @"C:\Proyectos\Kohana", files, AutonomyLevel.Guiar);
+            @"C:\Proyectos\Sakura", files, AutonomyLevel.Guiar);
 
         Assert.NotNull(context);
         Assert.Contains("Program.cs", context);
@@ -138,7 +138,7 @@ public sealed class WorkspaceAutonomyTests
     [Fact]
     public void WithNoFiles_NoProjectContextIsSent() =>
         Assert.Null(WorkspaceContextBuilder.BuildStructure(
-            @"C:\Proyectos\Kohana", [], AutonomyLevel.Guiar));
+            @"C:\Proyectos\Sakura", [], AutonomyLevel.Guiar));
 
     [Fact]
     public void WhenSomethingWasRedacted_ItIsSaid()

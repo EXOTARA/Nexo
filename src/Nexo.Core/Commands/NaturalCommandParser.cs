@@ -17,7 +17,7 @@ public sealed partial class NaturalCommandParser
         }
 
         // Se normaliza antes y después de quitar la palabra de activación para
-        // aceptar frases como "oye Kohana, bájale a Spotify".
+        // aceptar frases como "oye Sakura, bájale a Spotify".
         normalized = SpanishCommandLexicon.NormalizeForParsing(normalized);
         normalized = RemoveWakeWord(normalized);
         normalized = SpanishCommandLexicon.NormalizeForParsing(normalized);
@@ -404,7 +404,7 @@ public sealed partial class NaturalCommandParser
     private static partial Regex OpenTargetRegex();
 
     [GeneratedRegex(
-        @"^(?:(?:oye|hey)\s+)?(?:kohana|nexo|exo)(?:\s+|$)",
+        @"^(?:(?:oye|hey)\s+)?(?:sakura|kohana|nexo|exo)(?:\s+|$)",
         RegexOptions.IgnoreCase)]
     private static partial Regex WakeWordPrefixRegex();
 

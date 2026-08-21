@@ -18,13 +18,13 @@ namespace Nexo.Core.Permissions;
 /// </summary>
 public enum AutonomyLevel
 {
-    /// <summary>Kohana observa y describe, sin proponer acción.</summary>
+    /// <summary>Sakura observa y describe, sin proponer acción.</summary>
     Ver = 1,
 
-    /// <summary>Kohana señala qué podría hacerse; lo ejecuta la persona.</summary>
+    /// <summary>Sakura señala qué podría hacerse; lo ejecuta la persona.</summary>
     Guiar = 2,
 
-    /// <summary>Kohana redacta el plan de una acción concreta, sin ejecutarla.</summary>
+    /// <summary>Sakura redacta el plan de una acción concreta, sin ejecutarla.</summary>
     Proponer = 3,
 
     /// <summary>

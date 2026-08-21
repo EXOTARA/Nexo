@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Nexo.Core.Updates;
 
 /// <summary>
-/// Diseño D62 — una versión de Kohana, y cuál de dos es más nueva.
+/// Diseño D62 — una versión de Sakura, y cuál de dos es más nueva.
 ///
 /// Existe porque comparar versiones «a ojo» es donde viven los errores caros de un actualizador.
 /// El clásico es comparar como texto: así «0.9.10» es menor que «0.9.5», porque el 1 va antes que
@@ -20,13 +20,13 @@ namespace Nexo.Core.Updates;
 ///
 /// **Lo que va tras el «+» no cuenta para nada.** La versión informativa que genera la compilación
 /// es «0.9.5-beta+563688b…», con el identificador del commit pegado. Si eso contara, cada
-/// compilación parecería una versión distinta y Kohana se ofrecería actualizarse a sí misma.
+/// compilación parecería una versión distinta y Sakura se ofrecería actualizarse a sí misma.
 /// </summary>
-public readonly record struct KohanaVersion(
+public readonly record struct SakuraVersion(
     int Major,
     int Minor,
     int Patch,
-    string PreRelease) : IComparable<KohanaVersion>
+    string PreRelease) : IComparable<SakuraVersion>
 {
     public bool IsPreRelease => PreRelease.Length > 0;
 
@@ -35,7 +35,7 @@ public readonly record struct KohanaVersion(
     /// —el archivo que anuncia la versión publicada— y un servidor que responde cualquier cosa es un
     /// caso normal, no una excepción.
     /// </summary>
-    public static bool TryParse(string? text, out KohanaVersion version)
+    public static bool TryParse(string? text, out SakuraVersion version)
     {
         version = default;
 
@@ -93,11 +93,11 @@ public readonly record struct KohanaVersion(
             numbers[i] = number;
         }
 
-        version = new KohanaVersion(numbers[0], numbers[1], numbers[2], preRelease);
+        version = new SakuraVersion(numbers[0], numbers[1], numbers[2], preRelease);
         return true;
     }
 
-    public int CompareTo(KohanaVersion other)
+    public int CompareTo(SakuraVersion other)
     {
         var byNumbers =
             Major.CompareTo(other.Major) is var major and not 0 ? major :
@@ -176,13 +176,13 @@ public readonly record struct KohanaVersion(
         return 0;
     }
 
-    public static bool operator <(KohanaVersion left, KohanaVersion right) => left.CompareTo(right) < 0;
+    public static bool operator <(SakuraVersion left, SakuraVersion right) => left.CompareTo(right) < 0;
 
-    public static bool operator >(KohanaVersion left, KohanaVersion right) => left.CompareTo(right) > 0;
+    public static bool operator >(SakuraVersion left, SakuraVersion right) => left.CompareTo(right) > 0;
 
-    public static bool operator <=(KohanaVersion left, KohanaVersion right) => left.CompareTo(right) <= 0;
+    public static bool operator <=(SakuraVersion left, SakuraVersion right) => left.CompareTo(right) <= 0;
 
-    public static bool operator >=(KohanaVersion left, KohanaVersion right) => left.CompareTo(right) >= 0;
+    public static bool operator >=(SakuraVersion left, SakuraVersion right) => left.CompareTo(right) >= 0;
 
     public override string ToString() =>
         IsPreRelease

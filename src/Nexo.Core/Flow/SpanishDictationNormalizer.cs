@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace Nexo.Core.Flow;
 
 /// <summary>
-/// Diseño D6.1 (Fase 3 — Kohana Flow) — convierte la transcripción CRUDA de Whisper en texto listo
+/// Diseño D6.1 (Fase 3 — Sakura Flow) — convierte la transcripción CRUDA de Whisper en texto listo
 /// para insertar en otra aplicación.
 ///
 /// **No confundir con <see cref="Nexo.Core.Voice.SpanishVoiceTranscriptNormalizer"/>**: aquel

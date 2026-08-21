@@ -147,7 +147,7 @@ public sealed class OptimizationPlanBuilderTests
     // ---------- Consejo vs. cambio aplicable ----------
 
     [Fact]
-    public void AdviceIsNeverCountedAsSomethingKohanaWouldApply()
+    public void AdviceIsNeverCountedAsSomethingSakuraWouldApply()
     {
         var plan = OptimizationPlanBuilder.Build(
             OptimizationScenario.Jugar,
@@ -197,36 +197,36 @@ public sealed class OptimizationPlanBuilderTests
         }
     }
 
-    // ---------- Diseño D11: el consumo de la propia Kohana ----------
+    // ---------- Diseño D11: el consumo de la propia Sakura ----------
 
     [Fact]
-    public void WithoutKnowingTheProcessor_KohanasOwnFootprintIsNotTouched()
+    public void WithoutKnowingTheProcessor_SakurasOwnFootprintIsNotTouched()
     {
         // Misma regla que con la batería y la RAM: sin medición, no se propone.
         var plan = OptimizationPlanBuilder.Build(OptimizationScenario.Jugar, Profile(hasBattery: false));
 
-        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.KohanaFootprint);
-        Assert.Contains(plan.SkippedForMissingData, reason => reason.Contains("Consumo de Kohana"));
+        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.SakuraFootprint);
+        Assert.Contains(plan.SkippedForMissingData, reason => reason.Contains("Consumo de Sakura"));
     }
 
     [Fact]
-    public void OnATightMachine_KohanaStepsAsideFirst()
+    public void OnATightMachine_SakuraStepsAsideFirst()
     {
         var plan = OptimizationPlanBuilder.Build(
             OptimizationScenario.Jugar, Profile(hasBattery: false, logicalProcessors: 4));
 
-        var change = Assert.Single(plan.Changes, change => change.Target == OptimizationTarget.KohanaFootprint);
-        Assert.Equal(KohanaFootprintModes.Eco, change.Id);
-        Assert.True(change.IsReversibleByKohana);
+        var change = Assert.Single(plan.Changes, change => change.Target == OptimizationTarget.SakuraFootprint);
+        Assert.Equal(SakuraFootprintModes.Eco, change.Id);
+        Assert.True(change.IsReversibleBySakura);
     }
 
     [Fact]
-    public void OnARoomyMachine_LoweringKohanasModeWouldBeAnEmptyGesture()
+    public void OnARoomyMachine_LoweringSakurasModeWouldBeAnEmptyGesture()
     {
         var plan = OptimizationPlanBuilder.Build(
             OptimizationScenario.Jugar, Profile(hasBattery: false, logicalProcessors: 24));
 
-        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.KohanaFootprint);
+        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.SakuraFootprint);
         Assert.Contains(plan.SkippedForMissingData, reason => reason.Contains("margen de sobra"));
     }
 
@@ -237,24 +237,24 @@ public sealed class OptimizationPlanBuilderTests
         var plan = OptimizationPlanBuilder.Build(
             OptimizationScenario.Bateria, Profile(hasBattery: true, logicalProcessors: 24));
 
-        Assert.Contains(plan.Changes, change => change.Id == KohanaFootprintModes.Eco);
+        Assert.Contains(plan.Changes, change => change.Id == SakuraFootprintModes.Eco);
     }
 
     [Fact]
-    public void WhileProgramming_KohanaIsTheToolBeingUsed_AndIsNotSlowedDown()
+    public void WhileProgramming_SakuraIsTheToolBeingUsed_AndIsNotSlowedDown()
     {
         var plan = OptimizationPlanBuilder.Build(
             OptimizationScenario.Programar, Profile(hasBattery: false, logicalProcessors: 4));
 
-        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.KohanaFootprint);
+        Assert.DoesNotContain(plan.Changes, change => change.Target == OptimizationTarget.SakuraFootprint);
     }
 
     [Fact]
-    public void GeneralUse_ReturnsKohanaToDecidingForItself()
+    public void GeneralUse_ReturnsSakuraToDecidingForItself()
     {
         var plan = OptimizationPlanBuilder.Build(
             OptimizationScenario.General, Profile(hasBattery: false, logicalProcessors: 4));
 
-        Assert.Contains(plan.Changes, change => change.Id == KohanaFootprintModes.Automatic);
+        Assert.Contains(plan.Changes, change => change.Id == SakuraFootprintModes.Automatic);
     }
 }

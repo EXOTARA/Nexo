@@ -13,9 +13,9 @@ using Nexo.Core.Shell;
 namespace Nexo.App;
 
 /// <summary>
-/// Diseño D34 — la respuesta a Ctrl+Espacio, en una esquina, sin abrir Kohana.
+/// Diseño D34 — la respuesta a Ctrl+Espacio, en una esquina, sin abrir Sakura.
 ///
-/// Quien pulsa Ctrl+Espacio no quiso abrir Kohana: estaba en otra aplicación y preguntó desde ahí.
+/// Quien pulsa Ctrl+Espacio no quiso abrir Sakura: estaba en otra aplicación y preguntó desde ahí.
 /// Antes, la respuesta traía la ventana entera encima y la dejaba en la pestaña de chat, así que la
 /// persona tenía que volver a donde estaba. Ahora la respuesta va donde estaba mirando y se va sola.
 ///
@@ -30,7 +30,7 @@ public partial class AnswerPillWindow : Window
     /// <summary>
     /// Sin activación y como ventana de herramienta: la persona está escribiendo en otro programa y
     /// robarle el foco para enseñarle una respuesta le comería las siguientes teclas. Es la misma
-    /// razón por la que Ctrl+Espacio ya no abre Kohana.
+    /// razón por la que Ctrl+Espacio ya no abre Sakura.
     /// </summary>
     private const int WsExNoActivate = 0x08000000;
 
@@ -102,21 +102,21 @@ public partial class AnswerPillWindow : Window
         SourceInitialized += OnSourceInitialized;
         KeyDown += OnKeyDown;
 
-        // Diseño D38 — el clic en cualquier parte de la píldora abría Kohana entera, y eso convertía
+        // Diseño D38 — el clic en cualquier parte de la píldora abría Sakura entera, y eso convertía
         // un gesto inofensivo —apartar la píldora, pinchar cerca sin querer— en lo único que la
         // píldora existe para evitar. Ahora solo abre el enlace que lo dice, y un clic en el resto
         // la descarta, que es lo que alguien espera de un aviso de esquina.
-        OpenInKohanaText.MouseLeftButtonUp += (_, e) =>
+        OpenInSakuraText.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
             RaiseOpenRequested();
         };
-        OpenInKohanaText.Cursor = Cursors.Hand;
+        OpenInSakuraText.Cursor = Cursors.Hand;
         MouseLeftButtonUp += (_, _) => Dismiss();
     }
 
-    /// <summary>Se pidió ver la respuesta completa en Kohana.</summary>
-    public event EventHandler? OpenInKohanaRequested;
+    /// <summary>Se pidió ver la respuesta completa en Sakura.</summary>
+    public event EventHandler? OpenInSakuraRequested;
 
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
@@ -147,7 +147,7 @@ public partial class AnswerPillWindow : Window
 
         QuestionText.Text = question.Trim();
         AnswerText.Text = "Pensando…";
-        OpenInKohanaText.Visibility = Visibility.Collapsed;
+        OpenInSakuraText.Visibility = Visibility.Collapsed;
         HintText.Text = "Esc";
 
         Position(side);
@@ -159,7 +159,7 @@ public partial class AnswerPillWindow : Window
 
         PillBorder.BeginAnimation(OpacityProperty, null);
 
-        if (!KohanaMotion.AnimationsEnabled)
+        if (!SakuraMotion.AnimationsEnabled)
         {
             PillBorder.Opacity = 1;
             PillTranslate.Y = 0;
@@ -173,13 +173,13 @@ public partial class AnswerPillWindow : Window
             PillScale.ScaleX = 0.97;
             PillScale.ScaleY = 0.97;
 
-            PillBorder.Animate(OpacityProperty, 1, KohanaMotion.Reveal, KohanaMotion.DecelerateCurve);
+            PillBorder.Animate(OpacityProperty, 1, SakuraMotion.Reveal, SakuraMotion.DecelerateCurve);
             PillTranslate.AnimateTransform(
-                TranslateTransform.YProperty, 0, KohanaMotion.Emphasized, KohanaMotion.EmphasizedCurve);
+                TranslateTransform.YProperty, 0, SakuraMotion.Emphasized, SakuraMotion.EmphasizedCurve);
             PillScale.AnimateTransform(
-                ScaleTransform.ScaleXProperty, 1, KohanaMotion.Emphasized, KohanaMotion.SubtleSpringCurve);
+                ScaleTransform.ScaleXProperty, 1, SakuraMotion.Emphasized, SakuraMotion.SubtleSpringCurve);
             PillScale.AnimateTransform(
-                ScaleTransform.ScaleYProperty, 1, KohanaMotion.Emphasized, KohanaMotion.SubtleSpringCurve);
+                ScaleTransform.ScaleYProperty, 1, SakuraMotion.Emphasized, SakuraMotion.SubtleSpringCurve);
         }
 
         _animatedHeight = Height;
@@ -206,10 +206,10 @@ public partial class AnswerPillWindow : Window
         // El aviso se enseña en cuanto la respuesta ya no cabe, sin esperar a que termine: si
         // apareciera solo al final, reservaría su hueco de golpe y el texto ya leído daría un salto
         // justo cuando la persona está terminando de leerlo.
-        if (OpenInKohanaText.Visibility != Visibility.Visible &&
-            AnswerPillPolicy.DeservesOpeningInKohana(AnswerText.Text))
+        if (OpenInSakuraText.Visibility != Visibility.Visible &&
+            AnswerPillPolicy.DeservesOpeningInSakura(AnswerText.Text))
         {
-            OpenInKohanaText.Visibility = Visibility.Visible;
+            OpenInSakuraText.Visibility = Visibility.Visible;
         }
     }
 
@@ -236,9 +236,9 @@ public partial class AnswerPillWindow : Window
 
         var answer = _answer.ToString();
 
-        if (AnswerPillPolicy.DeservesOpeningInKohana(answer))
+        if (AnswerPillPolicy.DeservesOpeningInSakura(answer))
         {
-            OpenInKohanaText.Visibility = Visibility.Visible;
+            OpenInSakuraText.Visibility = Visibility.Visible;
         }
 
         ReconcileHeight();
@@ -262,7 +262,7 @@ public partial class AnswerPillWindow : Window
 
     private void RaiseOpenRequested()
     {
-        OpenInKohanaRequested?.Invoke(this, EventArgs.Empty);
+        OpenInSakuraRequested?.Invoke(this, EventArgs.Empty);
         Dismiss();
     }
 
@@ -289,7 +289,7 @@ public partial class AnswerPillWindow : Window
         // lo explique.
         IsHitTestVisible = false;
 
-        if (!KohanaMotion.AnimationsEnabled)
+        if (!SakuraMotion.AnimationsEnabled)
         {
             Hide();
             _dismissing = false;
@@ -299,8 +299,8 @@ public partial class AnswerPillWindow : Window
         PillBorder.Animate(
             OpacityProperty,
             0,
-            KohanaMotion.Exit,
-            KohanaMotion.AccelerateCurve,
+            SakuraMotion.Exit,
+            SakuraMotion.AccelerateCurve,
             completed: () =>
             {
                 Hide();
@@ -325,13 +325,13 @@ public partial class AnswerPillWindow : Window
                      PillBorder.BorderThickness.Top + PillBorder.BorderThickness.Bottom;
 
         // El texto de la respuesta es lo único que se recorta cuando no cabe todo. La cabecera —que
-        // dice a qué se está contestando— y el aviso de abrirla en Kohana se miden aparte y se
+        // dice a qué se está contestando— y el aviso de abrirla en Sakura se miden aparte y se
         // reservan siempre: son las dos cosas que explican lo que se está viendo, y recortarlas
         // dejaría un texto cortado sin decir de qué es ni cómo ver el resto.
         HeaderRow.Measure(new Size(available, double.PositiveInfinity));
-        OpenInKohanaText.Measure(new Size(available, double.PositiveInfinity));
+        OpenInSakuraText.Measure(new Size(available, double.PositiveInfinity));
 
-        var reserved = HeaderRow.DesiredSize.Height + OpenInKohanaText.DesiredSize.Height + chrome;
+        var reserved = HeaderRow.DesiredSize.Height + OpenInSakuraText.DesiredSize.Height + chrome;
         var budget = MaximumHeight() - reserved - AnswerText.Margin.Top;
 
         AnswerText.MaxHeight = Math.Max(40, budget);
@@ -348,27 +348,27 @@ public partial class AnswerPillWindow : Window
 
         _animatedHeight = target;
 
-        if (!KohanaMotion.AnimationsEnabled)
+        if (!SakuraMotion.AnimationsEnabled)
         {
             BeginAnimation(HeightProperty, null);
             Height = target;
             return;
         }
 
-        var animation = KohanaMotion.CreateAnimation(
-            target, KohanaMotion.Reveal, KohanaMotion.DecelerateCurve);
+        var animation = SakuraMotion.CreateAnimation(
+            target, SakuraMotion.Reveal, SakuraMotion.DecelerateCurve);
         BeginAnimation(HeightProperty, animation);
     }
 
     /// <summary>
     /// Tope de alto: la píldora es un vistazo, no una ventana. Una respuesta que no cabe se corta
-    /// aquí y se ofrece abrirla en Kohana, que es donde se lee entera.
+    /// aquí y se ofrece abrirla en Sakura, que es donde se lee entera.
     /// </summary>
     private static double MaximumHeight() =>
         Math.Max(200, SystemParameters.WorkArea.Height * 0.45);
 
     /// <summary>
-    /// Se coloca en la esquina superior del lado donde vive Kohana. Ir siempre al mismo lado da
+    /// Se coloca en la esquina superior del lado donde vive Sakura. Ir siempre al mismo lado da
     /// igual dónde esté acoplada rompería la idea de que la respuesta viene de ahí.
     /// </summary>
     private void Position(SidebarPosition side)

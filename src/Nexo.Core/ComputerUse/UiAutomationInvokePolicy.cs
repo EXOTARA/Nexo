@@ -9,7 +9,7 @@ public enum InvokeRefusal
     /// <summary>Ningún control con ese nombre. No se "aproxima": no hay nada que invocar.</summary>
     NoEncontrado,
 
-    /// <summary>Varios controles coinciden. Kohana no adivina cuál.</summary>
+    /// <summary>Varios controles coinciden. Sakura no adivina cuál.</summary>
     Ambiguo,
 
     /// <summary>El control existe pero no es de los que se pulsan.</summary>
@@ -38,7 +38,7 @@ public sealed record InvokeVerdict(
 
 /// <summary>
 /// Diseño D19 (Fase 7, escalón 5) — decide si un control concreto puede invocarse. Es la pieza que
-/// convierte "UI Automation" de algo que Kohana LEE (Lens, desde D5.3) en algo que Kohana puede
+/// convierte "UI Automation" de algo que Sakura LEE (Lens, desde D5.3) en algo que Sakura puede
 /// PULSAR, y por eso vive aquí y no en `Vision`: leer un control e invocarlo no son la misma
 /// capacidad, y mezclarlas haría que tener Lens implicara poder actuar.
 ///
@@ -121,7 +121,7 @@ public static class UiAutomationInvokePolicy
 
     /// <summary>
     /// Diseño D19 — la ventana pasa por la MISMA exclusión que usa Lens
-    /// (<see cref="VisionPrivacyPolicy"/>). Si Kohana no puede ni mirar un gestor de contraseñas,
+    /// (<see cref="VisionPrivacyPolicy"/>). Si Sakura no puede ni mirar un gestor de contraseñas,
     /// mucho menos pulsar dentro de él; darle a esta capacidad su propia lista sería la forma más
     /// fácil de que una de las dos se quedara corta.
     /// </summary>

@@ -25,7 +25,7 @@ public sealed class ShellPreferencesVisualResetTests
 
         // Funcionales — deben sobrevivir intactas.
         WakeWordEnabled = true,
-        WakeWordPhrase = WakeWordPhrase.HeyKohana,
+        WakeWordPhrase = WakeWordPhrase.HeySakura,
         WakeWordSensitivity = WakeWordSensitivity.High,
         WakeWordAliases = ["kojana"],
         SpeakVoiceResponses = true,
@@ -80,7 +80,7 @@ public sealed class ShellPreferencesVisualResetTests
         preferences.ResetVisualPreferences();
 
         Assert.True(preferences.WakeWordEnabled);
-        Assert.Equal(WakeWordPhrase.HeyKohana, preferences.WakeWordPhrase);
+        Assert.Equal(WakeWordPhrase.HeySakura, preferences.WakeWordPhrase);
         Assert.Equal(WakeWordSensitivity.High, preferences.WakeWordSensitivity);
         Assert.Contains("kojana", preferences.WakeWordAliases);
         Assert.True(preferences.SpeakVoiceResponses);

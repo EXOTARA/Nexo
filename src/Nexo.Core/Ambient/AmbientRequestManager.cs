@@ -19,7 +19,40 @@ public sealed class AmbientRequestManager
         lock (_sync)
         {
             _state = Normalize(_store.Load());
+            CloseRequestLeftRunningByAPreviousProcessLocked(DateTimeOffset.Now);
         }
+    }
+
+    /// <summary>
+    /// Diseño D63 — una solicitud en curso no sobrevive al proceso que la estaba atendiendo.
+    ///
+    /// Si Sakura se cierra —o la matan— mientras hay una solicitud escuchando, pensando o
+    /// respondiendo, ese estado queda escrito en disco y al arrancar de nuevo nadie lo va a
+    /// terminar: quien iba a hacerlo ya no existe. Y como <see cref="Begin"/> rechaza una solicitud
+    /// nueva mientras haya otra en curso, **la función entera queda bloqueada para siempre**.
+    ///
+    /// No es hipotético. En el equipo de Adler el archivo tenía una solicitud en estado Escuchando
+    /// del 2 de agosto: dieciséis días en los que cada orden de Lens respondía "ya hay una
+    /// solicitud ambiental en curso" y nadie sabía por qué.
+    ///
+    /// Se archiva en vez de dejarse visible: es de otra sesión, y abrir Sakura con el error de algo
+    /// que pasó hace días sería ruido, no información. El historial sí lo conserva.
+    /// </summary>
+    private void CloseRequestLeftRunningByAPreviousProcessLocked(DateTimeOffset now)
+    {
+        if (_state.ActiveRequest is not { } request ||
+            request.Status is not (AmbientRequestStatus.Listening
+                or AmbientRequestStatus.Thinking
+                or AmbientRequestStatus.Streaming))
+        {
+            return;
+        }
+
+        request.Status = AmbientRequestStatus.Failed;
+        request.ErrorMessage = "Sakura se cerró mientras la solicitud estaba en curso.";
+        request.UpdatedAt = now;
+        ArchiveActiveLocked(now);
+        SaveLocked();
     }
 
     public AmbientRequestSnapshot GetSnapshot(int recentCount = 5)
@@ -340,6 +373,91 @@ public sealed class AmbientRequestManager
             entry.Undone = true;
             SaveLocked();
             return AmbientRequestOperationResult.Completed("Deshice la solicitud.");
+        }
+    }
+
+    /// <summary>
+    /// Diseño D63 — cierra una solicitud que se quedó esperando una respuesta que no va a llegar.
+    ///
+    /// Existe porque el camino de excepciones no basta. El cliente de IA corta la petición a los
+    /// noventa segundos, y cuando ese corte ocurre **a mitad del flujo** llega como
+    /// <c>OperationCanceledException</c> desde dentro de un iterador, que en C# no puede envolver
+    /// sus <c>yield</c> en un <c>catch</c>. Bastó con que un filtro de excepción dejara pasar ese
+    /// caso para que la solicitud se quedara en "Pensando…" para siempre: eso es justo lo que Adler
+    /// reportó, y el historial guarda varias entradas ancladas en <c>Streaming</c> que lo
+    /// atestiguan.
+    ///
+    /// Arreglar el filtro es necesario y no es suficiente: cualquier otro camino que se olvide de
+    /// cerrar la solicitud vuelve a dejar la píldora colgada. Esto lo comprueba el reloj, que no
+    /// depende de que nadie se acuerde.
+    ///
+    /// Lo que ya llegó no se tira. Con texto parcial la solicitud se cierra COMO RESULTADO —media
+    /// respuesta es más que ninguna, y es la misma regla que D7 fijó para el fallo a mitad—; sin
+    /// texto se cierra como fallo.
+    /// </summary>
+    /// <remarks>
+    /// Los dos plazos son distintos a propósito. Antes del primer fragmento hay que darle margen a
+    /// un modelo local sobre una gráfica modesta, que puede tardar minutos en arrancar. Una vez que
+    /// los fragmentos empezaron a llegar, dos minutos de silencio ya no son lentitud: es una
+    /// conexión muerta.
+    /// </remarks>
+    /// <summary>
+    /// Escuchando es el estado entre <see cref="Begin"/> y el primer paso asíncrono, o sea
+    /// milisegundos. Un minuto ahí no es lentitud: es que quien la abrió se fue sin cerrarla.
+    /// </summary>
+    public static readonly TimeSpan ListeningStallLimit = TimeSpan.FromMinutes(1);
+
+    public static readonly TimeSpan ThinkingStallLimit = TimeSpan.FromMinutes(3);
+
+    public static readonly TimeSpan StreamingSilenceLimit = TimeSpan.FromMinutes(2);
+
+    public AmbientRequestOperationResult FailIfStalled(DateTimeOffset now)
+    {
+        lock (_sync)
+        {
+            var request = _state.ActiveRequest;
+            if (request is null)
+            {
+                return AmbientRequestOperationResult.Failed("No hay ninguna solicitud activa.");
+            }
+
+            var limit = request.Status switch
+            {
+                AmbientRequestStatus.Listening => ListeningStallLimit,
+                AmbientRequestStatus.Thinking => ThinkingStallLimit,
+                AmbientRequestStatus.Streaming => StreamingSilenceLimit,
+                _ => (TimeSpan?)null
+            };
+
+            if (limit is not { } stallLimit || now - request.UpdatedAt < stallLimit)
+            {
+                return AmbientRequestOperationResult.Failed("La solicitud sigue viva.");
+            }
+
+            var partial = request.PartialText;
+            if (!string.IsNullOrWhiteSpace(partial))
+            {
+                request.Status = AmbientRequestStatus.Result;
+                request.Result = new AmbientRequestResult(
+                    partial,
+                    partial,
+                    [],
+                    CanUndo: false);
+                request.ErrorMessage = "La respuesta se cortó y Sakura dejó de esperarla.";
+                request.UpdatedAt = now;
+                SaveLocked();
+                return AmbientRequestOperationResult.Completed(
+                    "La respuesta se cortó; queda lo que alcanzó a llegar.",
+                    request.Copy());
+            }
+
+            request.Status = AmbientRequestStatus.Failed;
+            request.ErrorMessage = "La respuesta tardó demasiado y Sakura dejó de esperarla.";
+            request.UpdatedAt = now;
+            SaveLocked();
+            return AmbientRequestOperationResult.Completed(
+                request.ErrorMessage,
+                request.Copy());
         }
     }
 

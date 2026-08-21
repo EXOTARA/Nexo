@@ -33,7 +33,7 @@
                     <Path Width="15"
                           Height="15"
                           Stretch="Uniform"
-                          Data="{StaticResource IconKohanaFocus}"
+                          Data="{StaticResource IconSakuraFocus}"
                           Stroke="{DynamicResource BrushAccent}"
                           StrokeThickness="1.8"
                           StrokeStartLineCap="Round"
@@ -67,6 +67,7 @@
             </Button>
 
             <Button x:Name="PauseResumeButton"
+                    AutomationProperties.Name="Pausar o reanudar el enfoque"
                     Margin="8,0,0,0"
                     Width="26"
                     Height="26"

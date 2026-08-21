@@ -257,43 +257,18 @@
 
             Es un boton y no una tarjeta con texto porque un resumen que no se puede accionar deja
             a medias: ver "3 pendientes" y tener que ir a buscar donde estan es peor que no verlo.
-            Pulsar abre Kohana en ese modulo y recoge el cajon.
+            Pulsar abre Sakura en ese modulo y recoge el cajon.
         -->
-        <Style x:Key="DashboardChipStyle" TargetType="Button">
-            <Setter Property="Margin" Value="6" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Surface"
-                                Padding="16,14"
-                                Background="{DynamicResource BrushSurface}"
-                                BorderBrush="{DynamicResource BrushBorder}"
-                                BorderThickness="1"
-                                CornerRadius="20">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Surface" Property="Background"
-                                        Value="{DynamicResource BrushSurfaceHover}" />
-                                <Setter TargetName="Surface" Property="BorderBrush"
-                                        Value="{DynamicResource BrushAccentBorder}" />
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Surface" Property="BorderBrush"
-                                        Value="{DynamicResource BrushFocusRing}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Surface" Property="Opacity" Value="0.72" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!--
+            Diseño D65 — aquí vivía DashboardChipStyle, para los tres resúmenes pulsables que D53
+            puso en esta pestaña. El rediseño del cajón (D43, D45) repartió el Panel en sesión,
+            reproductor, reloj, anillos y el hueco de la imagen, y los chips se quedaron fuera sin
+            que nadie lo anotara: el estilo seguía definido y ningún elemento lo usaba.
+
+            Se retira en vez de reponerlos porque el Panel ya no tiene sitio para tres tarjetas más
+            sin volver a repartirlo, y eso es una decisión de diseño, no una limpieza. Ir a
+            Pendientes, Enfoque o Rutinas sigue estando a un Ctrl + K de distancia.
+        -->
 
         <Style x:Key="DashboardCardStyle" TargetType="Border">
             <Setter Property="Margin" Value="6" />
@@ -352,11 +327,11 @@
                                       StrokeStartLineCap="Round"
                                       StrokeEndLineCap="Round"
                                       StrokeLineJoin="Round"
-                                      Data="{StaticResource IconKohanaHome}" />
+                                      Data="{StaticResource IconSakuraHome}" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
                                 <TextBlock x:Name="PanelSessionTitleText"
-                                           Text="Kohana"
+                                           Text="Sakura"
                                            FontSize="{DynamicResource FontSizeBody}"
                                            FontWeight="SemiBold"
                                            TextTrimming="CharacterEllipsis" />
@@ -482,7 +457,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <!-- Diseño D58 — el hueco de la imagen de quien usa Kohana. -->
+                        <!-- Diseño D58 — el hueco de la imagen de quien usa Sakura. -->
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
@@ -622,7 +597,7 @@
                     </Border>
 
                     <!--
-                        Diseño D58 — un hueco que Kohana no usa para nada.
+                        Diseño D58 — un hueco que Sakura no usa para nada.
 
                         Va debajo del control de la canción y en la esquina, que es donde la
                         referencia pone el gato. No lleva título ni borde propio cuando hay imagen:

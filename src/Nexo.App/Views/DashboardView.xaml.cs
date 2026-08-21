@@ -131,7 +131,7 @@ public partial class DashboardView : UserControl
             image.BeginInit();
 
             // OnLoad para no dejar el archivo tomado: es un archivo de la persona y bloquearlo le
-            // impediría moverlo o borrarlo mientras Kohana esté abierta.
+            // impediría moverlo o borrarlo mientras Sakura esté abierta.
             image.CacheOption = BitmapCacheOption.OnLoad;
             image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
             image.UriSource = new Uri(path, UriKind.Absolute);
@@ -157,13 +157,6 @@ public partial class DashboardView : UserControl
     public event EventHandler? MediaNextRequested;
 
     public event EventHandler? MediaPreviousRequested;
-
-    /// <summary>
-    /// Diseño D53 — pulsar un resumen abre Kohana en ese módulo. El cajón no navega por su cuenta:
-    /// avisa, y quien tiene la ventana principal decide. Si el cajón supiera navegar tendría que
-    /// conocer el rail, y entonces dejaría de ser una pieza que se puede sacar y poner.
-    /// </summary>
-    public event EventHandler<string>? ModuleRequested;
 
     public DashboardTab ActiveTab => _activeTab;
 
@@ -261,7 +254,7 @@ public partial class DashboardView : UserControl
 
     public void UpdateSession(string? profileName, TimeSpan? uptime)
     {
-        PanelSessionTitleText.Text = string.IsNullOrWhiteSpace(profileName) ? "Kohana" : profileName;
+        PanelSessionTitleText.Text = string.IsNullOrWhiteSpace(profileName) ? "Sakura" : profileName;
         PanelUptimeText.Text = uptime is { } value
             ? $"Equipo encendido {DescribeUptime(value)}"
             : "Equipo encendido";
@@ -569,7 +562,7 @@ public partial class DashboardView : UserControl
         _coverSpin.BeginAnimation(RotateTransform.AngleProperty, null);
         _coverSpin.Angle = angle;
 
-        if (!spinning || !KohanaMotion.AnimationsEnabled)
+        if (!spinning || !SakuraMotion.AnimationsEnabled)
         {
             return;
         }

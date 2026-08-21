@@ -20,17 +20,17 @@ public sealed class CommandCenterWindowTests
 
     public CommandCenterWindowTests(StaWpfFixture fixture) => _fixture = fixture;
 
-    private static KohanaCommandDescriptor Command(
+    private static SakuraCommandDescriptor Command(
         string id,
         string title,
         IReadOnlyList<string>? keywords = null,
-        Func<KohanaCommandAvailability>? availability = null,
+        Func<SakuraCommandAvailability>? availability = null,
         Action? onExecute = null) =>
         new(
             id,
             title,
             "Descripción de prueba.",
-            KohanaCommandCategory.Navigation,
+            SakuraCommandCategory.Navigation,
             _ =>
             {
                 onExecute?.Invoke();
@@ -44,7 +44,7 @@ public sealed class CommandCenterWindowTests
     /// ejecuta <paramref name="body"/> y limpia siempre las dos ventanas.
     /// </summary>
     private void WithCommandCenter(
-        KohanaCommandRegistry registry,
+        SakuraCommandRegistry registry,
         Action<CommandCenterWindow, TextBox, ListBox, Window> body)
     {
         _fixture.Invoke(() =>
@@ -89,7 +89,7 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void Opening_ShowsEveryCommand_AndSelectsTheFirstAvailable()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Ir a Inicio"));
         registry.Register(Command("b", "Ir a Sistema"));
 
@@ -103,7 +103,7 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void Typing_FiltersTheResults()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Ir a Inicio"));
         registry.Register(Command("b", "Ir a Sistema"));
 
@@ -119,7 +119,7 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void Typing_MatchesKeywordsAndIgnoresAccentsAndCase()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("settings", "Ir a Personalización", keywords: ["ajustes"]));
 
         WithCommandCenter(registry, (_, search, results, _) =>
@@ -137,7 +137,7 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void NoMatches_ShowsTheEmptyState_InsteadOfAnEmptyList()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Ir a Inicio"));
 
         WithCommandCenter(registry, (window, search, results, _) =>
@@ -154,11 +154,11 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void UnavailableCommand_IsListedWithItsReason_InsteadOfBeingHidden()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command(
             "focus.cancel",
             "Finalizar enfoque",
-            availability: () => KohanaCommandAvailability.Unavailable("No hay ninguna sesión activa.")));
+            availability: () => SakuraCommandAvailability.Unavailable("No hay ninguna sesión activa.")));
 
         WithCommandCenter(registry, (_, _, results, _) =>
         {
@@ -172,11 +172,11 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void Selection_SkipsUnavailableCommands()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command(
             "blocked",
             "Comando bloqueado",
-            availability: () => KohanaCommandAvailability.Unavailable("No disponible.")));
+            availability: () => SakuraCommandAvailability.Unavailable("No disponible.")));
         registry.Register(Command("ready", "Comando disponible"));
 
         WithCommandCenter(registry, (_, _, results, _) =>
@@ -190,7 +190,7 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void ArrowKeys_MoveTheSelectionAndWrapAround()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Uno"));
         registry.Register(Command("b", "Dos"));
 
@@ -213,7 +213,7 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void Escape_HidesTheWindow()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Uno"));
 
         WithCommandCenter(registry, (window, _, _, _) =>
@@ -229,7 +229,7 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void Reopening_ClearsThePreviousQuery()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Ir a Inicio"));
         registry.Register(Command("b", "Ir a Sistema"));
 
@@ -251,7 +251,7 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void SearchHint_DisappearsWhileTyping()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Uno"));
 
         WithCommandCenter(registry, (window, search, _, _) =>
@@ -272,12 +272,12 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void EveryRow_ExposesACategoryLabel()
     {
-        var registry = new KohanaCommandRegistry();
-        registry.Register(new KohanaCommandDescriptor(
+        var registry = new SakuraCommandRegistry();
+        registry.Register(new SakuraCommandDescriptor(
             "audio.mute",
             "Silenciar audio",
             "",
-            KohanaCommandCategory.Audio,
+            SakuraCommandCategory.Audio,
             _ => Task.FromResult(CommandExecutionResult.Success())));
 
         WithCommandCenter(registry, (_, _, results, _) =>
@@ -290,13 +290,13 @@ public sealed class CommandCenterWindowTests
     [Fact]
     public void RowsWithoutShortcut_HideTheShortcutBadge()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
         registry.Register(Command("a", "Sin atajo"));
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "b",
             "Con atajo",
             "",
-            KohanaCommandCategory.Shell,
+            SakuraCommandCategory.Shell,
             _ => Task.FromResult(CommandExecutionResult.Success()),
             shortcut: "Alt + A"));
 

@@ -7,7 +7,7 @@ public readonly record struct PetalPoint(double X, double Y);
 /// Diseño D49 — el contorno de flor con el que se recorta la carátula.
 ///
 /// En la referencia el disco no es un círculo limpio: tiene el borde ondulado, y de ahí salen los
-/// rayos. Kohana significa «florecilla» y la marca ya es sakura, así que la forma no es un adorno
+/// rayos. Sakura significa «florecilla» y la marca ya es sakura, así que la forma no es un adorno
 /// importado — es la marca apareciendo donde toca.
 ///
 /// Se describe en coordenadas polares, <c>r(θ) = radio · (1 + profundidad · cos(pétalos · θ))</c>,
@@ -66,7 +66,7 @@ public static class PetalShape
 
         for (var i = 0; i < count; i++)
         {
-            // Se arranca a las doce, igual que los medidores circulares del resto de Kohana: con
+            // Se arranca a las doce, igual que los medidores circulares del resto de Sakura: con
             // un número par de pétalos, empezar a las tres dejaría un valle arriba y la forma se
             // vería torcida junto a un anillo que sí empieza arriba.
             var angle = (2 * Math.PI * i / count) - (Math.PI / 2);

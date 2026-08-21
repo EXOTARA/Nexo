@@ -38,7 +38,7 @@ public sealed class WindowsScreenCaptureService : IScreenCaptureService
             if (target.IsSensitive)
             {
                 return VisionCaptureResult.Failed(
-                    "Kohana bloqueó esa ventana porque podría mostrar contraseñas o credenciales.");
+                    "Sakura bloqueó esa ventana porque podría mostrar contraseñas o credenciales.");
             }
 
             return target.Kind switch

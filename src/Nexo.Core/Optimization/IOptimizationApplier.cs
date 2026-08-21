@@ -13,7 +13,7 @@ public sealed record OptimizationStepResult(bool Success, string Detail)
 }
 
 /// <summary>
-/// Diseño D8 — aplica y revierte los cambios de sistema que Kohana sí ejecuta. Separado del
+/// Diseño D8 — aplica y revierte los cambios de sistema que Sakura sí ejecuta. Separado del
 /// planificador para que el plan pueda calcularse y mostrarse sin ninguna capacidad de tocar el
 /// sistema.
 ///

@@ -5,7 +5,7 @@ using Nexo.Core.Diagnostics;
 namespace Nexo.Windows.ComputerUse;
 
 /// <summary>
-/// Diseño D18 — los pasos que Kohana puede deshacer, en disco. Si Kohana se cierra después de
+/// Diseño D18 — los pasos que Sakura puede deshacer, en disco. Si Sakura se cierra después de
 /// cambiar el portapapeles, deshacerlo en la siguiente sesión sigue siendo posible. Mismo patrón
 /// atómico que el resto de stores.
 /// </summary>

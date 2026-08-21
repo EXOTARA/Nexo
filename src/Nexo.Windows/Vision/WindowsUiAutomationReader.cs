@@ -4,7 +4,7 @@ using Nexo.Core.Vision;
 namespace Nexo.Windows.Vision;
 
 /// <summary>
-/// Diseño D5.3 (Fase 2 — Kohana Lens) — implementación real de <see cref="IUiAutomationReader"/>
+/// Diseño D5.3 (Fase 2 — Sakura Lens) — implementación real de <see cref="IUiAutomationReader"/>
 /// sobre <c>System.Windows.Automation</c> (cliente de UI Automation, no específico de WPF: lee
 /// cualquier ventana de Windows). Recorrido acotado a propósito (<see cref="MaxElements"/>,
 /// <see cref="MaxDepth"/>): el árbol de una aplicación ajena (un navegador, un IDE) puede tener

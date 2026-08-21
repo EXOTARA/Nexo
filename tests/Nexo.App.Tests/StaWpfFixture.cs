@@ -5,7 +5,7 @@ using System.Windows.Threading;
 namespace Nexo.App.Tests;
 
 /// <summary>
-/// Un único hilo STA con un <see cref="Application"/> y las hojas de estilo reales de Kohana
+/// Un único hilo STA con un <see cref="Application"/> y las hojas de estilo reales de Sakura
 /// cargadas una sola vez, compartido por TODAS las clases de prueba que lo usen. WPF exige que
 /// <see cref="Application"/> sea un singleton por proceso, así que crear una instancia nueva por
 /// prueba lanzaría "Application already exists" en la segunda prueba — de ahí el fixture
@@ -53,11 +53,13 @@ public sealed class StaWpfFixture : IDisposable
                     }
                 };
 
-                // El ensamblado de Nexo.App se compila como "Kohana" (AssemblyName en el csproj),
+                // El ensamblado de Nexo.App se compila como "Sakura" (AssemblyName en el csproj),
                 // así que el URI de pack debe usar ese nombre, no el nombre del proyecto/namespace.
                 var themeDictionary = new ResourceDictionary
                 {
-                    Source = new Uri("/Kohana;component/Themes/ThemeResources.xaml", UriKind.Relative)
+                    // Diseño D70 — el ensamblado se llama Sakura desde el cambio de nombre; este URI lo
+                    // nombra directamente, así que se mueve con él.
+                    Source = new Uri("/Sakura;component/Themes/ThemeResources.xaml", UriKind.Relative)
                 };
                 Application.Current.Resources.MergedDictionaries.Add(themeDictionary);
 

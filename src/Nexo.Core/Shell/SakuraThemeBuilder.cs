@@ -1,7 +1,7 @@
 namespace Nexo.Core.Shell;
 
 /// <summary>Los colores de superficie que definen un tema, ya derivados de un acento.</summary>
-public sealed record KohanaThemePalette(
+public sealed record SakuraThemePalette(
     RgbColor Accent,
     RgbColor AccentSoft,
     RgbColor Background,
@@ -31,7 +31,7 @@ public sealed record KohanaThemePalette(
 /// la galería eso nunca fue un problema; con un acento sacado de una foto cualquiera, sí puede
 /// serlo, así que cada superficie se comprueba y cede saturación si hace falta.
 /// </summary>
-public static class KohanaThemeBuilder
+public static class SakuraThemeBuilder
 {
     /// <summary>El color del texto principal, que es lo que hay que mantener legible.</summary>
     public const string TextPrimaryHex = "#DFE1EA";
@@ -67,12 +67,12 @@ public static class KohanaThemeBuilder
     /// </summary>
     private static readonly Layer BorderLayer = new(0.26, 0.270);
 
-    public static KohanaThemePalette FromAccent(RgbColor accent)
+    public static SakuraThemePalette FromAccent(RgbColor accent)
     {
         var hue = ColorMath.Hue(accent);
         var text = RgbColor.FromHex(TextPrimaryHex);
 
-        return new KohanaThemePalette(
+        return new SakuraThemePalette(
             Accent: accent,
             AccentSoft: BuildReadable(hue, new Layer(0.32, 0.145), text),
             Background: BuildReadable(hue, BackgroundLayer, text),

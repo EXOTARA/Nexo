@@ -4,7 +4,7 @@ namespace Nexo.Core.Commands.CommandCenter;
 /// Agrupación visible de un comando en el Sakura Command Center. Sirve para ordenar y explicar,
 /// no para decidir qué hace el comando.
 /// </summary>
-public enum KohanaCommandCategory
+public enum SakuraCommandCategory
 {
     Navigation,
     Focus,

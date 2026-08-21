@@ -92,7 +92,7 @@ public sealed class SelfCheckTests
     [Fact]
     public void TheInventoryCheckCountsEveryFile() =>
         Assert.Contains(
-            Nexo.Core.Productization.KohanaDataInventory.All.Count.ToString(),
+            Nexo.Core.Productization.SakuraDataInventory.All.Count.ToString(),
             Find("datos.inventario").Detail);
 
     // ---------- El informe ----------

@@ -18,7 +18,7 @@ public enum PermissionOutcome
 /// en el registro.
 /// </summary>
 public sealed record PermissionRequest(
-    KohanaCapability Capability,
+    SakuraCapability Capability,
     string Description,
     string? TargetApp = null,
     IReadOnlyList<MandatoryConfirmation>? Categories = null)
@@ -132,14 +132,14 @@ public static class PermissionBroker
 
 public static class CapabilityText
 {
-    public static string Describe(KohanaCapability capability) => capability switch
+    public static string Describe(SakuraCapability capability) => capability switch
     {
-        KohanaCapability.Lens => "ver la pantalla",
-        KohanaCapability.Flow => "el dictado global",
-        KohanaCapability.Memoria => "la memoria personal",
-        KohanaCapability.Proyecto => "el acceso a tu proyecto",
-        KohanaCapability.Optimizacion => "optimizar el equipo",
-        KohanaCapability.ComputerUse => "actuar sobre tu equipo",
+        SakuraCapability.Lens => "ver la pantalla",
+        SakuraCapability.Flow => "el dictado global",
+        SakuraCapability.Memoria => "la memoria personal",
+        SakuraCapability.Proyecto => "el acceso a tu proyecto",
+        SakuraCapability.Optimizacion => "optimizar el equipo",
+        SakuraCapability.ComputerUse => "actuar sobre tu equipo",
         _ => capability.ToString()
     };
 }

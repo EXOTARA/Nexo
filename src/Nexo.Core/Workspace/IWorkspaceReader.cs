@@ -1,6 +1,6 @@
 namespace Nexo.Core.Workspace;
 
-/// <summary>Diseño D12 — un archivo del proyecto, tal y como Kohana lo ve.</summary>
+/// <summary>Diseño D12 — un archivo del proyecto, tal y como Sakura lo ve.</summary>
 public sealed record WorkspaceFile(string FullPath, string RelativePath, long SizeInBytes);
 
 /// <summary>Diseño D12 — el contenido ya filtrado, o el motivo por el que no se pudo leer.</summary>

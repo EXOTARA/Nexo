@@ -37,8 +37,8 @@ public sealed class FileSystemDataBackupServiceTests : IDisposable
     private void WriteDataFile(string fileName, string content) =>
         File.WriteAllText(Path.Combine(_root, fileName), content);
 
-    private static IReadOnlyList<KohanaDataItem> Items(params string[] fileNames) =>
-        [.. fileNames.Select(name => KohanaDataInventory.Find(name)!)];
+    private static IReadOnlyList<SakuraDataItem> Items(params string[] fileNames) =>
+        [.. fileNames.Select(name => SakuraDataInventory.Find(name)!)];
 
     [Fact]
     public void ExistingFiles_AreCopiedAndVerified()
@@ -135,9 +135,9 @@ public sealed class FileSystemDataBackupServiceTests : IDisposable
         WriteDataFile("settings.json", "a");
         WriteDataFile("audit.json", "[]");
 
-        var result = CreateService().CreateBackup(KohanaDataInventory.ToBackUp);
+        var result = CreateService().CreateBackup(SakuraDataInventory.ToBackUp);
 
         Assert.True(result.Success);
-        Assert.Equal(KohanaDataInventory.All.Count, result.Files.Count);
+        Assert.Equal(SakuraDataInventory.All.Count, result.Files.Count);
     }
 }

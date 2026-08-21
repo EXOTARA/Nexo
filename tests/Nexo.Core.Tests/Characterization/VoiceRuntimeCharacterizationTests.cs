@@ -15,11 +15,11 @@ public sealed class VoiceRuntimeCharacterizationTests
     // ---------- Frases estables vs. experimentales ----------
 
     [Theory]
-    [InlineData("oye kohana", WakeWordPhrase.OyeKohana)]
-    [InlineData("kohana", WakeWordPhrase.Kohana)]
+    [InlineData("oye sakura", WakeWordPhrase.OyeSakura)]
+    [InlineData("sakura", WakeWordPhrase.Sakura)]
     public void StablePhrases_MatchTheirOwnWakeWord(string text, WakeWordPhrase phrase)
     {
-        // `PRODUCT_VISION` §E: `Oye Kohana` y `Kohana` son las frases estables de 1.0.
+        // `PRODUCT_VISION` §E: `Oye Sakura` y `Sakura` son las frases estables de 1.0.
         Assert.True(WakeWordTextMatcher.IsMatch(text, phrase));
     }
 
@@ -28,8 +28,8 @@ public sealed class VoiceRuntimeCharacterizationTests
     {
         // `PRODUCT_VISION` §E prohíbe asumir que un umbral sirve para todas las frases.
         // Congela que la evaluación depende de la frase configurada.
-        var oyeResult = WakeWordTextMatcher.Evaluate("oye kohana", WakeWordPhrase.OyeKohana);
-        var kohanaResult = WakeWordTextMatcher.Evaluate("oye kohana", WakeWordPhrase.Kohana);
+        var oyeResult = WakeWordTextMatcher.Evaluate("oye sakura", WakeWordPhrase.OyeSakura);
+        var kohanaResult = WakeWordTextMatcher.Evaluate("oye sakura", WakeWordPhrase.Sakura);
 
         Assert.True(oyeResult.IsMatch);
         Assert.NotNull(kohanaResult);
@@ -46,10 +46,10 @@ public sealed class VoiceRuntimeCharacterizationTests
     }
 
     [Theory]
-    [InlineData(WakeWordPhrase.Kohana)]
-    [InlineData(WakeWordPhrase.OyeKohana)]
-    [InlineData(WakeWordPhrase.HeyKohana)]
-    public void KohanaPhrases_AreNotLegacy(WakeWordPhrase phrase)
+    [InlineData(WakeWordPhrase.Sakura)]
+    [InlineData(WakeWordPhrase.OyeSakura)]
+    [InlineData(WakeWordPhrase.HeySakura)]
+    public void SakuraPhrases_AreNotLegacy(WakeWordPhrase phrase)
     {
         Assert.False(phrase.IsLegacy());
     }
@@ -65,15 +65,25 @@ public sealed class VoiceRuntimeCharacterizationTests
 
         preferences.Normalize();
 
-        Assert.Equal(WakeWordPhrase.OyeKohana, preferences.WakeWordPhrase);
+        // Diseño D69 — cambiada a conciencia con el cambio de nombre. La frase por omisión es
+        // ahora "Oye Sakura": "kohana" no existe en el léxico español del reconocedor y salía
+        // escrita "oye co ana", así que conservarla habría sido conservar la única que no
+        // funcionaba. La forma —corta, "oye" o "hey"— sí se respeta al migrar.
+        Assert.Equal(WakeWordPhrase.OyeSakura, preferences.WakeWordPhrase);
     }
 
     [Fact]
     public void SpokenTextIsStableForEveryPhrase()
     {
-        Assert.Equal("Oye Kohana", WakeWordPhrase.OyeKohana.ToSpokenText());
-        Assert.Equal("Kohana", WakeWordPhrase.Kohana.ToSpokenText());
-        Assert.Equal("Hey Kohana", WakeWordPhrase.HeyKohana.ToSpokenText());
+        Assert.Equal("Oye Sakura", WakeWordPhrase.OyeSakura.ToSpokenText());
+        Assert.Equal("Sakura", WakeWordPhrase.Sakura.ToSpokenText());
+        Assert.Equal("Hey Sakura", WakeWordPhrase.HeySakura.ToSpokenText());
+
+        // Las frases del nombre anterior siguen diciendo lo suyo: hay settings.json guardados con
+        // ellas y una preferencia que no se sabe leer es una preferencia perdida.
+        Assert.Equal("Oye Sakura", WakeWordPhrase.OyeSakura.ToSpokenText());
+        Assert.Equal("Sakura", WakeWordPhrase.Sakura.ToSpokenText());
+        Assert.Equal("Hey Sakura", WakeWordPhrase.HeySakura.ToSpokenText());
     }
 
     // ---------- Aliases personales ----------
@@ -82,12 +92,12 @@ public sealed class VoiceRuntimeCharacterizationTests
     public void CustomAliases_ExtendTheGrammarWithoutReplacingIt()
     {
         var withAlias = WakeWordTextMatcher.GetGrammarPhrases(
-            WakeWordPhrase.OyeKohana,
+            WakeWordPhrase.OyeSakura,
             WakeWordSensitivity.Balanced,
             ["mi asistente"]);
 
         var withoutAlias = WakeWordTextMatcher.GetGrammarPhrases(
-            WakeWordPhrase.OyeKohana,
+            WakeWordPhrase.OyeSakura,
             WakeWordSensitivity.Balanced);
 
         Assert.All(withoutAlias, phrase => Assert.Contains(phrase, withAlias));
@@ -116,10 +126,10 @@ public sealed class VoiceRuntimeCharacterizationTests
     public void Grammar_IsSensitivityDependent()
     {
         var strict = WakeWordTextMatcher.GetGrammarPhrases(
-            WakeWordPhrase.OyeKohana,
+            WakeWordPhrase.OyeSakura,
             WakeWordSensitivity.Strict);
         var high = WakeWordTextMatcher.GetGrammarPhrases(
-            WakeWordPhrase.OyeKohana,
+            WakeWordPhrase.OyeSakura,
             WakeWordSensitivity.High);
 
         // Congela que la sensibilidad realmente cambia la gramática. Si dejara de hacerlo,
@@ -130,9 +140,9 @@ public sealed class VoiceRuntimeCharacterizationTests
     [Fact]
     public void EmptyOrBlankAudioText_NeverTriggersTheWakeWord()
     {
-        Assert.False(WakeWordTextMatcher.IsMatch(null, WakeWordPhrase.OyeKohana));
-        Assert.False(WakeWordTextMatcher.IsMatch(string.Empty, WakeWordPhrase.OyeKohana));
-        Assert.False(WakeWordTextMatcher.IsMatch("   ", WakeWordPhrase.OyeKohana));
+        Assert.False(WakeWordTextMatcher.IsMatch(null, WakeWordPhrase.OyeSakura));
+        Assert.False(WakeWordTextMatcher.IsMatch(string.Empty, WakeWordPhrase.OyeSakura));
+        Assert.False(WakeWordTextMatcher.IsMatch("   ", WakeWordPhrase.OyeSakura));
     }
 
     [Fact]
@@ -140,7 +150,7 @@ public sealed class VoiceRuntimeCharacterizationTests
     {
         Assert.False(WakeWordTextMatcher.IsMatch(
             "voy a preparar la comida",
-            WakeWordPhrase.OyeKohana));
+            WakeWordPhrase.OyeSakura));
     }
 
     // ---------- Fin de turno ----------

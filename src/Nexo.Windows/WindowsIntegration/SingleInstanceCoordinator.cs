@@ -4,8 +4,8 @@ namespace Nexo.Windows.WindowsIntegration;
 
 public sealed class SingleInstanceCoordinator : IDisposable
 {
-    private const string MutexName = @"Local\Kohana.Desktop.SingleInstance";
-    private const string ActivationEventName = @"Local\Kohana.Desktop.Activate";
+    private const string MutexName = @"Local\Sakura.Desktop.SingleInstance";
+    private const string ActivationEventName = @"Local\Sakura.Desktop.Activate";
 
     private readonly Mutex _mutex;
     private readonly EventWaitHandle _activationEvent;
@@ -18,7 +18,7 @@ public sealed class SingleInstanceCoordinator : IDisposable
     /// Sufijo para aislar los objetos de sincronización. La aplicación siempre usa el valor por
     /// defecto (<c>null</c>), que conserva exactamente los nombres históricos; las pruebas de
     /// caracterización pasan una clave única para no colisionar con una instancia real de
-    /// Kohana en ejecución. Introducido en la fase 1.1 como seam de prueba, sin cambiar la
+    /// Sakura en ejecución. Introducido en la fase 1.1 como seam de prueba, sin cambiar la
     /// conducta de producción.
     /// </param>
     public SingleInstanceCoordinator(string? instanceKey = null)

@@ -6,27 +6,26 @@
         SizeToContent="Height"
         WindowStyle="None"
         ResizeMode="NoResize"
-        AllowsTransparency="True"
         Background="Transparent"
         ShowInTaskbar="False"
         Topmost="True"
         WindowStartupLocation="CenterOwner"
         PreviewKeyDown="Window_PreviewKeyDown"
         Deactivated="Window_Deactivated"
+        SourceInitialized="Window_SourceInitialized"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
-        AutomationProperties.Name="Centro de comandos de Kohana">
+        AutomationProperties.Name="Centro de comandos de Sakura">
 
-    <Border Background="{DynamicResource BrushSurface}"
-            BorderBrush="{DynamicResource BrushBorder}"
-            BorderThickness="1"
-            CornerRadius="{DynamicResource RadiusShell}"
-            Padding="0">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="6" Opacity="0.42" Color="#000000" />
-        </Border.Effect>
+    <!--
+        Diseño D62 — el marco lo compone Windows: acrílico, esquinas y sombra. Sin
+        AllowsTransparency la ventana la pinta la tarjeta gráfica, y la sombra deja de recalcularse
+        cada vez que cambia algo dentro. La superficie no lleva radio ni trazo propios porque el
+        recorte de las esquinas es de DWM y un borde nuestro se cortaría en el arco.
+    -->
+    <Border x:Name="Surface" Padding="0">
 
         <Grid Margin="18,16,18,16">
             <Grid.RowDefinitions>

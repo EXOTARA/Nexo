@@ -2,7 +2,7 @@ namespace Nexo.Core.Memory;
 
 /// <summary>
 /// Diseño D10 (Fase 6) — de dónde salió un candidato a recuerdo. La distinción no es cosmética:
-/// decide si Kohana puede guardarlo tras pasar por <see cref="MemoryPolicy"/> o si además tiene que
+/// decide si Sakura puede guardarlo tras pasar por <see cref="MemoryPolicy"/> o si además tiene que
 /// preguntar.
 /// </summary>
 public enum MemoryCandidateSource

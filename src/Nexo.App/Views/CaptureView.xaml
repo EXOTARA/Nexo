@@ -47,6 +47,7 @@
         </StackPanel>
 
         <Button Grid.Row="1"
+                AutomationProperties.Name="Compartir una ventana o pantalla"
                 Margin="0,22,0,0"
                 Padding="18,16"
                 HorizontalContentAlignment="Stretch"
@@ -156,7 +157,7 @@
                            Margin="0,0,8,0"
                            Foreground="{DynamicResource BrushAccent}" />
                 <TextBlock Grid.Column="1"
-                           Text="Kohana no captura nada hasta que confirmas la selección."
+                           Text="Sakura no captura nada hasta que confirmas la selección."
                            Foreground="{DynamicResource BrushTextSecondary}"
                            FontSize="{DynamicResource FontSizeFootnote}"
                            TextWrapping="Wrap" />

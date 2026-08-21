@@ -6,13 +6,13 @@ public sealed class LegacyDataMigratorTests : IDisposable
 {
     private readonly string _root = Path.Combine(
         Path.GetTempPath(),
-        $"KohanaMigrationTests-{Guid.NewGuid():N}");
+        $"SakuraMigrationTests-{Guid.NewGuid():N}");
 
     [Fact]
     public void Migrate_CopiesPersonalDataButSkipsLogsAndTemp()
     {
         var source = Path.Combine(_root, "Nexo");
-        var destination = Path.Combine(_root, "Kohana");
+        var destination = Path.Combine(_root, "Sakura");
         Write(source, "settings.json", "{\"schemaVersion\":13}");
         Write(source, Path.Combine("Models", "voice.bin"), "model");
         Write(source, Path.Combine("Runtime", "Ollama", "ollama.exe"), "runtime");
@@ -34,10 +34,10 @@ public sealed class LegacyDataMigratorTests : IDisposable
     }
 
     [Fact]
-    public void Migrate_DoesNotOverwriteKohanaAndRunsOnlyOnceAfterSuccess()
+    public void Migrate_DoesNotOverwriteSakuraAndRunsOnlyOnceAfterSuccess()
     {
         var source = Path.Combine(_root, "Nexo");
-        var destination = Path.Combine(_root, "Kohana");
+        var destination = Path.Combine(_root, "Sakura");
         Write(source, "settings.json", "legacy");
         Write(destination, "settings.json", "current");
 
@@ -57,7 +57,7 @@ public sealed class LegacyDataMigratorTests : IDisposable
     {
         var result = LegacyDataMigrator.Migrate(
             Path.Combine(_root, "missing"),
-            Path.Combine(_root, "Kohana"));
+            Path.Combine(_root, "Sakura"));
 
         Assert.False(result.WasNeeded);
         Assert.True(result.Succeeded);

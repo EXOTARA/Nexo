@@ -40,12 +40,12 @@ public static class GitHubReleaseReader
     /// Las publicaciones del repositorio, de la más reciente hacia atrás.
     ///
     /// **No se usa <c>/releases/latest</c>**, y esto lo descubrió la primera consulta de verdad:
-    /// para GitHub, «latest» significa la última que **no** es preliminar. Kohana publica todas sus
+    /// para GitHub, «latest» significa la última que **no** es preliminar. Sakura publica todas sus
     /// versiones como preliminares, así que ese camino devuelve 404 — no «no hay nada nuevo», sino
     /// un error que se lee como que no hay conexión.
     ///
     /// Pedir la lista y elegir por número es además más correcto: cuál es la más nueva lo decide
-    /// <see cref="KohanaVersion"/>, que es de quien depende esa respuesta, y no el orden en que
+    /// <see cref="SakuraVersion"/>, que es de quien depende esa respuesta, y no el orden en que
     /// GitHub tenga a bien devolverlas.
     /// </summary>
     public static Uri ReleasesUrl(string owner, string repository) =>
@@ -143,7 +143,7 @@ public static class GitHubReleaseReader
 
         if (packageUrl.Length == 0)
         {
-            return ReleaseAssets.Rejected("La publicación no trae el paquete de Kohana.");
+            return ReleaseAssets.Rejected("La publicación no trae el paquete de Sakura.");
         }
 
         if (checksumUrl.Length == 0)
@@ -172,7 +172,7 @@ public static class GitHubReleaseReader
     private static ReleaseAssets ReadBest(JsonElement releases)
     {
         var best = ReleaseAssets.Rejected("No hay ninguna publicación que se pueda usar.");
-        KohanaVersion? bestVersion = null;
+        SakuraVersion? bestVersion = null;
 
         foreach (var release in releases.EnumerateArray())
         {
@@ -182,7 +182,7 @@ public static class GitHubReleaseReader
             }
 
             var candidate = ReadOne(release);
-            if (!candidate.IsUsable || !KohanaVersion.TryParse(candidate.Version, out var version))
+            if (!candidate.IsUsable || !SakuraVersion.TryParse(candidate.Version, out var version))
             {
                 continue;
             }

@@ -51,7 +51,7 @@ public sealed class FileSystemWorkspaceWriter : IWorkspaceWriter
                 Directory.CreateDirectory(directory);
             }
 
-            // Escritura atómica, igual que el resto de stores del proyecto: si Kohana muere a media
+            // Escritura atómica, igual que el resto de stores del proyecto: si Sakura muere a media
             // escritura, el archivo original sigue entero en vez de quedar truncado.
             var temporaryPath = fullPath + ".kohana-tmp";
             File.WriteAllText(temporaryPath, content);

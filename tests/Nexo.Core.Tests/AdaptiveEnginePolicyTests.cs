@@ -356,7 +356,7 @@ public sealed class AdaptiveEnginePolicyTests
         bool allowsRuntimeSelection = true,
         bool requiresRestart = false,
         bool requiresDownload = false,
-        bool includedWithKohana = true)
+        bool includedWithSakura = true)
     {
         var minimum = new EngineRequirement("mínimo de prueba", minCost, minCost, minCost, minCost);
         var recommended = new EngineRequirement("recomendado de prueba", recCpu, recRam, recGpu, recEnergy);
@@ -373,6 +373,6 @@ public sealed class AdaptiveEnginePolicyTests
             allowsRuntimeSelection,
             requiresRestart,
             requiresDownload,
-            includedWithKohana);
+            includedWithSakura);
     }
 }

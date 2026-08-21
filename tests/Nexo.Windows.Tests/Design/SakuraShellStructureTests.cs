@@ -264,7 +264,7 @@ public sealed class SakuraShellStructureTests
         Assert.Contains("ShellAnimationsAllowed", content, StringComparison.Ordinal);
 
         // Los dos únicos disparadores de animación del shell (navegación y expandir/contraer)
-        // deben consultar la propiedad combinada, no solo la preferencia propia de Kohana.
+        // deben consultar la propiedad combinada, no solo la preferencia propia de Sakura.
         var navigateBody = ExtractMethodBody(content, "private void NavigateTo(", "private void FocusCurrentView(");
         var sidebarBody = ExtractMethodBody(content, "private void SetSideRailExpanded(", "private void ApplySideRailButtonLayout(");
 
@@ -360,7 +360,13 @@ public sealed class SakuraShellStructureTests
         var content = File.ReadAllText(
             Path.Combine(RepositoryRoot, "src", "Nexo.Windows", "Voice", "VoiceCoordinator.cs"));
 
-        Assert.DoesNotContain("Sakura", content, StringComparison.Ordinal);
+        // Diseño D69 — antes esto buscaba la palabra "Sakura", que servía de atajo para "clases del
+        // shell y del lenguaje visual". Desde que el producto se llama Sakura, esa palabra aparece
+        // en comentarios y mensajes sin significar acoplamiento ninguno, así que la comprobación
+        // pasa a nombrar lo que de verdad no debe estar aquí: ventanas, vistas y controles.
+        Assert.DoesNotContain("SakuraPill", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nexo.App", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Windows", content, StringComparison.Ordinal);
         Assert.DoesNotContain("ShellBorder", content, StringComparison.Ordinal);
         Assert.DoesNotContain("SideRail", content, StringComparison.Ordinal);
         Assert.DoesNotContain("MainWindow", content, StringComparison.Ordinal);
@@ -374,7 +380,10 @@ public sealed class SakuraShellStructureTests
         var content = File.ReadAllText(
             Path.Combine(RepositoryRoot, "src", "Nexo.Core", "AdaptiveEngine", "AdaptiveEnginePolicy.cs"));
 
-        Assert.DoesNotContain("Sakura", content, StringComparison.Ordinal);
+        // Diseño D69 — igual que arriba: el nombre del producto ya no vale como señal de
+        // acoplamiento, así que se comprueban los tipos del shell.
+        Assert.DoesNotContain("SakuraPill", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nexo.App", content, StringComparison.Ordinal);
         Assert.DoesNotContain("MainWindow", content, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Windows", content, StringComparison.Ordinal);
     }
@@ -417,13 +426,18 @@ public sealed class SakuraShellStructureTests
         Assert.Contains("SideRailBrandText.Visibility = expanded", body, StringComparison.Ordinal);
         Assert.Contains("SettingsNavLabel", body, StringComparison.Ordinal);
 
-        // El chevrón sigue reflejando si el rail está expandido, pero desde el diseño D26 también
-        // depende del lado: apunta hacia donde el rail va a crecer, y con Kohana acoplada a la
-        // izquierda el rail crece hacia el otro lado. Un ángulo que solo mirara `expanded` señalaría
-        // en dirección contraria en la mitad de los casos.
-        Assert.Contains("SideRailChevronRotate.Angle = RailIsOnLeft", body, StringComparison.Ordinal);
-        Assert.Contains("expanded ? 180 : 0", body, StringComparison.Ordinal);
-        Assert.Contains("expanded ? 0 : 180", body, StringComparison.Ordinal);
+        // Diseño D64 — aquí se comprobaba el ángulo del chevrón, que giraba según el lado del rail
+        // (D26). Ese chevrón ya no existe: el botón lleva la marca de Sakura, elegida por Adler, y
+        // a diecinueve píxeles no caben la flor y una flecha encima sin ensuciarse. La prueba se
+        // cambia a conciencia, no porque estorbara: lo que comprobaba dejó de tener sujeto.
+        //
+        // Lo que sí tiene que seguir siendo cierto es que el botón cuente qué hace sin depender de
+        // un dibujo, porque ahora el dibujo ya no lo dice.
+        Assert.DoesNotContain("SideRailChevronRotate", body, StringComparison.Ordinal);
+        Assert.Contains(
+            "AutomationProperties.Name=\"Expandir o contraer navegación\"",
+            ReadMainWindowXaml(),
+            StringComparison.Ordinal);
     }
 
     [Fact]

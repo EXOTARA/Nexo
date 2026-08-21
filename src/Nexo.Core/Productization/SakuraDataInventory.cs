@@ -2,8 +2,8 @@ using Nexo.Core.Diagnostics;
 
 namespace Nexo.Core.Productization;
 
-/// <summary>Diseño D20 — una cosa que Kohana guarda en tu equipo, descrita para una persona.</summary>
-public sealed record KohanaDataItem(
+/// <summary>Diseño D20 — una cosa que Sakura guarda en tu equipo, descrita para una persona.</summary>
+public sealed record SakuraDataItem(
     string FileName,
     string Title,
     string WhatItHolds,
@@ -14,7 +14,7 @@ public sealed record KohanaDataItem(
 }
 
 /// <summary>
-/// Diseño D20 (Fase 9 — Productization) — el inventario de todo lo que Kohana guarda.
+/// Diseño D20 (Fase 9 — Productization) — el inventario de todo lo que Sakura guarda.
 ///
 /// Existe porque tres cosas distintas lo necesitaban y ninguna podía inventárselo por su cuenta: la
 /// copia de seguridad previa a actualizar (¿qué hay que copiar?), la desinstalación (¿qué es la app
@@ -27,12 +27,12 @@ public sealed record KohanaDataItem(
 /// inventario no sirve para lo único que existe: que la persona entienda qué tiene guardado. Que
 /// añadir un archivo obligue a describirlo aquí es la característica, no el coste.
 /// </summary>
-public static class KohanaDataInventory
+public static class SakuraDataInventory
 {
-    public static IReadOnlyList<KohanaDataItem> All { get; } =
+    public static IReadOnlyList<SakuraDataItem> All { get; } =
     [
         new("settings.json", "Tus ajustes",
-            "Cómo tienes configurada Kohana: apariencia, voz, IA, permisos y niveles.",
+            "Cómo tienes configurada Sakura: apariencia, voz, IA, permisos y niveles.",
             IsPersonal: true, IsEncrypted: false),
 
         new("tasks.json", "Tus tareas",
@@ -48,7 +48,7 @@ public static class KohanaDataInventory
             IsPersonal: true, IsEncrypted: false),
 
         new("conversation-history.json", "Tus conversaciones",
-            "Lo que has hablado con Kohana, solo si activaste guardar el historial.",
+            "Lo que has hablado con Sakura, solo si activaste guardar el historial.",
             IsPersonal: true, IsEncrypted: false),
 
         new("ambient-requests.json", "Solicitudes ambientales",
@@ -60,7 +60,7 @@ public static class KohanaDataInventory
             IsPersonal: true, IsEncrypted: true),
 
         new("audit.json", "Registro de actividad",
-            "Qué hizo Kohana, cuándo y con qué permiso. No contiene datos personales.",
+            "Qué hizo Sakura, cuándo y con qué permiso. No contiene datos personales.",
             IsPersonal: false, IsEncrypted: false),
 
         new("optimization-snapshot.json", "Estado previo a optimizar",
@@ -68,7 +68,7 @@ public static class KohanaDataInventory
             IsPersonal: false, IsEncrypted: false),
 
         new("workspace-checkpoints.json", "Copias previas de tu proyecto",
-            "El contenido anterior de los archivos que Kohana modificó, para poder deshacerlo.",
+            "El contenido anterior de los archivos que Sakura modificó, para poder deshacerlo.",
             IsPersonal: true, IsEncrypted: false),
 
         new("skill-pack-snapshot.json", "Ajustes previos al pack activo",
@@ -76,21 +76,21 @@ public static class KohanaDataInventory
             IsPersonal: false, IsEncrypted: false),
 
         new("computer-use-snapshots.json", "Pasos que se pueden deshacer",
-            "Lo que había en el portapapeles antes de que Kohana lo cambiara.",
+            "Lo que había en el portapapeles antes de que Sakura lo cambiara.",
             IsPersonal: true, IsEncrypted: false)
     ];
 
     /// <summary>Lo que hay que copiar antes de actualizar: todo, porque todo es recuperable o tuyo.</summary>
-    public static IReadOnlyList<KohanaDataItem> ToBackUp => All;
+    public static IReadOnlyList<SakuraDataItem> ToBackUp => All;
 
     /// <summary>
     /// Lo tuyo. Es lo que la desinstalación **no** borra sin preguntar: el resto son datos de
-    /// funcionamiento que Kohana puede rehacer, pero esto no lo puede rehacer nadie.
+    /// funcionamiento que Sakura puede rehacer, pero esto no lo puede rehacer nadie.
     /// </summary>
-    public static IReadOnlyList<KohanaDataItem> Personal =>
+    public static IReadOnlyList<SakuraDataItem> Personal =>
         [.. All.Where(item => item.IsPersonal)];
 
-    public static KohanaDataItem? Find(string? fileName) =>
+    public static SakuraDataItem? Find(string? fileName) =>
         string.IsNullOrWhiteSpace(fileName)
             ? null
             : All.FirstOrDefault(item =>

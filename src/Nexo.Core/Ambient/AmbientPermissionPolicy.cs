@@ -4,7 +4,7 @@ namespace Nexo.Core.Ambient;
 /// Diseño D4 — primitivas de permisos para las acciones rápidas de un resultado ambiental. No es
 /// el Permission Broker completo de la Fase 7 (docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md):
 /// no hay todavía registro de auditoría ni exclusión por aplicación/carpeta. Lo que sí aplica ya
-/// es el principio rector del modelo de confianza — "Kohana nunca debe pasar silenciosamente de
+/// es el principio rector del modelo de confianza — "Sakura nunca debe pasar silenciosamente de
 /// Mirando a Actuando" — por lo que <see cref="IsAllowed"/> falla cerrado ante cualquier nivel de
 /// autonomía que no reconozca explícitamente, en vez de asumir que es seguro.
 /// </summary>

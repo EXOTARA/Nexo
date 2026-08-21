@@ -44,7 +44,7 @@ public sealed class NexoDataPathsTests : IDisposable
     {
         Assert.False(NexoDataPaths.IsUsingOverrideRoot);
         Assert.Equal(
-            Path.Combine(LocalApplicationData, "Kohana"),
+            Path.Combine(LocalApplicationData, "Sakura"),
             NexoDataPaths.RootDirectory);
     }
 
@@ -52,7 +52,7 @@ public sealed class NexoDataPathsTests : IDisposable
     public void NoOverride_LegacyRootStaysTheRealNexoFolder_NotCollapsed()
     {
         Assert.Equal(
-            Path.Combine(LocalApplicationData, "Nexo"),
+            Path.Combine(LocalApplicationData, "Kohana"),
             NexoDataPaths.LegacyRootDirectory);
         Assert.NotEqual(NexoDataPaths.RootDirectory, NexoDataPaths.LegacyRootDirectory);
     }
@@ -87,7 +87,7 @@ public sealed class NexoDataPathsTests : IDisposable
         NexoDataPaths.UseExplicitDataRoot(null);
 
         Assert.False(NexoDataPaths.IsUsingOverrideRoot);
-        Assert.Equal(Path.Combine(LocalApplicationData, "Kohana"), NexoDataPaths.RootDirectory);
+        Assert.Equal(Path.Combine(LocalApplicationData, "Sakura"), NexoDataPaths.RootDirectory);
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public sealed class NexoDataPathsTests : IDisposable
         Environment.SetEnvironmentVariable(EnvVar, "   ");
 
         Assert.False(NexoDataPaths.IsUsingOverrideRoot);
-        Assert.Equal(Path.Combine(LocalApplicationData, "Kohana"), NexoDataPaths.RootDirectory);
+        Assert.Equal(Path.Combine(LocalApplicationData, "Sakura"), NexoDataPaths.RootDirectory);
     }
 
     [Fact]
@@ -224,7 +224,7 @@ public sealed class NexoDataPathsTests : IDisposable
     [Fact]
     public void OverrideActive_NeverResolvesToTheRealProductionOrLegacyFolders()
     {
-        var realProductionRoot = Path.Combine(LocalApplicationData, "Kohana");
+        var realProductionRoot = Path.Combine(LocalApplicationData, "Sakura");
         var realLegacyRoot = Path.Combine(LocalApplicationData, "Nexo");
 
         NexoDataPaths.UseExplicitDataRoot(CreateTempRootPath());

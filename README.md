@@ -1,76 +1,93 @@
-# Kohana
+# Sakura
 
-**Tu Windows, en flor.**
+Un asistente para Windows que vive en la bandeja del sistema y aparece cuando lo llamas.
 
-Kohana es un agente personal nativo para Windows. Combina comandos locales, voz, visión, memoria
-personal, automatización de proyectos y del equipo, e inteligencia artificial en una interfaz
-ligera que puede permanecer activa en segundo plano — siempre con permisos comprensibles y
-confirmación para cualquier acción sensible.
+Sakura escucha una palabra de activación, entiende órdenes normales ("abre PowerShell", "pon un
+temporizador de veinte minutos", "¿qué ventana tengo abierta?") y hace lo que puede resolver sola,
+en tu equipo, sin consultar a nadie. Cuando hace falta un modelo de lenguaje, lo usa; para todo lo
+demás no lo necesita.
 
-> El producto ya se presenta como **Kohana**. Los nombres internos `Nexo.App`, `Nexo.Core`, `Nexo.Windows` y `Nexo.slnx` se conservan temporalmente para reducir el riesgo del cambio de marca.
+Lo que no es: un chat con esteroides. La conversación es una de sus superficies, no la única. Puede
+mirar la ventana que tienes delante y explicarla, dictar texto en cualquier aplicación, ordenarte el
+día y tocar cosas del sistema — siempre pidiendo permiso antes de lo que no se puede deshacer.
+
+## Qué sabe hacer
+
+Habla y escucha en local: la palabra de activación y el dictado corren en tu máquina, sin enviar
+audio a ningún servidor.
+
+Mira la pantalla cuando se lo pides. Sakura Lens captura la ventana activa, la lee con OCR y con la
+información de accesibilidad de Windows, tapa lo que parezca sensible antes de usarlo, y te explica
+qué estás viendo en modo soporte, estudio o desarrollo.
+
+Dicta en cualquier parte. `Ctrl + Shift + D` empieza a dictar, la misma combinación termina y
+escribe el texto donde tenías el cursor, sea Word, el navegador o una terminal.
+
+Acompaña un proyecto. Le autorizas una carpeta y a partir de ahí explica, busca y modifica archivos,
+siempre con copia previa y confirmación archivo por archivo.
+
+Recuerda solo lo que le dejes. La memoria viene apagada, se activa por categorías separadas
+(preferencias, contexto de conversación, hábitos de uso), se guarda cifrada y puedes leerla o
+borrarla entera cuando quieras.
+
+Cada capacidad tiene su permiso: bloqueado, preguntar o permitido. Las confirmaciones no se saltan
+nunca, ni siquiera cuando tú mismo pediste la acción.
+
+La lista completa, con cómo se activa cada cosa y ejemplos, está en la
+[guía de capacidades](docs/product/SAKURA_CAPABILITIES_GUIDE.md).
+
+## Instalar
+
+En la [última versión](https://github.com/EXOTARA/Nexo/releases) hay dos formas de instalar: el
+instalador, que deja Sakura en el menú Inicio y se puede desinstalar desde Windows, o el zip
+portable, que se descomprime donde quieras y se ejecuta tal cual. No hace falta instalar nada más:
+el .NET necesario va dentro de los dos.
+
+Windows va a mostrar un aviso de SmartScreen diciendo que el programa no está firmado, porque no lo
+está: la firma de código cuesta dinero y todavía no la hay. Hay que darle a "Más información" →
+"Ejecutar de todas formas". Es un inconveniente real y está en la lista de cosas por resolver.
+
+Sakura guarda sus datos en `%LocalAppData%\Sakura` y sus modelos de voz en la misma carpeta. Al
+desinstalar puedes elegir si esa carpeta se va contigo o se queda.
 
 ## Estado
 
-El ejecutable publicado reporta `0.9.5-beta`. La rama `design/kohana-sprints-d7-d9` contiene
-diseño hasta **D24**, con memoria personal, optimización verificada del equipo, un acompañante de
-proyecto que lee y modifica archivos con confirmación, permisos por capacidad, acción controlada
-sobre el equipo, seis packs y una autocomprobación interna — nada de esto integrado todavía a
-`release/kohana-1.0-rc` ni a `main`.
+Sakura está en beta y se usa a diario, pero todavía no es 1.0. Lo que falta para serlo no son
+funciones: es firma de código, una prueba de instalación completa en una máquina limpia, medir de
+verdad la latencia de la voz, revisar la accesibilidad con un lector de pantalla, y unas semanas de
+uso sostenido sin sorpresas.
 
-**→ La lista completa, con cómo activar cada cosa y ejemplos de uso, está en
-[`docs/product/KOHANA_CAPABILITIES_GUIDE.md`](docs/product/KOHANA_CAPABILITIES_GUIDE.md).**
+Las actualizaciones ya llegan solas: Sakura busca una vez al día, avisa cuando hay algo nuevo y
+tú decides si se instala.
 
-Resumen de lo que ya funciona:
+## Privacidad
 
-- Identidad pública centralizada como Kohana, con diseño **Sakura Fluent**.
-- Shell modular (Inicio, Asistente, Tareas, Enfoque, Automatizaciones, Sistema, Personalizar…) con Peek, bandeja e instancia única.
-- Voz local: wake word con Vosk, dictado con Whisper, dictado **global** en cualquier aplicación (Kohana Flow).
-- Kohana Lens: lee la pantalla bajo demanda, con redacción automática de datos sensibles.
-- **Memoria personal**, apagada por omisión, cifrada con DPAPI, con control explícito por categoría.
-- **Optimización del equipo** que solo aplica lo que puede revertir con certeza, verificando cada cambio.
-- **Acompañante de proyecto**: autoriza una carpeta, explica, busca, y modifica archivos con copia previa y verificación.
-- **Permisos por capacidad** (Bloqueado / Preguntar / Permitido) con confirmaciones que no se saltan nunca.
-- **Actuar sobre el equipo**, siempre por el método más seguro disponible entre los implementados.
-- **Seis packs** (Study, Dev, Support, Creator, Access, Meeting) que combinan lo anterior sin conceder permisos por su cuenta.
-- Registro de actividad único, copia de seguridad verificada, diagnóstico exportable redactado y una autocomprobación que revisa la maquinaria en tu propio equipo.
+Todo lo que puede resolverse en local se resuelve en local. El audio del micrófono no sale del
+equipo. Las capturas de pantalla se redactan antes de enviarse a un modelo, y solo se envían cuando
+tú activas Lens o compartes una ventana a propósito.
 
-## Datos y migración
+Si conectas un proveedor de IA en la nube, las conversaciones que le mandes salen de tu equipo,
+como es evidente. La clave se guarda en una variable de entorno tuya, no en el repositorio ni en
+`settings.json`.
 
-Los datos nuevos se guardan en:
+## Cómo está hecho
 
-```text
-%LocalAppData%\Kohana
-```
+Aplicación de escritorio en C# sobre .NET 10 y WPF, dividida en tres proyectos: `Nexo.Core` con la
+lógica que se puede probar sin Windows delante, `Nexo.Windows` con todo lo que toca el sistema
+operativo, y `Nexo.App` con la interfaz.
 
-En la primera ejecución, Kohana busca una carpeta anterior:
+Por debajo usa Vosk para la palabra de activación, Whisper para transcribir, el OCR y la
+automatización de interfaz que ya trae Windows para leer la pantalla, DPAPI para cifrar lo que
+guarda, y DWM para el marco de las ventanas. Los modelos de IA en la nube son opcionales y
+configurables; también funciona contra un Ollama local.
 
-```text
-%LocalAppData%\Nexo
-```
+Las decisiones de diseño y el porqué de cada una están en el
+[registro de implementación](docs/stable-release/IMPLEMENTATION_LOG.md), que es donde vive la
+memoria larga del proyecto.
 
-Si existe, copia los archivos que falten sin sobrescribir datos nuevos y sin eliminar la carpeta anterior. Las carpetas temporales, logs, modelos y runtimes pesados no se copian. Se crea un marcador local para evitar repetir el proceso.
+## Para desarrollar
 
-Los modelos de voz y el runtime local no se duplican: Kohana reutiliza temporalmente sus rutas anteriores cuando todavía no existen copias nuevas. Las claves no se almacenan en el repositorio ni dentro de `settings.json`.
-
-## Palabras de activación
-
-La recomendada es:
-
-```text
-Oye Kohana
-```
-
-También se puede elegir `Kohana` o `Hey Kohana`. Las frases antiguas de Nexo solo se conservan como valores heredados de configuración; el modo Kohana ya no las acepta implícitamente.
-
-## Desarrollo
-
-Requisitos:
-
-- Windows 10/11 x64.
-- SDK de .NET 10.
-- PowerShell 7 recomendado.
-
-Comandos:
+Hace falta Windows 10 u 11 de 64 bits, el SDK de .NET 10 y, preferiblemente, PowerShell 7.
 
 ```powershell
 dotnet restore .\Nexo.slnx
@@ -78,48 +95,27 @@ dotnet test .\Nexo.slnx -c Release
 dotnet build .\Nexo.slnx -c Release
 ```
 
-El proyecto se trabaja mediante ramas cortas y Pull Requests contra `main`. La protección de `main` debe exigir CI en verde antes de fusionar.
+Para publicar una versión, `scripts\publish.ps1` genera el portable y `scripts\build-installer.ps1`
+arma el instalador con Inno Setup 6. Los detalles están en [`docs/PUBLISHING.md`](docs/PUBLISHING.md)
+y en [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md).
 
-## Publicación
-
-```powershell
-.\scripts\publish.ps1 `
-  -Version "0.9.5-beta" `
-  -RepositoryUrl "https://github.com/EXOTARA/Nexo"
-```
-
-La edición portable se genera como:
-
-```text
-artifacts\dist\Kohana-0.9.5-beta-win-x64-portable.zip
-```
-
-Con Inno Setup 6 instalado:
-
-```powershell
-.\scripts\build-installer.ps1 `
-  -Version "0.9.5-beta" `
-  -RepositoryUrl "https://github.com/EXOTARA/Nexo"
-```
-
-Consulta `docs/PUBLISHING.md`, `docs/KOHANA_BRAND_FOUNDATION.md` y `RELEASE_CHECKLIST.md` antes de publicar.
+El trabajo va en ramas cortas contra `main`, con CI en verde antes de fusionar.
 
 ## Documentación
 
 | Para… | Documento |
 |---|---|
-| Ver qué hace cada capacidad y cómo activarla | [`docs/product/KOHANA_CAPABILITIES_GUIDE.md`](docs/product/KOHANA_CAPABILITIES_GUIDE.md) |
-| Entender el porqué de cada decisión de diseño | [`docs/stable-release/IMPLEMENTATION_LOG.md`](docs/stable-release/IMPLEMENTATION_LOG.md) |
-| Ver el estado por fase del roadmap | [`docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md`](docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md) |
-| Permisos, niveles de autonomía y confirmaciones obligatorias | [`docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md`](docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md) |
-| Validar manualmente antes de integrar | [`artifacts/Kohana-Guia-De-Validacion-Manual-D13-D24.md`](artifacts/Kohana-Guia-De-Validacion-Manual-D13-D24.md) |
+| Ver qué hace cada capacidad y cómo activarla | [Guía de capacidades](docs/product/SAKURA_CAPABILITIES_GUIDE.md) |
+| Entender por qué cada cosa está hecha así | [Registro de implementación](docs/stable-release/IMPLEMENTATION_LOG.md) |
+| Ver el estado real por fase | [Roadmap técnico](docs/roadmap/KOHANA_TECHNOLOGY_ROADMAP.md) |
+| Permisos, autonomía y confirmaciones | [Modelo de confianza](docs/security/KOHANA_TRUST_AND_AUTONOMY_MODEL.md) |
+| Lo que se sabe que falla o falta | [Limitaciones conocidas](docs/stable-release/KNOWN_LIMITATIONS.md) |
 
-## Dirección final
+## Licencia
 
-Memoria controlable, acciones aprobables por capacidad, skills empaquetadas en packs, y acción
-directa sobre el equipo ya existen en la rama de diseño — ver la tabla de arriba para el estado
-real de cada una. Lo que sigue: automatizaciones persistentes programadas, navegador aislado,
-servicios conectados (correo, calendario, mensajería), agentes especializados y dispositivos
-emparejados. La prioridad se mantiene: instalación sencilla, privacidad visible y control humano
-sobre cada acción sensible — el modelo de confianza que hace cumplir esa prioridad no es aspiracional,
-está en el código y probado.
+MIT — ver [`LICENSE`](LICENSE). Las bibliotecas y modelos de terceros conservan la suya y están
+listados en [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+
+Los nombres internos `Nexo.App`, `Nexo.Core` y `Nexo.slnx` son de antes del cambio de nombre a
+Sakura y siguen ahí a propósito: renombrarlos es un cambio grande y sin valor para nadie que use la
+aplicación.

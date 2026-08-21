@@ -39,7 +39,7 @@ public static class MemoryPolicy
         if (!settings.IsCategoryEnabled(category))
         {
             return MemoryOperationResult.Rejected(
-                $"No tienes activado que Kohana recuerde {CategoryLabel(category)}.");
+                $"No tienes activado que Sakura recuerde {CategoryLabel(category)}.");
         }
 
         var excluded = settings.MatchExclusion(text);

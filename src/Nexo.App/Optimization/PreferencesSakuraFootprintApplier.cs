@@ -5,7 +5,7 @@ using Nexo.Core.Settings;
 namespace Nexo.App.Optimization;
 
 /// <summary>
-/// Diseño D11 (Fase 4) — aplica el modo de rendimiento propio de Kohana escribiendo en las
+/// Diseño D11 (Fase 4) — aplica el modo de rendimiento propio de Sakura escribiendo en las
 /// preferencias y volviendo a calcular el plan de motores.
 ///
 /// Vive en la capa de aplicación porque es la única que posee las preferencias vivas; el
@@ -14,12 +14,12 @@ namespace Nexo.App.Optimization;
 /// propósito — en cuanto un objetivo se dé por aplicado sin comprobarlo, la reversión deja de estar
 /// verificada y vuelve a ser una promesa.
 /// </summary>
-public sealed class PreferencesKohanaFootprintApplier : IKohanaFootprintApplier
+public sealed class PreferencesSakuraFootprintApplier : ISakuraFootprintApplier
 {
     private readonly ShellPreferences _preferences;
     private readonly Action _onModeChanged;
 
-    public PreferencesKohanaFootprintApplier(ShellPreferences preferences, Action onModeChanged)
+    public PreferencesSakuraFootprintApplier(ShellPreferences preferences, Action onModeChanged)
     {
         _preferences = preferences;
         _onModeChanged = onModeChanged;
@@ -38,8 +38,8 @@ public sealed class PreferencesKohanaFootprintApplier : IKohanaFootprintApplier
         _onModeChanged();
 
         return _preferences.HardwarePerformanceMode == mode
-            ? OptimizationStepResult.Ok($"Kohana quedó en modo {mode}.")
+            ? OptimizationStepResult.Ok($"Sakura quedó en modo {mode}.")
             : OptimizationStepResult.Failed(
-                "El modo de rendimiento de Kohana no quedó guardado, así que no lo doy por hecho.");
+                "El modo de rendimiento de Sakura no quedó guardado, así que no lo doy por hecho.");
     }
 }

@@ -25,7 +25,7 @@ public sealed class ProductizationTests
 
         public string? RestoredId { get; private set; }
 
-        public BackupResult CreateBackup(IReadOnlyList<KohanaDataItem> items) =>
+        public BackupResult CreateBackup(IReadOnlyList<SakuraDataItem> items) =>
             new(Succeeds, "20260802-160000", Detail, Outcomes);
 
         public BackupResult Restore(string backupId)
@@ -60,7 +60,7 @@ public sealed class ProductizationTests
     {
         // Sin descripción el inventario no sirve para lo único que existe: que la persona entienda
         // qué tiene guardado.
-        Assert.All(KohanaDataInventory.All, item =>
+        Assert.All(SakuraDataInventory.All, item =>
         {
             Assert.False(string.IsNullOrWhiteSpace(item.FileName));
             Assert.False(string.IsNullOrWhiteSpace(item.Title));
@@ -71,28 +71,28 @@ public sealed class ProductizationTests
     [Fact]
     public void TheInventoryHasNoDuplicates() =>
         Assert.Equal(
-            KohanaDataInventory.All.Count,
-            KohanaDataInventory.All.Select(item => item.FileName).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            SakuraDataInventory.All.Count,
+            SakuraDataInventory.All.Select(item => item.FileName).Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
     [Fact]
     public void PersonalDataIsMarkedAsSuch()
     {
-        Assert.Contains(KohanaDataInventory.Personal, item => item.FileName == "memory.dat");
-        Assert.Contains(KohanaDataInventory.Personal, item => item.FileName == "tasks.json");
+        Assert.Contains(SakuraDataInventory.Personal, item => item.FileName == "memory.dat");
+        Assert.Contains(SakuraDataInventory.Personal, item => item.FileName == "tasks.json");
 
-        // El registro de actividad NO es personal: dice qué hizo Kohana, no qué hiciste tú.
-        Assert.DoesNotContain(KohanaDataInventory.Personal, item => item.FileName == "audit.json");
+        // El registro de actividad NO es personal: dice qué hizo Sakura, no qué hiciste tú.
+        Assert.DoesNotContain(SakuraDataInventory.Personal, item => item.FileName == "audit.json");
     }
 
     [Fact]
     public void TheOnlyEncryptedThingIsTheMemory() =>
         Assert.Equal(
             ["memory.dat"],
-            KohanaDataInventory.All.Where(item => item.IsEncrypted).Select(item => item.FileName));
+            SakuraDataInventory.All.Where(item => item.IsEncrypted).Select(item => item.FileName));
 
     [Fact]
     public void EverythingIsBackedUp() =>
-        Assert.Equal(KohanaDataInventory.All.Count, KohanaDataInventory.ToBackUp.Count);
+        Assert.Equal(SakuraDataInventory.All.Count, SakuraDataInventory.ToBackUp.Count);
 
     // ---------- Preparar la actualización ----------
 
@@ -181,7 +181,7 @@ public sealed class ProductizationTests
     // ---------- Desinstalar ----------
 
     [Fact]
-    public void KeepingYourData_DeletesOnlyWhatKohanaCanRebuild()
+    public void KeepingYourData_DeletesOnlyWhatSakuraCanRebuild()
     {
         var plan = UninstallPlanner.Build(UninstallDataChoice.Conservar);
 

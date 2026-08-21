@@ -12,9 +12,26 @@ public static class WakeWordTextMatcher
         };
 
     // Formas probables al pronunciar Kohana en español: co-ja-na / ko-ja-na.
+    //
+    // Diseño D66 — las seis últimas no son suposiciones: son lo que Vosk escribió al oír a Adler
+    // decir "Oye Kohana" ocho veces en una grabación de su propio micrófono. Antes de añadirlas,
+    // ninguno de esos ocho intentos despertaba a Kohana en sensibilidad Equilibrada.
     private static readonly HashSet<string> PhoneticBrandNames =
         new(StringComparer.Ordinal)
         {
+            "jana",
+            "jena",
+            "cojan",
+            // Diseño D68 — de la segunda grabación, hecha a dos metros y con un video sonando. A esa
+            // distancia Vosk deja de oír algo parecido a "kohana" y produce estas: son palabras
+            // reales, pero ninguna es algo que alguien le diga a su computadora por casualidad.
+            "cogeme",
+            "cogerme",
+            "cojeme",
+            "jarana",
+            "kojan",
+            "cojanna",
+            "cohan",
             "cojana",
             "kojana",
             "cohana",
@@ -33,10 +50,35 @@ public static class WakeWordTextMatcher
             "kohanna"
         };
 
+    /// <summary>
+    /// Diseño D69 — Sakura sí existe en el léxico español del reconocedor, y esa es toda la razón
+    /// del cambio de nombre. Medido con la voz de Windows: "oye sakura" sale escrito tal cual las
+    /// tres veces. La lista de variantes es corta a propósito, porque no hace falta que sea larga.
+    /// </summary>
+    private static readonly HashSet<string> SakuraExactNames =
+        new(StringComparer.Ordinal)
+        {
+            "sakura"
+        };
+
+    private static readonly HashSet<string> SakuraPhoneticNames =
+        new(StringComparer.Ordinal)
+        {
+            "sacura",
+            "zacura",
+            "sakuro",
+            "sakuras",
+            "saqura",
+            "sagura"
+        };
+
     private static readonly HashSet<string> OyePrefixes =
         new(StringComparer.Ordinal)
         {
-            "oye", "oi", "oy"
+            // "hoy" sale de la misma grabación: Vosk escribió "hoy" por "oye" dos veces de ocho.
+            // Como prefijo no decide nada por su cuenta —lo que discrimina es la palabra siguiente—
+            // así que admitirlo no abre la puerta a despertares por hablar del día de hoy.
+            "oye", "oi", "oy", "hoy", "oye,"
         };
 
     private static readonly HashSet<string> HeyPrefixes =
@@ -155,20 +197,23 @@ public static class WakeWordTextMatcher
             return phrases.OrderBy(value => value, StringComparer.Ordinal).ToArray();
         }
 
+        var exact = phrase.IsSakura() ? SakuraExactNames : ExactBrandNames;
+        var phonetic = phrase.IsSakura() ? SakuraPhoneticNames : PhoneticBrandNames;
+
         var targets = sensitivity == WakeWordSensitivity.Strict
-            ? ExactBrandNames
-            : ExactBrandNames.Concat(PhoneticBrandNames).ToHashSet(StringComparer.Ordinal);
+            ? exact
+            : exact.Concat(phonetic).ToHashSet(StringComparer.Ordinal);
 
         switch (phrase)
         {
-            case WakeWordPhrase.OyeKohana:
+            case WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeSakura:
                 AddPrefixed(phrases, OyePrefixes, targets);
                 if (sensitivity == WakeWordSensitivity.High)
                 {
                     AddTargets(phrases, targets);
                 }
                 break;
-            case WakeWordPhrase.HeyKohana:
+            case WakeWordPhrase.HeyKohana or WakeWordPhrase.HeySakura:
                 AddPrefixed(phrases, HeyPrefixes, targets);
                 if (sensitivity == WakeWordSensitivity.High)
                 {
@@ -250,6 +295,9 @@ public static class WakeWordTextMatcher
     {
         var expected = phrase switch
         {
+            WakeWordPhrase.OyeSakura => normalized == "oye sakura",
+            WakeWordPhrase.HeySakura => normalized is "hey sakura" or "ey sakura",
+            WakeWordPhrase.Sakura => normalized == "sakura",
             WakeWordPhrase.OyeKohana => normalized == "oye kohana",
             WakeWordPhrase.HeyKohana => normalized is "hey kohana" or "ey kohana",
             _ => normalized == "kohana"
@@ -282,17 +330,20 @@ public static class WakeWordTextMatcher
         string? target = null;
         switch (phrase)
         {
-            case WakeWordPhrase.OyeKohana when words.Length == 2 && OyePrefixes.Contains(words[0]):
+            case WakeWordPhrase.OyeKohana or WakeWordPhrase.OyeSakura
+                when words.Length == 2 && OyePrefixes.Contains(words[0]):
                 target = words[1];
                 break;
-            case WakeWordPhrase.HeyKohana when words.Length == 2 && HeyPrefixes.Contains(words[0]):
+            case WakeWordPhrase.HeyKohana or WakeWordPhrase.HeySakura
+                when words.Length == 2 && HeyPrefixes.Contains(words[0]):
                 target = words[1];
                 break;
-            case WakeWordPhrase.Kohana when words.Length == 1:
+            case WakeWordPhrase.Kohana or WakeWordPhrase.Sakura when words.Length == 1:
                 target = words[0];
                 break;
-            case WakeWordPhrase.Kohana when words.Length == 2 &&
-                                             (OyePrefixes.Contains(words[0]) || HeyPrefixes.Contains(words[0])):
+            case WakeWordPhrase.Kohana or WakeWordPhrase.Sakura
+                when words.Length == 2 &&
+                     (OyePrefixes.Contains(words[0]) || HeyPrefixes.Contains(words[0])):
                 target = words[1];
                 break;
         }
@@ -302,14 +353,21 @@ public static class WakeWordTextMatcher
             return false;
         }
 
-        if (ExactBrandNames.Contains(target))
+        // Diseño D69 — cada familia tiene su nombre. Lo demás —prefijos, sensibilidades, la forma
+        // de decidir— es igual para las dos, que es la razón de que el cambio de nombre quepa aquí
+        // y no exija otro reconocedor.
+        var exact = phrase.IsSakura() ? SakuraExactNames : ExactBrandNames;
+        var phonetic = phrase.IsSakura() ? SakuraPhoneticNames : PhoneticBrandNames;
+        var brand = phrase.IsSakura() ? "Sakura" : "Kohana";
+
+        if (exact.Contains(target))
         {
             kind = WakeWordMatchKind.Exact;
-            detail = "Coincidió con Kohana.";
+            detail = $"Coincidió con {brand}.";
             return true;
         }
 
-        if (PhoneticBrandNames.Contains(target))
+        if (phonetic.Contains(target))
         {
             kind = WakeWordMatchKind.Phonetic;
             detail = $"Coincidió con la pronunciación española “{target}”.";
@@ -363,8 +421,11 @@ public static class WakeWordTextMatcher
             return false;
         }
 
-        var distance = new[] { "kohana", "cojana", "kojana" }
-            .Min(candidate => LevenshteinDistance(target, candidate));
+        var candidates = phrase.IsSakura()
+            ? new[] { "sakura", "sacura", "zacura" }
+            : ["kohana", "cojana", "kojana"];
+
+        var distance = candidates.Min(candidate => LevenshteinDistance(target, candidate));
         if (distance > 2)
         {
             return false;
@@ -382,7 +443,9 @@ public static class WakeWordTextMatcher
             return "Se escuchó Nexo, pero el modo Kohana ya no acepta el nombre heredado.";
         }
 
-        return $"“{normalized}” no coincide con “{phrase.ToSpokenText()}” ni con cojana/kojana.";
+        return phrase.IsSakura()
+            ? $"“{normalized}” no coincide con “{phrase.ToSpokenText()}”."
+            : $"“{normalized}” no coincide con “{phrase.ToSpokenText()}” ni con cojana/kojana.";
     }
 
     private static string Canonicalize(string normalized)
@@ -392,7 +455,19 @@ public static class WakeWordTextMatcher
             return normalized;
         }
 
+        // Diseño D66 — estas seis van primero a propósito. Vosk parte "Kohana" en dos fichas con
+        // una vocal suelta delante ("eco jana", "ico jana", "eco gana"), y las reglas de abajo
+        // reconocen "co jana" dentro de "eco jana": si corrieran antes, dejarían "ecojana", que no
+        // es nada. Medido sobre la grabación del micrófono de Adler.
         return normalized
+            .Replace("eco jana", "cojana", StringComparison.Ordinal)
+            .Replace("ico jana", "cojana", StringComparison.Ordinal)
+            .Replace("eco jena", "cojana", StringComparison.Ordinal)
+            .Replace("eco gana", "cojana", StringComparison.Ordinal)
+            .Replace("ico gana", "cojana", StringComparison.Ordinal)
+            .Replace("coja man", "cojana", StringComparison.Ordinal)
+            .Replace("coge ama", "cogeme", StringComparison.Ordinal)
+            .Replace("con jarana", "jarana", StringComparison.Ordinal)
             .Replace("ko hana", "kohana", StringComparison.Ordinal)
             .Replace("ko ana", "koana", StringComparison.Ordinal)
             .Replace("co hana", "cohana", StringComparison.Ordinal)

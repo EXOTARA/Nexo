@@ -40,7 +40,7 @@ public sealed class MemoryCandidateTests
     [Fact]
     public void AnExplicitRequestThatIsNotAPreference_IsFiledAsConversation()
     {
-        var candidate = MemoryCandidateDetector.Detect("recuerda que el proyecto se llama Kohana");
+        var candidate = MemoryCandidateDetector.Detect("recuerda que el proyecto se llama Sakura");
 
         Assert.NotNull(candidate);
         Assert.Equal(MemoryCategory.Conversacion, candidate!.Category);

@@ -33,7 +33,7 @@
                 <TextBlock Text="Motor seguro"
                            FontWeight="SemiBold" />
                 <TextBlock Margin="0,4,0,0"
-                           Text="Kohana solo ejecuta acciones de una lista permitida. Los pasos sensibles muestran una vista previa antes de comenzar."
+                           Text="Sakura solo ejecuta acciones de una lista permitida. Los pasos sensibles muestran una vista previa antes de comenzar."
                            TextWrapping="Wrap"
                            Style="{StaticResource MutedTextStyle}" />
             </StackPanel>
@@ -141,10 +141,12 @@
                                Style="{StaticResource SectionTitleStyle}" />
 
                     <TextBlock Text="Nombre" Margin="0,12,0,5" FontWeight="SemiBold" />
-                    <TextBox x:Name="NameTextBox" Style="{StaticResource CompactTextBoxStyle}" />
+                    <TextBox x:Name="NameTextBox"
+                             AutomationProperties.Name="Nombre de la rutina" Style="{StaticResource CompactTextBoxStyle}" />
 
                     <TextBlock Text="Frase de activación" Margin="0,12,0,5" FontWeight="SemiBold" />
-                    <TextBox x:Name="TriggerTextBox" Style="{StaticResource CompactTextBoxStyle}" />
+                    <TextBox x:Name="TriggerTextBox"
+                             AutomationProperties.Name="Frase que dispara la rutina" Style="{StaticResource CompactTextBoxStyle}" />
 
                     <CheckBox x:Name="EnabledCheckBox"
                               Margin="0,12,0,0"
@@ -162,6 +164,7 @@
                             <CheckBox x:Name="OpenTerminalCheckBox" Margin="0,8,0,0" Content="Abrir PowerShell" />
                             <TextBlock Text="Carpeta del proyecto" Margin="0,9,0,5" Style="{StaticResource MutedTextStyle}" />
                             <TextBox x:Name="ProjectFolderTextBox"
+                                     AutomationProperties.Name="Carpeta del proyecto"
                                      Text="{}"
                                      Style="{StaticResource CompactTextBoxStyle}" />
                         </StackPanel>
@@ -177,6 +180,7 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Porcentaje" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}" />
                                 <TextBox x:Name="SpotifyVolumeTextBox"
+                                         AutomationProperties.Name="Volumen de Spotify"
                                          Grid.Column="1"
                                          Text="20"
                                          Style="{StaticResource CompactTextBoxStyle}" />
@@ -200,6 +204,7 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Minutos" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}" />
                                 <TextBox x:Name="FocusMinutesTextBox"
+                                         AutomationProperties.Name="Minutos de enfoque"
                                          Grid.Column="1"
                                          Text="50"
                                          Style="{StaticResource CompactTextBoxStyle}" />
@@ -217,6 +222,7 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Minutos" VerticalAlignment="Center" Style="{StaticResource MutedTextStyle}" />
                                 <TextBox x:Name="BreakMinutesTextBox"
+                                         AutomationProperties.Name="Minutos de descanso"
                                          Grid.Column="1"
                                          Text="10"
                                          Style="{StaticResource CompactTextBoxStyle}" />
@@ -228,6 +234,7 @@
                         <StackPanel>
                             <CheckBox x:Name="CreateTaskCheckBox" Content="Crear una tarea" />
                             <TextBox x:Name="TaskTitleTextBox"
+                                     AutomationProperties.Name="Título de la tarea"
                                      Margin="0,8,0,0"
                                      Style="{StaticResource CompactTextBoxStyle}"
                                      ToolTip="Título de la tarea" />

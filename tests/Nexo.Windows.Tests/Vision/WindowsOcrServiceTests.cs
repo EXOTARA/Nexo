@@ -5,7 +5,7 @@ using Nexo.Windows.Vision;
 namespace Nexo.Windows.Tests.Vision;
 
 /// <summary>
-/// Diseño D5.2 (Fase 2 — Kohana Lens) — prueba contra el motor de OCR real de Windows, no un
+/// Diseño D5.2 (Fase 2 — Sakura Lens) — prueba contra el motor de OCR real de Windows, no un
 /// doble: renderiza una imagen con texto conocido y confirma que se reconoce. Si el equipo no
 /// tiene ningún paquete de idioma de reconocimiento instalado (opcional en Windows, no viene
 /// garantizado en toda instalación), el servicio debe fallar de forma honesta en vez de lanzar —

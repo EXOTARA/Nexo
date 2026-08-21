@@ -10,7 +10,7 @@ namespace Nexo.Core.Tests;
 public sealed class PermissionBrokerTests
 {
     private static PermissionSettings Settings(
-        KohanaCapability capability,
+        SakuraCapability capability,
         PermissionLevel level,
         params string[] excludedApps)
     {
@@ -25,7 +25,7 @@ public sealed class PermissionBrokerTests
     }
 
     private static PermissionRequest Request(
-        KohanaCapability capability = KohanaCapability.Lens,
+        SakuraCapability capability = SakuraCapability.Lens,
         string? targetApp = null,
         params MandatoryConfirmation[] categories) =>
         new(capability, "Hacer algo", targetApp, categories);
@@ -35,11 +35,11 @@ public sealed class PermissionBrokerTests
     [Fact]
     public void ComputerUse_ArrivesBlocked()
     {
-        // Es el permiso más alto del roadmap: no se concede por instalar Kohana.
+        // Es el permiso más alto del roadmap: no se concede por instalar Sakura.
         var settings = new PermissionSettings();
         settings.Normalize();
 
-        Assert.Equal(PermissionLevel.Bloqueado, settings.For(KohanaCapability.ComputerUse).Level);
+        Assert.Equal(PermissionLevel.Bloqueado, settings.For(SakuraCapability.ComputerUse).Level);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class PermissionBrokerTests
         settings.Normalize();
 
         Assert.All(
-            Enum.GetValues<KohanaCapability>().Where(capability => capability != KohanaCapability.ComputerUse),
+            Enum.GetValues<SakuraCapability>().Where(capability => capability != SakuraCapability.ComputerUse),
             capability => Assert.Equal(PermissionLevel.Preguntar, settings.For(capability).Level));
     }
 
@@ -57,12 +57,12 @@ public sealed class PermissionBrokerTests
     public void EveryCapabilityHasItsOwnPermission()
     {
         // "Habilitar Lens no habilita Computer Use."
-        var settings = Settings(KohanaCapability.Lens, PermissionLevel.Permitido);
+        var settings = Settings(SakuraCapability.Lens, PermissionLevel.Permitido);
 
         Assert.Equal(PermissionOutcome.Permitido,
-            PermissionBroker.Decide(Request(KohanaCapability.Lens), settings).Outcome);
+            PermissionBroker.Decide(Request(SakuraCapability.Lens), settings).Outcome);
         Assert.Equal(PermissionOutcome.Denegado,
-            PermissionBroker.Decide(Request(KohanaCapability.ComputerUse), settings).Outcome);
+            PermissionBroker.Decide(Request(SakuraCapability.ComputerUse), settings).Outcome);
     }
 
     // ---------- El orden de las comprobaciones ----------
@@ -72,10 +72,10 @@ public sealed class PermissionBrokerTests
     {
         // El modelo de confianza dice que una exclusión vale "incluso si la capacidad en general
         // está habilitada", así que tiene que ganarle a Permitido.
-        var settings = Settings(KohanaCapability.Lens, PermissionLevel.Permitido, "banco");
+        var settings = Settings(SakuraCapability.Lens, PermissionLevel.Permitido, "banco");
 
         var decision = PermissionBroker.Decide(
-            Request(KohanaCapability.Lens, targetApp: "Banco - Google Chrome"), settings);
+            Request(SakuraCapability.Lens, targetApp: "Banco - Google Chrome"), settings);
 
         Assert.Equal(PermissionOutcome.Denegado, decision.Outcome);
         Assert.Contains("banco", decision.Reason);
@@ -84,14 +84,14 @@ public sealed class PermissionBrokerTests
     [Fact]
     public void ExclusionsMatchByContent_NotByExactName() =>
         Assert.True(PermissionBroker.Decide(
-            Request(KohanaCapability.Lens, targetApp: "Mi Banco Online — Firefox"),
-            Settings(KohanaCapability.Lens, PermissionLevel.Permitido, "banco")).IsDenied);
+            Request(SakuraCapability.Lens, targetApp: "Mi Banco Online — Firefox"),
+            Settings(SakuraCapability.Lens, PermissionLevel.Permitido, "banco")).IsDenied);
 
     [Fact]
     public void ABlockedCapability_IsDenied_NotAsked()
     {
         var decision = PermissionBroker.Decide(
-            Request(KohanaCapability.Flow), Settings(KohanaCapability.Flow, PermissionLevel.Bloqueado));
+            Request(SakuraCapability.Flow), Settings(SakuraCapability.Flow, PermissionLevel.Bloqueado));
 
         Assert.Equal(PermissionOutcome.Denegado, decision.Outcome);
     }
@@ -110,10 +110,10 @@ public sealed class PermissionBrokerTests
     {
         // "Sin importar el nivel de autonomía configurado." Estar en Permitido no las salta; ése es
         // el punto de que existan.
-        var settings = Settings(KohanaCapability.Proyecto, PermissionLevel.Permitido);
+        var settings = Settings(SakuraCapability.Proyecto, PermissionLevel.Permitido);
 
         var decision = PermissionBroker.Decide(
-            Request(KohanaCapability.Proyecto, null, category), settings);
+            Request(SakuraCapability.Proyecto, null, category), settings);
 
         Assert.Equal(PermissionOutcome.RequiereConfirmacion, decision.Outcome);
         Assert.Contains(category, decision.TriggeredCategories);
@@ -124,18 +124,18 @@ public sealed class PermissionBrokerTests
     {
         // Denegar gana a preguntar: pedir confirmación de algo que de todas formas no se va a hacer
         // sería enseñar a aceptar por costumbre.
-        var settings = Settings(KohanaCapability.ComputerUse, PermissionLevel.Bloqueado);
+        var settings = Settings(SakuraCapability.ComputerUse, PermissionLevel.Bloqueado);
 
         Assert.True(PermissionBroker.Decide(
-            Request(KohanaCapability.ComputerUse, null, MandatoryConfirmation.Pagos), settings).IsDenied);
+            Request(SakuraCapability.ComputerUse, null, MandatoryConfirmation.Pagos), settings).IsDenied);
     }
 
     [Fact]
     public void TheReasonSaysWhyItIsBeingAsked()
     {
         var decision = PermissionBroker.Decide(
-            Request(KohanaCapability.Memoria, null, MandatoryConfirmation.BorradoIrreversible),
-            Settings(KohanaCapability.Memoria, PermissionLevel.Permitido));
+            Request(SakuraCapability.Memoria, null, MandatoryConfirmation.BorradoIrreversible),
+            Settings(SakuraCapability.Memoria, PermissionLevel.Permitido));
 
         Assert.Contains("no se puede recuperar", decision.Reason);
     }
@@ -145,24 +145,24 @@ public sealed class PermissionBrokerTests
     [Fact]
     public void AnAllowedCapabilityWithNothingSpecial_ProceedsWithoutAsking() =>
         Assert.True(PermissionBroker.Decide(
-            Request(KohanaCapability.Lens),
-            Settings(KohanaCapability.Lens, PermissionLevel.Permitido)).MayProceedWithoutAsking);
+            Request(SakuraCapability.Lens),
+            Settings(SakuraCapability.Lens, PermissionLevel.Permitido)).MayProceedWithoutAsking);
 
     [Fact]
     public void AskLevel_Asks() =>
         Assert.Equal(
             PermissionOutcome.RequiereConfirmacion,
             PermissionBroker.Decide(
-                Request(KohanaCapability.Lens),
-                Settings(KohanaCapability.Lens, PermissionLevel.Preguntar)).Outcome);
+                Request(SakuraCapability.Lens),
+                Settings(SakuraCapability.Lens, PermissionLevel.Preguntar)).Outcome);
 
     [Fact]
     public void AnUnknownLevel_FailsClosed()
     {
         // Un nivel que no se reconoce no se interpreta como permiso.
-        var settings = Settings(KohanaCapability.Lens, (PermissionLevel)99);
+        var settings = Settings(SakuraCapability.Lens, (PermissionLevel)99);
 
-        Assert.False(PermissionBroker.Decide(Request(KohanaCapability.Lens), settings)
+        Assert.False(PermissionBroker.Decide(Request(SakuraCapability.Lens), settings)
             .MayProceedWithoutAsking);
     }
 
@@ -197,14 +197,14 @@ public sealed class PermissionBrokerTests
         {
             Capabilities =
             [
-                new CapabilityPermission { Capability = KohanaCapability.Lens, Level = PermissionLevel.Permitido },
-                new CapabilityPermission { Capability = KohanaCapability.Lens, Level = PermissionLevel.Bloqueado }
+                new CapabilityPermission { Capability = SakuraCapability.Lens, Level = PermissionLevel.Permitido },
+                new CapabilityPermission { Capability = SakuraCapability.Lens, Level = PermissionLevel.Bloqueado }
             ]
         };
 
         settings.Normalize();
 
-        Assert.Equal(PermissionLevel.Bloqueado, settings.For(KohanaCapability.Lens).Level);
+        Assert.Equal(PermissionLevel.Bloqueado, settings.For(SakuraCapability.Lens).Level);
     }
 
     [Fact]
@@ -216,13 +216,13 @@ public sealed class PermissionBrokerTests
             [
                 new CapabilityPermission
                 {
-                    Capability = KohanaCapability.Lens,
+                    Capability = SakuraCapability.Lens,
                     Level = PermissionLevel.Preguntar,
                     ExcludedApps = ["banco"]
                 },
                 new CapabilityPermission
                 {
-                    Capability = KohanaCapability.Lens,
+                    Capability = SakuraCapability.Lens,
                     Level = PermissionLevel.Permitido,
                     ExcludedApps = ["gestor de contraseñas"]
                 }
@@ -231,7 +231,7 @@ public sealed class PermissionBrokerTests
 
         settings.Normalize();
 
-        var permission = settings.For(KohanaCapability.Lens);
+        var permission = settings.For(SakuraCapability.Lens);
         Assert.Equal(2, permission.ExcludedApps.Count);
     }
 
@@ -241,7 +241,7 @@ public sealed class PermissionBrokerTests
         var settings = new PermissionSettings();
         settings.Normalize();
 
-        Assert.Equal(Enum.GetValues<KohanaCapability>().Length, settings.Capabilities.Count);
-        Assert.Equal(PermissionLevel.Bloqueado, settings.For(KohanaCapability.ComputerUse).Level);
+        Assert.Equal(Enum.GetValues<SakuraCapability>().Length, settings.Capabilities.Count);
+        Assert.Equal(PermissionLevel.Bloqueado, settings.For(SakuraCapability.ComputerUse).Level);
     }
 }

@@ -134,7 +134,7 @@ public sealed class ShutdownHotfixInvariantTests
 
     private static string ReadCompositionRootSource() =>
         File.ReadAllText(Path.Combine(
-            RepositoryRoot, "src", "Nexo.Windows", "Composition", "KohanaCompositionRoot.cs"));
+            RepositoryRoot, "src", "Nexo.Windows", "Composition", "SakuraCompositionRoot.cs"));
 
     private static string ExtractMethodBody(string content, string startMarker, string? endMarker)
     {

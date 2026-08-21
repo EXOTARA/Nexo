@@ -8,8 +8,8 @@ namespace Nexo.Core.Tests;
 /// Regresión del defecto que dejó un equipo con el modelo descargado y ninguna forma de usarlo.
 ///
 /// Elegir "Ollama" en Ajustes escribía la dirección del Ollama externo (puerto 11434), pero el motor
-/// que Kohana descarga e inicia por sí misma vive en el 11435. El supervisor solo arrancaba si la
-/// dirección guardada era la administrada, así que nunca arrancaba: Kohana preguntaba a un puerto
+/// que Sakura descarga e inicia por sí misma vive en el 11435. El supervisor solo arrancaba si la
+/// dirección guardada era la administrada, así que nunca arrancaba: Sakura preguntaba a un puerto
 /// donde no había nada y el mensaje que veía la persona era "no se pudo conectar con Ollama".
 ///
 /// El arreglo separa los dos casos en proveedores distintos. Estas pruebas fijan que la separación
@@ -20,7 +20,7 @@ public sealed class AiProviderMigrationTests
     [Fact]
     public void TheManagedProviderPointsAtTheManagedPort()
     {
-        var preset = AiProviderDefaults.Get(AiProviderKind.KohanaLocal);
+        var preset = AiProviderDefaults.Get(AiProviderKind.SakuraLocal);
 
         Assert.Equal(OllamaRuntimeEndpoints.ManagedBaseUrl, preset.BaseUrl);
         Assert.True(OllamaRuntimeEndpoints.IsManagedBaseUrl(preset.BaseUrl));
@@ -43,7 +43,7 @@ public sealed class AiProviderMigrationTests
         var preferences = new ShellPreferences
         {
             SchemaVersion = ShellPreferences.CurrentSchemaVersion,
-            AiProvider = AiProviderKind.KohanaLocal,
+            AiProvider = AiProviderKind.SakuraLocal,
             AiBaseUrl = "http://127.0.0.1:11434/v1"
         };
 
@@ -65,7 +65,7 @@ public sealed class AiProviderMigrationTests
 
         preferences.Normalize();
 
-        Assert.Equal(AiProviderKind.KohanaLocal, preferences.AiProvider);
+        Assert.Equal(AiProviderKind.SakuraLocal, preferences.AiProvider);
         Assert.Equal(OllamaRuntimeEndpoints.ManagedBaseUrl, preferences.AiBaseUrl);
         Assert.Equal("qwen3.5:4b", preferences.AiModel);
     }
@@ -91,7 +91,7 @@ public sealed class AiProviderMigrationTests
     }
 
     [Theory]
-    [InlineData(AiProviderKind.KohanaLocal)]
+    [InlineData(AiProviderKind.SakuraLocal)]
     [InlineData(AiProviderKind.Ollama)]
     public void BothOllamaProvidersRouteThroughTheOllamaProtocol(AiProviderKind provider)
     {
@@ -101,20 +101,20 @@ public sealed class AiProviderMigrationTests
     }
 
     [Fact]
-    public void OnlyTheManagedProviderIsAdministeredByKohana()
+    public void OnlyTheManagedProviderIsAdministeredBySakura()
     {
-        Assert.True(AiProviderDefaults.IsManagedByKohana(AiProviderKind.KohanaLocal));
+        Assert.True(AiProviderDefaults.IsManagedBySakura(AiProviderKind.SakuraLocal));
 
         foreach (var other in Enum.GetValues<AiProviderKind>())
         {
-            if (other == AiProviderKind.KohanaLocal)
+            if (other == AiProviderKind.SakuraLocal)
             {
                 continue;
             }
 
             Assert.False(
-                AiProviderDefaults.IsManagedByKohana(other),
-                $"Kohana no instala ni inicia {other}, así que no debe declararlo como administrado.");
+                AiProviderDefaults.IsManagedBySakura(other),
+                $"Sakura no instala ni inicia {other}, así que no debe declararlo como administrado.");
         }
     }
 

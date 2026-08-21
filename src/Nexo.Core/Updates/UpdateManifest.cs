@@ -4,7 +4,7 @@ namespace Nexo.Core.Updates;
 
 /// <summary>Una publicación anunciada: qué versión es, de dónde se baja y cómo comprobarla.</summary>
 public sealed record UpdateManifest(
-    KohanaVersion Version,
+    SakuraVersion Version,
     Uri PackageUrl,
     string Sha256,
     long SizeInBytes,
@@ -24,7 +24,7 @@ public readonly record struct UpdateManifestResult(UpdateManifest? Manifest, str
 /// Diseño D62 — lee el anuncio de una versión publicada, y se niega a fiarse de él.
 ///
 /// Todo lo que hay aquí llega de la red, así que la postura por defecto no es «leer» sino
-/// «desconfiar». Un anuncio manipulado o simplemente equivocado termina en que Kohana descarga y
+/// «desconfiar». Un anuncio manipulado o simplemente equivocado termina en que Sakura descarga y
 /// ejecuta algo que nadie publicó, y ese es el peor fallo posible de un actualizador: no rompe la
 /// aplicación, la sustituye.
 ///
@@ -59,7 +59,7 @@ public static class UpdateManifestReader
         string? size,
         string? notes)
     {
-        if (!KohanaVersion.TryParse(version, out var parsedVersion))
+        if (!SakuraVersion.TryParse(version, out var parsedVersion))
         {
             return UpdateManifestResult.Rejected("El anuncio no trae una versión que se pueda leer.");
         }
@@ -92,7 +92,7 @@ public static class UpdateManifestReader
         if (bytes > MaximumPackageSize)
         {
             return UpdateManifestResult.Rejected(
-                "La descarga anunciada es demasiado grande para ser una versión de Kohana.");
+                "La descarga anunciada es demasiado grande para ser una versión de Sakura.");
         }
 
         return UpdateManifestResult.Ok(new UpdateManifest(

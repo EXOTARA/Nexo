@@ -4,7 +4,7 @@ using Nexo.Core.Ai;
 namespace Nexo.Core.Vision;
 
 /// <summary>
-/// Diseño D5.6 (Fase 2 — Kohana Lens) — combina el título de la ventana activa, el resultado de
+/// Diseño D5.6 (Fase 2 — Sakura Lens) — combina el título de la ventana activa, el resultado de
 /// OCR y los elementos de UI Automation en un <see cref="LensContext"/> listo para enviar, con la
 /// pregunta y el <see cref="AiRequestMode"/> que corresponden al modo elegido.
 ///
@@ -56,7 +56,7 @@ public static class LensContextBuilder
         IReadOnlyList<UiAutomationElement> redactedElements)
     {
         var builder = new StringBuilder();
-        builder.Append("Modo Kohana Lens: ").Append(ModeLabel(mode)).Append('\n');
+        builder.Append("Modo Sakura Lens: ").Append(ModeLabel(mode)).Append('\n');
         builder.Append("Ventana activa: ")
             .Append(string.IsNullOrWhiteSpace(windowTitle) ? "(sin título)" : windowTitle)
             .Append('\n');

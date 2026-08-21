@@ -10,8 +10,8 @@ namespace Nexo.Windows.Ambient;
 /// <c>MainWindow._lastExternalWindowHandle</c>, que solo se actualiza en puntos concretos ya
 /// existentes para Vision/Peek (<c>RememberForegroundWindow()</c>, llamado al invocar atajos
 /// globales) — nunca al alternar ventanas con Alt+Tab normal, ni al abrir el Command Center (que
-/// solo puede abrirse con Kohana ya enfocada, momento en el que "la ventana activa" ya es la propia
-/// Kohana). Este rastreador es una fuente independiente y correcta para el Context Snapshot
+/// solo puede abrirse con Sakura ya enfocada, momento en el que "la ventana activa" ya es la propia
+/// Sakura). Este rastreador es una fuente independiente y correcta para el Context Snapshot
 /// ambiental: escucha <c>EVENT_SYSTEM_FOREGROUND</c> a nivel de sistema con
 /// <c>SetWinEventHook</c> y recuerda el último handle ajeno al propio proceso, actualizado en
 /// tiempo real ante cualquier cambio de foco, sin tocar el mecanismo existente de Vision/Peek.
@@ -41,14 +41,14 @@ public sealed class ForegroundWindowTracker : IDisposable
             WinEventOutOfContext);
 
         // Semilla inicial: la ventana en primer plano en el instante de construir el rastreador
-        // (normalmente la aplicación desde la que se lanzó Kohana) ya cuenta, sin esperar al
+        // (normalmente la aplicación desde la que se lanzó Sakura) ya cuenta, sin esperar al
         // primer cambio de foco futuro.
         RememberIfExternal(GetForegroundWindow());
     }
 
     /// <summary>
-    /// Último handle de ventana en primer plano que no pertenece al propio proceso de Kohana, o 0
-    /// si todavía no se observó ninguno (p. ej. Kohana es la primera ventana de la sesión).
+    /// Último handle de ventana en primer plano que no pertenece al propio proceso de Sakura, o 0
+    /// si todavía no se observó ninguno (p. ej. Sakura es la primera ventana de la sesión).
     /// </summary>
     public long LastExternalWindowHandle => Interlocked.Read(ref _lastExternalWindowHandle);
 

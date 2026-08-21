@@ -73,7 +73,7 @@ public sealed class LiveWallpaperConfigTests
     [Fact]
     public void BrokenJsonIsTreatedAsNoWallpaperInsteadOfThrowing()
     {
-        // Wallpaper Engine puede estar reescribiendo su config justo cuando Kohana lo lee. Que eso
+        // Wallpaper Engine puede estar reescribiendo su config justo cuando Sakura lo lee. Que eso
         // tire la aplicación al arrancar sería mucho peor que quedarse sin este origen de color.
         var found = LiveWallpaperConfig.ReadSelectedWallpapers("{ esto no es json");
 

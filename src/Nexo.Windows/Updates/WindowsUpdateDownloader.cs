@@ -55,6 +55,7 @@ public sealed class WindowsUpdateDownloader(HttpClient? client = null)
         try
         {
             Directory.CreateDirectory(destinationFolder);
+            DiscardOldPackages(destinationFolder);
 
             string fingerprint;
             using (var response = await _client.GetAsync(
@@ -82,7 +83,7 @@ public sealed class WindowsUpdateDownloader(HttpClient? client = null)
             }
 
             var packagePath = Path.Combine(
-                destinationFolder, $"Kohana-{manifest.Version}.zip");
+                destinationFolder, $"Sakura-{manifest.Version}.zip");
 
             // Una descarga anterior del mismo nombre se sustituye: ya se verificó la de ahora.
             Delete(packagePath);
@@ -149,6 +150,39 @@ public sealed class WindowsUpdateDownloader(HttpClient? client = null)
 
         hash.TransformFinalBlock([], 0, 0);
         return Convert.ToHexString(hash.Hash!).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Tira los paquetes de intentos anteriores antes de bajar uno nuevo.
+    ///
+    /// El guión borra el suyo al terminar bien, pero un intento que **no** llega al final no borra
+    /// nada — y cada uno pesa cien megas. Tras las dos primeras pruebas en vivo quedaron ciento
+    /// noventa megas en el disco de Adler sin que nadie los reclamara. Se limpia al empezar y no al
+    /// fallar, porque el momento del fallo es justo cuando menos se puede confiar en que se ejecute
+    /// nada más.
+    ///
+    /// Solo se tocan archivos con el nombre que pone esta clase. La carpeta es de Sakura, pero
+    /// borrar por comodín lo que haya dentro es cómo se acaba llevándose algo que no era tuyo.
+    /// </summary>
+    private static void DiscardOldPackages(string folder)
+    {
+        try
+        {
+            foreach (var stale in Directory.EnumerateFiles(folder, "Sakura-*.zip"))
+            {
+                Delete(stale);
+            }
+
+            foreach (var stale in Directory.EnumerateFiles(folder, "kohana-update-*.part"))
+            {
+                Delete(stale);
+            }
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            // No poder limpiar no impide descargar; solo deja el disco más lleno de lo necesario.
+        }
     }
 
     private static void Delete(string path)

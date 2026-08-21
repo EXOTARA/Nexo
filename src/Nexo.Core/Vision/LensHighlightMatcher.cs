@@ -3,7 +3,7 @@ using Nexo.Core.Ai;
 namespace Nexo.Core.Vision;
 
 /// <summary>
-/// Diseño D5.7 (Fase 2 — Kohana Lens) — decide qué resaltar en pantalla a partir de la respuesta
+/// Diseño D5.7 (Fase 2 — Sakura Lens) — decide qué resaltar en pantalla a partir de la respuesta
 /// de la IA: no hay un mecanismo de citas/referencias estructuradas todavía (eso requeriría pedirle
 /// a la IA una salida estructurada, un cambio mayor de prompt), así que esta primera versión usa
 /// una heurística honesta y simple — si el texto de una línea de OCR o el nombre de un elemento de

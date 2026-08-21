@@ -6,15 +6,15 @@ using Nexo.Core.Diagnostics;
 namespace Nexo.Windows.Audit;
 
 /// <summary>
-/// Diseño D13 — el Audit Log único en disco. Sobrevive al cierre de Kohana a propósito: un registro
+/// Diseño D13 — el Audit Log único en disco. Sobrevive al cierre de Sakura a propósito: un registro
 /// que se pierde al reiniciar no sirve para explicar por qué el equipo está como está, que es justo
 /// para lo que existe.
 ///
-/// Sin cifrar, y es deliberado: aquí no hay datos personales, solo qué hizo Kohana y cuándo. Que la
+/// Sin cifrar, y es deliberado: aquí no hay datos personales, solo qué hizo Sakura y cuándo. Que la
 /// persona pueda abrir el archivo con cualquier editor es parte de que la auditoría sea suya. (La
 /// memoria personal, que sí contiene datos suyos, va cifrada con DPAPI — ver D9.)
 /// </summary>
-public sealed class JsonKohanaAuditLog : IAuditLog
+public sealed class JsonSakuraAuditLog : IAuditLog
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,7 +27,7 @@ public sealed class JsonKohanaAuditLog : IAuditLog
     private readonly string _filePath;
     private readonly string? _legacyOptimizationPath;
 
-    public JsonKohanaAuditLog(string? filePath = null, string? legacyOptimizationPath = null)
+    public JsonSakuraAuditLog(string? filePath = null, string? legacyOptimizationPath = null)
     {
         _filePath = filePath ?? NexoDataPaths.Audit;
         _legacyOptimizationPath = legacyOptimizationPath ?? NexoDataPaths.OptimizationAudit;

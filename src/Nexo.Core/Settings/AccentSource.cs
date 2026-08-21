@@ -1,7 +1,7 @@
 namespace Nexo.Core.Settings;
 
 /// <summary>
-/// Diseño D31 — de dónde sale el acento de Kohana. Empezó siendo un sí/no ("¿seguir a Windows?") y
+/// Diseño D31 — de dónde sale el acento de Sakura. Empezó siendo un sí/no ("¿seguir a Windows?") y
 /// dejó de bastar en cuanto apareció el tercer origen: un booleano no puede representar tres
 /// estados sin convertirse en dos banderas que pueden contradecirse entre sí.
 /// </summary>

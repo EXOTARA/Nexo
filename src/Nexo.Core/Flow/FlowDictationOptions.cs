@@ -3,7 +3,7 @@ namespace Nexo.Core.Flow;
 /// <summary>
 /// Diseño D6.1 — una sustitución del diccionario personal: cuando el dictado produce
 /// <see cref="Spoken"/> como palabra completa, se reemplaza por <see cref="Replacement"/>. Pensado
-/// para nombres propios y términos técnicos que Whisper escribe mal ("cojana" → "Kohana").
+/// para nombres propios y términos técnicos que Whisper escribe mal ("cojana" → "Sakura").
 /// </summary>
 public sealed record FlowDictionaryEntry(string Spoken, string Replacement);
 

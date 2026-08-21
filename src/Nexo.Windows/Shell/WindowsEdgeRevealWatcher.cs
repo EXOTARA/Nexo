@@ -5,12 +5,12 @@ using Nexo.Core.Shell;
 namespace Nexo.Windows.Shell;
 
 /// <summary>
-/// Diseño D27 — vigila si el ratón se queda en el borde donde vive Kohana.
+/// Diseño D27 — vigila si el ratón se queda en el borde donde vive Sakura.
 ///
 /// Consulta la posición del cursor con un temporizador en vez de instalar un enganche global de
 /// ratón (<c>WH_MOUSE_LL</c>). Un enganche de bajo nivel recibe **todos** los mensajes de ratón del
 /// sistema, y su procedimiento corre dentro del bucle de mensajes de esta aplicación: si tarda, se
-/// arrastra el puntero de todo Windows, no solo el de Kohana. Para un gesto que además exige
+/// arrastra el puntero de todo Windows, no solo el de Sakura. Para un gesto que además exige
 /// quedarse quieto casi trescientos milisegundos, esa precisión no compra nada.
 ///
 /// El temporizador es de <see cref="System.Timers.Timer"/> y no de la interfaz: el evento se emite
@@ -71,7 +71,7 @@ public sealed class WindowsEdgeRevealWatcher : IDisposable
     /// <summary>
     /// Silencia el borde durante <see cref="EdgeRevealPolicy.CooldownAfterHide"/>. Se llama justo
     /// después de ocultar el shell: al cerrarlo el ratón sigue donde estaba —encima del borde—, y
-    /// sin esto Kohana se volvería a abrir sola antes de que nadie pudiera apartarlo.
+    /// sin esto Sakura se volvería a abrir sola antes de que nadie pudiera apartarlo.
     /// </summary>
     public void SuppressBriefly()
     {

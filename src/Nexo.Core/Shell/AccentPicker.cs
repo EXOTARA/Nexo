@@ -1,7 +1,7 @@
 namespace Nexo.Core.Shell;
 
 /// <summary>
-/// Diseño D31 — decide qué color de la paleta del fondo sirve como acento de Kohana.
+/// Diseño D31 — decide qué color de la paleta del fondo sirve como acento de Sakura.
 ///
 /// El color más frecuente de una foto casi nunca sirve: suele ser el negro de las sombras, el gris
 /// del cielo nublado o el beige de una pared, y un acento así no se distingue del propio panel. Por
@@ -69,7 +69,7 @@ public static class AccentPicker
     ///
     /// Existe porque rechazar por contraste era la respuesta equivocada, y se vio con un fondo real:
     /// una imagen oscura con cintas naranjas y magentas: sus colores tienen croma de sobra pero su
-    /// contraste contra el panel se queda en 2.2, así que el filtro los tiraba todos y Kohana
+    /// contraste contra el panel se queda en 2.2, así que el filtro los tiraba todos y Sakura
     /// concluía que ese fondo "no tiene color". Cualquiera que lo mire diría que es naranja y
     /// morado. Los fondos oscuros son de lo más común, así que el caso no era raro: era el normal.
     ///

@@ -1,27 +1,27 @@
 <#
 .SYNOPSIS
-    Diseno D3.2 - infraestructura reutilizable para validar Kohana sin tocar los datos reales
-    del usuario en %LocalAppData%\Kohana.
+    Diseno D3.2 - infraestructura reutilizable para validar Sakura sin tocar los datos reales
+    del usuario en %LocalAppData%\Sakura.
 
 .DESCRIPTION
     Crea una carpeta de perfil aislada bajo artifacts\validation-profiles\<Sprint>-<timestamp>\ y,
-    si se le da la ruta de un Kohana.exe, lo lanza con la variable de entorno KOHANA_DATA_ROOT
+    si se le da la ruta de un Sakura.exe, lo lanza con la variable de entorno SAKURA_DATA_ROOT
     apuntando SOLO a ese perfil, fijada unicamente para ese proceso hijo (nunca para la sesion de
     PowerShell que invoca este script, para no dejarla filtrada a ningun otro proceso que el
     usuario abra despues desde la misma consola).
 
     Este script nunca:
-      - toca %LocalAppData%\Kohana ni %LocalAppData%\Nexo;
+      - toca %LocalAppData%\Sakura ni %LocalAppData%\Nexo;
       - borra el perfil que crea (queda como evidencia; borralo tu mismo si ya no lo necesitas);
-      - cierra ningun proceso de Kohana que no haya lanzado el mismo.
+      - cierra ningun proceso de Sakura que no haya lanzado el mismo.
 
 .PARAMETER Sprint
     Nombre corto del sprint o la validacion (p. ej. "d3.2-sandbox"). Se usa como prefijo de la
     carpeta del perfil.
 
 .PARAMETER ExePath
-    Ruta a Kohana.exe. Si se omite, el script solo crea la carpeta del perfil y muestra como
-    lanzar Kohana con ella manualmente.
+    Ruta a Sakura.exe. Si se omite, el script solo crea la carpeta del perfil y muestra como
+    lanzar Sakura con ella manualmente.
 
 .PARAMETER Wait
     Si se pasa junto con -ExePath, espera a que el proceso lanzado termine antes de devolver el
@@ -29,7 +29,7 @@
     es responsabilidad de quien llama a este script detenerlo cuando corresponda.
 
 .OUTPUTS
-    Un objeto con ProfilePath y, si se lanzo Kohana, el Process iniciado.
+    Un objeto con ProfilePath y, si se lanzo Sakura, el Process iniciado.
 #>
 [CmdletBinding()]
 param(
@@ -51,15 +51,15 @@ $profilePath = Join-Path $profilesRoot "$Sprint-$timestamp"
 New-Item -ItemType Directory -Force -Path $profilePath | Out-Null
 
 Write-Host "Perfil de validacion: $profilePath"
-Write-Host "KOHANA_DATA_ROOT quedara fijado SOLO para el proceso de Kohana lanzado desde aqui - nunca para esta sesion de PowerShell ni para %LocalAppData%\Kohana."
+Write-Host "SAKURA_DATA_ROOT quedara fijado SOLO para el proceso de Sakura lanzado desde aqui - nunca para esta sesion de PowerShell ni para %LocalAppData%\Sakura."
 
 if (-not $ExePath) {
     Write-Host ""
-    Write-Host "Para lanzar Kohana manualmente con este perfil:"
+    Write-Host "Para lanzar Sakura manualmente con este perfil:"
     Write-Host "  `$startInfo = New-Object System.Diagnostics.ProcessStartInfo"
-    Write-Host "  `$startInfo.FileName = '<ruta a Kohana.exe>'"
+    Write-Host "  `$startInfo.FileName = '<ruta a Sakura.exe>'"
     Write-Host "  `$startInfo.UseShellExecute = `$false"
-    Write-Host "  `$startInfo.EnvironmentVariables['KOHANA_DATA_ROOT'] = '$profilePath'"
+    Write-Host "  `$startInfo.EnvironmentVariables['SAKURA_DATA_ROOT'] = '$profilePath'"
     Write-Host "  [System.Diagnostics.Process]::Start(`$startInfo)"
     return [pscustomobject]@{ ProfilePath = $profilePath; Process = $null }
 }
@@ -71,10 +71,10 @@ if (-not (Test-Path $ExePath)) {
 $startInfo = New-Object System.Diagnostics.ProcessStartInfo
 $startInfo.FileName = $ExePath
 $startInfo.UseShellExecute = $false
-$startInfo.EnvironmentVariables["KOHANA_DATA_ROOT"] = $profilePath
+$startInfo.EnvironmentVariables["SAKURA_DATA_ROOT"] = $profilePath
 
 $process = [System.Diagnostics.Process]::Start($startInfo)
-Write-Host "Kohana lanzado (PID $($process.Id)) con perfil de validacion aislado."
+Write-Host "Sakura lanzado (PID $($process.Id)) con perfil de validacion aislado."
 
 if ($Wait) {
     $process.WaitForExit()

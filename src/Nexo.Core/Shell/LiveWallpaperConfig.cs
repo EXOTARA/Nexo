@@ -5,7 +5,7 @@ namespace Nexo.Core.Shell;
 /// <summary>
 /// Diseño D32 — encuentra qué fondo tiene puesto Wallpaper Engine ahora mismo.
 ///
-/// Existe porque el color de Kohana no cambiaba nunca con Wallpaper Engine, y la causa no era la
+/// Existe porque el color de Sakura no cambiaba nunca con Wallpaper Engine, y la causa no era la
 /// lectura sino que <b>no hay nada que leer</b>: ese programa no cambia el fondo de Windows, dibuja
 /// en vivo sobre la capa del escritorio y deja el registro y <c>TranscodedWallpaper</c> apuntando a
 /// la última imagen que puso Windows.
@@ -47,7 +47,7 @@ public static class LiveWallpaperConfig
         }
         catch (JsonException)
         {
-            // Un config a medio escribir no debe impedir que Kohana abra: se queda sin este origen.
+            // Un config a medio escribir no debe impedir que Sakura abra: se queda sin este origen.
         }
 
         return results;

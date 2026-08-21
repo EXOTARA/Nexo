@@ -14,7 +14,7 @@ public partial class App : System.Windows.Application
 {
     private SingleInstanceCoordinator? _singleInstance;
     private ManagedOllamaSupervisor? _managedOllamaSupervisor;
-    private KohanaCompositionRoot? _compositionRoot;
+    private SakuraCompositionRoot? _compositionRoot;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -31,7 +31,7 @@ public partial class App : System.Windows.Application
         {
             var (root, source) = NexoDataPaths.DescribeActiveRoot();
             System.Diagnostics.Debug.WriteLine(
-                $"[Kohana] Perfil de validación activo — raíz: {root} (origen: {source})");
+                $"[Sakura] Perfil de validación activo — raíz: {root} (origen: {source})");
             try
             {
                 Directory.CreateDirectory(NexoDataPaths.LogsDirectory);
@@ -47,7 +47,7 @@ public partial class App : System.Windows.Application
             }
         }
 
-        // La migración es conservadora: copia datos de Nexo a Kohana sin borrar ni sobrescribir
+        // La migración es conservadora: copia datos de Nexo a Sakura sin borrar ni sobrescribir
         // la carpeta anterior. Un fallo no impide abrir la app. Cuando hay un perfil de
         // validación activo, NexoDataPaths.LegacyRootDirectory ya colapsa a la misma raíz que
         // RootDirectory, así que el propio guard de origen==destino de MigrateIfNeeded evita leer
@@ -55,6 +55,11 @@ public partial class App : System.Windows.Application
         try
         {
             LegacyDataMigrator.MigrateIfNeeded();
+
+            // Diseño D70 — y los modelos de voz y el runtime, que la migración normal deja fuera
+            // por su tamaño, se traen moviéndolos. Sin esto la aplicación sigue leyéndolos de una
+            // carpeta con un nombre que ya no es el suyo, y borrarla la deja muda.
+            LegacyDataMigrator.ConsolidateHeavyFolders();
         }
         catch (Exception)
         {
@@ -80,7 +85,7 @@ public partial class App : System.Windows.Application
         }
 
         _managedOllamaSupervisor = new ManagedOllamaSupervisor();
-        _compositionRoot = new KohanaCompositionRoot();
+        _compositionRoot = new SakuraCompositionRoot();
 
         var mainWindow = new MainWindow(
             requestedHiddenStart,
@@ -108,7 +113,7 @@ public partial class App : System.Windows.Application
         _managedOllamaSupervisor?.Dispose();
         _managedOllamaSupervisor = null;
 
-        // KohanaCompositionRoot es dueño del subsistema de voz (el coordinador más Whisper,
+        // SakuraCompositionRoot es dueño del subsistema de voz (el coordinador más Whisper,
         // TTS y Vosk) y los libera aquí, después de que Window_Closed ya haya cancelado el
         // token de vida y desuscrito los eventos de wake word. El ServiceProvider no libera
         // instancias que no creó él mismo (verificado), así que esta es la única ruta de

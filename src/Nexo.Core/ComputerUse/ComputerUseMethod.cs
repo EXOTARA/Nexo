@@ -29,7 +29,7 @@ public enum ComputerUseMethod
     /// <summary>Shell acotado: comandos de una lista de permitidos, nada arbitrario.</summary>
     ShellSeguro = 6,
 
-    /// <summary>Portapapeles: Kohana deja el contenido y la persona lo pega donde quiera.</summary>
+    /// <summary>Portapapeles: Sakura deja el contenido y la persona lo pega donde quiera.</summary>
     Portapapeles = 7,
 
     /// <summary>
@@ -63,7 +63,7 @@ public static class ComputerUseMethodText
         ComputerUseMethod.IntegracionNativa => "Está escrita a propósito para esa aplicación.",
         ComputerUseMethod.UiAutomation => "Se invoca el control concreto, no una posición de pantalla.",
         ComputerUseMethod.ShellSeguro => "Solo comandos de una lista corta que no cambian nada.",
-        ComputerUseMethod.Portapapeles => "Kohana no toca la otra aplicación: pegas tú.",
+        ComputerUseMethod.Portapapeles => "Sakura no toca la otra aplicación: pegas tú.",
         ComputerUseMethod.RatonTeclado =>
             "No es seguro: no distingue ventanas ni puede comprobar qué hizo. Solo como último recurso.",
         _ => string.Empty

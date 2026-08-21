@@ -6,16 +6,16 @@ namespace Nexo.Windows.Tests.Updates;
 /// <summary>
 /// Diseño D63 — el guion que hace el intercambio.
 ///
-/// Es la pieza con más poder de la aplicación: mueve la carpeta donde vive Kohana. Lo que se prueba
+/// Es la pieza con más poder de la aplicación: mueve la carpeta donde vive Sakura. Lo que se prueba
 /// aquí es que no se le pueda dar otra forma que la prevista y que sepa deshacer.
 /// </summary>
 public sealed class UpdateHelperScriptTests
 {
     private static UpdateSwapPaths SafePaths() =>
-        UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Kohana");
+        UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Sakura");
 
     private static string Build() =>
-        UpdateHelperScript.Build(SafePaths(), 4242, @"C:\Users\Alguien\AppData\Local\Programs\Kohana\Kohana.exe");
+        UpdateHelperScript.Build(SafePaths(), 4242, @"C:\Users\Alguien\AppData\Local\Programs\Sakura\Kohana.exe");
 
     [Fact]
     public void ItRefusesToBuildForPathsThePolicyRejected()
@@ -29,9 +29,9 @@ public sealed class UpdateHelperScriptTests
     }
 
     [Fact]
-    public void ItWaitsForTheExactProcess_NotForAnythingNamedKohana()
+    public void ItWaitsForTheExactProcess_NotForAnythingNamedSakura()
     {
-        // Matar «todo lo que se llame Kohana» parece razonable hasta que cierra algo que no era.
+        // Matar «todo lo que se llame Sakura» parece razonable hasta que cierra algo que no era.
         var script = Build();
 
         Assert.Contains("$pid_ = 4242", script, StringComparison.Ordinal);
@@ -40,7 +40,7 @@ public sealed class UpdateHelperScriptTests
     }
 
     [Fact]
-    public void IfKohanaIsStillOpen_NothingIsTouched()
+    public void IfSakuraIsStillOpen_NothingIsTouched()
     {
         // Rendirse es la respuesta correcta: forzar el cierre podría interrumpirla guardando ajustes
         // o una conversación, y perder eso por instalar una versión nueva es un mal negocio.
@@ -103,7 +103,7 @@ public sealed class UpdateHelperScriptTests
     {
         // Una carpeta como «C:\Users\O'Brien\…» partiría el guion por la mitad sin escapar. Es el
         // tipo de fallo que solo le pasa a una persona y que nadie sabe reproducir.
-        var paths = UpdateSwapPathPolicy.Resolve(@"C:\Users\O'Brien\AppData\Local\Programs\Kohana");
+        var paths = UpdateSwapPathPolicy.Resolve(@"C:\Users\O'Brien\AppData\Local\Programs\Sakura");
         Assert.True(paths.IsSafe, paths.Problem);
 
         var script = UpdateHelperScript.Build(paths, 7, @"C:\Users\O'Brien\k.exe");
@@ -134,6 +134,6 @@ public sealed class UpdateHelperScriptTests
     public void ItExplainsItselfToWhoeverOpensIt()
     {
         // Es la pieza con más poder de la aplicación; que se pueda leer no es un detalle.
-        Assert.Contains("# Ayudante de actualización de Kohana.", Build(), StringComparison.Ordinal);
+        Assert.Contains("# Ayudante de actualización de Sakura.", Build(), StringComparison.Ordinal);
     }
 }

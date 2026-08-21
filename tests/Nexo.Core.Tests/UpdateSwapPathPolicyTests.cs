@@ -18,12 +18,12 @@ public sealed class UpdateSwapPathPolicyTests
     [Fact]
     public void ARealInstallFolderIsAccepted()
     {
-        var paths = UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Kohana");
+        var paths = UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Sakura");
 
         Assert.True(paths.IsSafe, paths.Problem);
-        Assert.EndsWith(@"\Kohana", paths.Install, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(@"\Kohana.new", paths.Staged, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(@"\Kohana.old", paths.Previous, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(@"\Sakura", paths.Install, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(@"\Sakura.new", paths.Staged, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(@"\Sakura.old", paths.Previous, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public sealed class UpdateSwapPathPolicyTests
         // Mover dentro de un volumen es instantáneo; entre volúmenes Windows lo convierte en copiar
         // y borrar, que con quinientos archivos puede cortarse a mitad — el estado que todo este
         // diseño evita.
-        var paths = UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Kohana");
+        var paths = UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Sakura");
 
         Assert.True(UpdateSwapPathPolicy.SameVolume(paths.Install, paths.Staged));
         Assert.True(UpdateSwapPathPolicy.SameVolume(paths.Install, paths.Previous));
@@ -51,9 +51,9 @@ public sealed class UpdateSwapPathPolicyTests
     [Fact]
     public void AFolderDirectlyOffTheRootIsRefused()
     {
-        // «C:\Kohana» está demasiado arriba: es el tipo de ruta que aparece por un ajuste heredado,
+        // «C:\Sakura» está demasiado arriba: es el tipo de ruta que aparece por un ajuste heredado,
         // y el precio de rechazarla es cero.
-        Assert.False(UpdateSwapPathPolicy.Resolve(@"C:\Kohana").IsSafe);
+        Assert.False(UpdateSwapPathPolicy.Resolve(@"C:\Sakura").IsSafe);
     }
 
     [Fact]
@@ -99,9 +99,9 @@ public sealed class UpdateSwapPathPolicyTests
     [Fact]
     public void ATrailingSeparatorDoesNotChangeTheAnswer()
     {
-        // Sin normalizar, «…\Kohana\» daría carpetas hermanas llamadas «…\Kohana\.new».
-        var withSlash = UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Kohana\");
-        var without = UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Kohana");
+        // Sin normalizar, «…\Sakura\» daría carpetas hermanas llamadas «…\Sakura\.new».
+        var withSlash = UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Sakura\");
+        var without = UpdateSwapPathPolicy.Resolve(@"C:\Users\Alguien\AppData\Local\Programs\Sakura");
 
         Assert.True(withSlash.IsSafe);
         Assert.Equal(without.Install, withSlash.Install);

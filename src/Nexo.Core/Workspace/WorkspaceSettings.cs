@@ -3,11 +3,11 @@ using Nexo.Core.Permissions;
 namespace Nexo.Core.Workspace;
 
 /// <summary>
-/// Diseño D12 (Fase 5) — la autorización del proyecto. Vacía por omisión: Kohana no tiene acceso a
+/// Diseño D12 (Fase 5) — la autorización del proyecto. Vacía por omisión: Sakura no tiene acceso a
 /// ninguna carpeta hasta que la persona elige una, y revocar es dejarla vacía otra vez.
 ///
 /// Una sola carpeta a propósito. Varias raíces multiplicarían la superficie autorizada sin que nadie
-/// pudiera decir de memoria a qué tiene acceso Kohana, y "¿a qué tiene acceso?" tiene que poder
+/// pudiera decir de memoria a qué tiene acceso Sakura, y "¿a qué tiene acceso?" tiene que poder
 /// responderse en una frase.
 /// </summary>
 public sealed class WorkspaceSettings

@@ -23,7 +23,7 @@ public sealed class WindowsWallpaperReaderTests
         if (pixels is null)
         {
             // Válido: un equipo con fondo de color liso o sin fondo accesible. Lo que no vale es
-            // lanzar una excepción, que es lo que impediría abrir Kohana.
+            // lanzar una excepción, que es lo que impediría abrir Sakura.
             return;
         }
 
@@ -64,7 +64,7 @@ public sealed class WindowsWallpaperReaderTests
     public void AnAccentDerivedFromTheRealWallpaperIsAlwaysVisibleOnThePanel()
     {
         // El contrato de punta a punta: del fondo que haya puesto en este equipo, o sale un acento
-        // que se ve sobre el panel de Kohana, o no sale ninguno. Nunca uno invisible.
+        // que se ve sobre el panel de Sakura, o no sale ninguno. Nunca uno invisible.
         var panel = new RgbColor(0x0C, 0x0E, 0x14);
 
         if (WindowsWallpaperReader.TryReadPixels() is not { } pixels)

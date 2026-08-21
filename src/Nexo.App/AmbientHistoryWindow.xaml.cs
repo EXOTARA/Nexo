@@ -3,6 +3,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using Nexo.App.Ambient;
 
+using Nexo.App.Shell;
+
 namespace Nexo.App;
 
 public partial class AmbientHistoryWindow : Window
@@ -73,4 +75,8 @@ public partial class AmbientHistoryWindow : Window
         public Visibility UndoButtonVisibility =>
             item.CanUndo && !item.Undone ? Visibility.Visible : Visibility.Collapsed;
     }
+    /// <summary>Diseño D62 — el marco lo compone Windows. Ver <see cref="SakuraWindowChrome"/>.</summary>
+    private void Window_SourceInitialized(object? sender, EventArgs e) =>
+        SakuraWindowChrome.Apply(this, Surface);
+
 }

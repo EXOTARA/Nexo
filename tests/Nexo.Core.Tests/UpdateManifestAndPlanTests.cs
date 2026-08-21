@@ -5,7 +5,7 @@ namespace Nexo.Core.Tests;
 /// <summary>
 /// Diseño D62 — leer el anuncio de una versión sin fiarse de él.
 ///
-/// Todo esto llega de la red. Un anuncio manipulado o simplemente equivocado acaba en que Kohana
+/// Todo esto llega de la red. Un anuncio manipulado o simplemente equivocado acaba en que Sakura
 /// descarga y ejecuta algo que nadie publicó, que es el peor fallo posible de un actualizador: no
 /// rompe la aplicación, la sustituye.
 /// </summary>
@@ -16,7 +16,7 @@ public sealed class UpdateManifestTests
 
     private static UpdateManifestResult Read(
         string version = "0.9.6-beta",
-        string url = "https://github.com/EXOTARA/Nexo/releases/download/v0.9.6/Kohana.zip",
+        string url = "https://github.com/EXOTARA/Nexo/releases/download/v0.9.6/Sakura.zip",
         string? hash = GoodHash,
         string size = "99700000",
         string notes = "Arreglos varios") =>
@@ -37,7 +37,7 @@ public sealed class UpdateManifestTests
     {
         // Comprobar la huella después no salva nada si quien pudo cambiar el archivo también pudo
         // escribir la huella.
-        var result = Read(url: "http://github.com/EXOTARA/Nexo/releases/download/v0.9.6/Kohana.zip");
+        var result = Read(url: "http://github.com/EXOTARA/Nexo/releases/download/v0.9.6/Sakura.zip");
 
         Assert.False(result.IsUsable);
         Assert.Contains("https", result.Problem, StringComparison.OrdinalIgnoreCase);

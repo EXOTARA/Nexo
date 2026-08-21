@@ -108,7 +108,7 @@ public sealed class CompositionInvariantTests
         var content = ReadCompositionRootSource();
 
         var disposeStart = content.IndexOf("public void Dispose()", StringComparison.Ordinal);
-        Assert.True(disposeStart >= 0, "No se encontró Dispose() en KohanaCompositionRoot.");
+        Assert.True(disposeStart >= 0, "No se encontró Dispose() en SakuraCompositionRoot.");
         var disposeBody = content[disposeStart..];
 
         var coordinatorIndex = disposeBody.IndexOf("VoiceCoordinator.Dispose();", StringComparison.Ordinal);
@@ -122,7 +122,7 @@ public sealed class CompositionInvariantTests
             && voiceOutputIndex > wakeWordIndex
             && voiceInputIndex > voiceOutputIndex
             && providerIndex > voiceInputIndex,
-            "El orden de liberación del subsistema de voz en KohanaCompositionRoot.Dispose no es el esperado.");
+            "El orden de liberación del subsistema de voz en SakuraCompositionRoot.Dispose no es el esperado.");
     }
 
     [Fact]
@@ -509,7 +509,7 @@ public sealed class CompositionInvariantTests
     {
         // Cierre seguro (1.3B3): Window_Closed marca el cierre, cancela el token de vida y
         // desuscribe los eventos de wake word por el coordinador, en ese orden — pero YA NO
-        // libera los tres servicios (eso es de KohanaCompositionRoot). La guardia _isClosed
+        // libera los tres servicios (eso es de SakuraCompositionRoot). La guardia _isClosed
         // y el token cancelado protegen las operaciones en vuelo y los eventos encolados.
         var content = ReadMainWindowSource();
         var body = ExtractMethodBody(
@@ -531,7 +531,7 @@ public sealed class CompositionInvariantTests
             "El orden de cierre (marcar cerrado -> cancelar -> desuscribir) cambió en Window_Closed.");
 
         // Ninguna liberación de los tres servicios de voz ocurre en la ventana: su Dispose
-        // vive en KohanaCompositionRoot (verificado en
+        // vive en SakuraCompositionRoot (verificado en
         // CompositionRoot_OwnsAndDisposesTheThreeVoiceServicesInOrder).
         Assert.DoesNotContain("_voiceInputService.Dispose();", body, StringComparison.Ordinal);
         Assert.DoesNotContain("_voiceOutputService.Dispose();", body, StringComparison.Ordinal);
@@ -663,7 +663,7 @@ public sealed class CompositionInvariantTests
 
     private static string ReadCompositionRootSource() =>
         File.ReadAllText(Path.Combine(
-            RepositoryRoot, "src", "Nexo.Windows", "Composition", "KohanaCompositionRoot.cs"));
+            RepositoryRoot, "src", "Nexo.Windows", "Composition", "SakuraCompositionRoot.cs"));
 
     private static string ExtractMethodBody(string content, string startMarker, string? endMarker)
     {

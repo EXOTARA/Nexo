@@ -7,7 +7,7 @@ using Nexo.Windows.Vision;
 namespace Nexo.App.Tests;
 
 /// <summary>
-/// Diseño D5.3 (Fase 2 — Kohana Lens) — prueba <see cref="WindowsUiAutomationReader"/> contra una
+/// Diseño D5.3 (Fase 2 — Sakura Lens) — prueba <see cref="WindowsUiAutomationReader"/> contra una
 /// ventana WPF real (no un doble): confirma que el elemento con nombre conocido aparece en la
 /// lectura, con una posición válida. Vive en <c>Nexo.App.Tests</c> (no en
 /// <c>Nexo.Windows.Tests</c>) porque necesita levantar una ventana WPF real para tener algo que
@@ -35,7 +35,7 @@ public sealed class WindowsUiAutomationReaderTests
     {
         _fixture.Invoke(() =>
         {
-            using var host = new HiddenWindowHost("Etiqueta de prueba Kohana Lens");
+            using var host = new HiddenWindowHost("Etiqueta de prueba Sakura Lens");
             var handle = new WindowInteropHelper(host.Window).Handle;
 
             var reader = new WindowsUiAutomationReader();
@@ -47,7 +47,7 @@ public sealed class WindowsUiAutomationReaderTests
             // específicamente el de tipo Button, no un único elemento con ese nombre.
             var button = Assert.Single(
                 result.Elements,
-                element => element.Name == "Etiqueta de prueba Kohana Lens" &&
+                element => element.Name == "Etiqueta de prueba Sakura Lens" &&
                     element.ControlType == "ControlType.Button");
             Assert.True(button.Width > 0);
             Assert.True(button.Height > 0);

@@ -98,7 +98,7 @@ public sealed class DpapiAiApiKeyStore : IAiApiKeyStore
             exception is CryptographicException or IOException or UnauthorizedAccessException
                 or JsonException)
         {
-            // Un archivo de otra cuenta de Windows o corrupto no debe impedir abrir Kohana ni
+            // Un archivo de otra cuenta de Windows o corrupto no debe impedir abrir Sakura ni
             // configurar una clave nueva. Se aparta y se empieza de cero.
             TryPreserveUnreadableFile();
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -156,7 +156,7 @@ public sealed class DpapiAiApiKeyStore : IAiApiKeyStore
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException)
         {
-            // Un archivo ilegible no debe impedir que Kohana abra.
+            // Un archivo ilegible no debe impedir que Sakura abra.
         }
     }
 

@@ -54,7 +54,8 @@
                         <TextBlock Text="Ancho" FontWeight="SemiBold" />
                         <TextBlock x:Name="WidthValueText" Grid.Column="1"
                                    Foreground="{DynamicResource BrushTextSecondary}" />
-                        <Slider x:Name="WidthSlider" Grid.Row="1" Grid.ColumnSpan="2"
+                        <Slider x:Name="WidthSlider"
+                                AutomationProperties.Name="Ancho de Sakura" Grid.Row="1" Grid.ColumnSpan="2"
                                 Margin="0,8,0,0" Minimum="460" Maximum="820"
                                 TickFrequency="10" IsSnapToTickEnabled="True"
                                 ValueChanged="WidthSlider_ValueChanged"
@@ -73,9 +74,18 @@
                         <TextBlock Text="Transparencia" FontWeight="SemiBold" />
                         <TextBlock x:Name="OpacityValueText" Grid.Column="1"
                                    Foreground="{DynamicResource BrushTextSecondary}" />
-                        <Slider x:Name="OpacitySlider" Grid.Row="1" Grid.ColumnSpan="2"
-                                Margin="0,8,0,0" Minimum="0.82" Maximum="1"
-                                TickFrequency="0.02" IsSnapToTickEnabled="True"
+                        <!--
+                            Diseño D62 — el control llega ahora hasta 0.35. El suelo de 0.82 se puso
+                            cuando debajo de Sakura solo estaba el escritorio sin desenfocar, donde
+                            una superficie a medias se lee mal. Con el acrílico del sistema detrás,
+                            lo que se transparenta ya viene desenfocado, así que el texto aguanta
+                            mucho más abajo. En equipos sin fondo del sistema la superficie se pinta
+                            opaca pase lo que pase, así que el suelo nuevo no puede empeorarlos.
+                        -->
+                        <Slider x:Name="OpacitySlider"
+                                AutomationProperties.Name="Transparencia de Sakura" Grid.Row="1" Grid.ColumnSpan="2"
+                                Margin="0,8,0,0" Minimum="0.35" Maximum="1"
+                                TickFrequency="0.05" IsSnapToTickEnabled="True"
                                 ValueChanged="OpacitySlider_ValueChanged"
                                 Style="{StaticResource NexoSliderStyle}" />
                     </Grid>
@@ -89,7 +99,7 @@
                     <TextBlock Margin="24,3,0,7"
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}"
-                               Text="Kohana mira tu fondo, saca el color que lo define y se pinta con él. Si cambias de fondo, cambia sola. Un fondo en blanco y negro no tiene color que tomar, así que en ese caso conserva el tema que tengas puesto." />
+                               Text="Sakura mira tu fondo, saca el color que lo define y se pinta con él. Si cambias de fondo, cambia sola. Un fondo en blanco y negro no tiene color que tomar, así que en ese caso conserva el tema que tengas puesto." />
 
                     <CheckBox x:Name="AccentFollowsWindowsCheckBox"
                               Content="Usar el color de acento de Windows"
@@ -123,7 +133,7 @@
                                          VerticalAlignment="Center" />
                                 <StackPanel Grid.Column="1" Margin="12,0,0,0">
                                     <TextBlock Text="Sakura" FontWeight="SemiBold" />
-                                    <TextBlock Text="El look clásico de Kohana desde el primer día."
+                                    <TextBlock Text="El look clásico de Sakura desde el primer día."
                                                TextWrapping="Wrap"
                                                Style="{StaticResource MutedTextStyle}" />
                                 </StackPanel>
@@ -197,7 +207,7 @@
                               Checked="EdgeRevealCheckBox_Changed"
                               Unchecked="EdgeRevealCheckBox_Changed" />
                     <TextBlock Margin="24,0,0,14"
-                               Text="Deja el ratón un instante contra el borde donde está Kohana y se abre sola. No reacciona en las esquinas —ahí están el menú Inicio y el reloj— ni cuando tienes algo a pantalla completa."
+                               Text="Deja el ratón un instante contra el borde donde está Sakura y se abre sola. No reacciona en las esquinas —ahí están el menú Inicio y el reloj— ni cuando tienes algo a pantalla completa."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -206,13 +216,13 @@
                               Checked="AnimationsCheckBox_Changed"
                               Unchecked="AnimationsCheckBox_Changed" />
                     <TextBlock Margin="24,4,0,0"
-                               Text="Kohana también respeta la opción de Windows en Accesibilidad → Efectos visuales: si la apagaste ahí, no hace falta apagarla aquí."
+                               Text="Sakura también respeta la opción de Windows en Accesibilidad → Efectos visuales: si la apagaste ahí, no hace falta apagarla aquí."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
                     <TextBlock Margin="0,18,0,4" Text="Qué aparece en el rail" FontWeight="SemiBold" />
                     <TextBlock Margin="0,0,0,9"
-                               Text="Kohana arranca con el rail al mínimo: chat, sistema y esta pantalla. Todo lo demás sigue estando y se abre desde la paleta con Ctrl + Espacio o pidiéndoselo a Kohana. Marca aquí lo que quieras tener siempre a un clic."
+                               Text="Sakura arranca con el rail al mínimo: chat, sistema y esta pantalla. Todo lo demás sigue estando y se abre desde la paleta con Ctrl + Espacio o pidiéndoselo a Sakura. Marca aquí lo que quieras tener siempre a un clic."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
                     <CheckBox x:Name="HomeModuleCheckBox" Content="Inicio"
@@ -250,7 +260,7 @@
             <!-- ══════════════════════ Inteligencia artificial ══════════════════════ -->
             <controls:SettingsSection x:Name="AiSettingsSection"
                                       Header="Inteligencia artificial"
-                                      Description="Elige dónde piensa Kohana: en tu equipo o en la nube">
+                                      Description="Elige dónde piensa Sakura: en tu equipo o en la nube">
                 <StackPanel>
                     <TextBlock Text="Proveedor" FontWeight="SemiBold" />
                     <!--
@@ -324,6 +334,7 @@
 
                     <TextBlock Margin="0,14,0,6" Text="Modelo" FontWeight="SemiBold" />
                     <TextBox x:Name="AiModelTextBox"
+                             AutomationProperties.Name="Modelo de inteligencia artificial"
                              Style="{StaticResource CompactTextBoxStyle}"
                              Tag="Model"
                              LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
@@ -357,11 +368,11 @@
 
                     <CheckBox x:Name="VisionEnabledCheckBox"
                               Margin="0,12,0,0"
-                              Content="Permitir capturas bajo demanda con Kohana Vision"
+                              Content="Permitir capturas bajo demanda con Sakura Vision"
                               Checked="VisionEnabledCheckBox_Changed"
                               Unchecked="VisionEnabledCheckBox_Changed" />
                     <TextBlock Margin="24,5,0,0"
-                               Text="Kohana solo captura después de que eliges una ventana o monitor y confirmas la vista previa. La imagen no se guarda en el historial."
+                               Text="Sakura solo captura después de que eliges una ventana o monitor y confirmas la vista previa. La imagen no se guarda en el historial."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -371,7 +382,7 @@
                               Checked="SaveConversationHistoryCheckBox_Changed"
                               Unchecked="SaveConversationHistoryCheckBox_Changed" />
                     <TextBlock Margin="24,5,0,0"
-                               Text="Desactivado por defecto: Kohana conserva solo los 8 mensajes más recientes durante la sesión y los elimina al cerrar."
+                               Text="Desactivado por defecto: Sakura conserva solo los 8 mensajes más recientes durante la sesión y los elimina al cerrar."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -386,6 +397,7 @@
                         <StackPanel>
                             <TextBlock Margin="0,0,0,6" Text="Dirección del servicio" FontWeight="SemiBold" />
                             <TextBox x:Name="AiBaseUrlTextBox"
+                                     AutomationProperties.Name="Dirección del proveedor de inteligencia artificial"
                                      Style="{StaticResource CompactTextBoxStyle}"
                                      Tag="BaseUrl"
                                      LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
@@ -397,6 +409,7 @@
 
                             <TextBlock Margin="0,12,0,6" Text="Variable de entorno de la clave" FontWeight="SemiBold" />
                             <TextBox x:Name="AiApiKeyVariableTextBox"
+                                     AutomationProperties.Name="Variable de entorno con la clave de acceso"
                                      Style="{StaticResource CompactTextBoxStyle}"
                                      Tag="ApiKeyVariable"
                                      LostKeyboardFocus="AiTextBox_LostKeyboardFocus" />
@@ -420,6 +433,7 @@
 
                     <TextBlock Margin="0,14,0,6" Text="Micrófono" FontWeight="SemiBold" />
                     <ComboBox x:Name="VoiceInputDeviceComboBox"
+                              AutomationProperties.Name="Micrófono"
                               MinHeight="34"
                               SelectedValuePath="DeviceNumber"
                               SelectionChanged="VoiceInputDeviceComboBox_SelectionChanged">
@@ -431,40 +445,41 @@
                     </ComboBox>
                     <TextBlock x:Name="VoiceInputDeviceStatusText"
                                Margin="0,6,0,0"
-                               Text="Kohana usa el micrófono predeterminado de Windows."
+                               Text="Sakura usa el micrófono predeterminado de Windows."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
                     <CheckBox x:Name="WakeWordEnabledCheckBox"
                               Margin="0,14,0,0"
-                              Content="Activar Kohana mediante una frase de voz (experimental)"
+                              Content="Activar Sakura mediante una frase de voz (experimental)"
                               Checked="WakeWordEnabledCheckBox_Changed"
                               Unchecked="WakeWordEnabledCheckBox_Changed" />
 
                     <StackPanel Margin="24,10,0,0">
                         <TextBlock Margin="0,0,0,7" Text="Frase de activación" FontWeight="SemiBold" />
                         <WrapPanel>
-                            <RadioButton x:Name="WakeWordKohanaRadioButton"
+                            <RadioButton x:Name="WakeWordShortRadioButton"
                                          GroupName="WakeWordPhrase"
-                                         Content="Kohana"
-                                         Tag="Kohana"
+                                         Content="Sakura"
+                                         Tag="Sakura"
                                          Checked="WakeWordPhraseRadioButton_Checked" />
-                            <RadioButton x:Name="WakeWordOyeKohanaRadioButton"
+                            <RadioButton x:Name="WakeWordOyeRadioButton"
                                          Margin="18,0,0,0"
                                          GroupName="WakeWordPhrase"
-                                         Content="Oye Kohana · recomendado"
-                                         Tag="OyeKohana"
+                                         Content="Oye Sakura · recomendado"
+                                         Tag="OyeSakura"
                                          Checked="WakeWordPhraseRadioButton_Checked" />
-                            <RadioButton x:Name="WakeWordHeyKohanaRadioButton"
+                            <RadioButton x:Name="WakeWordHeyRadioButton"
                                          Margin="18,0,0,0"
                                          GroupName="WakeWordPhrase"
-                                         Content="Ey / Hey Kohana"
-                                         Tag="HeyKohana"
+                                         Content="Ey / Hey Sakura"
+                                         Tag="HeySakura"
                                          Checked="WakeWordPhraseRadioButton_Checked" />
                         </WrapPanel>
 
                         <TextBlock Margin="0,14,0,6" Text="Sensibilidad" FontWeight="SemiBold" />
                         <ComboBox x:Name="WakeWordSensitivityComboBox"
+                                  AutomationProperties.Name="Sensibilidad de la palabra de activación"
                                   Width="220"
                                   HorizontalAlignment="Left"
                                   SelectionChanged="WakeWordSensitivityComboBox_SelectionChanged">
@@ -501,7 +516,7 @@
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                         <TextBlock Margin="0,8,0,0"
-                                   Text="La escucha se realiza localmente. En español, Kohana suele reconocerse como ‘cojana’ o ‘kojana’. La prueba muestra exactamente qué entendió Vosk y permite guardar una variante personal. Whisper solo se carga después de detectar la frase."
+                                   Text="La escucha se realiza localmente. En español, Sakura suele reconocerse como ‘cojana’ o ‘kojana’. La prueba muestra exactamente qué entendió Vosk y permite guardar una variante personal. Whisper solo se carga después de detectar la frase."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                     </StackPanel>
@@ -510,14 +525,14 @@
 
             <!-- ══════════════════════ Dictado global ══════════════════════ -->
             <controls:SettingsSection Header="Dictado global"
-                                      Description="Kohana Flow: dicta en cualquier aplicación con Ctrl + Shift + D">
+                                      Description="Sakura Flow: dicta en cualquier aplicación con Ctrl + Shift + D">
                 <StackPanel>
                     <CheckBox x:Name="FlowEnabledCheckBox"
                               Content="Activar el dictado global (Ctrl + Shift + D)"
                               Checked="FlowEnabledCheckBox_Changed"
                               Unchecked="FlowEnabledCheckBox_Changed" />
                     <TextBlock Margin="24,4,0,0"
-                               Text="Pulsa una vez para empezar a dictar y otra vez para escribir el texto en la aplicación que tengas activa. Si cambias de ventana mientras dictas, Kohana no escribe nada."
+                               Text="Pulsa una vez para empezar a dictar y otra vez para escribir el texto en la aplicación que tengas activa. Si cambias de ventana mientras dictas, Sakura no escribe nada."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -554,7 +569,7 @@
                     <StackPanel Margin="24,14,0,0">
                         <TextBlock Margin="0,0,0,5" Text="Diccionario personal" FontWeight="SemiBold" />
                         <TextBlock Margin="0,0,0,6"
-                                   Text="Una línea por corrección, con el formato dicho=escrito. Ejemplo: cojana=Kohana"
+                                   Text="Una línea por corrección, con el formato dicho=escrito. Ejemplo: cojana=Sakura"
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                         <TextBox x:Name="FlowDictionaryBox"
@@ -593,9 +608,9 @@
 
             <!-- ══════════════════════ Permisos ══════════════════════ -->
             <controls:SettingsSection Header="Permisos"
-                                      Description="Qué puede hacer Kohana en tu equipo, capacidad por capacidad">
+                                      Description="Qué puede hacer Sakura en tu equipo, capacidad por capacidad">
                 <StackPanel>
-                    <TextBlock Text="Cada capacidad pide su permiso por separado: darle uno no le da los demás. Hay cosas que Kohana te pregunta siempre, aunque las tengas permitidas — borrar algo sin recuperación, tocar credenciales, enviar algo fuera de tu equipo o pedir permisos de administrador."
+                    <TextBlock Text="Cada capacidad pide su permiso por separado: darle uno no le da los demás. Hay cosas que Sakura te pregunta siempre, aunque las tengas permitidas — borrar algo sin recuperación, tocar credenciales, enviar algo fuera de tu equipo o pedir permisos de administrador."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -628,7 +643,7 @@
                     <StackPanel x:Name="ComputerUseAutonomyPanel" Margin="0,12,0,0">
                         <TextBlock Margin="0,0,0,5" Text="Hasta dónde puede llegar en el equipo" FontWeight="SemiBold" />
                         <TextBlock Margin="0,0,0,7"
-                                   Text="Aunque le permitas actuar, Kohana elige siempre la forma más segura disponible y nunca usa ratón y teclado simulados salvo que no quede otra."
+                                   Text="Aunque le permitas actuar, Sakura elige siempre la forma más segura disponible y nunca usa ratón y teclado simulados salvo que no quede otra."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                         <RadioButton x:Name="ComputerUseVerRadioButton" Margin="0,0,0,6"
@@ -656,7 +671,7 @@
                     <StackPanel Margin="0,14,0,0">
                         <TextBlock Margin="0,0,0,5" Text="Aplicaciones excluidas" FontWeight="SemiBold" />
                         <TextBlock Margin="0,0,0,6"
-                                   Text="Una por línea, con el formato capacidad: aplicación. Si la aplicación coincide, Kohana no la toca aunque tengas la capacidad permitida. Ejemplo: Lens: bitwarden"
+                                   Text="Una por línea, con el formato capacidad: aplicación. Si la aplicación coincide, Sakura no la toca aunque tengas la capacidad permitida. Ejemplo: Lens: bitwarden"
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                         <TextBox x:Name="PermissionExclusionsBox"
@@ -680,14 +695,14 @@
 
             <!-- ══════════════════════ Proyecto autorizado ══════════════════════ -->
             <controls:SettingsSection Header="Proyecto autorizado"
-                                      Description="La carpeta que Kohana puede leer y hasta dónde puede llegar en ella">
+                                      Description="La carpeta que Sakura puede leer y hasta dónde puede llegar en ella">
                 <StackPanel>
                     <TextBlock x:Name="WorkspacePathText"
                                Text="No hay ninguna carpeta autorizada."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
                     <TextBlock Margin="0,6,0,0"
-                               Text="Kohana solo puede leer la carpeta que autorices. No lee archivos de credenciales ni carpetas de dependencias, y oculta lo que parezca un secreto antes de enviar nada."
+                               Text="Sakura solo puede leer la carpeta que autorices. No lee archivos de credenciales ni carpetas de dependencias, y oculta lo que parezca un secreto antes de enviar nada."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -735,10 +750,10 @@
 
             <!-- ══════════════════════ Memoria personal ══════════════════════ -->
             <controls:SettingsSection Header="Memoria personal"
-                                      Description="Qué recuerda Kohana entre sesiones, y por cuánto tiempo">
+                                      Description="Qué recuerda Sakura entre sesiones, y por cuánto tiempo">
                 <StackPanel>
                     <CheckBox x:Name="MemoryEnabledCheckBox"
-                              Content="Dejar que Kohana recuerde cosas entre sesiones"
+                              Content="Dejar que Sakura recuerde cosas entre sesiones"
                               Checked="MemoryEnabledCheckBox_Changed"
                               Unchecked="MemoryEnabledCheckBox_Changed" />
                     <TextBlock Margin="24,4,0,0"
@@ -782,7 +797,7 @@
                     <StackPanel Margin="24,12,0,0">
                         <TextBlock Margin="0,0,0,5" Text="Nunca recordar" FontWeight="SemiBold" />
                         <TextBlock Margin="0,0,0,6"
-                                   Text="Una palabra o frase por línea. Si aparece en el texto, Kohana no lo guarda aunque la memoria esté activada."
+                                   Text="Una palabra o frase por línea. Si aparece en el texto, Sakura no lo guarda aunque la memoria esté activada."
                                    TextWrapping="Wrap"
                                    Style="{StaticResource MutedTextStyle}" />
                         <TextBox x:Name="MemoryExclusionsBox"
@@ -814,10 +829,10 @@
             </controls:SettingsSection>
 
             <!-- ══════════════════════ Packs ══════════════════════ -->
-            <controls:SettingsSection Header="Packs de Kohana"
+            <controls:SettingsSection Header="Packs de Sakura"
                                       Description="Configuraciones preparadas para estudiar, programar, atender o crear">
                 <StackPanel>
-                    <TextBlock Text="Un pack deja configuradas de una vez varias cosas que ya sabe hacer Kohana. No activa ningún permiso por su cuenta: si le hace falta alguno, te lo dice. Solo puede haber uno activo, y desactivarlo devuelve tus ajustes a como estaban."
+                    <TextBlock Text="Un pack deja configuradas de una vez varias cosas que ya sabe hacer Sakura. No activa ningún permiso por su cuenta: si le hace falta alguno, te lo dice. Solo puede haber uno activo, y desactivarlo devuelve tus ajustes a como estaban."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -860,10 +875,10 @@
 
             <!-- ══════════════════════ Rendimiento ══════════════════════ -->
             <controls:SettingsSection Header="Rendimiento"
-                                      Description="Cómo se adapta Kohana cuando el equipo va justo">
+                                      Description="Cómo se adapta Sakura cuando el equipo va justo">
                 <StackPanel>
                     <CheckBox x:Name="ResourceGovernorEnabledCheckBox"
-                              Content="Adaptar Kohana al uso de CPU, GPU y pantalla completa"
+                              Content="Adaptar Sakura al uso de CPU, GPU y pantalla completa"
                               Checked="ResourceGovernorCheckBox_Changed"
                               Unchecked="ResourceGovernorCheckBox_Changed" />
                     <CheckBox x:Name="PauseWakeWordInGameModeCheckBox"
@@ -877,13 +892,13 @@
                               Checked="ResourceGovernorCheckBox_Changed"
                               Unchecked="ResourceGovernorCheckBox_Changed" />
                     <TextBlock Margin="24,8,0,0"
-                               Text="Los comandos locales siempre permanecen disponibles. Kohana vuelve al modo normal automáticamente."
+                               Text="Los comandos locales siempre permanecen disponibles. Sakura vuelve al modo normal automáticamente."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
                     <TextBlock Margin="0,18,0,6" Text="Modo de rendimiento" FontWeight="SemiBold" />
                     <TextBlock Margin="0,0,0,10"
-                               Text="Ajusta qué recomienda Kohana para voz, palabra de activación y modelos de lenguaje según el hardware detectado. Cambiar el modo no reemplaza motores, no descarga modelos ni reinicia servicios: solo actualiza la recomendación."
+                               Text="Ajusta qué recomienda Sakura para voz, palabra de activación y modelos de lenguaje según el hardware detectado. Cambiar el modo no reemplaza motores, no descarga modelos ni reinicia servicios: solo actualiza la recomendación."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
                     <StackPanel>
@@ -895,7 +910,7 @@
                             <StackPanel Margin="0,0,0,10">
                                 <TextBlock Text="Automático" FontWeight="SemiBold" />
                                 <TextBlock Margin="0,2,0,0"
-                                           Text="Kohana adapta sus recomendaciones al hardware detectado."
+                                           Text="Sakura adapta sus recomendaciones al hardware detectado."
                                            TextWrapping="Wrap"
                                            Style="{StaticResource MutedTextStyle}" />
                             </StackPanel>
@@ -949,7 +964,7 @@
                 <StackPanel>
                     <CheckBox x:Name="StartWithWindowsCheckBox"
                               Margin="0,0,0,8"
-                              Content="Iniciar Kohana con Windows"
+                              Content="Iniciar Sakura con Windows"
                               Checked="StartWithWindowsCheckBox_Changed"
                               Unchecked="StartWithWindowsCheckBox_Changed" />
                     <TextBlock Margin="24,0,0,10"
@@ -972,7 +987,7 @@
                               Unchecked="NotificationSoundsCheckBox_Changed" />
                     <TextBlock x:Name="WindowsIntegrationStatusText"
                                Margin="24,8,0,0"
-                               Text="Kohana seguirá activa mientras esté visible en la bandeja."
+                               Text="Sakura seguirá activa mientras esté visible en la bandeja."
                                TextWrapping="Wrap"
                                Style="{StaticResource MutedTextStyle}" />
 
@@ -1004,6 +1019,93 @@
                                 Content="Repetir configuración inicial"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 Click="OnboardingButton_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </controls:SettingsSection>
+
+            <!-- ═══════════════════ Actualizaciones ══════════════════ -->
+            <controls:SettingsSection Header="Actualizaciones"
+                                      Description="Qué versión tienes y si hay una más nueva">
+                <StackPanel>
+                    <TextBlock x:Name="UpdateCurrentVersionText"
+                               Text="Versión instalada: —"
+                               FontWeight="SemiBold" />
+
+                    <TextBlock x:Name="UpdateStatusText"
+                               Margin="0,4,0,0"
+                               Text="No se ha comprobado todavía."
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MutedTextStyle}" />
+
+                    <!--
+                        Diseño D65 — la tarjeta de la versión encontrada solo aparece cuando hay algo
+                        que ofrecer. Un recuadro vacío con «ninguna actualización» ocupa el mismo sitio
+                        que uno con contenido y enseña a ignorar la zona.
+                    -->
+                    <Border x:Name="UpdateOfferPanel"
+                            Margin="0,14,0,0"
+                            Padding="16"
+                            Visibility="Collapsed"
+                            Background="{DynamicResource BrushSurface}"
+                            BorderBrush="{DynamicResource BrushAccentBorder}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource RadiusMedium}">
+                        <StackPanel>
+                            <TextBlock x:Name="UpdateOfferTitleText"
+                                       Text="Hay una versión nueva"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushAccent}" />
+
+                            <TextBlock x:Name="UpdateOfferNotesText"
+                                       Margin="0,7,0,0"
+                                       MaxHeight="120"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource MutedTextStyle}" />
+
+                            <!--
+                                Diseño D66 — se dice qué carpeta se va a sustituir.
+
+                                Sakura se actualiza donde esté corriendo, que no siempre es donde uno
+                                cree: en la primera prueba real se actualizó una copia suelta y no la
+                                instalación, y desde la pantalla no había forma de saberlo. Es la
+                                acción más destructiva que hace la aplicación; decir en voz alta sobre
+                                qué la hace cuesta una línea.
+                            -->
+                            <TextBlock x:Name="UpdateTargetText"
+                                       Margin="0,10,0,0"
+                                       TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontSizeCaption}"
+                                       Foreground="{DynamicResource BrushTextTertiary}" />
+
+                            <ProgressBar x:Name="UpdateProgressBar"
+                                         Height="4"
+                                         Margin="0,14,0,0"
+                                         Minimum="0"
+                                         Maximum="1"
+                                         Visibility="Collapsed"
+                                         Background="{DynamicResource BrushSurfaceHover}"
+                                         Foreground="{DynamicResource BrushAccent}"
+                                         BorderThickness="0" />
+
+                            <WrapPanel Margin="0,16,0,0">
+                                <Button x:Name="UpdateInstallButton"
+                                        Content="Instalar y reiniciar Sakura"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Click="UpdateInstallButton_Click" />
+                                <Button x:Name="UpdateSkipButton"
+                                        Margin="9,0,0,0"
+                                        Content="Ahora no"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Click="UpdateSkipButton_Click" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <WrapPanel Margin="0,16,0,0">
+                        <Button x:Name="UpdateCheckButton"
+                                Content="Buscar actualizaciones"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="UpdateCheckButton_Click" />
                     </WrapPanel>
                 </StackPanel>
             </controls:SettingsSection>

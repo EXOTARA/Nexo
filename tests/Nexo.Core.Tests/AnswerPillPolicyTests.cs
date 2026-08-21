@@ -30,7 +30,7 @@ public sealed class AnswerPillPolicyTests
     public void AVeryLongAnswerIsCappedInsteadOfHoveringForever()
     {
         // Sin tope, una respuesta de mil palabras dejaría una ventana flotando cinco minutos encima
-        // de lo que la persona esté haciendo. Pasado el tope lo razonable es abrirla en Kohana.
+        // de lo que la persona esté haciendo. Pasado el tope lo razonable es abrirla en Sakura.
         var enormous = string.Join(' ', Enumerable.Repeat("palabra", 5000));
 
         Assert.Equal(AnswerPillPolicy.MaximumVisible, AnswerPillPolicy.ReadingTimeFor(enormous));
@@ -71,24 +71,24 @@ public sealed class AnswerPillPolicyTests
     }
 
     [Fact]
-    public void AShortAnswerDoesNotOfferOpeningInKohana()
+    public void AShortAnswerDoesNotOfferOpeningInSakura()
     {
-        Assert.False(AnswerPillPolicy.DeservesOpeningInKohana("Listo, ya está."));
+        Assert.False(AnswerPillPolicy.DeservesOpeningInSakura("Listo, ya está."));
     }
 
     [Fact]
-    public void AnAnswerThatDoesNotFitOffersOpeningInKohana()
+    public void AnAnswerThatDoesNotFitOffersOpeningInSakura()
     {
         var essay = new string('a', AnswerPillPolicy.LongAnswerCharacters + 1);
 
-        Assert.True(AnswerPillPolicy.DeservesOpeningInKohana(essay));
+        Assert.True(AnswerPillPolicy.DeservesOpeningInSakura(essay));
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    public void NoAnswerNeverOffersOpeningInKohana(string? text)
+    public void NoAnswerNeverOffersOpeningInSakura(string? text)
     {
-        Assert.False(AnswerPillPolicy.DeservesOpeningInKohana(text));
+        Assert.False(AnswerPillPolicy.DeservesOpeningInSakura(text));
     }
 }

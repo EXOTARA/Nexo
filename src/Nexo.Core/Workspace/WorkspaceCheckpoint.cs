@@ -1,12 +1,12 @@
 namespace Nexo.Core.Workspace;
 
 /// <summary>
-/// Diseño D14 (Fase 5, nivel 4) — el estado de UN archivo antes de que Kohana lo tocara. El modelo
+/// Diseño D14 (Fase 5, nivel 4) — el estado de UN archivo antes de que Sakura lo tocara. El modelo
 /// de confianza no lo deja a elección: *"toda acción de las Fases 4, 5 y 7 que modifique estado
 /// persistente debe generar un snapshot previo reversible antes de ejecutarse. Sin snapshot previo,
 /// la acción no debe ofrecerse en niveles de autonomía 4 o superiores."*
 ///
-/// Guarda también lo que Kohana ESCRIBIÓ, no solo lo que había antes. Suena redundante y es la pieza
+/// Guarda también lo que Sakura ESCRIBIÓ, no solo lo que había antes. Suena redundante y es la pieza
 /// que evita el peor daño posible de esta capacidad: si la persona editó el archivo después, deshacer
 /// borraría su trabajo. Comparando con lo escrito se detecta ese caso y se rehúsa.
 /// </summary>
@@ -22,12 +22,12 @@ public sealed class WorkspaceCheckpoint
     public string PreviousContent { get; set; } = string.Empty;
 
     /// <summary>
-    /// Si el archivo existía antes. Deshacer un archivo que Kohana creó significa borrarlo; deshacer
+    /// Si el archivo existía antes. Deshacer un archivo que Sakura creó significa borrarlo; deshacer
     /// uno que ya estaba significa devolverle su contenido. No es la misma operación.
     /// </summary>
     public bool PreviousExisted { get; set; }
 
-    /// <summary>Lo que Kohana dejó escrito, para saber si alguien lo cambió después.</summary>
+    /// <summary>Lo que Sakura dejó escrito, para saber si alguien lo cambió después.</summary>
     public string WrittenContent { get; set; } = string.Empty;
 
     public string Description { get; set; } = string.Empty;

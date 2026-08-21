@@ -15,12 +15,12 @@ using Nexo.Windows.Voice;
 
 namespace Nexo.Windows.Tests.Composition;
 
-public sealed class KohanaCompositionRootTests
+public sealed class SakuraCompositionRootTests
 {
     [Fact]
     public void Constructor_ResolvesAllSixServicesWithExpectedConcreteTypes()
     {
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         Assert.IsType<AiChatRouterService>(root.AiChatService);
         Assert.IsType<WindowsAudioMixerService>(root.AudioMixerService);
@@ -35,7 +35,7 @@ public sealed class KohanaCompositionRootTests
     [Fact]
     public void Constructor_ResolvedInstancesMatchWhatTheContainerResolves()
     {
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         // El provider debe devolver exactamente la misma instancia que las propiedades
         // expuestas: la resolución ansiosa no debe divergir del propio contenedor.
@@ -52,7 +52,7 @@ public sealed class KohanaCompositionRootTests
     [Fact]
     public void Provider_ResolvingTwiceReturnsSameSingletonInstance()
     {
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         Assert.Same(
             root.Provider.GetRequiredService<IWakeWordService>(),
@@ -65,7 +65,7 @@ public sealed class KohanaCompositionRootTests
     [Fact]
     public void Constructor_ProducesDistinctServiceInstances()
     {
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         var instances = new object[]
         {
@@ -85,7 +85,7 @@ public sealed class KohanaCompositionRootTests
     [Fact]
     public void HardwareCapabilityService_IsASingleInstance()
     {
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         Assert.Same(
             root.Provider.GetRequiredService<IHardwareCapabilityService>(),
@@ -96,7 +96,7 @@ public sealed class KohanaCompositionRootTests
     [Fact]
     public void AdaptiveEngineRegistry_IsASingleInstance()
     {
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         Assert.Same(
             root.Provider.GetRequiredService<IAdaptiveEngineRegistry>(),
@@ -113,7 +113,7 @@ public sealed class KohanaCompositionRootTests
         // instancias registradas— nunca lanza. El orden exacto de liberación se verifica de
         // forma estructural en CompositionInvariantTests
         // (CompositionRoot_OwnsAndDisposesTheThreeVoiceServicesInOrder).
-        var root = new KohanaCompositionRoot();
+        var root = new SakuraCompositionRoot();
 
         var exception = Record.Exception(() =>
         {
@@ -129,7 +129,7 @@ public sealed class KohanaCompositionRootTests
     [Fact]
     public void VoiceCoordinator_IsASingleInstance()
     {
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         Assert.Same(root.VoiceCoordinator, root.Provider.GetRequiredService<VoiceCoordinator>());
         Assert.Same(
@@ -144,7 +144,7 @@ public sealed class KohanaCompositionRootTests
         // su superficie mínima (a propósito, ver VoiceCoordinator.cs). En su lugar, se
         // verifica identidad por comportamiento: si el coordinador y `root` compartieran
         // instancias distintas, escribir por uno no se reflejaría al leer por el otro.
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         root.VoiceCoordinator.WakeWordSensitivity = WakeWordSensitivity.High;
         Assert.Equal(WakeWordSensitivity.High, root.WakeWordService.Sensitivity);
@@ -163,7 +163,7 @@ public sealed class KohanaCompositionRootTests
     [Fact]
     public void NoFourthSetOfVoiceEnginesIsRegistered()
     {
-        using var root = new KohanaCompositionRoot();
+        using var root = new SakuraCompositionRoot();
 
         Assert.Single(root.Provider.GetServices<IVoiceInputService>());
         Assert.Single(root.Provider.GetServices<IVoiceOutputService>());

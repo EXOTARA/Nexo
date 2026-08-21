@@ -8,10 +8,10 @@ $root = Split-Path -Parent $PSScriptRoot
 $publishDirectory = Join-Path $root "artifacts\publish\$Runtime"
 
 $required = @(
-    "Kohana.exe",
-    "Kohana.dll",
-    "Kohana.deps.json",
-    "Kohana.runtimeconfig.json",
+    "Sakura.exe",
+    "Sakura.dll",
+    "Sakura.deps.json",
+    "Sakura.runtimeconfig.json",
     "Nexo.Core.dll",
     "Nexo.Windows.dll"
 )
@@ -42,6 +42,6 @@ if ($forbidden) {
 $size = (Get-ChildItem $publishDirectory -Recurse -File |
     Measure-Object Length -Sum).Sum
 
-Write-Host "Publicación de Kohana verificada."
+Write-Host "Publicación de Sakura verificada."
 Write-Host ("Archivos: {0}" -f (Get-ChildItem $publishDirectory -Recurse -File).Count)
 Write-Host ("Tamaño:   {0:N1} MB" -f ($size / 1MB))

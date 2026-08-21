@@ -23,7 +23,7 @@ public sealed class ShellPreferences
     /// número suelto repetido en el último rung y en una veintena de pruebas, y un número repetido es
     /// un número que se olvida de actualizar en algún sitio.
     /// </summary>
-    public const int CurrentSchemaVersion = 28;
+    public const int CurrentSchemaVersion = 30;
 
     /// <summary>
     /// Modelos que un proveedor ha apagado, y por cuál se sustituyen. La clave es el identificador
@@ -155,7 +155,7 @@ public sealed class ShellPreferences
 
     public bool WakeWordEnabled { get; set; }
 
-    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.OyeKohana;
+    public WakePhrase WakeWordPhrase { get; set; } = WakePhrase.OyeSakura;
 
     public WakeSensitivity WakeWordSensitivity { get; set; } = WakeSensitivity.Balanced;
 
@@ -424,7 +424,7 @@ public sealed class ShellPreferences
         if (SchemaVersion < 23)
         {
             // Diseño D25 — "Ollama" se parte en dos: el motor que Kohana administra
-            // (AiProviderKind.KohanaLocal, puerto 11435) y el que la persona instaló por su cuenta
+            // (AiProviderKind.SakuraLocal, puerto 11435) y el que la persona instaló por su cuenta
             // (AiProviderKind.Ollama, puerto 11434). Quien ya apuntaba al administrado se mueve al
             // proveedor nuevo; si no, se queda donde estaba. Esta migración sí conserva una elección
             // previa en vez de reimponer un valor por omisión: no concede nada que no estuviera ya
@@ -432,7 +432,7 @@ public sealed class ShellPreferences
             if (AiProvider == AiProviderKind.Ollama &&
                 OllamaRuntimeEndpoints.IsManagedBaseUrl(AiBaseUrl))
             {
-                AiProvider = AiProviderKind.KohanaLocal;
+                AiProvider = AiProviderKind.SakuraLocal;
             }
 
             SchemaVersion = 23;
@@ -517,12 +517,64 @@ public sealed class ShellPreferences
                 }
             }
 
+            SchemaVersion = 28;
+        }
+
+        if (SchemaVersion < 29)
+        {
+            // Diseño D62 — quien tuviera la transparencia en el mínimo antiguo se queda en un
+            // mínimo, no en un número que ahora significa otra cosa.
+            //
+            // Hasta aquí el control iba de 0.82 a 1.0 y, por un fallo, no pintaba nada: el alfa se
+            // aplicaba a un contenedor tapado por un borde opaco. Con el acrílico detrás sí pinta,
+            // y 0.82 —que en la escala vieja era "lo más transparente que se puede"— pasa a ser
+            // casi opaco en la nueva, que llega hasta 0.35. Dejarlo quieto convertiría la elección
+            // de quien pidió el máximo de transparencia en lo contrario de lo que pidió.
+            //
+            // El destino, 0.85, lo eligió Adler mirando la pantalla. Se probó primero a 0.65 y él
+            // dijo que se veía raro: con el acrílico dejando pasar tanto fondo, el marco queda más
+            // claro que las tarjetas que contiene y la jerarquía se invierte —el contenedor no
+            // puede ser el elemento más luminoso. A 0.85 el marco vuelve a ser el morado oscuro de
+            // Kohana y el escritorio solo se intuye. El control llega hasta 0.35 para quien quiera
+            // más.
+            //
+            // Solo se toca ese valor exacto. Cualquier otro es una elección dentro de un tramo que
+            // sigue existiendo igual, y esas no se tocan.
+            if (Math.Abs(Opacity - 0.82) < 0.001)
+            {
+                Opacity = 0.85;
+            }
+
+            SchemaVersion = 29;
+        }
+
+        if (SchemaVersion < 30)
+        {
+            // Diseño D69 — la frase de activación pasa de Kohana a Sakura junto con el nombre.
+            //
+            // Esta migración reimpone una elección previa y hay que decirlo: quien tuviera puesto
+            // "Oye Kohana" se va a encontrar "Oye Sakura". Se hace igualmente porque el nombre
+            // anterior no lo entendía el reconocedor —medido: "oye kohana" salía escrito "oye co
+            // ana"— y dejar la frase vieja sería conservar la única versión que no funciona.
+            //
+            // Se respeta la forma: quien decía la frase corta se queda con la corta, quien usaba
+            // "hey" se queda con "hey".
+            WakeWordPhrase = WakeWordPhrase switch
+            {
+                WakePhrase.Kohana or WakePhrase.Nexo => WakePhrase.Sakura,
+                WakePhrase.HeyKohana or WakePhrase.HeyNexo => WakePhrase.HeySakura,
+                _ => WakePhrase.OyeSakura
+            };
+
             SchemaVersion = CurrentSchemaVersion;
         }
 
 
         Width = Math.Clamp(Width, MinimumWidth, MaximumWidth);
-        Opacity = Math.Clamp(Opacity, 0.82, 1.0);
+        // Diseño D62 — el suelo baja de 0.82 a 0.35. El de antes protegía la lectura sobre un
+        // escritorio sin desenfocar; ahora debajo hay acrílico del sistema, y donde no lo haya la
+        // superficie se pinta opaca sin mirar este número.
+        Opacity = Math.Clamp(Opacity, 0.35, 1.0);
         RecentConversationMessageLimit = SaveConversationHistory
             ? Math.Clamp(RecentConversationMessageLimit, 8, 30)
             : 8;
@@ -530,7 +582,7 @@ public sealed class ShellPreferences
 
         if (!Enum.IsDefined(WakeWordPhrase))
         {
-            WakeWordPhrase = WakePhrase.OyeKohana;
+            WakeWordPhrase = WakePhrase.OyeSakura;
         }
 
         if (!Enum.IsDefined(WakeWordSensitivity))
@@ -581,7 +633,7 @@ public sealed class ShellPreferences
         // El motor administrado solo existe en un sitio, y Kohana es quien lo pone ahí. Dejar que
         // la dirección se desvíe es exactamente el fallo que costó una tarde: el modelo descargado
         // en 11435 y la aplicación preguntando en 11434. Aquí no hay nada que respetar del archivo.
-        if (AiProviderDefaults.IsManagedByKohana(AiProvider))
+        if (AiProviderDefaults.IsManagedBySakura(AiProvider))
         {
             AiBaseUrl = OllamaRuntimeEndpoints.ManagedBaseUrl;
         }

@@ -3,7 +3,7 @@ namespace Nexo.Core.Permissions;
 /// <summary>Diseño D16 — permiso de una capacidad, con sus excepciones por aplicación.</summary>
 public sealed class CapabilityPermission
 {
-    public KohanaCapability Capability { get; set; }
+    public SakuraCapability Capability { get; set; }
 
     public PermissionLevel Level { get; set; } = PermissionLevel.Preguntar;
 
@@ -26,8 +26,8 @@ public sealed class CapabilityPermission
 /// <summary>
 /// Diseño D16 — el estado de permisos. Los valores por omisión son la parte que más importa:
 ///
-/// - <see cref="KohanaCapability.ComputerUse"/> llega **Bloqueado**. Es el permiso más alto del
-///   roadmap y no se concede por instalar Kohana.
+/// - <see cref="SakuraCapability.ComputerUse"/> llega **Bloqueado**. Es el permiso más alto del
+///   roadmap y no se concede por instalar Sakura.
 /// - Todo lo demás llega **Preguntar**. No "Permitido": que una capacidad exista no significa que
 ///   pueda actuar sola.
 ///
@@ -38,12 +38,12 @@ public sealed class PermissionSettings
 {
     public List<CapabilityPermission> Capabilities { get; set; } = [];
 
-    public static PermissionLevel DefaultFor(KohanaCapability capability) =>
-        capability == KohanaCapability.ComputerUse
+    public static PermissionLevel DefaultFor(SakuraCapability capability) =>
+        capability == SakuraCapability.ComputerUse
             ? PermissionLevel.Bloqueado
             : PermissionLevel.Preguntar;
 
-    public CapabilityPermission For(KohanaCapability capability)
+    public CapabilityPermission For(SakuraCapability capability)
     {
         var existing = Capabilities.FirstOrDefault(entry => entry.Capability == capability);
         if (existing is not null)
@@ -90,7 +90,7 @@ public sealed class PermissionSettings
             })
             .ToList();
 
-        foreach (var capability in Enum.GetValues<KohanaCapability>())
+        foreach (var capability in Enum.GetValues<SakuraCapability>())
         {
             For(capability);
         }

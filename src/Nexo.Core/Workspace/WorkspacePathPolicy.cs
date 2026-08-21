@@ -45,8 +45,8 @@ public sealed record WorkspaceAccessVerdict(WorkspaceAccessDenial Denial, string
 /// 1. **La contención se comprueba sobre rutas ya resueltas**, no sobre las cadenas que llegan. Una
 ///    comprobación textual la burla cualquier <c>..\..\</c>, y también los enlaces simbólicos y las
 ///    uniones de directorio de Windows, que apuntan fuera sin que la ruta lo aparente.
-/// 2. **La comparación exige separador**: <c>C:\Proyectos\Kohana</c> no contiene a
-///    <c>C:\Proyectos\Kohana-privado</c>, aunque una comparación de prefijos diría que sí.
+/// 2. **La comparación exige separador**: <c>C:\Proyectos\Sakura</c> no contiene a
+///    <c>C:\Proyectos\Sakura-privado</c>, aunque una comparación de prefijos diría que sí.
 /// 3. **Todo se niega salvo lo que se permite explícitamente.** La lista de extensiones es una
 ///    lista de permitidos, no de prohibidos: lo que no se reconoce no se lee. Con una lista de
 ///    prohibidos, cada extensión nueva del mundo entraría por defecto.
@@ -229,8 +229,8 @@ public static class WorkspacePathPolicy
             return true;
         }
 
-        // El separador es obligatorio: si no, "C:\Proyectos\Kohana" contendría a
-        // "C:\Proyectos\Kohana-privado", que es otra carpeta distinta.
+        // El separador es obligatorio: si no, "C:\Proyectos\Sakura" contendría a
+        // "C:\Proyectos\Sakura-privado", que es otra carpeta distinta.
         return candidate.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 

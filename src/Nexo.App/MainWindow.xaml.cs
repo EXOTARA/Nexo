@@ -15,15 +15,18 @@ using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using Nexo.App.Ambient;
 using Nexo.Core.Documents;
+using Nexo.Core.Updates;
 using Nexo.App.Automation;
 using Nexo.App.DailyFlow;
 using Nexo.App.Motion;
 using Nexo.App.Optimization;
 using Nexo.Windows.Display;
 using Nexo.Windows.Documents;
+using Nexo.Windows.Updates;
 using Nexo.Windows.Metrics;
 using Nexo.Windows.Shell;
 using Nexo.App.WindowsIntegration;
+using Nexo.App.Shell;
 using Nexo.App.Views;
 using Nexo.Core.Ai;
 using Nexo.Core.Ambient;
@@ -90,20 +93,20 @@ public partial class MainWindow : Window
     private const int CommandPaletteHotkeyId = 0x4E5A;
     private const int LookHotkeyId = 0x4E5B;
 
-    /// <summary>Diseño D6.3 (Fase 3 — Kohana Flow) — atajo global de dictado.</summary>
+    /// <summary>Diseño D6.3 (Fase 3 — Sakura Flow) — atajo global de dictado.</summary>
     private const int FlowHotkeyId = 0x4E5C;
 
     /// <summary>
     /// Diseño D58 — Escape cierra el shell aunque el teclado esté en otra aplicación.
     ///
-    /// Hacía falta clicar Kohana antes de poder cerrarla con Escape, y el motivo no era el atajo
+    /// Hacía falta clicar Sakura antes de poder cerrarla con Escape, y el motivo no era el atajo
     /// sino Windows: el bloqueo de primer plano se niega a dar el foco a una ventana que nadie ha
     /// clicado, así que <c>Activate()</c> no basta y las teclas se quedaban en la aplicación de
     /// antes. Como el manejador de Escape cuelga de la ventana, nunca se enteraba.
     ///
     /// **Se registra solo mientras el shell está en pantalla y se suelta al ocultarse.** Un Escape
     /// global permanente se lo quitaría a todo el sistema, que es justo lo que no se hizo con
-    /// Ctrl+K por la misma razón. Mientras Kohana está delante, Escape es suyo; en cuanto se va,
+    /// Ctrl+K por la misma razón. Mientras Sakura está delante, Escape es suyo; en cuanto se va,
     /// vuelve a quien lo tuviera.
     /// </summary>
     private const int EscapeHotkeyId = 0x4E5D;
@@ -172,7 +175,7 @@ public partial class MainWindow : Window
     /// </summary>
     private readonly ForegroundWindowTracker _ambientForegroundTracker = new();
 
-    /// <summary>Diseño D5 (Fase 2 — Kohana Lens) — OCR y lectura de UI Automation, ambos sin estado.</summary>
+    /// <summary>Diseño D5 (Fase 2 — Sakura Lens) — OCR y lectura de UI Automation, ambos sin estado.</summary>
     private readonly WindowsOcrService _lensOcrService = new();
     private readonly WindowsUiAutomationReader _lensUiAutomationReader = new();
     private readonly LensHighlightOverlay _lensHighlightOverlay = new();
@@ -181,16 +184,16 @@ public partial class MainWindow : Window
     private readonly WindowsOptimizationApplier _optimizationApplier = new();
     private readonly JsonOptimizationSnapshotStore _optimizationSnapshotStore = new();
     /// <summary>
-    /// Diseño D13 — el Audit Log único: qué hizo Kohana, cuándo, con qué permiso y cómo deshacerlo.
+    /// Diseño D13 — el Audit Log único: qué hizo Sakura, cuándo, con qué permiso y cómo deshacerlo.
     /// Lo comparten todas las capacidades; un registro por capacidad obligaría a la persona a saber
     /// de antemano en cuál mirar.
     /// </summary>
-    private readonly JsonKohanaAuditLog _auditLog = new();
+    private readonly JsonSakuraAuditLog _auditLog = new();
 
     /// <summary>
     /// Diseño D11 (Fase 4) — orquesta aplicar, verificar, deshacer y registrar. Se crea en el
     /// constructor porque necesita las preferencias ya cargadas para el objetivo "consumo de
-    /// Kohana".
+    /// Sakura".
     /// </summary>
     private readonly OptimizationCoordinator _optimizationCoordinator;
 
@@ -224,13 +227,13 @@ public partial class MainWindow : Window
     /// <summary>Diseño D13 — la paleta no acepta argumentos: la consulta de búsqueda llega por chat.</summary>
     private bool _awaitingWorkspaceSearchQuery;
 
-    /// <summary>Diseño D17 (Fase 7) — qué métodos puede usar Kohana para actuar en este equipo.</summary>
+    /// <summary>Diseño D17 (Fase 7) — qué métodos puede usar Sakura para actuar en este equipo.</summary>
     private readonly WindowsComputerUseMethodProbe _computerUseProbe = new();
 
     /// <summary>Diseño D17 — igual que la búsqueda: lo que se quiere hacer llega por chat.</summary>
     private bool _awaitingComputerUseIntent;
 
-    /// <summary>Diseño D18 (Fase 7, nivel 4) — el único camino por el que Kohana actúa en el equipo.</summary>
+    /// <summary>Diseño D18 (Fase 7, nivel 4) — el único camino por el que Sakura actúa en el equipo.</summary>
     private readonly ComputerUseCoordinator _computerUseCoordinator;
 
     /// <summary>Diseño D20 (Fase 9) — copia verificada de los datos, para poder volver.</summary>
@@ -269,7 +272,7 @@ public partial class MainWindow : Window
     /// <summary>Diseño D15 (Fase 8) — packs que dejan configuradas capacidades ya existentes.</summary>
     private readonly SkillPackCoordinator _skillPackCoordinator;
 
-    /// <summary>Diseño D6 (Fase 3 — Kohana Flow) — dictado global.</summary>
+    /// <summary>Diseño D6 (Fase 3 — Sakura Flow) — dictado global.</summary>
     private readonly WindowsFlowTextInserter _flowTextInserter;
 
     /// <summary>
@@ -345,14 +348,16 @@ public partial class MainWindow : Window
     /// </summary>
     private readonly IAiApiKeyStore _apiKeyStore = new DpapiAiApiKeyStore();
     private readonly WindowsDocumentDropService _documentDropService = new();
+    private readonly WindowsUpdateService _updateService = new();
+    private UpdateManifest? _offeredUpdate;
 
-    /// <summary>Diseño D27 — el borde de la pantalla como forma de llamar a Kohana.</summary>
+    /// <summary>Diseño D27 — el borde de la pantalla como forma de llamar a Sakura.</summary>
     private readonly WindowsEdgeRevealWatcher _edgeRevealWatcher = new();
 
     /// <summary>
     /// Diseño D35 — el mismo vigilante, configurado en el borde contrario. Se reutiliza tal cual en
     /// vez de escribir otro: la política de franja estrecha, esquinas excluidas y permanencia mínima
-    /// es la que hace que un borde no estorbe, y vale igual para los mandos que para Kohana.
+    /// es la que hace que un borde no estorbe, y vale igual para los mandos que para Sakura.
     /// </summary>
     private readonly WindowsEdgeRevealWatcher _quickControlsWatcher = new();
 
@@ -382,11 +387,24 @@ public partial class MainWindow : Window
     private readonly DdcDisplayBrightnessService _brightnessService = new();
 
     private HwndSource? _windowSource;
+
+    /// <summary>
+    /// Diseño D62 — qué fondo compone el sistema detrás del shell. Es nulo hasta que la ventana
+    /// tiene identificador, y hasta entonces se pinta el fondo propio: una ventana transparente
+    /// esperando un acrílico que quizá no llegue se ve negra, y ese es el único fallo que no se
+    /// puede consentir.
+    /// </summary>
+    private WindowBackdropDecision? _backdropDecision;
     private SystemSnapshot _latestSnapshot = SystemSnapshot.Empty;
     private ResourceGovernorDecision _resourceDecision = ResourceGovernorDecision.Normal;
     private bool _isHiding;
 
     // Diseño D58 — lo que se abre por roce tiene que saber retirarse solo.
+    private readonly DispatcherTimer _ambientStallWatch = new()
+    {
+        Interval = TimeSpan.FromSeconds(5)
+    };
+
     private readonly DispatcherTimer _unattendedWatch = new()
     {
         Interval = TimeSpan.FromMilliseconds(250)
@@ -444,7 +462,7 @@ public partial class MainWindow : Window
         // composición (App.OnStartup): MainWindow nunca construye un motor. Se asignan aquí,
         // antes de cualquier campo dependiente y antes de cablear eventos. El coordinador de
         // voz es el único punto de acceso al subsistema de voz; MainWindow no recibe los tres
-        // motores (Whisper, TTS, Vosk), que posee y libera KohanaCompositionRoot.
+        // motores (Whisper, TTS, Vosk), que posee y libera SakuraCompositionRoot.
         _aiChatService = aiChatService ?? throw new ArgumentNullException(nameof(aiChatService));
         _audioMixerService = audioMixerService ?? throw new ArgumentNullException(nameof(audioMixerService));
         _screenCaptureService = screenCaptureService ?? throw new ArgumentNullException(nameof(screenCaptureService));
@@ -472,10 +490,10 @@ public partial class MainWindow : Window
         _memoryManager.Load();
 
         // Diseño D11 — el coordinador necesita las preferencias ya cargadas: el segundo objetivo
-        // que aplica de verdad es el modo de rendimiento de la propia Kohana.
+        // que aplica de verdad es el modo de rendimiento de la propia Sakura.
         _optimizationCoordinator = new OptimizationCoordinator(
             _optimizationApplier,
-            new PreferencesKohanaFootprintApplier(
+            new PreferencesSakuraFootprintApplier(
                 _preferences,
                 () =>
                 {
@@ -567,9 +585,9 @@ public partial class MainWindow : Window
         _commandPaletteWindow.WorkspaceRequested += CommandPaletteWindow_WorkspaceRequested;
 
         // La píldora contesta de reojo; si la respuesta merece leerse entera, esto es la puerta a
-        // Kohana. Es una puerta y no un salto automático: abrirla sola volvería a arrastrar a la
+        // Sakura. Es una puerta y no un salto automático: abrirla sola volvería a arrastrar a la
         // persona fuera de donde estaba, que es justo lo que la píldora vino a evitar.
-        _answerPillWindow.OpenInKohanaRequested += (_, _) =>
+        _answerPillWindow.OpenInSakuraRequested += (_, _) =>
         {
             ShowAnimated();
             NavigateTo("Assistant", animate: true);
@@ -615,15 +633,6 @@ public partial class MainWindow : Window
 
         _dashboardWindow.Dismissed += (_, _) => _topRevealWatcher.SuppressBriefly();
 
-        // Diseño D53 — pulsar un resumen del cajón trae la ventana principal al módulo que sea. El
-        // cajón se recoge primero: dejarlo colgando sobre la vista que acaba de abrir taparía justo
-        // lo que se ha pedido ver.
-        _dashboardWindow.View.ModuleRequested += (_, module) =>
-        {
-            _dashboardWindow.Dismiss();
-            ShowAnimated();
-            NavigateTo(module, animate: true);
-        };
         _topRevealWatcher.Configure(_preferences.EdgeRevealEnabled);
         _assistantView.ConfigureHistory(
             _preferences.SaveConversationHistory,
@@ -654,7 +663,7 @@ public partial class MainWindow : Window
         _quickControlsWindow.ControlChanged += QuickControlsWindow_ControlChanged;
 
         // Diseño D28 — con el acento siguiendo a Windows, cambiar de fondo de escritorio (con
-        // "Color de acento automático" activo) debe verse en Kohana sin reabrirla. UserPreferenceChanged
+        // "Color de acento automático" activo) debe verse en Sakura sin reabrirla. UserPreferenceChanged
         // es el evento que ya usa el propio Windows para avisar de esto — nadie más lo dispara.
         Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemUserPreferenceChanged;
 
@@ -687,6 +696,20 @@ public partial class MainWindow : Window
         _focusTickTimer.Tick += (_, _) => CheckFocusTimer();
 
         _unattendedWatch.Tick += (_, _) => CheckUnattendedReveal();
+
+        // Diseño D63 — el reloj cierra las solicitudes que se quedaron esperando una respuesta que
+        // no va a llegar. Arreglar los filtros de excepción de Lens es lo que quita la causa
+        // conocida; esto es lo que hace que la píldora no dependa de que ningún camino futuro se
+        // acuerde de cerrarse. Corre siempre, también con el shell oculto, porque la píldora vive
+        // fuera de la ventana principal.
+        _ambientStallWatch.Tick += (_, _) =>
+        {
+            if (_ambientRequestManager.FailIfStalled(DateTimeOffset.Now).Success)
+            {
+                CheckAmbientRequest();
+            }
+        };
+        _ambientStallWatch.Start();
 
         // Cualquier señal de que hay alguien delante cancela la retirada. Se escuchan en modo
         // Preview porque los controles hijos se quedan con los eventos normales: un clic dentro del
@@ -752,7 +775,7 @@ public partial class MainWindow : Window
         _settingsView.AnimationsChanged += enabled =>
         {
             _preferences.AnimationsEnabled = enabled;
-            KohanaMotion.AnimationsEnabled = ShellAnimationsAllowed;
+            SakuraMotion.AnimationsEnabled = ShellAnimationsAllowed;
             SavePreferences();
         };
 
@@ -852,7 +875,7 @@ public partial class MainWindow : Window
         _settingsView.WakeWordAliasesClearRequested += async (_, _) =>
             await ClearWakeWordAliasesAsync();
 
-        // Diseño D7 (Fase 3 — Kohana Flow)
+        // Diseño D7 (Fase 3 — Sakura Flow)
         _settingsView.FlowEnabledChanged += enabled =>
         {
             _preferences.FlowEnabled = enabled;
@@ -1040,7 +1063,7 @@ public partial class MainWindow : Window
             {
                 var confirmation = MessageBox.Show(
                     this,
-                    $"Vas a subir lo que Kohana puede hacer en tu equipo de {previous} a {level}." +
+                    $"Vas a subir lo que Sakura puede hacer en tu equipo de {previous} a {level}." +
                         Environment.NewLine + Environment.NewLine +
                         (level == AutonomyLevel.EjecutarUnPaso
                             ? "Podrá ejecutar UNA acción cada vez, y te la confirmaré antes. Sigo " +
@@ -1090,14 +1113,14 @@ public partial class MainWindow : Window
 
             // Misma política de mínimo privilegio que el nivel del equipo y que los permisos por
             // capacidad (D16): ampliar exige confirmación nueva, restringir no. Faltaba justo aquí,
-            // y es donde más pesa: subir a «Ejecutar un paso» o «Colaborar» es lo que deja a Kohana
+            // y es donde más pesa: subir a «Ejecutar un paso» o «Colaborar» es lo que deja a Sakura
             // escribir en archivos del usuario, mientras que ampliar una capacidad cualquiera ya se
             // confirmaba desde D16.
             if (level > previousLevel)
             {
                 var confirmation = MessageBox.Show(
                     this,
-                    $"Vas a subir lo que Kohana puede hacer en tu proyecto de {previousLevel} a {level}." +
+                    $"Vas a subir lo que Sakura puede hacer en tu proyecto de {previousLevel} a {level}." +
                         Environment.NewLine + Environment.NewLine +
                         (level >= AutonomyLevel.EjecutarUnPaso
                             ? "Podrá MODIFICAR archivos de esa carpeta. Te confirmaré cada cambio " +
@@ -1119,7 +1142,7 @@ public partial class MainWindow : Window
             _preferences.Workspace.Normalize();
             SavePreferences();
 
-            // Cambiar hasta dónde puede llegar Kohana es una decisión de permisos, así que se
+            // Cambiar hasta dónde puede llegar Sakura es una decisión de permisos, así que se
             // registra igual que autorizar la carpeta.
             RecordAudit(
                 AuditCapability.Permisos,
@@ -1179,6 +1202,11 @@ public partial class MainWindow : Window
                 !string.IsNullOrWhiteSpace(_apiKeyStore.Read(provider)));
 
         _settingsView.ApiKeyPageRequested += OpenExternalPage;
+
+        _settingsView.UpdateCheckRequested += () => _ = CheckForUpdateAsync();
+        _settingsView.UpdateInstallRequested += () => _ = InstallOfferedUpdateAsync();
+        _settingsView.UpdateSkipRequested += SkipOfferedUpdate;
+        _settingsView.SetCurrentVersion(CurrentVersionText);
 
         _settingsView.AiModelChanged += model =>
         {
@@ -1261,8 +1289,8 @@ public partial class MainWindow : Window
             SavePreferences();
             _settingsView.SetWindowsIntegrationStatus(
                 enabled
-                    ? "Cerrar Kohana lo ocultará en la bandeja."
-                    : "Cerrar Kohana terminará completamente la aplicación.",
+                    ? "Cerrar Sakura lo ocultará en la bandeja."
+                    : "Cerrar Sakura terminará completamente la aplicación.",
                 isSuccess: null);
         };
 
@@ -1309,7 +1337,7 @@ public partial class MainWindow : Window
             _settingsView.ApplyPreferences(_preferences);
 
             SavePreferences();
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 "Apariencia restaurada. Tus tareas, rutinas y la configuración de voz, IA y motores no se tocaron.");
         };
     }
@@ -1346,15 +1374,15 @@ public partial class MainWindow : Window
     private void ShowModelManager()
     {
         // El administrador de modelos habla con el motor que esté configurado ahora. Si el proveedor
-        // activo no es de los que usan Ollama, se cae al administrado por Kohana —el que la propia
+        // activo no es de los que usan Ollama, se cae al administrado por Sakura —el que la propia
         // aplicación puede instalar—, no al externo, que puede no existir en este equipo.
         var isOllamaProvider = AiProviderDefaults.UsesOllamaProtocol(_preferences.AiProvider);
         var providerKind = isOllamaProvider
             ? _preferences.AiProvider
-            : AiProviderKind.KohanaLocal;
+            : AiProviderKind.SakuraLocal;
         var baseUrl = isOllamaProvider
             ? _preferences.AiBaseUrl
-            : AiProviderDefaults.Get(AiProviderKind.KohanaLocal).BaseUrl;
+            : AiProviderDefaults.Get(AiProviderKind.SakuraLocal).BaseUrl;
 
         var window = new ModelManagerWindow(baseUrl, _preferences.AiModel)
         {
@@ -1566,7 +1594,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Diseño D35 — el borde contrario a Kohana enseña volumen y brillo. Se lee el estado real justo
+    /// Diseño D35 — el borde contrario a Sakura enseña volumen y brillo. Se lee el estado real justo
     /// antes de abrir y no se cachea: el volumen lo cambia cualquier cosa —la rueda del teclado, otro
     /// programa, el propio Windows— y un panel que apareciera con el valor de hace un rato mostraría
     /// una barra que no coincide con lo que se oye.
@@ -1616,7 +1644,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Diseño D1 (Sakura Shell): las animaciones del shell respetan tanto la preferencia propia
-    /// de Kohana como la preferencia de Windows (Configuración de accesibilidad → Efectos
+    /// de Sakura como la preferencia de Windows (Configuración de accesibilidad → Efectos
     /// visuales). Si cualquiera de las dos está desactivada, los cambios de estado se aplican
     /// de inmediato, sin transición.
     /// </summary>
@@ -1659,11 +1687,11 @@ public partial class MainWindow : Window
         var animation = new DoubleAnimation(
             currentWidth,
             targetWidth,
-            expanded ? KohanaMotion.Emphasized : KohanaMotion.Exit)
+            expanded ? SakuraMotion.Emphasized : SakuraMotion.Exit)
         {
             EasingFunction = expanded
-                ? KohanaMotion.SubtleSpringCurve
-                : KohanaMotion.AccelerateCurve
+                ? SakuraMotion.SubtleSpringCurve
+                : SakuraMotion.AccelerateCurve
         };
         animation.Completed += (_, _) =>
         {
@@ -1705,9 +1733,9 @@ public partial class MainWindow : Window
             label.Animate(
                 OpacityProperty,
                 1,
-                KohanaMotion.Reveal,
-                KohanaMotion.DecelerateCurve,
-                KohanaMotion.StaggerAt(index));
+                SakuraMotion.Reveal,
+                SakuraMotion.DecelerateCurve,
+                SakuraMotion.StaggerAt(index));
         }
     }
 
@@ -1735,12 +1763,6 @@ public partial class MainWindow : Window
         SideRailToggleButton.Width = buttonWidth;
         SettingsNavButton.Width = buttonWidth;
         SideRailBrandText.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-
-        // El chevrón apunta hacia donde el rail va a crecer, y eso depende del lado en que esté.
-        // La flecha dibujada mira a la derecha, así que 0° sirve para "abrirá hacia la derecha".
-        SideRailChevronRotate.Angle = RailIsOnLeft
-            ? (expanded ? 180 : 0)
-            : (expanded ? 0 : 180);
 
         foreach (var label in new[]
                  {
@@ -1797,7 +1819,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Diseño D2 — abre el Sakura Command Center (Ctrl + K). Se crea de forma perezosa la primera
-    /// vez: construir la ventana y el registro en el arranque solo retrasaría el inicio de Kohana
+    /// vez: construir la ventana y el registro en el arranque solo retrasaría el inicio de Sakura
     /// para una función que puede no usarse en toda la sesión.
     /// </summary>
     private void ShowCommandCenter()
@@ -1825,9 +1847,9 @@ public partial class MainWindow : Window
 
     private void CommandCenterWindow_CommandFailed(object? sender, CommandCenterFailureEventArgs e)
     {
-        // Un comando fallido no cierra Kohana ni se informa como éxito: se avisa en la
+        // Un comando fallido no cierra Sakura ni se informa como éxito: se avisa en la
         // conversación (no modal) y el detalle técnico va al diagnóstico.
-        _assistantView.AddKohanaMessage(e.Result.Message ?? "No se pudo completar la acción.");
+        _assistantView.AddSakuraMessage(e.Result.Message ?? "No se pudo completar la acción.");
 
         if (e.Result.Error is { } error)
         {
@@ -1837,7 +1859,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Registra el fallo de un comando conservando tipo, mensaje, excepción interna y stack trace,
-    /// como exige el encargo. Sigue el mismo patrón que el resto de registros de Kohana: escribir
+    /// como exige el encargo. Sigue el mismo patrón que el resto de registros de Sakura: escribir
     /// un log nunca puede afectar al funcionamiento de la aplicación.
     /// </summary>
     private static void WriteCommandCenterLog(string commandId, Exception error)
@@ -1853,11 +1875,11 @@ public partial class MainWindow : Window
         }
         catch (IOException)
         {
-            // El registro no debe afectar el funcionamiento de Kohana.
+            // El registro no debe afectar el funcionamiento de Sakura.
         }
         catch (UnauthorizedAccessException)
         {
-            // El registro no debe afectar el funcionamiento de Kohana.
+            // El registro no debe afectar el funcionamiento de Sakura.
         }
     }
 
@@ -1865,17 +1887,17 @@ public partial class MainWindow : Window
     /// Construye el registro de comandos enlazando cada uno a un servicio real ya existente.
     /// No se inventa ninguna acción: solo se exponen cosas que el shell ya sabe hacer.
     /// </summary>
-    private KohanaCommandRegistry BuildCommandRegistry()
+    private SakuraCommandRegistry BuildCommandRegistry()
     {
-        var registry = new KohanaCommandRegistry();
+        var registry = new SakuraCommandRegistry();
 
         registry.RegisterRange(BuildNavigationCommands());
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "shell.sidebar.toggle",
             "Alternar barra lateral",
             "Expande o contrae la navegación lateral.",
-            KohanaCommandCategory.Shell,
+            SakuraCommandCategory.Shell,
             _ =>
             {
                 SetSideRailExpanded(!_sideRailExpanded, animate: _preferences.AnimationsEnabled);
@@ -1883,11 +1905,11 @@ public partial class MainWindow : Window
             },
             keywords: ["barra", "lateral", "sidebar", "contraer", "expandir", "navegación"]));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "focus.open",
             "Abrir Enfoque",
             "Va a la sección de Enfoque.",
-            KohanaCommandCategory.Focus,
+            SakuraCommandCategory.Focus,
             _ =>
             {
                 NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
@@ -1897,11 +1919,11 @@ public partial class MainWindow : Window
 
         registry.RegisterRange(BuildFocusStartCommands());
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "focus.cancel",
             "Cancelar sesión de enfoque",
             "Descarta la sesión en curso sin registrarla en el historial.",
-            KohanaCommandCategory.Focus,
+            SakuraCommandCategory.Focus,
             _ =>
             {
                 var result = _focusManager.Cancel();
@@ -1912,14 +1934,14 @@ public partial class MainWindow : Window
             },
             keywords: ["enfoque", "cancelar", "descartar", "detener"],
             availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "focus.pause",
             "Pausar sesión de enfoque",
             "Pausa la sesión en curso, conservando el tiempo restante.",
-            KohanaCommandCategory.Focus,
+            SakuraCommandCategory.Focus,
             _ =>
             {
                 var result = _focusManager.Pause(DateTimeOffset.Now);
@@ -1930,14 +1952,14 @@ public partial class MainWindow : Window
             },
             keywords: ["enfoque", "pausar", "detener"],
             availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is { Status: FocusTimerStatus.Running }
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque en curso para pausar.")));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No hay ninguna sesión de enfoque en curso para pausar.")));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "focus.resume",
             "Continuar sesión de enfoque",
             "Reanuda la sesión pausada.",
-            KohanaCommandCategory.Focus,
+            SakuraCommandCategory.Focus,
             _ =>
             {
                 var result = _focusManager.Resume(DateTimeOffset.Now);
@@ -1948,25 +1970,25 @@ public partial class MainWindow : Window
             },
             keywords: ["enfoque", "continuar", "reanudar", "resumir"],
             availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is { Status: FocusTimerStatus.Paused }
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque en pausa.")));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No hay ninguna sesión de enfoque en pausa.")));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "focus.finish",
             "Finalizar sesión de enfoque",
             "Termina la sesión ahora y cuenta el tiempo ya transcurrido, a diferencia de Cancelar.",
-            KohanaCommandCategory.Focus,
+            SakuraCommandCategory.Focus,
             _ => Task.FromResult(FinishActiveFocusSession()),
             keywords: ["enfoque", "finalizar", "terminar", "completar"],
             availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is not null
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No hay ninguna sesión de enfoque activa.")));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "focus.history",
             "Mostrar historial de enfoque",
             "Abre Enfoque, donde están las últimas sesiones y el resumen del día.",
-            KohanaCommandCategory.Focus,
+            SakuraCommandCategory.Focus,
             _ =>
             {
                 NavigateTo(ShellNavigationPolicy.Focus, animate: _preferences.AnimationsEnabled);
@@ -1974,23 +1996,23 @@ public partial class MainWindow : Window
             },
             keywords: ["enfoque", "historial", "actividad", "resumen", "sesiones"]));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "ambient.contextPeek",
             "¿Qué ventana tengo activa?",
             "Muestra en el Sakura Pill Host el título y el proceso de la última ventana externa " +
             "que tuviste activa, sin robarle el foco.",
-            KohanaCommandCategory.Ambient,
+            SakuraCommandCategory.Ambient,
             _ => ExecuteAmbientContextPeekAsync(),
             keywords: ["ventana", "activa", "contexto", "ambiental", "pill", "sakura"],
             availability: () => _ambientRequestManager.GetSnapshot(recentCount: 0).ActiveRequest is null
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso.")));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso.")));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "ambient.history",
             "Ver historial de solicitudes ambientales",
             "Abre el historial de solicitudes del Sakura Pill Host, con la opción de deshacer las que aplique.",
-            KohanaCommandCategory.Ambient,
+            SakuraCommandCategory.Ambient,
             _ =>
             {
                 ShowAmbientHistory();
@@ -2006,11 +2028,11 @@ public partial class MainWindow : Window
         registry.RegisterRange(BuildComputerUseCommands());
         registry.RegisterRange(BuildProductizationCommands());
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "tasks.create",
             "Crear una tarea",
             "Abre Hoy para añadir una tarea nueva.",
-            KohanaCommandCategory.Tasks,
+            SakuraCommandCategory.Tasks,
             _ =>
             {
                 NavigateTo(ShellNavigationPolicy.Tasks, animate: _preferences.AnimationsEnabled);
@@ -2019,27 +2041,27 @@ public partial class MainWindow : Window
             },
             keywords: ["tarea", "pendiente", "nueva", "añadir", "hoy"]));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "audio.mute",
             "Silenciar audio",
             "Silencia el volumen maestro del equipo.",
-            KohanaCommandCategory.Audio,
+            SakuraCommandCategory.Audio,
             _ => Task.FromResult(ApplyMasterMute(muted: true)),
             keywords: ["audio", "silenciar", "mute", "volumen"]));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "audio.unmute",
             "Restaurar audio",
             "Quita el silencio del volumen maestro.",
-            KohanaCommandCategory.Audio,
+            SakuraCommandCategory.Audio,
             _ => Task.FromResult(ApplyMasterMute(muted: false)),
             keywords: ["audio", "restaurar", "activar", "volumen", "sonido"]));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "voice.settings",
             "Abrir configuración de voz",
             "Va a Personalizar, donde vive la configuración de voz.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 NavigateTo(ShellNavigationPolicy.Settings, animate: _preferences.AnimationsEnabled);
@@ -2047,11 +2069,11 @@ public partial class MainWindow : Window
             },
             keywords: ["voz", "micrófono", "whisper", "wake word", "dictado"]));
 
-        registry.Register(new KohanaCommandDescriptor(
+        registry.Register(new SakuraCommandDescriptor(
             "engine.settings",
             "Ir a configuración del motor",
             "Muestra en Sistema los motores registrados, el recomendado y el configurado.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 NavigateTo(ShellNavigationPolicy.System, animate: _preferences.AnimationsEnabled);
@@ -2072,37 +2094,37 @@ public partial class MainWindow : Window
     /// perder una tarea pendiente de asociar si el usuario ya venía de "Enfocarme" en una tarea.
     /// </summary>
     /// <summary>
-    /// Diseño D5.6 (Fase 2 — Kohana Lens) — un comando por modo, no un único comando genérico con
+    /// Diseño D5.6 (Fase 2 — Sakura Lens) — un comando por modo, no un único comando genérico con
     /// un selector: así cada modo aparece por su propio nombre en la búsqueda, igual que los
     /// presets de Enfoque (<see cref="BuildFocusStartCommands"/>).
     /// </summary>
-    private IEnumerable<KohanaCommandDescriptor> BuildLensCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildLensCommands()
     {
         (LensMode Mode, string Id, string Title, string Description, string[] Keywords)[] presets =
         [
-            (LensMode.Soporte, "lens.soporte", "Kohana Lens · Soporte",
+            (LensMode.Soporte, "lens.soporte", "Sakura Lens · Soporte",
                 "Observa la ventana activa y explica qué problema hay y cómo resolverlo.",
                 ["lens", "soporte", "ayuda", "problema", "observar", "mirando"]),
-            (LensMode.Estudio, "lens.estudio", "Kohana Lens · Estudio",
+            (LensMode.Estudio, "lens.estudio", "Sakura Lens · Estudio",
                 "Observa la ventana activa y explica qué es y cómo funciona, paso a paso.",
                 ["lens", "estudio", "aprender", "explicar", "observar", "mirando"]),
-            (LensMode.Desarrollo, "lens.desarrollo", "Kohana Lens · Desarrollo",
+            (LensMode.Desarrollo, "lens.desarrollo", "Sakura Lens · Desarrollo",
                 "Observa la ventana activa y analiza el código o error visible.",
                 ["lens", "desarrollo", "codigo", "error", "diagnostico", "observar", "mirando"])
         ];
 
         foreach (var (mode, id, title, description, keywords) in presets)
         {
-            yield return new KohanaCommandDescriptor(
+            yield return new SakuraCommandDescriptor(
                 id,
                 title,
                 description,
-                KohanaCommandCategory.Capture,
+                SakuraCommandCategory.Capture,
                 _ => ExecuteLensAsync(mode),
                 keywords: keywords,
                 availability: () => _ambientRequestManager.GetSnapshot(recentCount: 0).ActiveRequest is null
-                    ? KohanaCommandAvailability.Available
-                    : KohanaCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso."));
+                    ? SakuraCommandAvailability.Available
+                    : SakuraCommandAvailability.Unavailable("Ya hay una solicitud ambiental en curso."));
         }
     }
 
@@ -2112,7 +2134,7 @@ public partial class MainWindow : Window
     /// configuración del sistema es, en el modelo de confianza, riesgo alto con snapshot previo
     /// obligatorio.
     /// </summary>
-    private IEnumerable<KohanaCommandDescriptor> BuildOptimizationCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildOptimizationCommands()
     {
         (OptimizationScenario Scenario, string Id, string Title)[] presets =
         [
@@ -2126,33 +2148,33 @@ public partial class MainWindow : Window
 
         foreach (var (scenario, id, title) in presets)
         {
-            yield return new KohanaCommandDescriptor(
+            yield return new SakuraCommandDescriptor(
                 id,
                 title,
                 "Revisa tu hardware real y propone los cambios que tengan sentido. No aplica nada sin que lo confirmes.",
-                KohanaCommandCategory.System,
+                SakuraCommandCategory.System,
                 _ => ProposeOptimizationAsync(scenario),
                 keywords: ["optimizar", "rendimiento", "equipo", "pc", title.ToLowerInvariant()]);
         }
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "optimize.restaurar",
             "Deshacer la última optimización",
             "Devuelve el equipo al estado guardado antes del último plan aplicado.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ => Task.FromResult(RestoreOptimization()),
             keywords: ["deshacer", "restaurar", "optimizacion", "revertir"],
             availability: () => _optimizationCoordinator.HasSomethingToUndo
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No hay ninguna optimización aplicada que deshacer."));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No hay ninguna optimización aplicada que deshacer."));
 
         // Diseño D11 — la auditoría es consultable desde el mismo sitio que todo lo demás. Un
         // registro que solo se puede leer abriendo un archivo a mano no lo lee nadie.
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "optimize.historial",
             "Ver el historial de optimizaciones",
             "Muestra qué se aplicó, qué se deshizo y qué falló, con su fecha.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 ShowOptimizationAudit();
@@ -2160,13 +2182,13 @@ public partial class MainWindow : Window
             },
             keywords: ["historial", "auditoria", "optimizacion", "registro"]);
 
-        // Diseño D13 — el registro completo, no solo el de una capacidad. "¿Qué ha hecho Kohana en
+        // Diseño D13 — el registro completo, no solo el de una capacidad. "¿Qué ha hecho Sakura en
         // mi equipo?" es una pregunta sola, y no debería obligar a saber en qué apartado mirar.
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "audit.show",
-            "Ver todo lo que Kohana ha hecho",
+            "Ver todo lo que Sakura ha hecho",
             "El registro completo: qué hizo, cuándo, con qué permiso y cómo deshacerlo.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 ShowFullAudit();
@@ -2220,12 +2242,12 @@ public partial class MainWindow : Window
             _ => "Esa acción no sé deshacerla desde aquí."
         };
 
-        _assistantView.AddKohanaMessage(detail);
+        _assistantView.AddSakuraMessage(detail);
         ShowFlowNotice(CapsuleKind.Information, "Deshacer", detail);
         RefreshAuditPanel();
     }
 
-    private static string CapabilityTitleFor(KohanaCapability capability) =>
+    private static string CapabilityTitleFor(SakuraCapability capability) =>
         CapabilityText.Describe(capability);
 
     /// <summary>
@@ -2239,7 +2261,7 @@ public partial class MainWindow : Window
 
         if (decision.IsDenied)
         {
-            _assistantView.AddKohanaMessage(decision.Reason);
+            _assistantView.AddSakuraMessage(decision.Reason);
             RecordAudit(
                 AuditCapability.Permisos,
                 $"Acción denegada ({request.Capability})",
@@ -2294,7 +2316,7 @@ public partial class MainWindow : Window
             }
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         NavigateTo("Assistant", animate: true);
     }
 
@@ -2342,7 +2364,7 @@ public partial class MainWindow : Window
             }
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         NavigateTo("Assistant", animate: true);
     }
 
@@ -2356,7 +2378,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Diseño D8 — enseña el plan y, solo si hay algo que Kohana pueda aplicar Y revertir, ofrece
+    /// Diseño D8 — enseña el plan y, solo si hay algo que Sakura pueda aplicar Y revertir, ofrece
     /// aplicarlo. La confirmación es un diálogo explícito: el modelo de confianza no permite pasar
     /// de proponer a actuar sin que la persona lo diga.
     /// </summary>
@@ -2379,7 +2401,7 @@ public partial class MainWindow : Window
             message.Append("· No propuesto: ").AppendLine(skipped);
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
 
         if (!plan.RequiresSnapshot)
         {
@@ -2441,13 +2463,13 @@ public partial class MainWindow : Window
     /// esté apagada: revocar y auditar deben funcionar SIEMPRE. Si apagar la memoria bloqueara el
     /// borrado, lo ya guardado quedaría atrapado justo cuando la persona quiere deshacerse de ello.
     /// </summary>
-    private IEnumerable<KohanaCommandDescriptor> BuildMemoryCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildMemoryCommands()
     {
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "memory.show",
-            "Ver lo que Kohana recuerda",
+            "Ver lo que Sakura recuerda",
             "Muestra, en texto claro, todo lo que hay guardado en la memoria.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 ShowMemoryContents();
@@ -2455,11 +2477,11 @@ public partial class MainWindow : Window
             },
             keywords: ["memoria", "recuerda", "guardado", "privacidad"]);
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "memory.forgetAll",
-            "Olvidar todo lo que Kohana recuerda",
+            "Olvidar todo lo que Sakura recuerda",
             "Borra por completo la memoria guardada. No se puede deshacer.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ => Task.FromResult(ForgetAllMemory()),
             keywords: ["olvidar", "borrar", "memoria", "privacidad"]);
     }
@@ -2532,7 +2554,7 @@ public partial class MainWindow : Window
             _preferences.Memory,
             DateTimeOffset.Now);
 
-        _assistantView.AddKohanaMessage(result.Success
+        _assistantView.AddSakuraMessage(result.Success
             ? $"{result.Message} «{candidate.Text}»"
             : result.Message);
 
@@ -2574,7 +2596,7 @@ public partial class MainWindow : Window
             message.Append("Exclusiones activas: ").Append(string.Join(", ", settings.Exclusions));
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
     }
 
     private CommandExecutionResult ForgetAllMemory()
@@ -2583,8 +2605,8 @@ public partial class MainWindow : Window
         // es una de las siete categorías de confirmación obligatoria, así que preguntará aunque la
         // memoria esté permitida: es exactamente lo que el broker existe para garantizar.
         if (!TryGetPermission(new PermissionRequest(
-                KohanaCapability.Memoria,
-                "Borrar todo lo que Kohana recuerda. No se puede deshacer.",
+                SakuraCapability.Memoria,
+                "Borrar todo lo que Sakura recuerda. No se puede deshacer.",
                 Categories: [MandatoryConfirmation.BorradoIrreversible])))
         {
             return CommandExecutionResult.Failure("No borré nada.");
@@ -2605,18 +2627,18 @@ public partial class MainWindow : Window
     /// <summary>
     /// Diseño D12 (Fase 5 — Project Companion) — cuatro comandos y ni uno que escriba. La capacidad
     /// vive en los niveles 1–3 del modelo de confianza ("ninguna capacidad nueva puede empezar en el
-    /// nivel 6"), así que Kohana lee, explica y guía; los cambios los aplica la persona.
+    /// nivel 6"), así que Sakura lee, explica y guía; los cambios los aplica la persona.
     ///
     /// Autorizar y revocar están al mismo nivel, en el mismo sitio: un permiso que cuesta más
     /// quitar que dar no es un permiso, es una trampa.
     /// </summary>
-    private IEnumerable<KohanaCommandDescriptor> BuildWorkspaceCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildWorkspaceCommands()
     {
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "workspace.authorize",
             "Autorizar una carpeta de proyecto",
-            "Elige la carpeta que Kohana podrá leer. Solo lectura: no modifica archivos.",
-            KohanaCommandCategory.System,
+            "Elige la carpeta que Sakura podrá leer. Solo lectura: no modifica archivos.",
+            SakuraCommandCategory.System,
             _ =>
             {
                 AuthorizeWorkspaceFolder();
@@ -2624,11 +2646,11 @@ public partial class MainWindow : Window
             },
             keywords: ["proyecto", "carpeta", "workspace", "autorizar", "codigo"]);
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "workspace.show",
             "Ver el proyecto autorizado",
-            "Muestra qué carpeta puede leer Kohana y con qué nivel de autonomía.",
-            KohanaCommandCategory.System,
+            "Muestra qué carpeta puede leer Sakura y con qué nivel de autonomía.",
+            SakuraCommandCategory.System,
             _ =>
             {
                 ShowWorkspaceStatus();
@@ -2636,25 +2658,25 @@ public partial class MainWindow : Window
             },
             keywords: ["proyecto", "workspace", "permisos", "acceso"]);
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "workspace.explain",
             "Explicar el proyecto autorizado",
-            "Kohana revisa la estructura del proyecto y te la explica. No cambia nada.",
-            KohanaCommandCategory.System,
+            "Sakura revisa la estructura del proyecto y te la explica. No cambia nada.",
+            SakuraCommandCategory.System,
             async _ => await ExplainWorkspaceAsync(),
             keywords: ["proyecto", "explicar", "estructura", "codigo"],
             availability: () => _preferences.Workspace.HasAuthorizedFolder
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
 
         // Diseño D13 — la búsqueda existía desde D12 pero sin comando que la expusiera. Devuelve
         // ruta, línea y la línea encontrada, ya redactada: una coincidencia puede caer justo encima
         // de un token.
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "workspace.search",
             "Buscar en el proyecto autorizado",
-            "Busca un texto dentro de los archivos que Kohana puede leer.",
-            KohanaCommandCategory.System,
+            "Busca un texto dentro de los archivos que Sakura puede leer.",
+            SakuraCommandCategory.System,
             _ =>
             {
                 SearchWorkspace();
@@ -2662,17 +2684,17 @@ public partial class MainWindow : Window
             },
             keywords: ["buscar", "proyecto", "codigo", "workspace"],
             availability: () => _preferences.Workspace.HasAuthorizedFolder
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto."));
 
         // Diseño D14 (Fase 5, nivel 4) — proponer y aplicar UN cambio. Solo aparece cuando el nivel
         // de autonomía lo permite: un comando visible que siempre responde "no puedo" enseña a
         // ignorar los mensajes de permisos.
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "workspace.edit",
             "Pedir un cambio en el proyecto",
-            "Kohana propone el cambio, te lo enseña y solo lo aplica si lo confirmas. Siempre se puede deshacer.",
-            KohanaCommandCategory.System,
+            "Sakura propone el cambio, te lo enseña y solo lo aplica si lo confirmas. Siempre se puede deshacer.",
+            SakuraCommandCategory.System,
             _ =>
             {
                 RequestWorkspaceEdit();
@@ -2680,40 +2702,40 @@ public partial class MainWindow : Window
             },
             keywords: ["cambiar", "editar", "proyecto", "codigo", "modificar"],
             availability: () => !_preferences.Workspace.HasAuthorizedFolder
-                ? KohanaCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto.")
+                ? SakuraCommandAvailability.Unavailable("Todavía no autorizaste ninguna carpeta de proyecto.")
                 : WorkspaceAutonomyPolicy.CanWrite(_preferences.Workspace.AutonomyLevel)
-                    ? KohanaCommandAvailability.Available
-                    : KohanaCommandAvailability.Unavailable(
+                    ? SakuraCommandAvailability.Available
+                    : SakuraCommandAvailability.Unavailable(
                         "Sube el nivel de autonomía del proyecto a «Ejecutar un paso» en Personalizar."));
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "workspace.undo",
             "Deshacer el último cambio en el proyecto",
-            "Devuelve el archivo a como estaba antes de que Kohana lo tocara.",
-            KohanaCommandCategory.System,
+            "Devuelve el archivo a como estaba antes de que Sakura lo tocara.",
+            SakuraCommandCategory.System,
             _ => Task.FromResult(UndoLastWorkspaceEdit()),
             keywords: ["deshacer", "revertir", "proyecto", "cambio"],
             availability: () => _workspaceEditCoordinator.Checkpoints.Count > 0
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No he cambiado nada en tu proyecto."));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No he cambiado nada en tu proyecto."));
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "workspace.revoke",
             "Revocar el acceso al proyecto",
-            "Kohana deja de poder leer esa carpeta, en el acto.",
-            KohanaCommandCategory.System,
+            "Sakura deja de poder leer esa carpeta, en el acto.",
+            SakuraCommandCategory.System,
             _ => Task.FromResult(RevokeWorkspace()),
             keywords: ["revocar", "quitar", "proyecto", "acceso", "privacidad"],
             availability: () => _preferences.Workspace.HasAuthorizedFolder
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No hay ninguna carpeta autorizada."));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No hay ninguna carpeta autorizada."));
     }
 
     private void AuthorizeWorkspaceFolder()
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "Elige la carpeta del proyecto que Kohana podrá leer",
+            Title = "Elige la carpeta del proyecto que Sakura podrá leer",
             Multiselect = false
         };
 
@@ -2736,7 +2758,7 @@ public partial class MainWindow : Window
                 "Esa carpeta no se puede autorizar",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
-            _assistantView.AddKohanaMessage(rootVerdict.Message);
+            _assistantView.AddSakuraMessage(rootVerdict.Message);
             return;
         }
 
@@ -2744,7 +2766,7 @@ public partial class MainWindow : Window
         // quien lo pide no deja decidir a quien lo da.
         var confirmation = MessageBox.Show(
             this,
-            $"Kohana podrá LEER los archivos de:{Environment.NewLine}{chosen}{Environment.NewLine}{Environment.NewLine}" +
+            $"Sakura podrá LEER los archivos de:{Environment.NewLine}{chosen}{Environment.NewLine}{Environment.NewLine}" +
                 "No podrá modificarlos ni borrarlos. No leerá .env, claves ni carpetas de dependencias, " +
                 "y ocultará los valores que parezcan secretos antes de enviar nada a la IA." +
                 $"{Environment.NewLine}{Environment.NewLine}Puedes revocarlo cuando quieras. ¿Lo autorizo?",
@@ -2780,13 +2802,13 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Diseño D13 — la paleta de comandos no acepta argumentos, así que la consulta se pide en la
-    /// conversación: el comando deja a Kohana esperando UNA frase, igual que la propuesta de
+    /// conversación: el comando deja a Sakura esperando UNA frase, igual que la propuesta de
     /// recuerdo de D10. Vale una sola, y se cancela como cualquier otra pregunta.
     /// </summary>
     private void SearchWorkspace()
     {
         _awaitingWorkspaceSearchQuery = true;
-        _assistantView.AddKohanaMessage("¿Qué busco en el proyecto? Escríbelo y lo busco.");
+        _assistantView.AddSakuraMessage("¿Qué busco en el proyecto? Escríbelo y lo busco.");
         NavigateTo("Assistant", animate: true);
     }
 
@@ -2802,7 +2824,7 @@ public partial class MainWindow : Window
         var normalized = SpanishVoiceTranscriptNormalizer.Normalize(prompt);
         if (IsVoiceCancellation(normalized))
         {
-            _assistantView.AddKohanaMessage("De acuerdo, no busco nada.");
+            _assistantView.AddSakuraMessage("De acuerdo, no busco nada.");
             return true;
         }
 
@@ -2811,7 +2833,7 @@ public partial class MainWindow : Window
         {
             // El acceso pudo revocarse entre el comando y la respuesta. Revocar tiene que surtir
             // efecto en el acto, incluso a media conversación.
-            _assistantView.AddKohanaMessage("Ya no tengo ninguna carpeta autorizada, así que no busqué nada.");
+            _assistantView.AddSakuraMessage("Ya no tengo ninguna carpeta autorizada, así que no busqué nada.");
             return true;
         }
 
@@ -2836,37 +2858,37 @@ public partial class MainWindow : Window
             }
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         return true;
     }
 
     /// <summary>
-    /// Diseño D17 (Fase 7 — Safe Computer Use) — Kohana dice **qué haría y por qué método**, sin
+    /// Diseño D17 (Fase 7 — Safe Computer Use) — Sakura dice **qué haría y por qué método**, sin
     /// hacerlo. El roadmap prohíbe saltarse niveles del modelo de autonomía, y esta capacidad acaba
     /// de nacer: empieza donde tienen que empezar todas.
     /// </summary>
-    private IEnumerable<KohanaCommandDescriptor> BuildComputerUseCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildComputerUseCommands()
     {
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "computeruse.plan",
             "Proponer cómo hacer algo en el equipo",
-            "Kohana elige la forma más segura de hacerlo y te la explica. No lo ejecuta.",
-            KohanaCommandCategory.System,
+            "Sakura elige la forma más segura de hacerlo y te la explica. No lo ejecuta.",
+            SakuraCommandCategory.System,
             _ =>
             {
                 _awaitingComputerUseIntent = true;
-                _assistantView.AddKohanaMessage(
+                _assistantView.AddSakuraMessage(
                     "¿Qué quieres hacer en el equipo? Te digo cómo lo haría y por qué de esa forma.");
                 NavigateTo("Assistant", animate: true);
                 return Task.FromResult(CommandExecutionResult.Success());
             },
             keywords: ["equipo", "hacer", "accion", "automatizar", "computer use"]);
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "computeruse.methods",
-            "Ver cómo puede actuar Kohana en el equipo",
+            "Ver cómo puede actuar Sakura en el equipo",
             "Muestra los métodos disponibles, en orden de más a menos seguro.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 ShowComputerUseMethods();
@@ -2881,11 +2903,11 @@ public partial class MainWindow : Window
         {
             var current = command;
 
-            yield return new KohanaCommandDescriptor(
+            yield return new SakuraCommandDescriptor(
                 $"computeruse.run.{current.Id}",
                 current.Title,
                 $"Ejecuta «{current.Executable} {current.Arguments}». Solo lee: no cambia nada del equipo.",
-                KohanaCommandCategory.System,
+                SakuraCommandCategory.System,
                 _ =>
                 {
                     RunSafeCommand(current);
@@ -2901,13 +2923,13 @@ public partial class MainWindow : Window
     /// actualiza ni desinstala: prepara la copia verificada de la que volver, y enseña qué se lleva
     /// y qué se queda.
     /// </summary>
-    private IEnumerable<KohanaCommandDescriptor> BuildProductizationCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildProductizationCommands()
     {
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "data.inventory",
-            "Ver qué guarda Kohana en tu equipo",
+            "Ver qué guarda Sakura en tu equipo",
             "La lista completa: qué es cada archivo, si contiene datos tuyos y si está cifrado.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 ShowDataInventory();
@@ -2915,11 +2937,11 @@ public partial class MainWindow : Window
             },
             keywords: ["datos", "privacidad", "guardar", "archivos"]);
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "update.prepare",
             "Preparar una copia antes de actualizar",
             "Copia tus datos y comprueba que la copia está bien, para poder volver si algo sale mal.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 PrepareUpdateBackup();
@@ -2927,11 +2949,11 @@ public partial class MainWindow : Window
             },
             keywords: ["actualizar", "copia", "seguridad", "respaldo"]);
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "update.rollback",
             "Restaurar la última copia de tus datos",
             "Devuelve tus ajustes, tareas y demás a como estaban en la copia más reciente.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 RestoreLatestBackup();
@@ -2939,16 +2961,16 @@ public partial class MainWindow : Window
             },
             keywords: ["restaurar", "copia", "volver", "respaldo"],
             availability: () => _backupService.ListBackups().Count > 0
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("Todavía no hay ninguna copia guardada."));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("Todavía no hay ninguna copia guardada."));
 
         // Diseño D21 — el criterio de terminado de la Fase 9 pide "diagnóstico exportable para
         // soporte". Exportar es enviar, así que el archivo se redacta y dice qué dejó fuera.
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "support.export",
             "Exportar un diagnóstico para soporte",
             "Guarda un archivo con versiones, estado y actividad reciente. Sin tus datos, y te dice qué dejó fuera.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 ExportSupportBundle();
@@ -2958,11 +2980,11 @@ public partial class MainWindow : Window
 
         // Diseño D22 — comprobar aquí y ahora, sobre el binario instalado, que las garantías se
         // cumplen en ESTE equipo.
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "selfcheck.run",
-            "Comprobar que Kohana funciona bien",
+            "Comprobar que Sakura funciona bien",
             "Revisa permisos, migraciones, cifrado, copias y redacción en este equipo. No toca tus datos.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 RunSelfCheck();
@@ -2970,11 +2992,11 @@ public partial class MainWindow : Window
             },
             keywords: ["comprobar", "revisar", "diagnostico", "funciona", "prueba"]);
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "privacy.report",
             "Ver el informe de privacidad",
-            "Qué guarda Kohana, dónde, si está cifrado y cómo borrarlo.",
-            KohanaCommandCategory.System,
+            "Qué guarda Sakura, dónde, si está cifrado y cómo borrarlo.",
+            SakuraCommandCategory.System,
             _ =>
             {
                 ShowPrivacyReport();
@@ -2982,11 +3004,11 @@ public partial class MainWindow : Window
             },
             keywords: ["privacidad", "datos", "cifrado", "borrar"]);
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "uninstall.plan",
-            "Ver qué pasaría al desinstalar Kohana",
+            "Ver qué pasaría al desinstalar Sakura",
             "Enseña qué se borraría y qué se conservaría, antes de desinstalar nada.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ =>
             {
                 ShowUninstallPlan();
@@ -3000,7 +3022,7 @@ public partial class MainWindow : Window
         var message = new StringBuilder();
         message.AppendLine($"Todo lo que guardo está en {NexoDataPaths.RootDirectory}:");
 
-        foreach (var item in KohanaDataInventory.All)
+        foreach (var item in SakuraDataInventory.All)
         {
             var exists = File.Exists(item.FullPath);
             message.AppendLine();
@@ -3013,7 +3035,7 @@ public partial class MainWindow : Window
                 .AppendLine(item.IsEncrypted ? " Cifrado." : string.Empty);
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         NavigateTo("Assistant", animate: true);
     }
 
@@ -3032,7 +3054,7 @@ public partial class MainWindow : Window
             }
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         NavigateTo("Assistant", animate: true);
 
         ShowFlowNotice(
@@ -3048,14 +3070,14 @@ public partial class MainWindow : Window
         var latest = _backupService.ListBackups().FirstOrDefault();
         if (latest is null)
         {
-            _assistantView.AddKohanaMessage("Todavía no hay ninguna copia guardada.");
+            _assistantView.AddSakuraMessage("Todavía no hay ninguna copia guardada.");
             return;
         }
 
         // Restaurar sobrescribe lo que tengas ahora: es de las cosas que el modelo de confianza
         // manda confirmar siempre, tenga el permiso que tenga.
         if (!TryGetPermission(new PermissionRequest(
-                KohanaCapability.Memoria,
+                SakuraCapability.Memoria,
                 $"Restaurar la copia «{latest}». Sobrescribe tus ajustes, tareas y memoria actuales.",
                 Categories: [MandatoryConfirmation.BorradoIrreversible])))
         {
@@ -3064,7 +3086,7 @@ public partial class MainWindow : Window
 
         var result = _updateSafety.Rollback(latest);
 
-        _assistantView.AddKohanaMessage(result.Detail);
+        _assistantView.AddSakuraMessage(result.Detail);
         ShowFlowNotice(
             result.Success ? CapsuleKind.Success : CapsuleKind.Warning,
             result.Success ? "Datos restaurados" : "No se pudo restaurar",
@@ -3072,8 +3094,8 @@ public partial class MainWindow : Window
 
         if (result.Success)
         {
-            _assistantView.AddKohanaMessage(
-                "Reinicia Kohana para que use los datos restaurados.");
+            _assistantView.AddSakuraMessage(
+                "Reinicia Sakura para que use los datos restaurados.");
         }
 
         RefreshAuditPanel();
@@ -3136,7 +3158,7 @@ public partial class MainWindow : Window
             PathRedactor.Shorten(dialog.FileName),
             "Exportación pedida por el usuario");
 
-        _assistantView.AddKohanaMessage(
+        _assistantView.AddSakuraMessage(
             $"Guardé el diagnóstico en {dialog.FileName}." + Environment.NewLine +
             "Ábrelo y léelo entero antes de mandárselo a nadie: al final dice qué dejé fuera.");
         NavigateTo("Assistant", animate: true);
@@ -3154,7 +3176,7 @@ public partial class MainWindow : Window
         results.AddRange(_selfCheckProbes.Run());
 
         var report = SelfCheckReport.Build(results);
-        _assistantView.AddKohanaMessage(report);
+        _assistantView.AddSakuraMessage(report);
         NavigateTo("Assistant", animate: true);
 
         var failed = results.Count(result => result.Status == SelfCheckStatus.Fallo);
@@ -3193,7 +3215,7 @@ public partial class MainWindow : Window
                 }
             });
 
-        _assistantView.AddKohanaMessage(report);
+        _assistantView.AddSakuraMessage(report);
         NavigateTo("Assistant", animate: true);
     }
 
@@ -3202,7 +3224,7 @@ public partial class MainWindow : Window
         var keep = UninstallPlanner.Build(UninstallDataChoice.Conservar);
 
         var message = new StringBuilder();
-        message.AppendLine("Si desinstalas Kohana conservando tus datos:");
+        message.AppendLine("Si desinstalas Sakura conservando tus datos:");
         message.AppendLine();
         message.AppendLine(UninstallPlanner.Describe(keep));
         message.AppendLine();
@@ -3210,21 +3232,21 @@ public partial class MainWindow : Window
             "Si prefieres que no quede nada, borra la carpeta de datos a mano después de " +
             $"desinstalar: {NexoDataPaths.RootDirectory}");
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         NavigateTo("Assistant", animate: true);
     }
 
-    private KohanaCommandAvailability ComputerUseAvailability()
+    private SakuraCommandAvailability ComputerUseAvailability()
     {
-        if (_preferences.Permissions.For(KohanaCapability.ComputerUse).Level == PermissionLevel.Bloqueado)
+        if (_preferences.Permissions.For(SakuraCapability.ComputerUse).Level == PermissionLevel.Bloqueado)
         {
-            return KohanaCommandAvailability.Unavailable(
+            return SakuraCommandAvailability.Unavailable(
                 "Actuar sobre el equipo está bloqueado. Puedes cambiarlo en Personalizar.");
         }
 
         return ComputerUseAutonomyPolicy.CanExecute(_preferences.ComputerUseAutonomyLevel)
-            ? KohanaCommandAvailability.Available
-            : KohanaCommandAvailability.Unavailable(
+            ? SakuraCommandAvailability.Available
+            : SakuraCommandAvailability.Unavailable(
                 "Sube el nivel de autonomía a «Ejecutar un paso» en Personalizar.");
     }
 
@@ -3235,7 +3257,7 @@ public partial class MainWindow : Window
     private void RunSafeCommand(SafeShellCommand command)
     {
         if (!TryGetPermission(new PermissionRequest(
-                KohanaCapability.ComputerUse,
+                SakuraCapability.ComputerUse,
                 $"{command.Title} ({command.Executable} {command.Arguments})")))
         {
             return;
@@ -3258,7 +3280,7 @@ public partial class MainWindow : Window
             message.Append(result.Output.Trim());
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         NavigateTo("Assistant", animate: true);
         RefreshAuditPanel();
     }
@@ -3282,7 +3304,7 @@ public partial class MainWindow : Window
                 .AppendLine();
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         NavigateTo("Assistant", animate: true);
     }
 
@@ -3301,7 +3323,7 @@ public partial class MainWindow : Window
 
         if (IsVoiceCancellation(SpanishVoiceTranscriptNormalizer.Normalize(prompt)))
         {
-            _assistantView.AddKohanaMessage("De acuerdo, no propongo nada.");
+            _assistantView.AddSakuraMessage("De acuerdo, no propongo nada.");
             return true;
         }
 
@@ -3332,7 +3354,7 @@ public partial class MainWindow : Window
             message.Append("Ahora mismo no puedo hacerlo: ").AppendLine(plan.Blocker);
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
 
         RecordAudit(
             AuditCapability.Permisos,
@@ -3349,17 +3371,17 @@ public partial class MainWindow : Window
     /// capacidades que ya existen. Un pack **nunca concede un permiso**: si le falta alguno, lo dice
     /// y explica dónde se da.
     /// </summary>
-    private IEnumerable<KohanaCommandDescriptor> BuildSkillPackCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildSkillPackCommands()
     {
         foreach (var pack in SkillPackCatalog.All)
         {
             var current = pack;
 
-            yield return new KohanaCommandDescriptor(
+            yield return new SakuraCommandDescriptor(
                 $"skills.{current.Id}".ToLowerInvariant(),
                 $"Activar {current.Name}",
                 current.Purpose,
-                KohanaCommandCategory.System,
+                SakuraCommandCategory.System,
                 _ =>
                 {
                     ApplySkillPack(current);
@@ -3368,16 +3390,16 @@ public partial class MainWindow : Window
                 keywords: ["pack", "modo", "skills", current.Name.ToLowerInvariant()]);
         }
 
-        yield return new KohanaCommandDescriptor(
+        yield return new SakuraCommandDescriptor(
             "skills.off",
             "Desactivar el pack activo",
             "Devuelve los ajustes a como estaban antes de activarlo.",
-            KohanaCommandCategory.System,
+            SakuraCommandCategory.System,
             _ => Task.FromResult(RevertSkillPack()),
             keywords: ["pack", "desactivar", "quitar", "skills"],
             availability: () => _skillPackCoordinator.ActivePackId is not null
-                ? KohanaCommandAvailability.Available
-                : KohanaCommandAvailability.Unavailable("No hay ningún pack activo."));
+                ? SakuraCommandAvailability.Available
+                : SakuraCommandAvailability.Unavailable("No hay ningún pack activo."));
     }
 
     private void ApplySkillPack(SkillPack pack)
@@ -3416,7 +3438,7 @@ public partial class MainWindow : Window
             }
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         NavigateTo("Assistant", animate: true);
 
         if (!plan.HasSomethingToDo)
@@ -3472,7 +3494,7 @@ public partial class MainWindow : Window
         RefreshAuditPanel();
         RefreshSkillPackPanel();
 
-        _assistantView.AddKohanaMessage(result.Detail);
+        _assistantView.AddSakuraMessage(result.Detail);
         ShowFlowNotice(result.Success ? CapsuleKind.Success : CapsuleKind.Warning, title, result.Detail);
     }
 
@@ -3481,7 +3503,7 @@ public partial class MainWindow : Window
     private void RequestWorkspaceEdit()
     {
         _awaitingWorkspaceEditInstruction = true;
-        _assistantView.AddKohanaMessage(
+        _assistantView.AddSakuraMessage(
             "¿Qué quieres que cambie? Dímelo y te enseño el cambio antes de tocar nada.");
         NavigateTo("Assistant", animate: true);
     }
@@ -3504,7 +3526,7 @@ public partial class MainWindow : Window
         var workspace = _preferences.Workspace;
         if (IsVoiceCancellation(SpanishVoiceTranscriptNormalizer.Normalize(prompt)))
         {
-            _assistantView.AddKohanaMessage("De acuerdo, no cambio nada.");
+            _assistantView.AddSakuraMessage("De acuerdo, no cambio nada.");
             return true;
         }
 
@@ -3513,7 +3535,7 @@ public partial class MainWindow : Window
         if (!workspace.HasAuthorizedFolder ||
             !WorkspaceAutonomyPolicy.CanWrite(workspace.AutonomyLevel))
         {
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 "Ya no tengo permiso para modificar ese proyecto, así que no cambié nada.");
             return true;
         }
@@ -3621,19 +3643,19 @@ public partial class MainWindow : Window
         // la denegación: la confirmación de este camino es el diálogo de abajo, que dice qué archivo
         // y por qué, y preguntar dos veces enseñaría a aceptar sin leer.
         var permission = PermissionBroker.Decide(
-            new PermissionRequest(KohanaCapability.Proyecto, edit.Description),
+            new PermissionRequest(SakuraCapability.Proyecto, edit.Description),
             _preferences.Permissions);
 
         if (permission.IsDenied)
         {
-            _assistantView.AddKohanaMessage(permission.Reason);
+            _assistantView.AddSakuraMessage(permission.Reason);
             return;
         }
 
         var verdict = _workspaceEditCoordinator.CanApply(edit, workspace);
         if (!verdict.IsAllowed)
         {
-            _assistantView.AddKohanaMessage($"No puedo aplicar ese cambio: {verdict.Message}");
+            _assistantView.AddSakuraMessage($"No puedo aplicar ese cambio: {verdict.Message}");
             return;
         }
 
@@ -3661,7 +3683,7 @@ public partial class MainWindow : Window
         // rechazado por error archivos cuyo contenido sí se había leído.
         if (exists && !knownContentPaths.Contains(WorkspacePathPolicy.ResolveFullPath(workspace.AuthorizedPath, edit.RelativePath)))
         {
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 $"No apliqué el cambio a «{edit.RelativePath}»: no tenía el contenido actual de " +
                 "ese archivo en esta consulta, así que no puedo garantizar que lo conservara. " +
                 "Pídemelo otra vez nombrando el archivo tal cual (por ejemplo «modifica " +
@@ -3690,13 +3712,13 @@ public partial class MainWindow : Window
 
         if (confirmation != MessageBoxResult.Yes)
         {
-            _assistantView.AddKohanaMessage("No apliqué el cambio.");
+            _assistantView.AddSakuraMessage("No apliqué el cambio.");
             return;
         }
 
         var result = _workspaceEditCoordinator.Apply(edit, workspace);
 
-        _assistantView.AddKohanaMessage(result.Detail);
+        _assistantView.AddSakuraMessage(result.Detail);
         ShowFlowNotice(
             result.Success ? CapsuleKind.Success : CapsuleKind.Warning,
             result.Success ? "Cambio aplicado" : "No apliqué el cambio",
@@ -3708,7 +3730,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// Diseño D24 — arma la secuencia y la ejecuta. **Todo cambio de archivo es punto de riesgo**:
     /// tocar el trabajo de alguien lo es por definición, y marcar unos sí y otros no exigiría un
-    /// criterio que Kohana no tiene. Que el nivel 5 pregunte en cada archivo no lo vuelve inútil —
+    /// criterio que Sakura no tiene. Que el nivel 5 pregunte en cada archivo no lo vuelve inútil —
     /// sigue ahorrando redactar y encadenar los cambios uno a uno.
     /// </summary>
     /// <summary>
@@ -3803,7 +3825,7 @@ public partial class MainWindow : Window
 
         var start = MessageBox.Show(
             this,
-            $"Kohana propone {edits.Count} cambios:" + Environment.NewLine +
+            $"Sakura propone {edits.Count} cambios:" + Environment.NewLine +
                 string.Join(Environment.NewLine, edits.Select(edit => $"· {edit.RelativePath}")) +
                 Environment.NewLine + Environment.NewLine + plan.ReversalWarning +
                 Environment.NewLine + Environment.NewLine +
@@ -3814,7 +3836,7 @@ public partial class MainWindow : Window
 
         if (start != MessageBoxResult.Yes)
         {
-            _assistantView.AddKohanaMessage("No apliqué ningún cambio.");
+            _assistantView.AddSakuraMessage("No apliqué ningún cambio.");
             return;
         }
 
@@ -3860,7 +3882,7 @@ public partial class MainWindow : Window
             message.Append("· ").AppendLine(line);
         }
 
-        _assistantView.AddKohanaMessage(message.ToString().TrimEnd());
+        _assistantView.AddSakuraMessage(message.ToString().TrimEnd());
         RefreshAuditPanel();
 
         ShowFlowNotice(
@@ -3873,7 +3895,7 @@ public partial class MainWindow : Window
     {
         var result = _workspaceEditCoordinator.RevertLast(_preferences.Workspace);
 
-        _assistantView.AddKohanaMessage(result.Detail);
+        _assistantView.AddSakuraMessage(result.Detail);
         RefreshAuditPanel();
 
         if (!result.Success)
@@ -3899,7 +3921,7 @@ public partial class MainWindow : Window
 
         if (!workspace.HasAuthorizedFolder)
         {
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 "No tengo ninguna carpeta de proyecto autorizada. Puedes autorizar una desde la " +
                 "paleta de comandos, y quitármela igual de rápido.");
             NavigateTo("Assistant", animate: true);
@@ -3916,7 +3938,7 @@ public partial class MainWindow : Window
             "los valores que parecen secretos antes de enviar nada.");
         message.Append("Contando archivos legibles…");
 
-        _assistantView.AddKohanaMessage(message.ToString());
+        _assistantView.AddSakuraMessage(message.ToString());
         NavigateTo("Assistant", animate: true);
 
         var authorizedPath = workspace.AuthorizedPath;
@@ -3928,7 +3950,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _assistantView.AddKohanaMessage($"Archivos legibles ahora mismo: {count}.");
+        _assistantView.AddSakuraMessage($"Archivos legibles ahora mismo: {count}.");
     }
 
     private CommandExecutionResult RevokeWorkspace()
@@ -3987,7 +4009,7 @@ public partial class MainWindow : Window
         return CommandExecutionResult.Success();
     }
 
-    private IEnumerable<KohanaCommandDescriptor> BuildFocusStartCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildFocusStartCommands()
     {
         (int Minutes, string Id)[] presets =
         [
@@ -3998,11 +4020,11 @@ public partial class MainWindow : Window
 
         foreach (var (minutes, id) in presets)
         {
-            yield return new KohanaCommandDescriptor(
+            yield return new SakuraCommandDescriptor(
                 id,
                 $"Iniciar enfoque · {minutes} min",
                 $"Comienza una sesión de enfoque de {minutes} minutos.",
-                KohanaCommandCategory.Focus,
+                SakuraCommandCategory.Focus,
                 _ =>
                 {
                     _focusView.StartPreset(TimeSpan.FromMinutes(minutes));
@@ -4011,8 +4033,8 @@ public partial class MainWindow : Window
                 },
                 keywords: ["enfoque", "iniciar", "concentración", "pomodoro", minutes.ToString(CultureInfo.InvariantCulture)],
                 availability: () => _focusManager.GetSnapshot(DateTimeOffset.Now).ActiveTimer is null
-                    ? KohanaCommandAvailability.Available
-                    : KohanaCommandAvailability.Unavailable("Ya hay una sesión de enfoque en curso."));
+                    ? SakuraCommandAvailability.Available
+                    : SakuraCommandAvailability.Unavailable("Ya hay una sesión de enfoque en curso."));
         }
     }
 
@@ -4022,17 +4044,17 @@ public partial class MainWindow : Window
     /// rutina en concreto está habilitada. El registro se reconstruye cada vez que se abre el
     /// Command Center (ver ShowCommandCenter), así que esta lista nunca queda desactualizada.
     /// </summary>
-    private IEnumerable<KohanaCommandDescriptor> BuildRoutineExecutionCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildRoutineExecutionCommands()
     {
         foreach (var routine in _routineManager.GetAll())
         {
             var routineId = routine.Id;
             var routineName = routine.Name;
-            yield return new KohanaCommandDescriptor(
+            yield return new SakuraCommandDescriptor(
                 $"routine.execute.{routineId}",
                 $"Ejecutar {routineName}",
                 $"Ejecuta la rutina «{routineName}».",
-                KohanaCommandCategory.System,
+                SakuraCommandCategory.System,
                 async _ =>
                 {
                     var current = _routineManager.GetAll().FirstOrDefault(candidate => candidate.Id == routineId);
@@ -4050,12 +4072,12 @@ public partial class MainWindow : Window
                     var current = _routineManager.GetAll().FirstOrDefault(candidate => candidate.Id == routineId);
                     if (current is null)
                     {
-                        return KohanaCommandAvailability.Unavailable("Esta rutina ya no existe.");
+                        return SakuraCommandAvailability.Unavailable("Esta rutina ya no existe.");
                     }
 
                     return current.IsEnabled
-                        ? KohanaCommandAvailability.Available
-                        : KohanaCommandAvailability.Unavailable($"La rutina «{routineName}» está desactivada.");
+                        ? SakuraCommandAvailability.Available
+                        : SakuraCommandAvailability.Unavailable($"La rutina «{routineName}» está desactivada.");
                 });
         }
     }
@@ -4100,7 +4122,7 @@ public partial class MainWindow : Window
         return CommandExecutionResult.Success(result.Title);
     }
 
-    private IEnumerable<KohanaCommandDescriptor> BuildNavigationCommands()
+    private IEnumerable<SakuraCommandDescriptor> BuildNavigationCommands()
     {
         // Un comando por destino conocido: la lista sale de ShellNavigationPolicy, así que no
         // puede desincronizarse de la navegación real del shell.
@@ -4120,11 +4142,11 @@ public partial class MainWindow : Window
         foreach (var (destination, title, keywords) in destinations)
         {
             var target = destination;
-            yield return new KohanaCommandDescriptor(
+            yield return new SakuraCommandDescriptor(
                 $"navigate.{target.ToLowerInvariant()}",
                 title,
-                "Abre esta sección de Kohana.",
-                KohanaCommandCategory.Navigation,
+                "Abre esta sección de Sakura.",
+                SakuraCommandCategory.Navigation,
                 _ =>
                 {
                     NavigateTo(target, animate: _preferences.AnimationsEnabled);
@@ -4221,14 +4243,16 @@ public partial class MainWindow : Window
         _windowSource = HwndSource.FromHwnd(windowHandle);
         _windowSource?.AddHook(WindowMessageHook);
 
+        ApplySystemBackdrop(windowHandle);
+
         if (!RegisterHotKey(windowHandle, ShellHotkeyId, ModAlt, VirtualKeyA))
         {
-            _assistantView.AddKohanaMessage("Alt + A ya está siendo utilizado por otra aplicación.");
+            _assistantView.AddSakuraMessage("Alt + A ya está siendo utilizado por otra aplicación.");
         }
 
         if (!RegisterHotKey(windowHandle, PeekHotkeyId, ModAlt | ModShift, VirtualKeyA))
         {
-            _assistantView.AddKohanaMessage("Alt + Shift + A ya está siendo utilizado por otra aplicación.");
+            _assistantView.AddSakuraMessage("Alt + Shift + A ya está siendo utilizado por otra aplicación.");
         }
 
         if (!RegisterHotKey(
@@ -4237,7 +4261,7 @@ public partial class MainWindow : Window
                 ModControl,
                 VirtualKeySpace))
         {
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 "Ctrl + Espacio ya está siendo utilizado por otra aplicación.");
         }
 
@@ -4247,17 +4271,17 @@ public partial class MainWindow : Window
                 ModControl | ModShift,
                 VirtualKeySpace))
         {
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 "Ctrl + Shift + Espacio ya está siendo utilizado por otra aplicación.");
         }
 
         // Diseño D6.3 — el dictado global se registra igual que los demás atajos: como atajo de
-        // sistema, para que funcione con Kohana sin foco (que es todo el sentido de dictar en otra
+        // sistema, para que funcione con Sakura sin foco (que es todo el sentido de dictar en otra
         // aplicación).
         if (_preferences.FlowEnabled &&
             !RegisterHotKey(windowHandle, FlowHotkeyId, ModControl | ModShift, VirtualKeyD))
         {
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 "Ctrl + Shift + D ya está siendo utilizado por otra aplicación; el dictado global no quedó disponible.");
         }
     }
@@ -4287,6 +4311,74 @@ public partial class MainWindow : Window
         ConfigureManagedOllamaSupervisor();
         await RefreshMetricsAsync();
         _ = InitializeVoiceFeaturesAsync();
+        _ = CheckForUpdateInBackgroundAsync();
+    }
+
+    /// <summary>
+    /// Diseño D68 — mira si hay versión nueva sin que nadie lo pida, y como mucho una vez al día.
+    ///
+    /// **Mira, pero no instala.** Descargar cien megas y sustituir la aplicación son decisiones de la
+    /// persona; lo único que se hace solo es enterarse, que no cuesta nada y evita que haya que
+    /// acordarse de comprobar.
+    ///
+    /// Se espera un poco antes de empezar. Al arrancar, Sakura está levantando la voz, las métricas
+    /// y el runtime de IA; meter ahí una petición de red solo hace el arranque más lento a cambio de
+    /// una respuesta que no corre ninguna prisa.
+    /// </summary>
+    private async Task CheckForUpdateInBackgroundAsync()
+    {
+        if (!UpdateCheckPolicy.ShouldCheck(_preferences.LastUpdateCheckAt, DateTimeOffset.UtcNow))
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(45), _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (_isClosed)
+        {
+            return;
+        }
+
+        SakuraVersion? skipped =
+            SakuraVersion.TryParse(_preferences.SkippedUpdateVersion, out var parsed)
+                ? parsed
+                : null;
+
+        var lookup = await _updateService.LookForUpdateAsync(
+            CurrentVersion, skipped, _lifetimeCancellation.Token);
+
+        // La fecha se apunta haya salido lo que haya salido. Si no, un equipo sin conexión
+        // reintentaría en cada arranque, que es justo lo que este límite viene a evitar.
+        _preferences.LastUpdateCheckAt = DateTimeOffset.UtcNow;
+        SavePreferences();
+
+        if (!lookup.Found || _isClosed)
+        {
+            return;
+        }
+
+        _offeredUpdate = lookup.Manifest;
+        _settingsView.SetUpdateStatus("Hay una versión más nueva disponible.", busy: false);
+        _settingsView.ShowUpdateOffer(
+            lookup.Manifest!.Version.ToString(),
+            lookup.Manifest.Notes,
+            Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory));
+
+        // El aviso no se enseña encima de un juego ni de una presentación: una versión nueva no es
+        // urgente, y la tarjeta ya queda esperando en Personalizar de todas formas. La cápsula lo
+        // respeta sola, pero decirlo aquí evita que mañana alguien la haga «forzada» sin pensar.
+        _capsuleWindow.ShowMessage(
+            CapsuleKind.Information,
+            $"Sakura {lookup.Manifest.Version} disponible",
+            "Puedes instalarla desde Personalizar › Actualizaciones.",
+            _preferences.Position);
     }
 
     private void OnSystemUserPreferenceChanged(
@@ -4320,6 +4412,7 @@ public partial class MainWindow : Window
         _taskReminderTimer.Stop();
         _focusTickTimer.Stop();
         _visualContextExpiryTimer.Stop();
+        _ambientStallWatch.Stop();
         _peekWindow.HideImmediately();
         _capsuleWindow.HideImmediately();
         _answerPillWindow.HideImmediately();
@@ -4354,7 +4447,7 @@ public partial class MainWindow : Window
         _commandPaletteWindow.Close();
         // MainWindow desuscribe los eventos de wake word (a través del coordinador) y cancela
         // el token de vida, pero NO libera los tres motores de voz: su propiedad y Dispose
-        // viven en KohanaCompositionRoot y se ejecutan en App.OnExit, justo después de que
+        // viven en SakuraCompositionRoot y se ejecutan en App.OnExit, justo después de que
         // esta ventana se cierre. La guardia _isClosed y el token cancelado impiden que
         // cualquier operación en vuelo o evento encolado opere durante el cierre; el Dispose
         // de cada motor detiene su grabador.
@@ -4459,7 +4552,7 @@ public partial class MainWindow : Window
         RememberForegroundWindow();
         ShowAnimated();
 
-        // Diseño D3.1: mientras Kohana estaba oculto en la bandeja, _focusTickTimer siguió
+        // Diseño D3.1: mientras Sakura estaba oculto en la bandeja, _focusTickTimer siguió
         // corriendo (nunca se detiene salvo al cerrar), así que el dominio está al día — pero el
         // reloj visible de Enfoque (y el resumen de Inicio) no se refrescan solos hasta el
         // siguiente tick de hasta un segundo. Se sincroniza de inmediato al reactivar, igual que
@@ -4522,12 +4615,12 @@ public partial class MainWindow : Window
 
             if (recovered)
             {
-                _assistantView.AddKohanaMessage(
+                _assistantView.AddSakuraMessage(
                     "La IA local volvió a estar disponible automáticamente.");
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Success,
                     "IA local recuperada",
-                    "Kohana volvió a iniciar el motor local.",
+                    "Sakura volvió a iniciar el motor local.",
                     _preferences.Position);
             }
 
@@ -4549,7 +4642,7 @@ public partial class MainWindow : Window
         }
 
         _managedAiRuntimeFailureNotified = true;
-        _assistantView.AddKohanaMessage(
+        _assistantView.AddSakuraMessage(
             $"No pude preparar la IA local: {snapshot.Message}");
         _capsuleWindow.ShowMessage(
             CapsuleKind.Error,
@@ -4663,13 +4756,13 @@ public partial class MainWindow : Window
         ShellScale.ScaleY = 0.985;
         ShellBorder.Opacity = 0;
 
-        ShellBorder.Animate(OpacityProperty, 1, KohanaMotion.Reveal, KohanaMotion.DecelerateCurve);
+        ShellBorder.Animate(OpacityProperty, 1, SakuraMotion.Reveal, SakuraMotion.DecelerateCurve);
         ShellTranslate.AnimateTransform(
-            TranslateTransform.XProperty, 0, KohanaMotion.Emphasized, KohanaMotion.EmphasizedCurve);
+            TranslateTransform.XProperty, 0, SakuraMotion.Emphasized, SakuraMotion.EmphasizedCurve);
         ShellScale.AnimateTransform(
-            ScaleTransform.ScaleXProperty, 1, KohanaMotion.Emphasized, KohanaMotion.SubtleSpringCurve);
+            ScaleTransform.ScaleXProperty, 1, SakuraMotion.Emphasized, SakuraMotion.SubtleSpringCurve);
         ShellScale.AnimateTransform(
-            ScaleTransform.ScaleYProperty, 1, KohanaMotion.Emphasized, KohanaMotion.SubtleSpringCurve);
+            ScaleTransform.ScaleYProperty, 1, SakuraMotion.Emphasized, SakuraMotion.SubtleSpringCurve);
 
         StaggerNavigationEntrance();
         FocusCurrentView();
@@ -4677,7 +4770,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Diseño D26 — los elementos del rail entran uno detrás de otro en vez de todos a la vez.
-    /// El retardo es corto y tiene tope (ver <see cref="KohanaMotion.MaximumStagger"/>): lo que se
+    /// El retardo es corto y tiene tope (ver <see cref="SakuraMotion.MaximumStagger"/>): lo que se
     /// busca es que el ojo recorra la lista, no que el último botón se haga esperar.
     /// </summary>
     private void StaggerNavigationEntrance()
@@ -4694,7 +4787,7 @@ public partial class MainWindow : Window
         {
             var transform = new TranslateTransform();
             button.RenderTransform = transform;
-            button.EnterFrom(transform, fromOffset, beginTime: KohanaMotion.StaggerAt(index));
+            button.EnterFrom(transform, fromOffset, beginTime: SakuraMotion.StaggerAt(index));
             index++;
         }
     }
@@ -4721,15 +4814,15 @@ public partial class MainWindow : Window
 
         _isHiding = true;
 
-        // Al ocultarse, el ratón suele seguir justo donde estaba. Sin esta pausa, cerrar Kohana con
+        // Al ocultarse, el ratón suele seguir justo donde estaba. Sin esta pausa, cerrar Sakura con
         // el cursor cerca del borde la volvería a abrir de inmediato.
         _edgeRevealWatcher.SuppressBriefly();
 
         // La salida es más corta que la entrada y usa la curva que acelera: lo que se retira no
         // pide atención, y hacerlo esperar solo retrasa lo que la persona quería hacer a continuación.
         var offset = _preferences.Position == SidebarPosition.Right ? 48d : -48d;
-        var duration = KohanaMotion.Exit;
-        var easing = KohanaMotion.AccelerateCurve;
+        var duration = SakuraMotion.Exit;
+        var easing = SakuraMotion.AccelerateCurve;
 
         var slideAnimation = new DoubleAnimation(offset, duration)
         {
@@ -4752,22 +4845,32 @@ public partial class MainWindow : Window
         ShellBorder.BeginAnimation(OpacityProperty, opacityAnimation);
     }
 
+    /// <summary>
+    /// Separación entre el shell y el borde de la pantalla.
+    ///
+    /// Diseño D62 — antes eran doce píxeles de ventana más dieciséis de margen interior, que
+    /// existían para que cupiera la sombra pintada a mano. La sombra ahora la dibuja DWM fuera del
+    /// rectángulo de la ventana, así que el margen desapareció y la separación se declara entera
+    /// aquí, que es donde se decide dónde va la ventana.
+    /// </summary>
+    private const double ShellScreenInset = 24;
+
     private void PositionWindow()
     {
         var workArea = SystemParameters.WorkArea;
-        Height = Math.Max(MinHeight, workArea.Height - 24);
-        Top = workArea.Top + 12;
+        Height = Math.Max(MinHeight, workArea.Height - (ShellScreenInset * 2));
+        Top = workArea.Top + ShellScreenInset;
         Left = _preferences.Position == SidebarPosition.Right
-            ? workArea.Right - Width - 12
-            : workArea.Left + 12;
+            ? workArea.Right - Width - ShellScreenInset
+            : workArea.Left + ShellScreenInset;
     }
 
     /// <summary>
     /// Diseño D26 — el rail de navegación vive siempre en el lado interior del shell, el que mira
-    /// al centro de la pantalla. Con Kohana acoplada a la derecha eso es el lado izquierdo, que es
+    /// al centro de la pantalla. Con Sakura acoplada a la derecha eso es el lado izquierdo, que es
     /// como ha estado siempre; acoplada a la izquierda, el rail pasa a la derecha.
     ///
-    /// Antes el rail estaba clavado en la columna 0 pasara lo que pasara, así que al mover Kohana
+    /// Antes el rail estaba clavado en la columna 0 pasara lo que pasara, así que al mover Sakura
     /// al borde izquierdo el menú se quedaba donde estaba: pegado al borde de la pantalla, con el
     /// contenido empujado hacia dentro y el gesto de "abrir el menú" apuntando al lado equivocado.
     /// </summary>
@@ -4952,7 +5055,7 @@ public partial class MainWindow : Window
     /// Diseño D58 — elegir la imagen del hueco libre del Panel.
     ///
     /// Se abre en Imágenes, que es donde está lo que la gente pondría aquí, en vez de en la última
-    /// carpeta que tocara Kohana. Y si ya hay una elegida, se ofrece quitarla: sin esa salida, poner
+    /// carpeta que tocara Sakura. Y si ya hay una elegida, se ofrece quitarla: sin esa salida, poner
     /// una imagen sería una decisión sin vuelta atrás salvo editando un archivo de ajustes.
     /// </summary>
     private void PickPanelImage()
@@ -5020,7 +5123,7 @@ public partial class MainWindow : Window
         var title = sections.FirstOrDefault(section => section.Title.Length > 0)?.Title;
         if (string.IsNullOrWhiteSpace(title))
         {
-            title = "Respuesta de Kohana";
+            title = "Respuesta de Sakura";
         }
 
         var target = DocumentDestination.Resolve(DocumentFolder.Desktop, title, ".docx");
@@ -5046,6 +5149,121 @@ public partial class MainWindow : Window
 
         _homeView.AddRecentAction(
             "Documento guardado", Path.GetFileName(result.FullPath));
+    }
+
+    // ---------- Actualizaciones (Diseño D65) ----------
+
+    /// <summary>
+    /// La versión que está corriendo, tal cual la grabó la compilación.
+    ///
+    /// Se lee del ensamblado y no de una constante escrita a mano: una constante se olvida de
+    /// actualizar exactamente en la versión en la que importa, y entonces Sakura se cree otra.
+    /// </summary>
+    private static string CurrentVersionText =>
+        System.Reflection.CustomAttributeExtensions
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(
+                System.Reflection.Assembly.GetExecutingAssembly())?
+            .InformationalVersion ?? "desconocida";
+
+    private static SakuraVersion CurrentVersion =>
+        SakuraVersion.TryParse(CurrentVersionText, out var version)
+            ? version
+            : new SakuraVersion(0, 0, 0, string.Empty);
+
+    private string UpdateWorkFolder =>
+        Path.Combine(NexoDataPaths.RootDirectory, "actualizaciones");
+
+    private async Task CheckForUpdateAsync()
+    {
+        _settingsView.SetUpdateStatus("Comprobando…", busy: true);
+        _settingsView.ShowUpdateOffer(null, null);
+        _offeredUpdate = null;
+
+        SakuraVersion? skipped =
+            SakuraVersion.TryParse(_preferences.SkippedUpdateVersion, out var parsed)
+                ? parsed
+                : null;
+
+        var lookup = await _updateService.LookForUpdateAsync(
+            CurrentVersion, skipped, _lifetimeCancellation.Token);
+
+        _preferences.LastUpdateCheckAt = DateTimeOffset.UtcNow;
+        SavePreferences();
+
+        if (!lookup.Found)
+        {
+            _settingsView.SetUpdateStatus(lookup.Message, busy: false);
+            return;
+        }
+
+        _offeredUpdate = lookup.Manifest;
+        _settingsView.SetUpdateStatus(
+            "Hay una versión más nueva disponible.", busy: false);
+        _settingsView.ShowUpdateOffer(
+            lookup.Manifest!.Version.ToString(), lookup.Manifest.Notes);
+    }
+
+    /// <summary>
+    /// Descarga, prepara y entrega el relevo al ayudante.
+    ///
+    /// Sakura se cierra **después** de lanzarlo, no antes: el guión espera a que este proceso
+    /// termine, así que si se cerrara primero no habría nadie para lanzarlo.
+    /// </summary>
+    private async Task InstallOfferedUpdateAsync()
+    {
+        if (_offeredUpdate is not { } manifest)
+        {
+            return;
+        }
+
+        var install = AppContext.BaseDirectory;
+
+        _settingsView.SetUpdateStatus("Descargando…", busy: true);
+
+        var progress = new Progress<double>(_settingsView.SetUpdateProgress);
+        var prepared = await _updateService.PrepareAsync(
+            manifest, install, UpdateWorkFolder, progress, _lifetimeCancellation.Token);
+
+        if (!prepared.Ready)
+        {
+            _settingsView.SetUpdateStatus(prepared.Problem, busy: false);
+            _settingsView.ShowUpdateOffer(
+                manifest.Version.ToString(), manifest.Notes);
+            return;
+        }
+
+        if (!WindowsUpdateService.LaunchHelper(prepared.HelperPath))
+        {
+            _settingsView.SetUpdateStatus(
+                "No se pudo iniciar el instalador de la actualización.", busy: false);
+            return;
+        }
+
+        _settingsView.SetUpdateStatus(
+            "Sakura se va a cerrar para terminar de instalarse…", busy: true);
+
+        // Se sale por la puerta de siempre y no llamando a Shutdown a pelo, y esto lo enseñó la
+        // primera prueba real: RequestExit para antes el runtime de IA administrado, y saltarse ese
+        // paso deja un proceso hijo vivo y a Sakura sin morir del todo. El ayudante esperaba, no la
+        // veía morir, y se retiraba sin tocar nada — desde fuera, Sakura se cerraba y no volvía.
+        RequestExit();
+    }
+
+    private void SkipOfferedUpdate()
+    {
+        if (_offeredUpdate is not { } manifest)
+        {
+            return;
+        }
+
+        // Se guarda la versión concreta, no un «no molestar»: la siguiente sí se ofrece.
+        _preferences.SkippedUpdateVersion = manifest.Version.ToString();
+        SavePreferences();
+
+        _offeredUpdate = null;
+        _settingsView.ShowUpdateOffer(null, null);
+        _settingsView.SetUpdateStatus(
+            $"Se dejó pasar la {manifest.Version}. Se avisará cuando salga otra.", busy: false);
     }
 
     private void HideShellButton_Click(object sender, RoutedEventArgs e) => HideAnimated();
@@ -5209,7 +5427,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Diseño D34 — quien pulsó Ctrl+Espacio no quiso abrir Kohana: estaba en otra aplicación y
+    /// Diseño D34 — quien pulsó Ctrl+Espacio no quiso abrir Sakura: estaba en otra aplicación y
     /// preguntó desde ahí. Antes esto traía la ventana entera encima y dejaba la respuesta en la
     /// pestaña de chat, obligando a volver a donde se estaba. Ahora la respuesta va a una píldora de
     /// esquina y la ventana se queda como estaba. La conversación se guarda igual, así que sigue
@@ -5266,7 +5484,7 @@ public partial class MainWindow : Window
         {
             const string unavailableMessage =
                 "La consulta es abierta, pero la IA está desactivada. Puedes elegir OpenAI, Ollama, LM Studio o un servidor compatible en Personalización.";
-            _assistantView.AddKohanaMessage(unavailableMessage);
+            _assistantView.AddSakuraMessage(unavailableMessage);
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "IA desactivada",
@@ -5398,7 +5616,7 @@ public partial class MainWindow : Window
                 : "pensando…";
 
             _assistantView.SetAiActivity(activity);
-            _assistantView.BeginKohanaStreamingMessage(
+            _assistantView.BeginSakuraStreamingMessage(
                 requestMode == AiRequestMode.VisionTechnicalDiagnostic
                     ? "Analizando la evidencia visible…"
                     : "Pensando…");
@@ -5434,7 +5652,7 @@ public partial class MainWindow : Window
                     _assistantView.SetAiActivity("respondiendo…");
                 }
 
-                _assistantView.AppendKohanaStreamingText(chunk);
+                _assistantView.AppendSakuraStreamingText(chunk);
 
                 if (_answerInPill)
                 {
@@ -5442,7 +5660,7 @@ public partial class MainWindow : Window
                 }
             }
 
-            var finalText = _assistantView.CompleteKohanaStreamingMessage();
+            var finalText = _assistantView.CompleteSakuraStreamingMessage();
             streamingStarted = false;
 
             if (_answerInPill)
@@ -5493,10 +5711,10 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelKohanaStreamingMessage();
+                _assistantView.CancelSakuraStreamingMessage();
             }
 
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 $"No pude obtener una respuesta: {exception.Message}");
             _pillFailure = exception.Message;
             _capsuleWindow.ShowMessage(
@@ -5510,12 +5728,12 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelKohanaStreamingMessage();
+                _assistantView.CancelSakuraStreamingMessage();
             }
 
             if (!_isClosed)
             {
-                _assistantView.AddKohanaMessage("La consulta fue cancelada.");
+                _assistantView.AddSakuraMessage("La consulta fue cancelada.");
             }
         }
         catch (Exception exception) when (
@@ -5523,12 +5741,12 @@ public partial class MainWindow : Window
         {
             if (streamingStarted)
             {
-                _assistantView.CancelKohanaStreamingMessage();
+                _assistantView.CancelSakuraStreamingMessage();
             }
 
             const string detail =
-                "La conexión se interrumpió mientras Kohana recibía la respuesta.";
-            _assistantView.AddKohanaMessage($"No pude obtener una respuesta: {detail}");
+                "La conexión se interrumpió mientras Sakura recibía la respuesta.";
+            _assistantView.AddSakuraMessage($"No pude obtener una respuesta: {detail}");
             _pillFailure = detail;
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
@@ -5569,7 +5787,7 @@ public partial class MainWindow : Window
             {
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Warning,
-                    "Kohana Vision desactivado",
+                    "Sakura Vision desactivado",
                     "Actívalo desde Personalización.",
                     _preferences.Position,
                     force: true);
@@ -5703,11 +5921,11 @@ public partial class MainWindow : Window
     {
         if (!_preferences.VisionEnabled)
         {
-            _assistantView.AddKohanaMessage(
-                "Kohana Vision está desactivado. Puedes activarlo en Personalización → Inteligencia artificial.");
+            _assistantView.AddSakuraMessage(
+                "Sakura Vision está desactivado. Puedes activarlo en Personalización → Inteligencia artificial.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Warning,
-                "Kohana Vision desactivado",
+                "Sakura Vision desactivado",
                 "Actívalo desde Personalización.",
                 _preferences.Position);
             return;
@@ -6030,7 +6248,7 @@ public partial class MainWindow : Window
         {
             _pendingVoicePrompt = null;
             _assistantView.AddUserMessage(prompt);
-            _assistantView.AddKohanaMessage("Orden cancelada. No hice ningún cambio.");
+            _assistantView.AddSakuraMessage("Orden cancelada. No hice ningún cambio.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "Orden cancelada",
@@ -6062,7 +6280,7 @@ public partial class MainWindow : Window
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Information,
                 "Preparando voz local",
-                "La primera vez Kohana descarga un modelo multilingüe.",
+                "La primera vez Sakura descarga un modelo multilingüe.",
                 _preferences.Position);
         }
 
@@ -6444,9 +6662,9 @@ public partial class MainWindow : Window
             _pendingVoicePrompt = result.Text;
             var question =
                 $"Escuché “{result.Text}”, pero no estoy totalmente seguro. " +
-                "Di “Kohana, confirmar”, repite la orden o di “Kohana, cancelar”.";
+                "Di “Sakura, confirmar”, repite la orden o di “Sakura, cancelar”.";
 
-            _assistantView.AddKohanaMessage(question);
+            _assistantView.AddSakuraMessage(question);
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Warning,
                 "¿Confirmas la orden?",
@@ -6541,7 +6759,7 @@ public partial class MainWindow : Window
                 {
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Error,
-                        "No pude escuchar Kohana",
+                        "No pude escuchar Sakura",
                         start.Detail,
                         _preferences.Position);
                 }
@@ -6625,7 +6843,7 @@ public partial class MainWindow : Window
             case RoutineCommandType.OpenRoutines:
                 ShowAnimated();
                 NavigateTo("Routines", animate: true);
-                _assistantView.AddKohanaMessage("Abrí el módulo de rutinas.");
+                _assistantView.AddSakuraMessage("Abrí el módulo de rutinas.");
                 return;
 
             case RoutineCommandType.ListRoutines:
@@ -6633,7 +6851,7 @@ public partial class MainWindow : Window
                     .Where(routine => routine.IsEnabled)
                     .Select(routine => $"• {routine.Name}: “{routine.TriggerPhrase}”")
                     .ToArray();
-                _assistantView.AddKohanaMessage(
+                _assistantView.AddSakuraMessage(
                     available.Length == 0
                         ? "No hay rutinas activas."
                         : "Rutinas disponibles:" + Environment.NewLine + string.Join(Environment.NewLine, available));
@@ -6648,7 +6866,7 @@ public partial class MainWindow : Window
                 var routine = _routineManager.FindBestMatch(command.RoutineName);
                 if (routine is null)
                 {
-                    _assistantView.AddKohanaMessage(
+                    _assistantView.AddSakuraMessage(
                         $"No encontré una rutina que coincida con “{command.RoutineName}”.");
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Warning,
@@ -6667,7 +6885,7 @@ public partial class MainWindow : Window
     {
         if (!routine.IsEnabled)
         {
-            _assistantView.AddKohanaMessage($"La rutina {routine.Name} está desactivada.");
+            _assistantView.AddSakuraMessage($"La rutina {routine.Name} está desactivada.");
             return;
         }
 
@@ -6683,13 +6901,13 @@ public partial class MainWindow : Window
                     .Where(step => step.IsEnabled)
                     .Select((step, index) => $"{index + 1}. {DescribeAutomationAction(step)}"));
             var decision = MessageBox.Show(
-                $"Kohana ejecutará estas acciones:" + Environment.NewLine + Environment.NewLine + preview,
+                $"Sakura ejecutará estas acciones:" + Environment.NewLine + Environment.NewLine + preview,
                 $"Ejecutar {routine.Name}",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
             if (decision != MessageBoxResult.Yes)
             {
-                _assistantView.AddKohanaMessage($"Cancelé la rutina {routine.Name}.");
+                _assistantView.AddSakuraMessage($"Cancelé la rutina {routine.Name}.");
                 return;
             }
 
@@ -6711,7 +6929,7 @@ public partial class MainWindow : Window
             // Diseño D3: el runner no conoce el registro de rutinas (no le corresponde); se
             // registra aquí, justo después, con el resultado real de la ejecución.
             _routineManager.RecordExecution(routine.Id, report.CompletedAt, report.Succeeded);
-            _assistantView.AddKohanaMessage(report.BuildSummary());
+            _assistantView.AddSakuraMessage(report.BuildSummary());
             _tasksView.Refresh();
             _focusView.Refresh(DateTimeOffset.Now);
             await _audioView.RefreshAsync(force: true);
@@ -6734,7 +6952,7 @@ public partial class MainWindow : Window
         {
             if (!_isClosed)
             {
-                _assistantView.AddKohanaMessage($"La rutina {routine.Name} fue cancelada.");
+                _assistantView.AddSakuraMessage($"La rutina {routine.Name} fue cancelada.");
             }
         }
     }
@@ -6837,7 +7055,7 @@ public partial class MainWindow : Window
         catch (Exception exception) when (
             exception is COMException or ExternalException)
         {
-            // El portapapeles puede estar bloqueado por otro proceso; no es un fallo de Kohana.
+            // El portapapeles puede estar bloqueado por otro proceso; no es un fallo de Sakura.
         }
     }
 
@@ -6868,8 +7086,8 @@ public partial class MainWindow : Window
         if (context is null || string.IsNullOrWhiteSpace(context.WindowTitle))
         {
             var message = context is { IsSensitive: true }
-                ? "Esa ventana está marcada como sensible; Kohana no expone su título."
-                : "No pude identificar una ventana activa distinta de Kohana.";
+                ? "Esa ventana está marcada como sensible; Sakura no expone su título."
+                : "No pude identificar una ventana activa distinta de Sakura.";
             _ambientRequestManager.Fail(message, DateTimeOffset.Now);
         }
         else
@@ -6890,7 +7108,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Diseño D5.5/D5.6 (Fase 2 — Kohana Lens) — captura la ventana activa, la procesa con OCR y
+    /// Diseño D5.5/D5.6 (Fase 2 — Sakura Lens) — captura la ventana activa, la procesa con OCR y
     /// UI Automation (ambos redactados de contenido sensible antes de usarse en cualquier lugar,
     /// incluida la propia imagen — ver <see cref="SensitiveContentRedactor"/>/<see cref="ImageRedactor"/>),
     /// arma el contexto del modo elegido y pregunta a la IA. El resultado se muestra en el mismo
@@ -6905,7 +7123,7 @@ public partial class MainWindow : Window
         var context = _ambientContextProvider.Capture(_ambientForegroundTracker.LastExternalWindowHandle);
 
         var beginResult = _ambientRequestManager.Begin(
-            $"Kohana Lens — {LensModeLabel(mode)}", context, now);
+            $"Sakura Lens — {LensModeLabel(mode)}", context, now);
         if (!beginResult.Success)
         {
             return CommandExecutionResult.Failure(beginResult.Message);
@@ -6922,8 +7140,8 @@ public partial class MainWindow : Window
             if (context is null || context.IsSensitive || windowHandle == 0)
             {
                 var message = context is { IsSensitive: true }
-                    ? "Esa ventana está marcada como sensible; Kohana Lens no la observa."
-                    : "No pude identificar una ventana activa distinta de Kohana.";
+                    ? "Esa ventana está marcada como sensible; Sakura Lens no la observa."
+                    : "No pude identificar una ventana activa distinta de Sakura.";
                 _ambientRequestManager.Fail(message, DateTimeOffset.Now);
                 return CommandExecutionResult.Success();
             }
@@ -6995,6 +7213,15 @@ public partial class MainWindow : Window
                     CheckAmbientRequest();
                 }
             }
+            catch (OperationCanceledException) when (!_lifetimeCancellation.IsCancellationRequested)
+            {
+                // Diseño D63 — el corte de noventa segundos del cliente de IA llega hasta aquí como
+                // cancelación, y no es la nuestra: Sakura no se está cerrando. Excluirla dejaba la
+                // solicitud en "Pensando…" para siempre, que es el fallo que Adler reportó. Cuando
+                // sí es nuestro cierre la excepción sigue subiendo, porque entonces no hay nada
+                // que enseñarle a nadie.
+                streamFailure = "La respuesta tardó demasiado y Sakura dejó de esperarla.";
+            }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 streamFailure = exception.Message;
@@ -7024,11 +7251,19 @@ public partial class MainWindow : Window
                 }
             }
         }
+        catch (OperationCanceledException) when (!_lifetimeCancellation.IsCancellationRequested)
+        {
+            // Diseño D63 — lo mismo que arriba, para la parte de antes del streaming: capturar,
+            // OCR y UI Automation también pueden acabar en una cancelación que no es el cierre de
+            // Sakura, y dejarla pasar volvía a colgar la píldora.
+            _ambientRequestManager.Fail(
+                "La respuesta tardó demasiado y Sakura dejó de esperarla.", DateTimeOffset.Now);
+        }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             // Sin esto, cualquier falla en captura/OCR/UI Automation/redacción (todo lo que pasa
             // ANTES del try/catch de streaming de más abajo) dejaba la solicitud ambiental
-            // atascada en "Pensando" para siempre, porque KohanaCommandDescriptor.ExecuteAsync
+            // atascada en "Pensando" para siempre, porque SakuraCommandDescriptor.ExecuteAsync
             // atrapa la excepción a un nivel que no conoce el AmbientRequestManager. Reportado por
             // Adler: Lens en modo estudio se quedaba en "Pensando…" sin salir nunca de ahí.
             _ambientRequestManager.Fail(
@@ -7072,7 +7307,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Diseño D6.3 (Fase 3 — Kohana Flow) — el atajo global funciona como interruptor: una pulsación
+    /// Diseño D6.3 (Fase 3 — Sakura Flow) — el atajo global funciona como interruptor: una pulsación
     /// empieza a dictar, la siguiente termina y escribe.
     ///
     /// No es "mantener presionado" por una razón concreta: <c>RegisterHotKey</c> solo avisa de la
@@ -7084,7 +7319,7 @@ public partial class MainWindow : Window
     /// Asistente también es un interruptor, así que esto es consistente con lo que ya había.
     /// </summary>
     /// <summary>
-    /// Diseño D7 — aplica el atajo global sin reiniciar Kohana: al activarlo desde Ajustes se
+    /// Diseño D7 — aplica el atajo global sin reiniciar Sakura: al activarlo desde Ajustes se
     /// registra en el momento, y al desactivarlo se libera para que otra aplicación pueda usar la
     /// combinación. Registrar dos veces el mismo id es inofensivo (Windows lo rechaza y se ignora),
     /// así que se desregistra siempre antes.
@@ -7102,7 +7337,7 @@ public partial class MainWindow : Window
         if (_preferences.FlowEnabled &&
             !RegisterHotKey(windowHandle, FlowHotkeyId, ModControl | ModShift, VirtualKeyD))
         {
-            _assistantView.AddKohanaMessage(
+            _assistantView.AddSakuraMessage(
                 "Ctrl + Shift + D ya está siendo utilizado por otra aplicación; el dictado global no quedó disponible.");
         }
     }
@@ -7180,7 +7415,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// Diseño D6.3 — rama propia para el dictado: NO pasa por
     /// <c>HandleVoiceRecognitionResultAsync</c> ni por <c>ProcessPromptAsync</c>. Lo dictado es
-    /// texto que la persona quiere escribir en otra aplicación, no una orden para Kohana; mezclarlo
+    /// texto que la persona quiere escribir en otra aplicación, no una orden para Sakura; mezclarlo
     /// con el camino de comandos haría, por ejemplo, que dictar "abre Spotify" dentro de un correo
     /// abriera Spotify en vez de escribir esas palabras.
     /// </summary>
@@ -7348,7 +7583,7 @@ public partial class MainWindow : Window
         }
 
         _focusView.Refresh(DateTimeOffset.Now);
-        _assistantView.AddKohanaMessage(response);
+        _assistantView.AddSakuraMessage(response);
         _capsuleWindow.ShowMessage(
             capsuleKind,
             capsuleTitle,
@@ -7484,7 +7719,7 @@ public partial class MainWindow : Window
                 break;
         }
 
-        _assistantView.AddKohanaMessage(response);
+        _assistantView.AddSakuraMessage(response);
         _capsuleWindow.ShowMessage(
             capsuleKind,
             capsuleTitle,
@@ -7501,7 +7736,7 @@ public partial class MainWindow : Window
             case LocalCommandType.ShowPeek:
                 if (!_preferences.PeekEnabled)
                 {
-                    _assistantView.AddKohanaMessage("La vista Peek está desactivada en Personalización.");
+                    _assistantView.AddSakuraMessage("La vista Peek está desactivada en Personalización.");
                     _capsuleWindow.ShowMessage(
                         CapsuleKind.Warning,
                         "Peek está desactivado",
@@ -7580,7 +7815,7 @@ public partial class MainWindow : Window
                 break;
 
             default:
-                _assistantView.AddKohanaMessage("No pude ejecutar esa orden local todavía.");
+                _assistantView.AddSakuraMessage("No pude ejecutar esa orden local todavía.");
                 _capsuleWindow.ShowMessage(
                     CapsuleKind.Warning,
                     "Comando no disponible",
@@ -7598,7 +7833,7 @@ public partial class MainWindow : Window
             culture);
         var response = $"Hoy es {date}.";
 
-        _assistantView.AddKohanaMessage(response);
+        _assistantView.AddSakuraMessage(response);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Fecha actual",
@@ -7612,7 +7847,7 @@ public partial class MainWindow : Window
         var time = DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture);
         var response = $"Son las {time}.";
 
-        _assistantView.AddKohanaMessage(response);
+        _assistantView.AddSakuraMessage(response);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Hora actual",
@@ -7639,7 +7874,7 @@ public partial class MainWindow : Window
             $"GPU {FormatPercentage(_latestSnapshot.GpuUsagePercent)}. " +
             $"Mayor uso de memoria: {topProcess}.";
 
-        _assistantView.AddKohanaMessage(summary);
+        _assistantView.AddSakuraMessage(summary);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Success,
             "Estado del equipo listo",
@@ -7683,7 +7918,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _assistantView.AddKohanaMessage($"Abrí {displayName}.");
+        _assistantView.AddSakuraMessage($"Abrí {displayName}.");
         ShowCommandSuccess($"{displayName} abierto", "La carpeta se abrió localmente.");
     }
 
@@ -7718,7 +7953,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _assistantView.AddKohanaMessage($"Abrí {displayName}.");
+        _assistantView.AddSakuraMessage($"Abrí {displayName}.");
         ShowCommandSuccess($"{displayName} abierto", "La acción se ejecutó localmente.");
     }
 
@@ -7773,7 +8008,7 @@ public partial class MainWindow : Window
 
     private void ShowLocalLaunchFailure(string displayName)
     {
-        _assistantView.AddKohanaMessage($"No pude abrir {displayName}.");
+        _assistantView.AddSakuraMessage($"No pude abrir {displayName}.");
         _capsuleWindow.ShowMessage(
             CapsuleKind.Error,
             "No se pudo abrir",
@@ -7794,12 +8029,12 @@ public partial class MainWindow : Window
                 UseShellExecute = true
             });
 
-            _assistantView.AddKohanaMessage($"{confirmation} en {userFolder}.");
+            _assistantView.AddSakuraMessage($"{confirmation} en {userFolder}.");
             ShowCommandSuccess(confirmation, userFolder);
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            _assistantView.AddKohanaMessage($"No pude abrir {fileName}.");
+            _assistantView.AddSakuraMessage($"No pude abrir {fileName}.");
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Error,
                 "No se pudo abrir",
@@ -7858,7 +8093,7 @@ public partial class MainWindow : Window
     {
         if (addToConversation)
         {
-            _assistantView.AddKohanaMessage(result.Detail);
+            _assistantView.AddSakuraMessage(result.Detail);
         }
 
         var capsuleKind = result.Status switch
@@ -8104,10 +8339,10 @@ public partial class MainWindow : Window
             "Focus" => ("Enfoque", "Sesiones cortas sin perder el ritmo"),
             "Routines" => ("Rutinas", "Acciones repetibles, claras y controladas"),
             "Audio" => ("Audio", "Control local por aplicación"),
-            "Capture" => ("Captura", "Selecciona qué puede ver Kohana"),
+            "Capture" => ("Captura", "Selecciona qué puede ver Sakura"),
             "System" => ("Sistema", "Estado y diagnóstico del equipo"),
             "Settings" => ("Personalizar", "Apariencia, privacidad y comportamiento"),
-            _ => ("Kohana", "Tu espacio de acciones y contexto")
+            _ => ("Sakura", "Tu espacio de acciones y contexto")
         };
 
         WorkspaceTitleText.Text = title;
@@ -8145,9 +8380,9 @@ public partial class MainWindow : Window
         Width = _preferences.Width;
 
         // Un único punto donde el vocabulario de movimiento aprende si puede animar. Respeta tanto
-        // la preferencia de Kohana como la de Windows (Accesibilidad → Efectos visuales): quien
+        // la preferencia de Sakura como la de Windows (Accesibilidad → Efectos visuales): quien
         // apagó las animaciones del sistema no debería tener que apagarlas otra vez aquí.
-        KohanaMotion.AnimationsEnabled = ShellAnimationsAllowed;
+        SakuraMotion.AnimationsEnabled = ShellAnimationsAllowed;
 
         _edgeRevealWatcher.Configure(_preferences.EdgeRevealEnabled, _preferences.Position);
         _quickControlsWatcher.Configure(
@@ -8194,26 +8429,53 @@ public partial class MainWindow : Window
         // ahora: si se midiera contra el actual, el tema ya teñido movería el listón y el resultado
         // dependería de qué tema estaba puesto antes.
         return AccentPicker
-            .Pick(WallpaperPalette.Quantize(pixels), KohanaThemeBuilder.AccentReferenceSurface)
+            .Pick(WallpaperPalette.Quantize(pixels), SakuraThemeBuilder.AccentReferenceSurface)
             ?.ToHex();
+    }
+
+    /// <summary>
+    /// Diseño D62 — le pide a DWM el fondo, las esquinas y la sombra de la ventana. El cómo está
+    /// en <see cref="SakuraWindowChrome"/>, que es el mismo camino que siguen los paneles: tener
+    /// dos copias de estos tres pasos era garantizar que una se quedara a medias.
+    /// </summary>
+    private void ApplySystemBackdrop(IntPtr windowHandle)
+    {
+        _ = windowHandle;
+
+        // Las ventanas sueltas no conocen las preferencias, así que el shell publica el modo por
+        // ellas: el modo eco tiene que valer para todas o para ninguna.
+        SakuraWindowChrome.PerformanceMode = _preferences.HardwarePerformanceMode;
+
+        _backdropDecision = SakuraWindowChrome.Apply(
+            this,
+            ShellSurface,
+            "BrushBackground",
+            _preferences.Opacity);
     }
 
     private void ApplyShellOpacity()
     {
-        // Diseño D1: usa el color de fondo real del tema (BrushBackground) en vez de un
-        // literal hexadecimal casi-duplicado, para que el shell siga una única fuente de
-        // verdad de color. El comportamiento (opacidad configurable del shell) no cambia.
-        var baseColor = ((SolidColorBrush)FindResource("BrushBackground")).Color;
-        var alpha = (byte)Math.Round(_preferences.Opacity * 255);
-        ShellBorder.Background = new SolidColorBrush(Color.FromArgb(
-            alpha,
-            baseColor.R,
-            baseColor.G,
-            baseColor.B));
+        // Diseño D62 — la opacidad elegida solo significa algo si detrás hay un fondo del sistema
+        // que se pueda ver a través de ella. Sin acrílico ni Mica lo único que hay detrás es el
+        // escritorio sin desenfocar, y una superficie a medias se leería peor que una sólida.
+        //
+        // Antes esto se aplicaba al Grid contenedor, que quedaba tapado por un borde opaco encima:
+        // el deslizador existía y no cambiaba nada.
+        if (_backdropDecision is not { } decision)
+        {
+            return;
+        }
+
+        SakuraWindowChrome.PaintSurface(
+            this,
+            ShellSurface,
+            "BrushBackground",
+            _preferences.Opacity,
+            decision);
     }
 
     /// <summary>
-    /// Diseño D31 — todo el cálculo del tema vive en <see cref="KohanaThemeBuilder"/>, en Nexo.Core.
+    /// Diseño D31 — todo el cálculo del tema vive en <see cref="SakuraThemeBuilder"/>, en Nexo.Core.
     /// Aquí solo queda convertir a brochas de WPF y publicarlas. La razón de moverlo es que el
     /// acento ya no siempre lo elegimos nosotros: cuando sale del fondo de escritorio, lo pone una
     /// foto que nadie revisó, y la garantía de que el texto se siga leyendo encima tiene que poder
@@ -8231,7 +8493,7 @@ public partial class MainWindow : Window
             accent = RgbColor.FromHex("#8B6CFF");
         }
 
-        var theme = KohanaThemeBuilder.FromAccent(accent);
+        var theme = SakuraThemeBuilder.FromAccent(accent);
         var resources = Application.Current.Resources;
 
         resources["BrushAccent"] = ToBrush(theme.Accent);
@@ -8425,7 +8687,7 @@ public partial class MainWindow : Window
         }
         catch (Exception)
         {
-            // La detección de hardware es informativa: un fallo nunca debe afectar el resto de Kohana.
+            // La detección de hardware es informativa: un fallo nunca debe afectar el resto de Sakura.
             if (!_isClosed)
             {
                 _systemView.UpdateHardwareCapability(_hardwareCapabilityService.GetCachedProfile());
@@ -8576,11 +8838,11 @@ public partial class MainWindow : Window
         bool fromVoice)
     {
         var title = decision.Mode == ResourceMode.Game
-            ? "Kohana está en Modo Juego"
+            ? "Sakura está en Modo Juego"
             : "El equipo está ocupado";
         var message = $"{detail} {decision.Reason}";
 
-        _assistantView.AddKohanaMessage(message);
+        _assistantView.AddSakuraMessage(message);
         _capsuleWindow.ShowMessage(
             CapsuleKind.Warning,
             title,
@@ -8681,7 +8943,7 @@ public partial class MainWindow : Window
         {
             // Con tope de tiempo. Un reproductor que deja de responder no devuelve nunca sus
             // propiedades, y sin este corte esa espera se quedaría dentro del ciclo de métricas:
-            // el semáforo de refresco no se soltaría y Kohana dejaría de leer el equipo entero por
+            // el semáforo de refresco no se soltaría y Sakura dejaría de leer el equipo entero por
             // culpa de una canción.
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             var media = await _mediaSessionReader.ReadAsync(timeout.Token);
@@ -8696,7 +8958,7 @@ public partial class MainWindow : Window
         }
         catch (Exception)
         {
-            // Lo que suena es informativo, igual que las métricas: nunca puede cerrar Kohana.
+            // Lo que suena es informativo, igual que las métricas: nunca puede cerrar Sakura.
         }
     }
 
@@ -8717,7 +8979,7 @@ public partial class MainWindow : Window
     {
         if (!_preferences.PeekEnabled)
         {
-            _assistantView.AddKohanaMessage("La vista Peek está desactivada en Personalización.");
+            _assistantView.AddSakuraMessage("La vista Peek está desactivada en Personalización.");
             return;
         }
 
@@ -8738,11 +9000,11 @@ public partial class MainWindow : Window
         }
         catch (IOException)
         {
-            _assistantView.AddKohanaMessage("No se pudo guardar la configuración en este momento.");
+            _assistantView.AddSakuraMessage("No se pudo guardar la configuración en este momento.");
         }
         catch (UnauthorizedAccessException)
         {
-            _assistantView.AddKohanaMessage("Windows no permitió guardar la configuración.");
+            _assistantView.AddSakuraMessage("Windows no permitió guardar la configuración.");
         }
     }
 
@@ -8791,7 +9053,7 @@ public partial class MainWindow : Window
 
         _trayHintShown = true;
         _trayIcon.Notify(
-            "Kohana sigue activo",
+            "Sakura sigue activo",
             "Ábrelo con Alt + A o desde el icono de la bandeja.",
             TrayNotificationKind.Information,
             _preferences.ShowWindowsNotifications,

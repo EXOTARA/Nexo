@@ -11,7 +11,7 @@ namespace Nexo.Core.Documents;
 ///
 /// Un .docx es un ZIP con XML dentro (OOXML), así que se construye con lo que ya trae .NET. Se
 /// descartó automatizar Word por COM, que era la vía obvia: exige tener Word, deja procesos
-/// colgados cuando algo falla a medias, y falla de formas distintas según la versión. Kohana tiene
+/// colgados cuando algo falla a medias, y falla de formas distintas según la versión. Sakura tiene
 /// que poder dejarte el documento aunque no tengas Office — y si lo tienes, se abre igual.
 ///
 /// El contenido entra como los mismos apartados con los que se enseña la respuesta en el chat

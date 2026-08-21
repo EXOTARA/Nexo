@@ -56,20 +56,19 @@ jobs:
             artifacts/installer/*.sha256
           if-no-files-found: error
 
-      - name: Crear GitHub Release
+      # Diseño D67 — publicar en la release exista o no.
+      #
+      # Hasta aquí este paso solo sabía CREARLA, y la release ya existe cuando llega: se crea al
+      # publicar la versión, antes de que el flujo termine. gh respondía "a release with the same
+      # tag name already exists", el paso fallaba, y con él se perdían los artefactos que este
+      # trabajo acababa de construir. Las cinco últimas versiones se publicaron así: **con el zip
+      # portable y sin instalador**, porque el instalador solo lo arma este flujo.
+      - name: Publicar artefactos en la release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $arguments = @(
-            "release", "create", "${{ github.ref_name }}",
-            "--title", "Kohana ${{ steps.version.outputs.value }}",
-            "--generate-notes"
-          )
-
-          if ("${{ steps.version.outputs.prerelease }}" -eq "True") {
-            $arguments += "--prerelease"
-          }
+          $tag = "${{ github.ref_name }}"
 
           $assets = Get-ChildItem `
             artifacts\dist\*.zip,
@@ -78,4 +77,31 @@ jobs:
             artifacts\installer\*.sha256 |
             ForEach-Object { $_.FullName }
 
-          & gh @arguments @assets
+          # Sin instalador no hay publicación: es la mitad de lo que este trabajo existe para hacer,
+          # y su ausencia pasó semanas sin que nadie lo notara.
+          if (-not ($assets | Where-Object { $_ -like "*Setup.exe" })) {
+            throw "No se construyó ningún instalador; no se publica nada."
+          }
+
+          gh release view $tag --json tagName 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "==> La release $tag ya existe; se le añaden los artefactos."
+            & gh release upload $tag --clobber @assets
+          }
+          else {
+            $arguments = @(
+              "release", "create", $tag,
+              "--title", "Kohana ${{ steps.version.outputs.value }}",
+              "--generate-notes"
+            )
+
+            if ("${{ steps.version.outputs.prerelease }}" -eq "True") {
+              $arguments += "--prerelease"
+            }
+
+            & gh @arguments @assets
+          }
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "No se pudieron publicar los artefactos en $tag."
+          }

@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:motion="clr-namespace:Nexo.App.Motion">
     <!--
-        Kohana Design System — Motion 1.0.
+        Sakura Design System — Motion 1.0.
 
         Fundación 0.1 dejaba cuatro duraciones y tres curvas genéricas de WPF. Esta versión define
         un vocabulario completo: cada movimiento de la aplicación elige una duración con nombre y

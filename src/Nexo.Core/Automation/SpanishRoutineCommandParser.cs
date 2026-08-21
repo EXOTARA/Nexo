@@ -60,7 +60,7 @@ public sealed partial class SpanishRoutineCommandParser
         return RoutineCommand.None(original);
     }
 
-    [GeneratedRegex(@"^(?:(?:oye|hey)\s+)?(?:kohana|nexo|exo)\s+")]
+    [GeneratedRegex(@"^(?:(?:oye|hey)\s+)?(?:sakura|kohana|nexo|exo)\s+")]
     private static partial Regex WakeWordRegex();
 
     [GeneratedRegex(@"^(?:abre|muestra|ve\s+a)\s+(?:mis\s+|las\s+)?rutinas$")]

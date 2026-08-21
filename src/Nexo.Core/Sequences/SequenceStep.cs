@@ -11,7 +11,7 @@ public sealed record SequenceStepResult(bool Success, string Detail)
 /// Diseño D24 (nivel 5) — un paso de una secuencia.
 ///
 /// <see cref="CanRevert"/> no es informativo: el modelo de confianza exige que, si algo falla a
-/// mitad, Kohana pueda *"ofrecer revertir lo ya aplicado usando el snapshot previo"*. Un paso que no
+/// mitad, Sakura pueda *"ofrecer revertir lo ya aplicado usando el snapshot previo"*. Un paso que no
 /// sabe volver atrás convierte esa promesa en imposible para toda la secuencia que venga después, y
 /// eso hay que decirlo antes de empezar, no descubrirlo al fallar.
 ///

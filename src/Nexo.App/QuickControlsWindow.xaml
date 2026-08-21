@@ -47,7 +47,9 @@
             <TranslateTransform x:Name="PanelTranslate" X="0" />
         </Grid.RenderTransform>
 
-        <Border CornerRadius="30"
+        <!-- Diseño D69 — metido hacia dentro para que no asome por las esquinas. -->
+        <Border Margin="2"
+                CornerRadius="30"
                 Background="{DynamicResource BrushSidebarSurface}"
                 CacheMode="BitmapCache">
             <Border.Effect>

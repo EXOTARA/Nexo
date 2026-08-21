@@ -17,7 +17,7 @@ public enum UpdateVerdict
 }
 
 /// <summary>Qué hacer con lo que se ha encontrado.</summary>
-public readonly record struct UpdateDecision(UpdateVerdict Verdict, KohanaVersion Version)
+public readonly record struct UpdateDecision(UpdateVerdict Verdict, SakuraVersion Version)
 {
     public bool ShouldOffer => Verdict == UpdateVerdict.Available;
 }
@@ -46,7 +46,7 @@ public static class UpdateCheckPolicy
     /// <summary>
     /// Cuánto se espera entre comprobaciones.
     ///
-    /// Un día es suficiente: las versiones de Kohana no salen por horas, y comprobar más a menudo
+    /// Un día es suficiente: las versiones de Sakura no salen por horas, y comprobar más a menudo
     /// solo añade tráfico que nadie nota salvo cuando falla.
     /// </summary>
     public static readonly TimeSpan MinimumInterval = TimeSpan.FromHours(24);
@@ -77,9 +77,9 @@ public static class UpdateCheckPolicy
     /// corre una beta ya dijo que las quiere, y quien corre una final también dijo lo suyo.
     /// </summary>
     public static UpdateDecision Evaluate(
-        KohanaVersion current,
-        KohanaVersion available,
-        KohanaVersion? skipped,
+        SakuraVersion current,
+        SakuraVersion available,
+        SakuraVersion? skipped,
         bool wantsPreReleases)
     {
         if (available <= current)
@@ -109,5 +109,5 @@ public static class UpdateCheckPolicy
     /// versiones preliminares?»— es un ajuste que se deja como venga y luego sorprende. Lo que ya
     /// tienes puesto dice lo mismo sin preguntar nada.
     /// </summary>
-    public static bool AcceptsPreReleases(KohanaVersion current) => current.IsPreRelease;
+    public static bool AcceptsPreReleases(SakuraVersion current) => current.IsPreRelease;
 }

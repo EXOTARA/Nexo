@@ -46,7 +46,7 @@ public static class DailyFlowSummaryBuilder
             < 19 => "Buenas tardes",
             _ => "Buenas noches"
         };
-        var greetingDetail = $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Kohana está listo";
+        var greetingDetail = $"{localNow.ToString("dddd, d 'de' MMMM", culture)} · Sakura está listo";
 
         var (taskValue, taskDetail) = BuildTaskSummary(taskManager, now, localNow);
         var (focusValue, focusDetail, focusHasSession, focusIsPaused) =
@@ -58,7 +58,7 @@ public static class DailyFlowSummaryBuilder
             : "Lista para analizar";
         var contextDetail = hasRememberedExternalWindow
             ? "Pulsa aquí para capturarla con tu autorización."
-            : "Abre una ventana y Kohana podrá verla cuando lo pidas.";
+            : "Abre una ventana y Sakura podrá verla cuando lo pidas.";
 
         return new HomeDashboardViewModel(
             greeting,

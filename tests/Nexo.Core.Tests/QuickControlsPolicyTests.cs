@@ -9,17 +9,17 @@ public sealed class QuickControlsPolicyTests
     [Theory]
     [InlineData(SidebarPosition.Right, SidebarPosition.Left)]
     [InlineData(SidebarPosition.Left, SidebarPosition.Right)]
-    public void TheControlsLiveOnTheEdgeOppositeToKohana(
+    public void TheControlsLiveOnTheEdgeOppositeToSakura(
         SidebarPosition kohana,
         SidebarPosition expected)
     {
-        // Si compartieran borde, el mismo gesto tendría que decidir entre abrir Kohana y abrir los
+        // Si compartieran borde, el mismo gesto tendría que decidir entre abrir Sakura y abrir los
         // mandos. En bordes opuestos no compiten y no hay nada que recordar.
         Assert.Equal(expected, QuickControlsPolicy.ControlsEdgeFor(kohana));
     }
 
     [Fact]
-    public void MovingKohanaMovesTheControlsWithIt()
+    public void MovingSakuraMovesTheControlsWithIt()
     {
         var left = QuickControlsPolicy.ControlsEdgeFor(SidebarPosition.Left);
         var right = QuickControlsPolicy.ControlsEdgeFor(SidebarPosition.Right);

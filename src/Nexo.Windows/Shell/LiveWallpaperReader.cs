@@ -14,7 +14,7 @@ public static class LiveWallpaperReader
     /// <summary>
     /// Los procesos de Wallpaper Engine. Que esté instalado no basta: su <c>config.json</c> conserva
     /// el último fondo elegido aunque el programa esté cerrado, y entonces Windows vuelve a mostrar
-    /// su propio fondo. Sin esta comprobación Kohana se pintaba con el color de un fondo que nadie
+    /// su propio fondo. Sin esta comprobación Sakura se pintaba con el color de un fondo que nadie
     /// estaba viendo — se detectó en pantalla, con el programa cerrado y el tema equivocado puesto.
     /// </summary>
     private static readonly string[] ProcessNames = ["wallpaper32", "wallpaper64"];
