@@ -6636,12 +6636,10 @@ public partial class MainWindow : Window
             _assistantView.SetVoiceState(
                 AssistantVoiceState.Listening,
                 $"{e.Phrase.ToSpokenText()} detectado. Habla con calma; no cortaré las pausas breves.");
+            // Diseño D74 — el halo sustituye a la cápsula "Te escucho". Salían las dos a la vez,
+            // una arriba y otra abajo, diciendo lo mismo con distinta voz. El halo lo dice mejor:
+            // no solo avisa de que escucha, sino de que te está oyendo a ti.
             ShowVoiceHalo();
-            _capsuleWindow.ShowMessage(
-                CapsuleKind.Processing,
-                "Te escucho",
-                "Habla con naturalidad. Terminaré después de 1.5 segundos de silencio.",
-                _preferences.Position);
 
             var result = await voiceScope.ListenForUtteranceAsync(
                 maximumDuration: TimeSpan.FromSeconds(20),
@@ -6692,6 +6690,15 @@ public partial class MainWindow : Window
 
     private async Task HandleVoiceRecognitionResultAsync(VoiceRecognitionResult result)
     {
+        // Diseño D74 — decir "nada" cierra la escucha sin hacer nada. Es lo que uno le diría a una
+        // persona al arrepentirse a mitad de frase, y hasta ahora la única salida era esperar el
+        // silencio y arriesgarse a que Sakura entendiera algo.
+        if (result.IsRecognized && VoiceDismissalPolicy.IsDismissal(result.Text))
+        {
+            _assistantView.SetVoiceState(AssistantVoiceState.Idle, "Listo, no hago nada.");
+            return;
+        }
+
         if (!result.IsRecognized)
         {
             _assistantView.SetVoiceState(AssistantVoiceState.Error, result.Detail);
