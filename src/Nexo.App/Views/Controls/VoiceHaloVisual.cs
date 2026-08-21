@@ -28,19 +28,17 @@ public sealed class VoiceHaloVisual : FrameworkElement
     private const double MarkGrowth = 0.14;
 
     /// <summary>
-    /// Diseño D73 — la marca gira despacio mientras el halo está encendido, y un poco más deprisa
-    /// cuando hay voz.
+    /// Diseño D73 — la marca va ladeada, quieta.
     ///
-    /// Es el mismo recurso que ya usa la carátula del reproductor: allí la máscara de pétalos gira
-    /// y la fotografía no. Un giro lento es lo que separa "hay un dibujo en la pantalla" de "esto
-    /// está vivo y esperando", y a esta velocidad no marea ni pide atención.
+    /// La primera versión la hacía girar despacio y Adler lo corrigió: pedía inclinarla un poco, no
+    /// ponerla a dar vueltas. Tenía razón — un giro continuo en mitad de la pantalla pide atención
+    /// todo el rato, y lo que tiene que llamar la atención aquí son los anillos, que sí responden a
+    /// algo. Una inclinación fija hace lo que él quería: quita la simetría perfecta, que es lo que
+    /// hacía que la flor pareciera pegada en vez de posada.
     /// </summary>
-    private const double IdleDegreesPerSecond = 7;
-
-    private const double VoiceDegreesPerSecond = 16;
+    private const double MarkTilt = 14;
 
     private readonly VoiceHaloPolicy _halo = new();
-    private double _angle;
     private Geometry? _mark;
     private Brush _markBrush = Brushes.Transparent;
     private Color _ringColor = Colors.White;
@@ -79,10 +77,6 @@ public sealed class VoiceHaloVisual : FrameworkElement
     public void Advance(TimeSpan elapsed)
     {
         _halo.Advance(RawLevel, elapsed);
-
-        var speed = IdleDegreesPerSecond + ((VoiceDegreesPerSecond - IdleDegreesPerSecond) * _halo.Level);
-        _angle = (_angle + (speed * elapsed.TotalSeconds)) % 360;
-
         InvalidateVisual();
     }
 
@@ -90,7 +84,6 @@ public sealed class VoiceHaloVisual : FrameworkElement
     {
         _halo.Reset();
         RawLevel = 0;
-        _angle = 0;
         InvalidateVisual();
     }
 
@@ -143,9 +136,9 @@ public sealed class VoiceHaloVisual : FrameworkElement
         var scale = 1 + (MarkGrowth * Math.Clamp(_halo.Level, 0, 1));
         var markSide = inner * 1.9 * scale;
 
-        // El giro va alrededor del centro de la marca, no del origen del control: rotar sobre la
-        // esquina la mandaría de paseo por la pantalla.
-        drawingContext.PushTransform(new RotateTransform(_angle, centre.X, centre.Y));
+        // La inclinación va alrededor del centro de la marca, no del origen del control: rotar
+        // sobre la esquina la mandaría de paseo por la pantalla.
+        drawingContext.PushTransform(new RotateTransform(MarkTilt, centre.X, centre.Y));
         drawingContext.PushTransform(new TranslateTransform(
             centre.X - (markSide / 2),
             centre.Y - (markSide / 2)));

@@ -30,6 +30,9 @@ public partial class VoiceHaloWindow : Window
     /// <summary>Lo que sube al entrar. Corto: un recorrido largo se lee como lentitud.</summary>
     private const double RiseDistance = 34;
 
+    /// <summary>Separación con el borde inferior del área de trabajo.</summary>
+    private const double BottomMargin = 28;
+
     private readonly VoiceHaloVisual _visual = new();
     private TimeSpan _lastFrame;
     private bool _running;
@@ -164,7 +167,11 @@ public partial class VoiceHaloWindow : Window
     {
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Left + ((workArea.Width - Width) / 2);
-        Top = workArea.Top + (workArea.Height * 0.66);
+
+        // Diseño D73 — abajo del todo, con un margen igual al que deja cualquier notificación del
+        // sistema. Estaba a dos tercios de la altura y Adler lo bajó: ahí en medio compite con lo
+        // que estés leyendo, y pegado al borde inferior se lee como lo que es, un aviso.
+        Top = workArea.Bottom - Height - BottomMargin;
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
