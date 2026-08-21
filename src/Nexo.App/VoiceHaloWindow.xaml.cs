@@ -27,6 +27,9 @@ public partial class VoiceHaloWindow : Window
     private const int WsExToolWindow = 0x00000080;
     private const int WsExTransparent = 0x00000020;
 
+    /// <summary>Lo que sube al entrar. Corto: un recorrido largo se lee como lentitud.</summary>
+    private const double RiseDistance = 34;
+
     private readonly VoiceHaloVisual _visual = new();
     private TimeSpan _lastFrame;
     private bool _running;
@@ -61,9 +64,23 @@ public partial class VoiceHaloWindow : Window
         PositionOverWorkArea();
 
         Show();
+
+        // Diseño D73 — entra subiendo. Que aparezca desde abajo dice de dónde viene: del borde
+        // donde vive el sistema, no de la nada en mitad de la pantalla. Es el mismo gesto con el
+        // que entran las notificaciones de Windows y el que la referencia usa para el cajón, solo
+        // que al revés.
         HaloRoot.BeginAnimation(OpacityProperty, null);
+        HaloRise.BeginAnimation(TranslateTransform.YProperty, null);
         HaloRoot.Opacity = 0;
+        HaloRise.Y = RiseDistance;
+
         HaloRoot.Animate(OpacityProperty, 1, SakuraMotion.Reveal, SakuraMotion.DecelerateCurve);
+        SakuraMotion.AnimateTransform(
+            HaloRise,
+            TranslateTransform.YProperty,
+            0,
+            SakuraMotion.Reveal,
+            SakuraMotion.DecelerateCurve);
 
         _lastFrame = TimeSpan.Zero;
         CompositionTarget.Rendering += OnRendering;
@@ -89,6 +106,14 @@ public partial class VoiceHaloWindow : Window
             Finish();
             return;
         }
+
+        // Y se va por donde vino, con la salida más corta que la entrada.
+        SakuraMotion.AnimateTransform(
+            HaloRise,
+            TranslateTransform.YProperty,
+            RiseDistance * 0.6,
+            SakuraMotion.Exit,
+            SakuraMotion.AccelerateCurve);
 
         var fade = SakuraMotion.CreateAnimation(0, SakuraMotion.Exit, SakuraMotion.AccelerateCurve);
         fade.Completed += (_, _) => Finish();
@@ -139,7 +164,7 @@ public partial class VoiceHaloWindow : Window
     {
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Left + ((workArea.Width - Width) / 2);
-        Top = workArea.Top + (workArea.Height * 0.62);
+        Top = workArea.Top + (workArea.Height * 0.66);
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)

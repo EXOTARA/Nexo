@@ -27,7 +27,20 @@ public sealed class VoiceHaloVisual : FrameworkElement
     /// <summary>Lo que crece la marca entre el silencio y el máximo.</summary>
     private const double MarkGrowth = 0.14;
 
+    /// <summary>
+    /// Diseño D73 — la marca gira despacio mientras el halo está encendido, y un poco más deprisa
+    /// cuando hay voz.
+    ///
+    /// Es el mismo recurso que ya usa la carátula del reproductor: allí la máscara de pétalos gira
+    /// y la fotografía no. Un giro lento es lo que separa "hay un dibujo en la pantalla" de "esto
+    /// está vivo y esperando", y a esta velocidad no marea ni pide atención.
+    /// </summary>
+    private const double IdleDegreesPerSecond = 7;
+
+    private const double VoiceDegreesPerSecond = 16;
+
     private readonly VoiceHaloPolicy _halo = new();
+    private double _angle;
     private Geometry? _mark;
     private Brush _markBrush = Brushes.Transparent;
     private Color _ringColor = Colors.White;
@@ -66,6 +79,10 @@ public sealed class VoiceHaloVisual : FrameworkElement
     public void Advance(TimeSpan elapsed)
     {
         _halo.Advance(RawLevel, elapsed);
+
+        var speed = IdleDegreesPerSecond + ((VoiceDegreesPerSecond - IdleDegreesPerSecond) * _halo.Level);
+        _angle = (_angle + (speed * elapsed.TotalSeconds)) % 360;
+
         InvalidateVisual();
     }
 
@@ -73,6 +90,7 @@ public sealed class VoiceHaloVisual : FrameworkElement
     {
         _halo.Reset();
         RawLevel = 0;
+        _angle = 0;
         InvalidateVisual();
     }
 
@@ -125,6 +143,9 @@ public sealed class VoiceHaloVisual : FrameworkElement
         var scale = 1 + (MarkGrowth * Math.Clamp(_halo.Level, 0, 1));
         var markSide = inner * 1.9 * scale;
 
+        // El giro va alrededor del centro de la marca, no del origen del control: rotar sobre la
+        // esquina la mandaría de paseo por la pantalla.
+        drawingContext.PushTransform(new RotateTransform(_angle, centre.X, centre.Y));
         drawingContext.PushTransform(new TranslateTransform(
             centre.X - (markSide / 2),
             centre.Y - (markSide / 2)));
@@ -135,6 +156,7 @@ public sealed class VoiceHaloVisual : FrameworkElement
 
         drawingContext.DrawGeometry(_markBrush, null, _mark);
 
+        drawingContext.Pop();
         drawingContext.Pop();
         drawingContext.Pop();
         drawingContext.Pop();
