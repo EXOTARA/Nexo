@@ -1901,6 +1901,36 @@ public partial class MainWindow : Window
 
         registry.RegisterRange(BuildNavigationCommands());
 
+        // Diseño D72 — poder ver el halo sin hablar.
+        //
+        // La primera vez que se publicó, Adler no lo vio y no había forma de saber si el fallo
+        // estaba en el halo o en el camino de la voz. Una orden que lo enciende cinco segundos
+        // separa las dos preguntas, y de paso deja probarlo sin micrófono.
+        registry.Register(new SakuraCommandDescriptor(
+            "voice.halo.preview",
+            "Probar el halo de voz",
+            "Enciende el halo cinco segundos, sin hablar, para ver cómo se ve.",
+            SakuraCommandCategory.Shell,
+            async _ =>
+            {
+                ShowVoiceHalo();
+
+                // Sin micrófono el nivel no se mueve, así que se simula una frase: sube, se sostiene
+                // con altibajos y baja. Es lo que hace visible que reacciona en vez de parpadear.
+                var aleatorio = new Random();
+                for (var i = 0; i < 100; i++)
+                {
+                    var fase = i / 100.0;
+                    var envolvente = fase < 0.15 ? fase / 0.15 : fase > 0.8 ? (1 - fase) / 0.2 : 1;
+                    _voiceHaloWindow.ReportLevel(
+                        Math.Clamp(envolvente * (0.45 + (aleatorio.NextDouble() * 0.5)), 0, 1));
+                    await Task.Delay(50);
+                }
+
+                _voiceHaloWindow.HideHalo();
+                return CommandExecutionResult.Success();
+            }));
+
         registry.Register(new SakuraCommandDescriptor(
             "shell.sidebar.toggle",
             "Alternar barra lateral",
