@@ -91,7 +91,7 @@ jobs:
           else {
             $arguments = @(
               "release", "create", $tag,
-              "--title", "Kohana ${{ steps.version.outputs.value }}",
+              "--title", "Sakura ${{ steps.version.outputs.value }}",
               "--generate-notes"
             )
 
