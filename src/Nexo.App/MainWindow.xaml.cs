@@ -288,6 +288,9 @@ public partial class MainWindow : Window
     /// </summary>
     private TaskCompletionSource<bool>? _flowStopSignal;
     private readonly SakuraPillWindow _sakuraPillWindow = new();
+
+    /// <summary>Diseño D72 — el halo que aparece cuando Sakura oye su nombre.</summary>
+    private readonly VoiceHaloWindow _voiceHaloWindow = new();
     private readonly HomeView _homeView = new();
     private readonly AssistantView _assistantView = new();
     private readonly TasksView _tasksView;
@@ -577,6 +580,11 @@ public partial class MainWindow : Window
         // Los eventos de wake word se suscriben a través del coordinador (paso directo al
         // servicio subyacente): MainWindow ya no necesita una referencia al servicio.
         _voiceCoordinator.WakeWordDetected += WakeWordService_WakeWordDetected;
+
+        // Diseño D72 — el nivel llega desde el hilo de captura de NAudio. Escribir un double desde
+        // otro hilo no necesita marshalling; el fotograma siguiente lo recoge. Cualquier otra cosa
+        // que se tocara aquí sí lo necesitaría.
+        _voiceCoordinator.LevelObserved += (_, e) => _voiceHaloWindow.ReportLevel(e.Level);
         _voiceCoordinator.RecognitionObserved += WakeWordService_RecognitionObserved;
         _voiceCoordinator.WakeWordCustomAliases = _preferences.WakeWordAliases;
         _audioView.ActionCompleted += AudioView_ActionCompleted;
@@ -4420,6 +4428,7 @@ public partial class MainWindow : Window
         _dashboardWindow.PrepareForShutdown();
         _dashboardWindow.HideImmediately();
         _sakuraPillWindow.Hide();
+        _voiceHaloWindow.HideImmediately();
 
         if (_preferences.SaveConversationHistory)
         {
@@ -6597,6 +6606,7 @@ public partial class MainWindow : Window
             _assistantView.SetVoiceState(
                 AssistantVoiceState.Listening,
                 $"{e.Phrase.ToSpokenText()} detectado. Habla con calma; no cortaré las pausas breves.");
+            ShowVoiceHalo();
             _capsuleWindow.ShowMessage(
                 CapsuleKind.Processing,
                 "Te escucho",
@@ -6626,8 +6636,28 @@ public partial class MainWindow : Window
         }
         finally
         {
+            // Se apaga aquí y no en cada camino de salida: el halo tiene que irse tanto si hubo
+            // respuesta como si se canceló, se agotó el tiempo o falló la transcripción.
+            _voiceHaloWindow.HideHalo();
             await ResumeWakeWordIfEnabledAsync();
         }
+    }
+
+    /// <summary>
+    /// Diseño D72 — enciende el halo con la marca y el acento vigentes.
+    ///
+    /// La geometría y el color se pasan desde aquí para que la ventana del halo no tenga que
+    /// conocer los diccionarios de recursos: recibe qué dibujar, no dónde buscarlo.
+    /// </summary>
+    private void ShowVoiceHalo()
+    {
+        if (FindResource("IconSakuraMark") is not Geometry mark ||
+            FindResource("BrushAccent") is not SolidColorBrush accent)
+        {
+            return;
+        }
+
+        _voiceHaloWindow.ShowHalo(mark, accent.Color);
     }
 
     private async Task HandleVoiceRecognitionResultAsync(VoiceRecognitionResult result)
