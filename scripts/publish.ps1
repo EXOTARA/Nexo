@@ -3,7 +3,7 @@ param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
     [string]$Version = "0.9.5-beta",
-    [string]$RepositoryUrl = "https://github.com/EXOTARA/Nexo",
+    [string]$RepositoryUrl = "https://github.com/EXOTARA/Sakura",
     [switch]$SkipTests
 )
 

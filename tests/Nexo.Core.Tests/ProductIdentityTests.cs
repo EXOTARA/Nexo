@@ -33,10 +33,13 @@ public sealed class ProductIdentityTests
     }
 
     [Fact]
-    public void Repository_RemainsOnNexoDuringTransition()
+    public void Repository_MovedToTheProductName()
     {
+        // Diseño D70 — el repositorio también se llama Sakura. GitHub deja redirección desde el
+        // nombre anterior, así que una copia local o un actualizador que todavía apunten a Nexo
+        // siguen funcionando; esto fija hacia dónde miran los que se escriban desde hoy.
         Assert.Equal("EXOTARA", ProductIdentity.RepositoryOwner);
-        Assert.Equal("Nexo", ProductIdentity.RepositoryName);
-        Assert.Equal("https://github.com/EXOTARA/Nexo", ProductIdentity.RepositoryUrl);
+        Assert.Equal("Sakura", ProductIdentity.RepositoryName);
+        Assert.Equal("https://github.com/EXOTARA/Sakura", ProductIdentity.RepositoryUrl);
     }
 }

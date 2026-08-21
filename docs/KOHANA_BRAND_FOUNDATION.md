@@ -92,4 +92,4 @@ Kohana usa `%LocalAppData%\Kohana`. La migración desde `%LocalAppData%\Nexo`:
 
 ## Repositorio
 
-El repositorio permanece temporalmente como `EXOTARA/Nexo`. Esto evita romper actualizaciones y enlaces durante el cambio de marca. Se renombrará después de validar el instalador y el sistema de releases.
+El repositorio permanece temporalmente como `EXOTARA/Sakura`. Esto evita romper actualizaciones y enlaces durante el cambio de marca. Se renombrará después de validar el instalador y el sistema de releases.

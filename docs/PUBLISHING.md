@@ -26,7 +26,7 @@ dotnet build .\Nexo.slnx -c Release
 ```powershell
 .\scripts\publish.ps1 `
   -Version "0.9.5-beta" `
-  -RepositoryUrl "https://github.com/EXOTARA/Nexo"
+  -RepositoryUrl "https://github.com/EXOTARA/Sakura"
 ```
 
 Resultados:
@@ -46,7 +46,7 @@ Instala Inno Setup 6 y ejecuta:
 ```powershell
 .\scripts\build-installer.ps1 `
   -Version "0.9.5-beta" `
-  -RepositoryUrl "https://github.com/EXOTARA/Nexo"
+  -RepositoryUrl "https://github.com/EXOTARA/Sakura"
 ```
 
 Resultados:
@@ -84,7 +84,7 @@ El workflow `release.yml` compila, prueba, publica, crea el instalador y adjunta
 
 ## Repositorio durante la transición
 
-El repositorio permanece temporalmente en `EXOTARA/Nexo`. La URL está centralizada y puede cambiarse en un sprint posterior, después de comprobar que el actualizador y los enlaces del instalador continúan funcionando.
+El repositorio permanece temporalmente en `EXOTARA/Sakura`. La URL está centralizada y puede cambiarse en un sprint posterior, después de comprobar que el actualizador y los enlaces del instalador continúan funcionando.
 
 ## Firma digital
 

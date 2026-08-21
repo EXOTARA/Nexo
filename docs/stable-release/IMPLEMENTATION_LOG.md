@@ -2274,7 +2274,7 @@ automatización, ver arriba) y encontró dos defectos reales:
 `now.Hour` (la hora ya fijada en el propio valor, sin reconversión) — pasaba en un equipo en
 UTC-6 pero fallaba en los runners de GitHub Actions (UTC). Corregido en `release/kohana-1.0-rc`
 (`ea351ac`), empujado, y traído a `main` vía
-[PR #27](https://github.com/EXOTARA/Nexo/pull/27) (mergeado, CI en verde confirmado). El mismo
+[PR #27](https://github.com/EXOTARA/Sakura/pull/27) (mergeado, CI en verde confirmado). El mismo
 commit se trajo también a `design/ambient-interaction-v1` por merge, para no arrastrar el bug.
 
 > **Confirmación del usuario:** tras las dos correcciones del pill, el usuario volvió a probarlo y

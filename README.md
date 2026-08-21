@@ -38,7 +38,7 @@ La lista completa, con cómo se activa cada cosa y ejemplos, está en la
 
 ## Instalar
 
-En la [última versión](https://github.com/EXOTARA/Nexo/releases) hay dos formas de instalar: el
+En la [última versión](https://github.com/EXOTARA/Sakura/releases) hay dos formas de instalar: el
 instalador, que deja Sakura en el menú Inicio y se puede desinstalar desde Windows, o el zip
 portable, que se descomprime donde quieras y se ejecuta tal cual. No hace falta instalar nada más:
 el .NET necesario va dentro de los dos.

@@ -165,7 +165,7 @@ Checkpoints portables solo en hitos, no en cada subfase.
   revisar más adelante.
 - **Fase 9:** revisar cuánta información de sistema expone la vista de diagnóstico (posible
   exceso de detalle sensible) — no bloqueante, revisar cuando se retome esta fase.
-- **Fase 10:** ruta de firma sin costo — el repositorio (`EXOTARA/Nexo`) ya es público; falta
+- **Fase 10:** ruta de firma sin costo — el repositorio (`EXOTARA/Sakura`) ya es público; falta
   únicamente el archivo `LICENSE` (MIT, ya decidido en `PRODUCT_VISION` §C) para aplicar a
   **SignPath Foundation** (firma gratuita para proyectos open source calificados). Con firma,
   se habilita auto-actualización real con **Velopack**, cumpliendo la condición que

@@ -37,8 +37,8 @@ public static class ProductIdentity
     public const string DefaultWakePhrase = "Oye Sakura";
     public const string ShortWakePhrase = "Sakura";
     public const string RepositoryOwner = "EXOTARA";
-    public const string RepositoryName = "Nexo";
-    public const string RepositoryUrl = "https://github.com/EXOTARA/Nexo";
+    public const string RepositoryName = "Sakura";
+    public const string RepositoryUrl = "https://github.com/EXOTARA/Sakura";
     public const string SupportName = "Sakura Support";
 
     public static string DisplayNameWithTagline => $"{ProductName} — {Tagline}";
