@@ -798,6 +798,12 @@ public partial class MainWindow : Window
             SavePreferences();
         };
 
+        _settingsView.AutomaticUpdateCheckChanged += enabled =>
+        {
+            _preferences.AutomaticUpdateCheckEnabled = enabled;
+            SavePreferences();
+        };
+
         _settingsView.ModuleVisibilityChanged += (module, visible) =>
         {
             SetModuleVisibility(module, visible);
@@ -4365,7 +4371,10 @@ public partial class MainWindow : Window
     /// </summary>
     private async Task CheckForUpdateInBackgroundAsync()
     {
-        if (!UpdateCheckPolicy.ShouldCheck(_preferences.LastUpdateCheckAt, DateTimeOffset.UtcNow))
+        if (!UpdateCheckPolicy.ShouldCheck(
+                _preferences.LastUpdateCheckAt,
+                DateTimeOffset.UtcNow,
+                _preferences.AutomaticUpdateCheckEnabled))
         {
             return;
         }
