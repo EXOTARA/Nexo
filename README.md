@@ -120,6 +120,8 @@ El trabajo va en ramas cortas contra `main`, con CI en verde antes de fusionar.
 | Lo que se sabe que falla o falta | [Limitaciones conocidas](docs/stable-release/KNOWN_LIMITATIONS.md) |
 | Qué sale de tu equipo y qué no | [Política de privacidad](docs/PRIVACY.md) |
 | Quién firma los binarios y con qué | [Política de firma de código](docs/CODE_SIGNING_POLICY.md) |
+| Cómo informar de una vulnerabilidad | [Política de seguridad](SECURITY.md) |
+| Qué se espera de quien participa | [Código de conducta](CODE_OF_CONDUCT.md) |
 
 ## Licencia
 
